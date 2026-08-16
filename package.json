@@ -1,0 +1,12 @@
+{
+  "name": "fivefold-arc-pod-counter",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "npm --prefix server start",
+    "test": "npm --prefix server test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

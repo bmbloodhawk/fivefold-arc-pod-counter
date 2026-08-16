@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Fivefold Arc mark">
+  <rect width="128" height="128" rx="24" fill="#17140f"/>
+  <circle cx="64" cy="64" r="47" fill="none" stroke="#d8ae61" stroke-width="4"/>
+  <path d="M31 42 64 98 97 42 82 42 64 73 46 42Z" fill="none" stroke="#d8ae61" stroke-linejoin="round" stroke-width="7"/>
+  <circle cx="64" cy="29" r="5" fill="#f4ecd9"/>
+</svg>

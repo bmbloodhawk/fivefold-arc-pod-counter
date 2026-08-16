@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: fivefold-arc-pod-counter
+    runtime: node
+    plan: free
+    autoDeploy: false
+    buildCommand: npm install --prefix server
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 24.19.0

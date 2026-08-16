@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#17140f">
+  <meta name="description" content="Fivefold Arc multiplayer tabletop counter prototype.">
+  <title>Fivefold Arc — Pod Counter</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="brand-bar">
+    <a class="brand" href="#" aria-label="Fivefold Arc home">
+      <img src="icons/arc-mark.svg" alt="" width="34" height="34">
+      <span><strong>Fivefold Arc</strong><small>Pod Counter · Test Build</small></span>
+    </a>
+    <button id="connectionButton" class="connection-pill" type="button" aria-label="Connection details">
+      <span class="connection-symbol" aria-hidden="true">●</span>
+      <span id="connectionText">Local simulation</span>
+    </button>
+  </header>
+
+  <main>
+    <section id="landingView" class="view setup-shell" aria-labelledby="welcomeTitle">
+      <div class="hero-mark" aria-hidden="true">V</div>
+      <p class="eyebrow">PHONE-FIRST PLAYTEST</p>
+      <h1 id="welcomeTitle">Bring the whole pod into view.</h1>
+      <p class="lede">Track life, poison, commander damage, and table status without passing one phone around.</p>
+      <div class="action-stack">
+        <button id="createPodButton" class="primary-action" type="button">Create a pod</button>
+        <button id="joinPodButton" class="secondary-action" type="button">Join a pod</button>
+        <button id="quickTestButton" class="text-action" type="button">Try a 4-player local table</button>
+      </div>
+      <p class="privacy-note"><span aria-hidden="true">◇</span> Test build · No account · No cloud storage</p>
+    </section>
+
+    <section id="createView" class="view setup-shell" hidden aria-labelledby="createTitle">
+      <button class="back-button" data-back type="button">← Back</button>
+      <p class="eyebrow">CREATE POD</p>
+      <h1 id="createTitle">Set the table.</h1>
+      <form id="createForm" class="setup-form">
+        <fieldset class="choice-field">
+          <legend>Players</legend>
+          <div id="playerCountChoices" class="segmented dense" role="radiogroup" aria-label="Number of players"></div>
+        </fieldset>
+        <fieldset class="choice-field">
+          <legend>Starting life</legend>
+          <div class="segmented" role="radiogroup" aria-label="Starting life">
+            <label><input type="radio" name="startingLife" value="20"><span>20</span></label>
+            <label><input type="radio" name="startingLife" value="30"><span>30</span></label>
+            <label><input type="radio" name="startingLife" value="40" checked><span>40</span></label>
+          </div>
+        </fieldset>
+        <label class="select-field">This phone belongs to
+          <select id="ownerSeat"></select>
+          <small>Each player records damage received by their own seat.</small>
+        </label>
+        <label class="select-field">Your name <small>(optional)</small>
+          <input id="createName" name="name" type="text" autocomplete="name" maxlength="24" placeholder="P1">
+          <small>Leave blank to use your seat name. Up to 24 characters.</small>
+        </label>
+        <fieldset class="choice-field">
+          <legend>My commanders</legend>
+          <div class="segmented commander-count-choice" role="radiogroup" aria-label="Number of commanders for your claimed seat">
+            <label><input type="radio" name="commanderCount" value="1" checked><span>1 commander</span></label>
+            <label><input type="radio" name="commanderCount" value="2"><span>2 commanders</span></label>
+          </div>
+          <small class="field-help">Commander damage is labeled by the player who owns that commander.</small>
+        </fieldset>
+        <label class="toggle-field">
+          <input id="localSimulation" type="checkbox" checked>
+          <span><strong>Local simulation</strong><small>Switch active seats on one phone for testing.</small></span>
+        </label>
+        <button class="primary-action" type="submit">Start game</button>
+      </form>
+    </section>
+
+    <section id="joinView" class="view setup-shell" hidden aria-labelledby="joinTitle">
+      <button class="back-button" data-back type="button">← Back</button>
+      <p class="eyebrow">JOIN POD</p>
+      <h1 id="joinTitle">Take your seat.</h1>
+      <form id="joinForm" class="setup-form">
+        <label class="select-field">Pod code
+          <input id="podCode" type="text" inputmode="text" autocomplete="off" maxlength="8" placeholder="e.g. ARC7K2" required>
+        </label>
+        <label class="select-field">Open seat
+          <select id="joinSeat">
+            <option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option><option value="P4">P4</option>
+            <option value="P5">P5</option><option value="P6">P6</option><option value="P7">P7</option><option value="P8">P8</option>
+          </select>
+          <small>Available seats will come from the pod host when connected.</small>
+        </label>
+        <label class="select-field">Your name <small>(optional)</small>
+          <input id="joinName" name="name" type="text" autocomplete="name" maxlength="24" placeholder="P1">
+          <small>Leave blank to use your seat name. Up to 24 characters.</small>
+        </label>
+        <fieldset class="choice-field">
+          <legend>My commanders</legend>
+          <div class="segmented commander-count-choice" role="radiogroup" aria-label="Number of commanders for your claimed seat">
+            <label><input type="radio" name="joinCommanderCount" value="1" checked><span>1 commander</span></label>
+            <label><input type="radio" name="joinCommanderCount" value="2"><span>2 commanders</span></label>
+          </div>
+          <small class="field-help">This updates the commander sources for everyone in the pod.</small>
+        </fieldset>
+        <div class="notice"><span aria-hidden="true">⌁</span><p><strong>Shared play requires the pod server.</strong><br>It uses this page’s address by default. A test API can be selected with <code>?api=https://…</code>.</p></div>
+        <button class="primary-action" type="submit">Connect to pod</button>
+        <button id="joinDemoButton" class="secondary-action" type="button">Preview join locally</button>
+      </form>
+    </section>
+
+    <section id="gameView" class="view game-shell" hidden aria-labelledby="modeTitle">
+      <div class="game-topline">
+        <div><span id="podLabel" class="pod-label">LOCAL POD</span><span id="ownerLabel" class="owner-label">YOU · P1</span></div>
+        <button id="moreButton" class="icon-button" type="button" aria-label="Game menu" aria-expanded="false">•••</button>
+      </div>
+
+      <div id="disconnectBanner" class="disconnect-banner" role="status" hidden>
+        <span aria-hidden="true">!</span><p><strong>Reconnecting…</strong><br>Shared counter changes are paused to prevent conflicts.</p>
+      </div>
+
+      <section id="podStrip" class="pod-strip" aria-label="Pod life totals"></section>
+
+      <div class="counter-stage" aria-live="polite">
+        <p id="modeTitle" class="counter-mode">LIFE</p>
+        <div id="lethalMark" class="lethal-mark" hidden><span aria-hidden="true">☠</span><span class="sr-only">Eliminated</span></div>
+        <output id="mainValue" class="main-value">40</output>
+        <p id="counterContext" class="counter-context">P1 · YOU</p>
+        <p id="statusMessage" class="status-message" hidden></p>
+      </div>
+
+      <section id="sourcePanel" class="source-panel" hidden aria-label="Commander damage sources"></section>
+
+      <div id="adjustControls" class="adjust-controls" aria-label="Adjust counter">
+        <button type="button" data-delta="-5"><span>−5</span><small>decrease five</small></button>
+        <button type="button" data-delta="-1"><span>−1</span><small>decrease one</small></button>
+        <button type="button" data-delta="1"><span>+1</span><small>increase one</small></button>
+        <button type="button" data-delta="5"><span>+5</span><small>increase five</small></button>
+      </div>
+
+      <div class="commander-tax-quick"><button id="commanderTaxQuickButton" type="button"><span class="commander-tax-quick-title">My commander tax</span><span class="commander-tax-quick-values"><span class="commander-tax-quick-value">Tax +0</span></span></button></div>
+      <div id="quickClearWrap" class="quick-clear" hidden><button id="quickClearButton" type="button">Clear storm to 0</button></div>
+
+      <nav id="modeNav" class="mode-nav" aria-label="Counter mode">
+        <button type="button" data-mode="life"><span aria-hidden="true">♥</span><small>Life</small></button>
+        <button type="button" data-mode="poison"><span aria-hidden="true">◆</span><small>Poison</small></button>
+        <button type="button" data-mode="commander"><span aria-hidden="true">♜</span><small>Commander</small></button>
+        <button type="button" data-mode="energy"><span aria-hidden="true">ϟ</span><small>Energy</small></button>
+        <button type="button" data-mode="storm"><span aria-hidden="true">↯</span><small>Storm</small></button>
+        <button type="button" data-mode="generic"><span aria-hidden="true">◇</span><small>Generic</small></button>
+      </nav>
+
+      <div id="activeSeatBar" class="active-seat-bar">
+        <label for="activeSeat">Simulated active seat</label>
+        <select id="activeSeat"></select>
+      </div>
+
+      <aside id="gameMenu" class="game-menu" hidden>
+        <button id="commanderSetupButton" type="button">My commanders: 1</button>
+        <button id="backToSetupButton" type="button">Back to setup</button>
+        <button id="resetButton" class="danger-text" type="button">Reset game</button>
+      </aside>
+    </section>
+  </main>
+
+  <dialog id="resetDialog">
+    <form method="dialog">
+      <div class="dialog-mark" aria-hidden="true">↺</div>
+      <h2>Reset this game?</h2>
+      <p>Life returns to the starting total. All other counters and elimination markers return to zero. Pod setup stays the same.</p>
+      <div class="dialog-actions">
+        <button value="cancel" class="secondary-action">Cancel</button>
+        <button id="confirmResetButton" value="confirm" class="danger-action">Reset game</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="connectionDialog">
+    <form method="dialog">
+      <h2>Connection</h2>
+      <p id="connectionDetail">This game is running entirely on this phone.</p>
+      <button class="primary-action" value="close">Done</button>
+    </form>
+  </dialog>
+
+  <dialog id="commanderCountDialog">
+    <form id="commanderCountForm" method="dialog">
+      <h2>My commanders</h2>
+      <p id="commanderCountDetail">Choose the commander count for your seat.</p>
+      <fieldset class="choice-field">
+        <legend class="sr-only">Commander count</legend>
+        <div class="segmented commander-count-choice" role="radiogroup" aria-label="Commander count">
+          <label><input type="radio" name="gameCommanderCount" value="1"><span>1 commander</span></label>
+          <label><input type="radio" name="gameCommanderCount" value="2"><span>2 commanders</span></label>
+        </div>
+      </fieldset>
+      <div class="dialog-actions">
+        <button value="cancel" class="secondary-action">Cancel</button>
+        <button id="saveCommanderCountButton" value="confirm" class="primary-action">Update table</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="commanderTaxDialog" aria-labelledby="commanderTaxTitle">
+    <form method="dialog">
+      <div class="dialog-mark" aria-hidden="true">♜</div>
+      <h2 id="commanderTaxTitle">Commander tax</h2>
+      <p id="commanderTaxDetail">Track casts for your commander.</p>
+      <p class="field-help">Tax increases when cast from command zone, not merely when it dies.</p>
+      <div id="commanderTaxList" class="commander-tax-list" aria-live="polite"></div>
+      <div class="dialog-actions commander-tax-close">
+        <button value="close" class="secondary-action">Done</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="app.js?v=10"></script>
+</body>
+</html>

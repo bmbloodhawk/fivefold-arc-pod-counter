@@ -1,0 +1,14 @@
+{
+  "name": "Fivefold Arc Pod Counter",
+  "short_name": "Fivefold Arc",
+  "description": "A phone-first multiplayer tabletop counter prototype.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#13110e",
+  "theme_color": "#17140f",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "icons/arc-mark.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

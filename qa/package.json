@@ -1,0 +1,12 @@
+{
+  "name": "fivefold-arc-blackbox-qa",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test --test-concurrency=1 blackbox/*.test.mjs",
+    "test:live": "node --test --test-concurrency=1 blackbox/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
