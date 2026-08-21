@@ -43,3 +43,7 @@ Instance type: Free
 ## Evidence boundary
 
 Automated API and two-browser flows are passing locally. Mixed iPhone/Android behavior, mobile background reconnect, eight-player readability, setup time, battery/data use, three-hour stability, and operation on a remote home network remain unverified until the field script in `qa/TEST_PLAN.md` is run against a deployed HTTPS URL.
+
+## Standalone hardware direction
+
+The current product remains a phone-first validation build. A future dedicated hardware direction for LifeToken Pod is documented in [docs/LIFETOKEN_POD_STANDALONE_HARDWARE_SPEC_V1.md](/C:/Users/nibay/OneDrive/Documents/ChatGPT/APP%20for%20MTG%20life%20counter%20with%20conectivity/docs/LIFETOKEN_POD_STANDALONE_HARDWARE_SPEC_V1.md).

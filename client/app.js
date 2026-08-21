@@ -1,4 +1,4 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=10';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=11';
 
 const MODES = ['life', 'poison', 'commander', 'energy', 'storm', 'generic'];
 const $ = (selector) => document.querySelector(selector);
@@ -109,7 +109,16 @@ function render() {
   saveLocal();
 }
 function renderPodStrip() {
-  dom.podStrip.innerHTML = state.players.map(player => { const unavailable = player.connectionStatus !== 'connected'; const value = unavailable ? '?' : player.eliminated ? '☠' : player.life; const marker = player.connectionStatus === 'waiting' ? 'WAITING' : unavailable ? 'OFFLINE' : player.eliminated ? 'ELIMINATED' : player.warning ? 'WARNING' : 'CONNECTED'; const name = displayName(player); const tileName = `${name}${player.id === state.ownerPlayerId ? ' · YOU' : ''}`; return `<button class="pod-seat ${player.id === state.activePlayerId ? 'active' : ''} ${player.eliminated ? 'eliminated' : ''} ${unavailable ? 'disconnected' : ''}" data-seat="${player.id}" type="button" aria-label="${escapeHtml(`${displayPlayer(player)}, ${marker}, ${value}`)}"><span class="seat-name" title="${escapeHtml(displayPlayer(player))}">${escapeHtml(tileName)}</span><span class="seat-life">${value}</span><span class="seat-state">${marker}</span></button>`; }).join('');
+  dom.podStrip.innerHTML = state.players.map(player => {
+    const isWaiting = player.connectionStatus === 'waiting';
+    const isOffline = player.connectionStatus === 'disconnected';
+    // A claimed but offline seat retains server-authoritative counters. Show the
+    // last synced life total, reserving ? only for a seat that has never joined.
+    const value = isWaiting ? '?' : player.eliminated ? '☠' : player.life;
+    const marker = isWaiting ? 'WAITING' : isOffline ? 'OFFLINE' : player.eliminated ? 'ELIMINATED' : player.warning ? 'WARNING' : 'CONNECTED';
+    const name = displayName(player); const tileName = `${name}${player.id === state.ownerPlayerId ? ' · YOU' : ''}`;
+    return `<button class="pod-seat ${player.id === state.activePlayerId ? 'active' : ''} ${player.eliminated ? 'eliminated' : ''} ${isOffline ? 'disconnected' : ''}" data-seat="${player.id}" type="button" aria-label="${escapeHtml(`${displayPlayer(player)}, ${marker}, ${value}`)}"><span class="seat-name" title="${escapeHtml(displayPlayer(player))}">${escapeHtml(tileName)}</span><span class="seat-life">${value}</span><span class="seat-state">${marker}</span></button>`;
+  }).join('');
   $$('[data-seat]').forEach(button => button.addEventListener('click', () => { state.activePlayerId = button.dataset.seat; state.selectedSourceId = null; render(); }));
 }
 function renderSources(player) {
