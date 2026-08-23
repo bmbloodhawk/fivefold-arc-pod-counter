@@ -1,4 +1,4 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=13';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=14';
 
 const MODES = ['life', 'poison', 'commander', 'energy', 'storm', 'generic'];
 const $ = (selector) => document.querySelector(selector);
@@ -124,7 +124,10 @@ function renderLifeChange(player) {
 }
 function showLifeChange(playerId, delta) {
   if (!delta) return;
-  lifeChange = { playerId, delta };
+  // Keep one rolling confirmation while a player is entering a burst of life
+  // changes. The total resets only after four quiet seconds or a seat switch.
+  const priorDelta = lifeChange?.playerId === playerId ? lifeChange.delta : 0;
+  lifeChange = { playerId, delta: priorDelta + delta };
   clearTimeout(lifeChangeTimer);
   lifeChangeTimer = setTimeout(() => { lifeChange = null; if (state) render(); }, 4000);
   if (state) render();
