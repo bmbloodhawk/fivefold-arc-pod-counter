@@ -1,4 +1,4 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=11';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=13';
 
 const MODES = ['life', 'poison', 'commander', 'energy', 'storm', 'generic'];
 const $ = (selector) => document.querySelector(selector);
@@ -8,14 +8,17 @@ const dom = {
   connectionButton: $('#connectionButton'), connectionText: $('#connectionText'), connectionDialog: $('#connectionDialog'), connectionDetail: $('#connectionDetail'),
   playerCountChoices: $('#playerCountChoices'), ownerSeat: $('#ownerSeat'), createName: $('#createName'), joinName: $('#joinName'), activeSeat: $('#activeSeat'), localSimulation: $('#localSimulation'),
   podStrip: $('#podStrip'), podLabel: $('#podLabel'), ownerLabel: $('#ownerLabel'), modeTitle: $('#modeTitle'), mainValue: $('#mainValue'),
-  counterContext: $('#counterContext'), statusMessage: $('#statusMessage'), lethalMark: $('#lethalMark'), sourcePanel: $('#sourcePanel'),
+  counterContext: $('#counterContext'), statusMessage: $('#statusMessage'), lethalMark: $('#lethalMark'), lifeChangeIndicator: $('#lifeChangeIndicator'), sourcePanel: $('#sourcePanel'),
   quickClearWrap: $('#quickClearWrap'), activeSeatBar: $('#activeSeatBar'), gameMenu: $('#gameMenu'), moreButton: $('#moreButton'),
   disconnectBanner: $('#disconnectBanner'), resetDialog: $('#resetDialog'), commanderSetupButton: $('#commanderSetupButton'), backToSetupButton: $('#backToSetupButton'),
   commanderCountDialog: $('#commanderCountDialog'), commanderCountDetail: $('#commanderCountDetail'), commanderCountForm: $('#commanderCountForm'), saveCommanderCountButton: $('#saveCommanderCountButton'),
-  commanderTaxQuickButton: $('#commanderTaxQuickButton'), commanderTaxDialog: $('#commanderTaxDialog'), commanderTaxDetail: $('#commanderTaxDetail'), commanderTaxList: $('#commanderTaxList')
+  commanderTaxQuickButton: $('#commanderTaxQuickButton'), commanderTaxDialog: $('#commanderTaxDialog'), commanderTaxDetail: $('#commanderTaxDetail'), commanderTaxList: $('#commanderTaxList'),
+  customLifeButton: $('#customLifeButton'), customLifeDialog: $('#customLifeDialog'), customLifeForm: $('#customLifeForm'), customLifeAmount: $('#customLifeAmount')
 };
 const transport = new RealtimeAdapter({ apiBase: apiBaseFromPage() });
 let state = null;
+let lifeChange = null;
+let lifeChangeTimer = null;
 
 function sourceForSeat(player, slot) {
   const multiple = player.commanderCount === 2;
@@ -95,18 +98,36 @@ function render() {
   if (!state.commanderCastCounts) state.commanderCastCounts = blankDamage(state.commanderSources);
   state.players.forEach(evaluatePlayer); const player = activePlayer(); const source = state.mode === 'commander' ? selectedSourceFor(player) : null;
   dom.podLabel.textContent = state.podCode === 'LOCAL' ? 'LOCAL POD' : `POD ${state.podCode}`; dom.ownerLabel.textContent = `YOU · ${displayPlayer(state.players.find(item => item.id === state.ownerPlayerId))}`; dom.modeTitle.textContent = state.mode.toUpperCase(); dom.mainValue.value = currentValue(player);
-  dom.counterContext.textContent = state.mode === 'commander' ? (source ? `${displaySource(source)} · RECEIVED BY ${displayPlayer(player)}` : `NO OTHER COMMANDERS · ${displayPlayer(player)}`) : `${displayPlayer(player)}${player.id === state.ownerPlayerId ? ' · YOU' : state.localSimulation ? ' · SIMULATED' : ' · VIEW ONLY'}`;
+  dom.counterContext.textContent = state.mode === 'commander' ? (source ? `${displayPlayer(player)} HAS RECEIVED DAMAGE FROM ${displaySource(source)}` : `NO OTHER COMMANDERS · ${displayPlayer(player)}`) : `${displayPlayer(player)}${player.id === state.ownerPlayerId ? ' · YOU' : state.localSimulation ? ' · SIMULATED' : ' · VIEW ONLY'}`;
   dom.lethalMark.hidden = !player.eliminated; const status = player.lethalCause || player.warning; dom.statusMessage.hidden = !status; dom.statusMessage.textContent = status || ''; dom.statusMessage.classList.toggle('lethal', Boolean(player.lethalCause));
   renderPodStrip(); renderSources(player); renderModeNav(); renderSeatPicker();
   renderCommanderTaxDialog();
   const playerCanMutate = state.localSimulation || player.id === state.ownerPlayerId;
   const mutationsEnabled = playerCanMutate && (transport.status === 'local' || transport.status === 'connected') && (state.mode !== 'commander' || Boolean(source)); $$('[data-delta]').forEach(button => { button.disabled = !mutationsEnabled; });
+  dom.customLifeButton.hidden = state.mode !== 'life'; dom.customLifeButton.disabled = !playerCanMutate || !(transport.status === 'local' || transport.status === 'connected');
+  renderLifeChange(player);
   dom.quickClearWrap.hidden = state.mode !== 'storm' || !playerCanMutate; dom.activeSeatBar.hidden = !state.localSimulation; $('#resetButton').hidden = !state.localSimulation && transport.seatId !== state.hostSeatId;
   const commanderOwner = state.localSimulation ? activePlayer() : state.players.find(item => item.id === state.ownerPlayerId); const taxPlayer = activePlayer(); const inspectingSharedSeat = !state.localSimulation && taxPlayer.id !== state.ownerPlayerId;
   dom.commanderSetupButton.textContent = `${state.localSimulation ? `${displayName(commanderOwner)} commanders` : 'My commanders'}: ${commanderOwner.commanderCount}`;
   renderCommanderTaxQuick(taxPlayer, inspectingSharedSeat);
   if (dom.backToSetupButton) dom.backToSetupButton.hidden = !canReturnToSetup();
   saveLocal();
+}
+function renderLifeChange(player) {
+  if (!dom.lifeChangeIndicator) return;
+  const visible = lifeChange?.playerId === player?.id;
+  dom.lifeChangeIndicator.hidden = !visible;
+  if (!visible) return;
+  const sign = lifeChange.delta > 0 ? '+' : '−';
+  dom.lifeChangeIndicator.textContent = `LAST LIFE CHANGE ${sign}${Math.abs(lifeChange.delta)}`;
+  dom.lifeChangeIndicator.classList.toggle('negative', lifeChange.delta < 0);
+}
+function showLifeChange(playerId, delta) {
+  if (!delta) return;
+  lifeChange = { playerId, delta };
+  clearTimeout(lifeChangeTimer);
+  lifeChangeTimer = setTimeout(() => { lifeChange = null; if (state) render(); }, 4000);
+  if (state) render();
 }
 function renderPodStrip() {
   dom.podStrip.innerHTML = state.players.map(player => {
@@ -161,10 +182,29 @@ function renderCommanderTaxDialog() {
 }
 async function adjust(delta) {
   if (!(transport.status === 'local' || transport.status === 'connected')) return; const player = activePlayer(); if (!state.localSimulation && player.id !== state.ownerPlayerId) return; const source = state.mode === 'commander' ? selectedSourceFor(player) : null; if (state.mode === 'commander' && !source) return;
-  const target = state.mode === 'commander' ? 'commanderDamage' : state.mode; const next = state.mode === 'life' ? player.life + delta : Math.max(0, currentValue(player) + delta);
-  if (transport.status === 'local') { if (state.mode === 'commander') player.commanderDamage[source.id] = next; else player[target] = next; render(); return; }
+  const target = state.mode === 'commander' ? 'commanderDamage' : state.mode;
+  const previous = currentValue(player);
+  const next = state.mode === 'life' ? player.life + delta : Math.max(0, previous + delta);
+  // Commander damage is real combat damage: record it against the selected
+  // source and apply the exact inverse change to the defender's life total.
+  const commanderDelta = state.mode === 'commander' ? next - previous : 0;
+  const lifeDelta = state.mode === 'commander' ? -commanderDelta : state.mode === 'life' ? delta : 0;
+  if (state.mode === 'commander' && commanderDelta === 0) return;
+  if (transport.status === 'local') {
+    if (state.mode === 'commander') { player.commanderDamage[source.id] = next; player.life += lifeDelta; }
+    else player[target] = next;
+    if (lifeDelta) showLifeChange(player.id, lifeDelta);
+    render(); return;
+  }
   $$('[data-delta]').forEach(button => { button.disabled = true; });
-  try { const patch = state.mode === 'commander' ? { commanderDamageReceived: { [source.id]: next } } : { counters: { [target]: next } }; const result = await transport.mutate(patch); if (result.conflict) showError(new Error('The table changed first. The latest totals are shown; please make your change again.')); } catch (error) { renderConnection('disconnected'); showError(error); }
+  try {
+    const patch = state.mode === 'commander'
+      ? { commanderDamageReceived: { [source.id]: next }, counters: { life: player.life + lifeDelta } }
+      : { counters: { [target]: next } };
+    const result = await transport.mutate(patch);
+    if (result.conflict) showError(new Error('The table changed first. The latest totals are shown; please make your change again.'));
+    else if (lifeDelta && !result.blocked && !result.ignored) showLifeChange(player.id, lifeDelta);
+  } catch (error) { renderConnection('disconnected'); showError(error); }
 }
 function remapLocalDamage(previousSources, nextSources) {
   const oldId = new Map(previousSources.map(source => [`${source.ownerPlayerId}:${source.slot || 'A'}`, source.id]));
@@ -192,7 +232,7 @@ async function resetGame() {
   if (transport.status === 'local') { const sources = state.commanderSources; state.players = state.players.map(player => ({ ...playerTemplate(Number(player.id.slice(1)), state.startingLife, player.commanderCount, sources), name: player.name, commanderCount: player.commanderCount })); state.commanderCastCounts = blankDamage(sources); state.selectedSourceId = null; render(); return; }
   try { const result = await transport.reset(); if (result.conflict) showError(new Error('The table changed first. The latest totals are shown; confirm reset again if it is still needed.')); } catch (error) { showError(error); }
 }
-function closeGameOverlays() { [dom.resetDialog, dom.connectionDialog, dom.commanderCountDialog, dom.commanderTaxDialog].forEach(dialog => { if (dialog?.open) dialog.close(); }); }
+function closeGameOverlays() { [dom.resetDialog, dom.connectionDialog, dom.customLifeDialog, dom.commanderCountDialog, dom.commanderTaxDialog].forEach(dialog => { if (dialog?.open) dialog.close(); }); }
 function returnToSetup() {
   if (!canReturnToSetup()) return;
   closeGameOverlays(); dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); showView(dom.create); state = null; transport.clearSession();
@@ -211,6 +251,8 @@ $('#createForm').addEventListener('submit', async event => { event.preventDefaul
 $('#joinForm').addEventListener('submit', async event => { event.preventDefault(); const form = new FormData(event.currentTarget); const code = $('#podCode').value.trim().toUpperCase(); const ownerPlayerId = $('#joinSeat').value; const seatId = Number(ownerPlayerId.slice(1)) - 1; const commanderCount = Number(form.get('joinCommanderCount')); const ownerName = String(form.get('name') || '').trim() || ownerPlayerId; try { const room = await transport.inspectRoom(code); if (!room.snapshot.seats[seatId]) throw new Error('That seat does not exist in this pod.'); const result = await transport.claimRoom({ code, seatId, name: ownerName, commanderCount }); showSharedGame(result.snapshot); } catch (error) { showError(error); } });
 $('#joinDemoButton').addEventListener('click', () => { const ownerPlayerId = $('#joinSeat').value; const ownerName = dom.joinName.value.trim() || ownerPlayerId; beginLocalGame({ ownerPlayerId, ownerName, ownerCommanderCount: Number(new FormData($('#joinForm')).get('joinCommanderCount')), localSimulation: true, podCode: 'DEMO' }); });
 dom.activeSeat.addEventListener('change', () => { state.activePlayerId = dom.activeSeat.value; render(); }); $$('[data-mode]').forEach(button => button.addEventListener('click', () => { state.mode = button.dataset.mode; render(); })); $$('[data-delta]').forEach(button => button.addEventListener('click', () => adjust(Number(button.dataset.delta)))); $('#quickClearButton').addEventListener('click', () => adjust(-activePlayer().storm));
+dom.customLifeButton.addEventListener('click', () => { dom.customLifeAmount.value = ''; dom.customLifeDialog.showModal(); dom.customLifeAmount.focus(); });
+dom.customLifeForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; const form = new FormData(dom.customLifeForm); const amount = Number(form.get('amount')); if (!Number.isInteger(amount) || amount < 1 || amount > 999) { event.preventDefault(); dom.customLifeAmount.focus(); return; } const delta = form.get('direction') === 'subtract' ? -amount : amount; adjust(delta); });
 dom.moreButton.addEventListener('click', () => { dom.gameMenu.hidden = !dom.gameMenu.hidden; dom.moreButton.setAttribute('aria-expanded', String(!dom.gameMenu.hidden)); }); $('#resetButton').addEventListener('click', () => { dom.gameMenu.hidden = true; dom.resetDialog.showModal(); }); $('#confirmResetButton').addEventListener('click', resetGame);
 dom.commanderSetupButton.addEventListener('click', () => { dom.gameMenu.hidden = true; const player = state.localSimulation ? activePlayer() : state.players.find(item => item.id === state.ownerPlayerId); dom.commanderCountDetail.textContent = state.localSimulation ? `Local simulation: set ${player.id}'s commanders.` : `Only your claimed seat (${player.id}) will change.`; $(`input[name="gameCommanderCount"][value="${player.commanderCount}"]`).checked = true; dom.commanderCountDialog.showModal(); });
 dom.commanderTaxQuickButton?.addEventListener('click', () => { renderCommanderTaxDialog(); dom.commanderTaxDialog.showModal(); });

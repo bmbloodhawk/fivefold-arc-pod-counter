@@ -126,6 +126,7 @@
         <p id="modeTitle" class="counter-mode">LIFE</p>
         <div id="lethalMark" class="lethal-mark" hidden><span aria-hidden="true">☠</span><span class="sr-only">Eliminated</span></div>
         <output id="mainValue" class="main-value">40</output>
+        <output id="lifeChangeIndicator" class="life-change-indicator" aria-live="polite" hidden></output>
         <p id="counterContext" class="counter-context">P1 · YOU</p>
         <p id="statusMessage" class="status-message" hidden></p>
       </div>
@@ -138,6 +139,7 @@
         <button type="button" data-delta="1"><span>+1</span><small>increase one</small></button>
         <button type="button" data-delta="5"><span>+5</span><small>increase five</small></button>
       </div>
+      <button id="customLifeButton" class="custom-life-button" type="button">±X custom life</button>
 
       <div class="commander-tax-quick"><button id="commanderTaxQuickButton" type="button"><span class="commander-tax-quick-title">My commander tax</span><span class="commander-tax-quick-values"><span class="commander-tax-quick-value">Tax +0</span></span></button></div>
       <div id="quickClearWrap" class="quick-clear" hidden><button id="quickClearButton" type="button">Clear storm to 0</button></div>
@@ -184,6 +186,27 @@
     </form>
   </dialog>
 
+  <dialog id="customLifeDialog" aria-labelledby="customLifeTitle">
+    <form id="customLifeForm" method="dialog">
+      <h2 id="customLifeTitle">Custom life change</h2>
+      <p>Enter the life change, then choose whether to add or subtract it.</p>
+      <label class="select-field">Amount
+        <input id="customLifeAmount" name="amount" type="number" inputmode="numeric" min="1" max="999" step="1" required placeholder="10">
+      </label>
+      <fieldset class="choice-field">
+        <legend>Apply as</legend>
+        <div class="segmented commander-count-choice" role="radiogroup" aria-label="Life change direction">
+          <label><input type="radio" name="direction" value="add" checked><span>Add +X</span></label>
+          <label><input type="radio" name="direction" value="subtract"><span>Subtract −X</span></label>
+        </div>
+      </fieldset>
+      <div class="dialog-actions">
+        <button value="cancel" class="secondary-action">Cancel</button>
+        <button value="confirm" class="primary-action">Apply life change</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="commanderCountDialog">
     <form id="commanderCountForm" method="dialog">
       <h2>My commanders</h2>
@@ -215,6 +238,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="app.js?v=11"></script>
+  <script type="module" src="app.js?v=13"></script>
 </body>
 </html>

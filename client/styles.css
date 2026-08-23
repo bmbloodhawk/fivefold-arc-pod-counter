@@ -104,6 +104,8 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .counter-stage { display: grid; justify-items: center; min-height: 250px; padding: 26px 10px 12px; background: radial-gradient(circle, rgb(216 174 97 / .09), transparent 62%); }
 .counter-mode { margin: 0; color: var(--brass); font-size: .76rem; font-weight: 900; letter-spacing: .2em; }
 .main-value { font-family: Georgia, serif; font-size: clamp(6.6rem, 31vw, 11rem); line-height: .95; font-variant-numeric: tabular-nums; text-shadow: 0 2px 24px rgb(216 174 97 / .2); }
+.life-change-indicator { min-width: 116px; margin-top: 8px; padding: 5px 10px; border: 1px solid var(--brass-dark); color: var(--brass); font-size: .74rem; font-weight: 900; letter-spacing: .09em; text-align: center; }
+.life-change-indicator.negative { border-color: var(--danger); color: var(--danger); }
 .counter-context { margin: 6px 0 0; color: var(--muted); font-size: .76rem; letter-spacing: .13em; }
 .status-message { margin: 12px 0 0; padding: 7px 12px; border: 1px solid currentColor; color: var(--warning); font-size: .72rem; font-weight: 900; letter-spacing: .08em; }
 .status-message.lethal { color: var(--danger); }
@@ -122,6 +124,8 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .adjust-controls small { display: block; width: 1px; height: 1px; overflow: hidden; }
 .adjust-controls button:active { transform: translateY(2px); background: var(--brass-dark); }
 .adjust-controls button:disabled { opacity: .4; cursor: not-allowed; }
+.custom-life-button { width: 100%; min-height: 48px; margin-top: 8px; border: 1px dashed var(--line); border-radius: 5px; background: transparent; color: var(--muted); font-weight: 800; letter-spacing: .04em; }
+.custom-life-button:disabled { opacity: .4; cursor: not-allowed; }
 .commander-tax-quick { margin-top: 10px; }
 .commander-tax-quick button { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; width: 100%; min-height: 58px; gap: 12px; padding: 8px 12px; border: 1px solid var(--brass-dark); border-radius: 5px; background: rgb(216 174 97 / .1); color: var(--brass); font-weight: 850; text-align: left; }
 .commander-tax-quick-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
