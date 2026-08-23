@@ -560,6 +560,18 @@ describe("authority and convergence", () => {
     assert.match(pushed, /seat-0-commander-b/);
     await reader.cancel();
   });
+
+  test("shares a coin toss without changing the gameplay version", async () => {
+    const made = await room();
+    const tossed = await call(`/api/rooms/${made.snapshot.code}/coin-toss`, {
+      method: "POST", connectionId: made.connectionId,
+    });
+    assert.equal(tossed.status, 200);
+    assert.equal(tossed.body.snapshot.version, made.snapshot.version);
+    assert.ok(["heads", "tails"].includes(tossed.body.snapshot.lastCoinToss.result));
+    assert.equal(tossed.body.snapshot.lastCoinToss.tossedBySeatId, 0);
+    assert.equal(typeof tossed.body.snapshot.lastCoinToss.tossedAt, "number");
+  });
 });
 
 test("expired connections release transport ownership but preserve seat reservation", () => {

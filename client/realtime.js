@@ -82,6 +82,16 @@ export class RealtimeAdapter extends EventTarget {
     } catch (error) { if (!this.#isCurrentSession(epoch)) return { ignored: true }; return this.#handleConflict(error, epoch); }
   }
 
+  async tossCoin() {
+    if (this.localMode) return { local: true };
+    if (this.status !== 'connected' || !this.snapshot) return { blocked: true };
+    const epoch = this.sessionEpoch;
+    const result = await this.#request(`/api/rooms/${this.roomCode}/coin-toss`, { method: 'POST', authenticated: true, body: {} });
+    if (!this.#isCurrentSession(epoch)) return { ignored: true };
+    this.#acceptSnapshot(result.snapshot, epoch);
+    return result;
+  }
+
   disconnect() {
     this.stopped = true; this.events?.close(); this.events = null;
     clearInterval(this.heartbeatTimer); clearTimeout(this.reconnectTimer);

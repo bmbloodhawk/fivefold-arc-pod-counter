@@ -213,6 +213,7 @@ export class RoomService {
       lastActiveAt: this.now(),
       hostSeatId: 0,
       config: { playerCount, startingLife },
+      lastCoinToss: null,
       seats,
     };
     synchronizeCommanderState(room);
@@ -235,6 +236,7 @@ export class RoomService {
       version: room.version,
       hostSeatId: room.hostSeatId,
       config: { ...room.config },
+      lastCoinToss: room.lastCoinToss ? { ...room.lastCoinToss } : null,
       commanderSources: sources,
       seats: room.seats.map(({ seatId, name, claimed, ownerConnectionId, commanderCount, counters, commanderDamageReceived, commanderCastCounts }) => ({
         seatId,
@@ -407,7 +409,23 @@ export class RoomService {
         Object.keys(seat.commanderCastCounts).map((sourceId) => [sourceId, 0]),
       );
     }
+    room.lastCoinToss = null;
     room.version += 1;
+    this.broadcast(room);
+    return { snapshot: this.snapshot(room) };
+  }
+
+  tossCoin(code, connectionId) {
+    const room = this.room(code);
+    const { seatId } = this.requireOwner(room, connectionId);
+    room.lastCoinToss = {
+      result: (randomBytes(1)[0] & 1) === 0 ? "heads" : "tails",
+      tossedBySeatId: seatId,
+      tossedAt: this.now(),
+    };
+    // A toss is shared table utility information, not gameplay state. It is
+    // broadcast without advancing the counter-write version, avoiding a
+    // needless conflict with a simultaneous life update.
     this.broadcast(room);
     return { snapshot: this.snapshot(room) };
   }
@@ -502,6 +520,7 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "POST" && parts[3] === "claim") return json(res, 200, service.claimSeat(code, connectionId, await readJson(req)));
         if (req.method === "PATCH" && parts[3] === "me") return json(res, 200, service.mutateOwnSeat(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "reset") return json(res, 200, service.resetRoom(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "coin-toss") return json(res, 200, service.tossCoin(code, connectionId));
         if (req.method === "GET" && parts[3] === "events") {
           res.writeHead(200, {
             "content-type": "text/event-stream",
