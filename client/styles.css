@@ -153,6 +153,7 @@ dialog h2 { margin: 18px 0 8px; font-family: Georgia, serif; font-size: 1.8rem; 
 dialog p { color: var(--muted); line-height: 1.5; }
 .dialog-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 22px; }
 .coin-toss-result { margin: 16px 0 0; color: var(--brass); font-family: Georgia, serif; font-size: clamp(2rem, 12vw, 3.2rem); font-weight: 700; letter-spacing: .08em; text-align: center; text-transform: uppercase; }
+.coin-toss-result.spinning { color: var(--muted); letter-spacing: .16em; text-shadow: 0 0 16px rgb(216 174 97 / .45); }
 .commander-tax-list { display: grid; gap: 12px; margin-top: 18px; }
 .commander-tax-row { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--line); background: var(--surface-2); }
 .commander-tax-summary { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }

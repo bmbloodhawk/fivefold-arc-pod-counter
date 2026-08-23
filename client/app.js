@@ -1,4 +1,4 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=15';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=17';
 
 const MODES = ['life', 'poison', 'commander', 'energy', 'storm', 'generic'];
 const $ = (selector) => document.querySelector(selector);
@@ -21,6 +21,9 @@ let lifeChange = null;
 let lifeChangeTimer = null;
 let coinTossNotice = null;
 let coinTossTimer = null;
+let coinFlipTimer = null;
+let coinFlipSequence = 0;
+let coinTossDialogRequested = false;
 
 function sourceForSeat(player, slot) {
   const multiple = player.commanderCount === 2;
@@ -137,9 +140,11 @@ function showLifeChange(playerId, delta) {
   if (state) render();
 }
 function coinTossLabel(toss) {
+  if (toss?.spinning) return 'FLIPPING…';
   const player = state?.players.find(item => item.id === `P${Number(toss?.tossedBySeatId) + 1}`);
   return `${String(toss?.result || '').toUpperCase()} · ${player ? displayName(player) : 'TABLE'} FLIPPED`;
 }
+function coinTossKey(toss) { return toss ? `${toss.tossedAt}:${toss.tossedBySeatId}:${toss.result}` : null; }
 function renderCoinTossNotice() {
   if (!dom.coinTossNotice) return;
   dom.coinTossNotice.hidden = !coinTossNotice;
@@ -147,12 +152,31 @@ function renderCoinTossNotice() {
 }
 function showCoinToss(toss, { dialog = false } = {}) {
   if (!toss?.result) return;
-  coinTossNotice = toss;
-  clearTimeout(coinTossTimer);
-  coinTossTimer = setTimeout(() => { coinTossNotice = null; if (state) render(); }, 6000);
-  if (dom.coinTossResult) dom.coinTossResult.textContent = String(toss.result).toUpperCase();
+  const sequence = ++coinFlipSequence;
+  clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer);
+  coinTossNotice = { ...toss, spinning: true };
   if (dialog && !dom.coinTossDialog.open) dom.coinTossDialog.showModal();
+  dom.tossAgainButton.disabled = true;
+  if (dom.coinTossResult) { dom.coinTossResult.textContent = 'SPINNING…'; dom.coinTossResult.classList.add('spinning'); }
   if (state) render();
+  const faces = ['HEADS', 'TAILS', 'HEADS', 'TAILS', 'HEADS', 'TAILS', 'HEADS'];
+  const delays = [90, 110, 140, 180, 230, 290, 370];
+  const advance = index => {
+    if (sequence !== coinFlipSequence) return;
+    if (index >= faces.length) {
+      coinTossNotice = toss;
+      if (dom.coinTossResult) { dom.coinTossResult.textContent = String(toss.result).toUpperCase(); dom.coinTossResult.classList.remove('spinning'); }
+      dom.tossAgainButton.disabled = false;
+      coinTossTimer = setTimeout(() => { coinTossNotice = null; if (state) render(); }, 6000);
+      if (state) render();
+      return;
+    }
+    if (dom.coinTossResult) dom.coinTossResult.textContent = faces[index];
+    coinFlipTimer = setTimeout(() => advance(index + 1), delays[index]);
+  };
+  // Hold the explicit spinning state long enough to register before the faces
+  // begin alternating, then let the pauses grow toward the final reveal.
+  coinFlipTimer = setTimeout(() => advance(0), 400);
 }
 function renderPodStrip() {
   dom.podStrip.innerHTML = state.players.map(player => {
@@ -254,8 +278,8 @@ async function updateCommanderCastCount(sourceId, delta) {
   catch (error) { renderConnection('disconnected'); showError(error); }
 }
 async function resetGame() {
-  if (transport.status === 'local') { const sources = state.commanderSources; state.players = state.players.map(player => ({ ...playerTemplate(Number(player.id.slice(1)), state.startingLife, player.commanderCount, sources), name: player.name, commanderCount: player.commanderCount })); state.commanderCastCounts = blankDamage(sources); state.lastCoinToss = null; coinTossNotice = null; clearTimeout(coinTossTimer); state.selectedSourceId = null; render(); return; }
-  try { const result = await transport.reset(); if (result.conflict) showError(new Error('The table changed first. The latest totals are shown; confirm reset again if it is still needed.')); else { coinTossNotice = null; clearTimeout(coinTossTimer); render(); } } catch (error) { showError(error); }
+  if (transport.status === 'local') { const sources = state.commanderSources; state.players = state.players.map(player => ({ ...playerTemplate(Number(player.id.slice(1)), state.startingLife, player.commanderCount, sources), name: player.name, commanderCount: player.commanderCount })); state.commanderCastCounts = blankDamage(sources); state.lastCoinToss = null; coinTossNotice = null; clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); state.selectedSourceId = null; render(); return; }
+  try { const result = await transport.reset(); if (result.conflict) showError(new Error('The table changed first. The latest totals are shown; confirm reset again if it is still needed.')); else { coinTossNotice = null; clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); render(); } } catch (error) { showError(error); }
 }
 async function tossCoin({ dialog = true } = {}) {
   if (!(transport.status === 'local' || transport.status === 'connected')) return;
@@ -264,19 +288,24 @@ async function tossCoin({ dialog = true } = {}) {
     const result = crypto.getRandomValues(new Uint8Array(1))[0] & 1 ? 'tails' : 'heads';
     toss = { result, tossedBySeatId: Number(activePlayer().id.slice(1)) - 1, tossedAt: Date.now() };
     state.lastCoinToss = toss;
+    showCoinToss(toss, { dialog });
   } else {
     try {
+      const previousKey = coinTossKey(state?.lastCoinToss);
+      coinTossDialogRequested = dialog;
       const response = await transport.tossCoin();
       if (response.blocked || response.ignored) return;
       toss = response.snapshot.lastCoinToss;
+      // The synchronous snapshot event normally starts the animation. This
+      // fallback covers transports that return before the event arrives.
+      if (coinTossKey(state?.lastCoinToss) === previousKey) showCoinToss(toss, { dialog });
     } catch (error) { renderConnection('disconnected'); showError(error); return; }
   }
-  showCoinToss(toss, { dialog });
 }
 function closeGameOverlays() { [dom.resetDialog, dom.connectionDialog, dom.coinTossDialog, dom.customLifeDialog, dom.commanderCountDialog, dom.commanderTaxDialog].forEach(dialog => { if (dialog?.open) dialog.close(); }); }
 function returnToSetup() {
   if (!canReturnToSetup()) return;
-  closeGameOverlays(); dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); showView(dom.create); state = null; transport.clearSession();
+  closeGameOverlays(); clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); showView(dom.create); state = null; transport.clearSession();
 }
 function renderConnection(status = transport.status) {
   const labels = { local: 'Local simulation', connected: 'Pod connected', waiting: 'Connecting…', disconnected: 'Disconnected' }; dom.connectionButton.dataset.state = status; dom.connectionText.textContent = labels[status] || status; dom.disconnectBanner.hidden = status !== 'disconnected';
@@ -299,5 +328,5 @@ dom.commanderSetupButton.addEventListener('click', () => { dom.gameMenu.hidden =
 dom.commanderTaxQuickButton?.addEventListener('click', () => { renderCommanderTaxDialog(); dom.commanderTaxDialog.showModal(); });
 dom.backToSetupButton?.addEventListener('click', returnToSetup);
 dom.commanderCountForm.addEventListener('submit', event => { if (event.submitter?.value === 'confirm') updateCommanderCount(Number(new FormData(dom.commanderCountForm).get('gameCommanderCount'))); }); dom.connectionButton.addEventListener('click', () => dom.connectionDialog.showModal());
-transport.addEventListener('status', event => renderConnection(event.detail)); transport.addEventListener('state', event => { if (event.detail?.seats?.length) { const previousTossAt = state?.lastCoinToss?.tossedAt; state = stateFromSnapshot(event.detail); if (dom.game.hidden) showView(dom.game); if (state.lastCoinToss?.tossedAt && state.lastCoinToss.tossedAt !== previousTossAt) showCoinToss(state.lastCoinToss); else render(); } });
+transport.addEventListener('status', event => renderConnection(event.detail)); transport.addEventListener('state', event => { if (event.detail?.seats?.length) { const previousTossKey = coinTossKey(state?.lastCoinToss); state = stateFromSnapshot(event.detail); if (dom.game.hidden) showView(dom.game); if (coinTossKey(state.lastCoinToss) && coinTossKey(state.lastCoinToss) !== previousTossKey) { const dialog = coinTossDialogRequested; coinTossDialogRequested = false; showCoinToss(state.lastCoinToss, { dialog }); } else render(); } });
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js').catch(() => {});
