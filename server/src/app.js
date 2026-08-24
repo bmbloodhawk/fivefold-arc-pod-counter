@@ -534,7 +534,11 @@ export class RoomService {
     if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
     const claimedSeats = room.seats.filter((seat) => seat.claimed);
     if (claimedSeats.length < 2) throw Object.assign(new Error("At least two claimed players are needed to choose who goes first"), { status: 409, code: "NOT_ENOUGH_PLAYERS", snapshot: this.snapshot(room) });
-    const chosen = claimedSeats[randomBytes(1)[0] % claimedSeats.length];
+    const requestedSeatId = input.startingSeatId;
+    const chosen = requestedSeatId === undefined
+      ? claimedSeats[randomBytes(1)[0] % claimedSeats.length]
+      : room.seats[asInteger(requestedSeatId, "startingSeatId", 0, room.config.playerCount - 1)];
+    if (!chosen?.claimed) throw Object.assign(new Error("The starting player must be a claimed seat"), { status: 400, code: "INVALID_INPUT" });
     room.turn = { ...room.turn, activeSeatId: chosen.seatId, startingPlayerSeatId: chosen.seatId, lastHandoff: null };
     room.version += 1;
     this.broadcast(room);

@@ -585,8 +585,8 @@ describe("authority and convergence", () => {
 
     const other = service.createConnection();
     const claimed = service.claimSeat(initial.code, other.connectionId, { seatId: 1, name: "Jace" });
-    const selected = service.chooseStartingPlayer(initial.code, host.connectionId, { baseVersion: claimed.snapshot.version });
-    assert.ok([0, 1].includes(selected.snapshot.turn.startingPlayerSeatId));
+    const selected = service.chooseStartingPlayer(initial.code, host.connectionId, { baseVersion: claimed.snapshot.version, startingSeatId: 1 });
+    assert.equal(selected.snapshot.turn.startingPlayerSeatId, 1);
     const started = service.startGame(initial.code, host.connectionId, { baseVersion: selected.snapshot.version });
     assert.equal(started.snapshot.turn.gameStarted, true);
     assert.equal(started.snapshot.turn.gameStartedAt, now);

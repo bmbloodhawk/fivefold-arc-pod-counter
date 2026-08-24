@@ -156,7 +156,7 @@ For commander damage, send `counter: "commanderDamage"`, the defender-owned `com
 
 ### Turn flow
 
-- `POST /api/rooms/:code/choose-starting-player` with `{ "baseVersion": 8 }` is host-only and randomly selects one claimed player to go first. It requires at least two claimed players and works only before a game starts.
+- `POST /api/rooms/:code/choose-starting-player` with `{ "baseVersion": 8 }` is host-only and either randomly selects one claimed player to go first or accepts a claimed `startingSeatId` chosen by the host. It requires at least two claimed players and works only before a game starts.
 - `POST /api/rooms/:code/start-game` with `{ "baseVersion": 9 }` is host-only. It starts game/turn timing only after at least two seats are claimed; without a random selection, the host's seat remains first.
 - `POST /api/rooms/:code/turn-handoff` with `{ "baseVersion": 8 }` ends the current owner's turn and advances the active table seat. The response includes the new authoritative snapshot.
 - `POST /api/rooms/:code/turn-handoff/undo` with `{ "baseVersion": 9 }` returns to the prior player only if the same player initiated the most recent handoff within 15 seconds.

@@ -129,6 +129,10 @@
       <p id="victoryNotice" class="victory-notice" aria-live="polite" hidden></p>
       <section id="lobbyControls" class="lobby-controls" aria-live="polite">
         <p id="lobbyStatus">Waiting for players to join.</p>
+        <label id="startingSeatField" class="select-field">First player
+          <select id="startingSeat"></select>
+        </label>
+        <button id="chooseFirstButton" class="secondary-action" type="button">Set first player</button>
         <button id="randomFirstButton" class="secondary-action" type="button">Random first player</button>
         <button id="startGameButton" class="primary-action" type="button">Start game</button>
       </section>
@@ -298,6 +302,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="app.js?v=21"></script>
+  <script type="module" src="app.js?v=22"></script>
 </body>
 </html>
