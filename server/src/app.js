@@ -156,6 +156,30 @@ function seatIsEliminated(seat) {
     || Object.values(seat.commanderDamageReceived).some((damage) => damage >= 21);
 }
 
+function rollD20() {
+  // Reject the final 16 byte values so every d20 face has exactly the same
+  // number of possible source values.
+  let value = randomBytes(1)[0];
+  while (value >= 240) value = randomBytes(1)[0];
+  return (value % 20) + 1;
+}
+
+// The full sequence is created before it is broadcast. Clients may animate it,
+// but never select or reroll an outcome themselves.
+function createStartingPlayerRoll(claimedSeats, selectedAt) {
+  let contenders = claimedSeats;
+  const rounds = [];
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const rolls = contenders.map((seat) => ({ seatId: seat.seatId, value: rollD20() }));
+    const highRoll = Math.max(...rolls.map((roll) => roll.value));
+    const tiedSeatIds = rolls.filter((roll) => roll.value === highRoll).map((roll) => roll.seatId);
+    rounds.push({ rolls, tiedSeatIds });
+    if (tiedSeatIds.length === 1) return { rounds, winnerSeatId: tiedSeatIds[0], selectedAt };
+    contenders = claimedSeats.filter((seat) => tiedSeatIds.includes(seat.seatId));
+  }
+  throw Object.assign(new Error("Could not complete the d20 roll-off"), { status: 503, code: "ROLL_FAILED" });
+}
+
 function recordLastPlayerStanding(room, now) {
   if (room.gameResult || !room.turn.gameStarted) return;
   const claimedSeats = room.seats.filter((seat) => seat.claimed);
@@ -245,6 +269,7 @@ export class RoomService {
         turnStartedAt: null,
         roundEndsAt: null,
         startingPlayerSeatId: null,
+        startingPlayerRoll: null,
         lastHandoff: null,
       },
       seats,
@@ -278,6 +303,13 @@ export class RoomService {
         turnStartedAt: room.turn.turnStartedAt,
         roundEndsAt: room.turn.roundEndsAt,
         startingPlayerSeatId: room.turn.startingPlayerSeatId,
+        startingPlayerRoll: room.turn.startingPlayerRoll ? {
+          ...room.turn.startingPlayerRoll,
+          rounds: room.turn.startingPlayerRoll.rounds.map((round) => ({
+            rolls: round.rolls.map((roll) => ({ ...roll })),
+            tiedSeatIds: [...round.tiedSeatIds],
+          })),
+        } : null,
         lastHandoff: room.turn.lastHandoff ? { ...room.turn.lastHandoff } : null,
       },
       commanderSources: sources,
@@ -489,6 +521,7 @@ export class RoomService {
       turnStartedAt: null,
       roundEndsAt: null,
       startingPlayerSeatId: null,
+      startingPlayerRoll: null,
       lastHandoff: null,
     };
     room.version += 1;
@@ -535,11 +568,12 @@ export class RoomService {
     const claimedSeats = room.seats.filter((seat) => seat.claimed);
     if (claimedSeats.length < 2) throw Object.assign(new Error("At least two claimed players are needed to choose who goes first"), { status: 409, code: "NOT_ENOUGH_PLAYERS", snapshot: this.snapshot(room) });
     const requestedSeatId = input.startingSeatId;
-    const chosen = requestedSeatId === undefined
-      ? claimedSeats[randomBytes(1)[0] % claimedSeats.length]
+    const roll = requestedSeatId === undefined ? createStartingPlayerRoll(claimedSeats, this.now()) : null;
+    const chosen = roll
+      ? room.seats[roll.winnerSeatId]
       : room.seats[asInteger(requestedSeatId, "startingSeatId", 0, room.config.playerCount - 1)];
     if (!chosen?.claimed) throw Object.assign(new Error("The starting player must be a claimed seat"), { status: 400, code: "INVALID_INPUT" });
-    room.turn = { ...room.turn, activeSeatId: chosen.seatId, startingPlayerSeatId: chosen.seatId, lastHandoff: null };
+    room.turn = { ...room.turn, activeSeatId: chosen.seatId, startingPlayerSeatId: chosen.seatId, startingPlayerRoll: roll, lastHandoff: null };
     room.version += 1;
     this.broadcast(room);
     return { snapshot: this.snapshot(room) };

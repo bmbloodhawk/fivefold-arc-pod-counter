@@ -133,7 +133,7 @@
           <select id="startingSeat"></select>
         </label>
         <button id="chooseFirstButton" class="secondary-action" type="button">Set first player</button>
-        <button id="randomFirstButton" class="secondary-action" type="button">Random first player</button>
+        <button id="randomFirstButton" class="secondary-action" type="button">Roll d20 for first player</button>
         <button id="startGameButton" class="primary-action" type="button">Start game</button>
       </section>
       <section id="turnBanner" class="turn-banner" aria-live="polite">
@@ -226,6 +226,16 @@
     </form>
   </dialog>
 
+  <dialog id="startingRollDialog" aria-labelledby="startingRollTitle">
+    <form method="dialog">
+      <div class="dialog-mark" aria-hidden="true">⚄</div>
+      <h2 id="startingRollTitle">Roll for first player</h2>
+      <p id="startingRollStatus" class="starting-roll-status" aria-live="polite">ROLLING FOR FIRST…</p>
+      <div id="startingRollDice" class="starting-roll-dice" aria-live="polite"></div>
+      <div class="dialog-actions"><button value="close" class="primary-action">Back to lobby</button></div>
+    </form>
+  </dialog>
+
   <dialog id="customLifeDialog" aria-labelledby="customLifeTitle">
     <form id="customLifeForm" method="dialog">
       <h2 id="customLifeTitle">Custom life change</h2>
@@ -302,6 +312,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="app.js?v=22"></script>
+  <script type="module" src="app.js?v=23"></script>
 </body>
 </html>

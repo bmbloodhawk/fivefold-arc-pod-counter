@@ -20,7 +20,7 @@ This process is not itself a public deployment. A web host must run it behind HT
 
 - Rooms contain 2–8 fixed seats and use opaque six-character codes without ambiguous `0/O/1/I` characters.
 - Starting life is exactly 20, 30, or 40. Each claimed seat has one or two commanders; omitting `commanderCount` defaults that seat to one.
-- A room opens as a lobby: timers do not run while players join. The host may use a shared random first-player selection, then starts the game. An optional `roundLimitMinutes` from 1 through 999 begins its countdown only at Start game; without one, clients show elapsed game time. Timers are informational only and never advance, end, or penalize a game.
+- A room opens as a lobby: timers do not run while players join. The host may roll for first player; the server locks each d20 result and any tied-player rerolls in the snapshot before clients animate the reveal. The host may instead set a claimed first player manually, then starts the game. An optional `roundLimitMinutes` from 1 through 999 begins its countdown only at Start game; without one, clients show elapsed game time. Timers are informational only and never advance, end, or penalize a game.
 - Every seat has a presentation-only display name. An omitted name falls back to `P1` through `P8`; names are never used as identity, authority, storage keys, or uniqueness constraints.
 - A newly created room assigns seat 0 to the creating connection; seat 0 is the host and declares its `commanderCount` during creation.
 - A connection can own at most one seat. The event loop makes seat claims atomic.
@@ -156,8 +156,8 @@ For commander damage, send `counter: "commanderDamage"`, the defender-owned `com
 
 ### Turn flow
 
-- `POST /api/rooms/:code/choose-starting-player` with `{ "baseVersion": 8 }` is host-only and either randomly selects one claimed player to go first or accepts a claimed `startingSeatId` chosen by the host. It requires at least two claimed players and works only before a game starts.
-- `POST /api/rooms/:code/start-game` with `{ "baseVersion": 9 }` is host-only. It starts game/turn timing only after at least two seats are claimed; without a random selection, the host's seat remains first.
+- `POST /api/rooms/:code/choose-starting-player` with `{ "baseVersion": 8 }` is host-only and, without `startingSeatId`, locks a d20 roll for each claimed player and rerolls only ties until there is a highest result. It accepts a claimed `startingSeatId` when the host chooses manually. It requires at least two claimed players and works only before a game starts.
+- `POST /api/rooms/:code/start-game` with `{ "baseVersion": 9 }` is host-only. It starts game/turn timing only after at least two seats are claimed; without a roll-off or manual selection, the host's seat remains first.
 - `POST /api/rooms/:code/turn-handoff` with `{ "baseVersion": 8 }` ends the current owner's turn and advances the active table seat. The response includes the new authoritative snapshot.
 - `POST /api/rooms/:code/turn-handoff/undo` with `{ "baseVersion": 9 }` returns to the prior player only if the same player initiated the most recent handoff within 15 seconds.
 - Snapshots contain `turn.activeSeatId`, `gameStartedAt`, `turnStartedAt`, optional `roundEndsAt`, and the most recent `lastHandoff`. Clients calculate display time from these timestamps; no client controls turn advancement automatically.

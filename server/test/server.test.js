@@ -573,6 +573,27 @@ describe("authority and convergence", () => {
     assert.equal(typeof tossed.body.snapshot.lastCoinToss.tossedAt, "number");
   });
 
+  test("locks a shared d20 roll-off before choosing the first player", () => {
+    let now = 100_000;
+    const service = new RoomService({ now: () => now });
+    const host = service.createConnection();
+    const created = service.createRoom(host.connectionId, { playerCount: 3, startingLife: 40 });
+    const other = service.createConnection();
+    const claimed = service.claimSeat(created.snapshot.code, other.connectionId, { seatId: 1, name: "Jace" });
+    const selected = service.chooseStartingPlayer(created.snapshot.code, host.connectionId, { baseVersion: claimed.snapshot.version });
+    const roll = selected.snapshot.turn.startingPlayerRoll;
+    assert.ok(roll);
+    assert.equal(roll.selectedAt, now);
+    assert.equal(roll.winnerSeatId, selected.snapshot.turn.startingPlayerSeatId);
+    assert.equal(roll.rounds.at(-1).tiedSeatIds.length, 1);
+    assert.equal(roll.rounds.at(-1).tiedSeatIds[0], roll.winnerSeatId);
+    assert.ok(roll.rounds.every(round => round.rolls.every(item => Number.isInteger(item.value) && item.value >= 1 && item.value <= 20)));
+    now += 1;
+    const manual = service.chooseStartingPlayer(created.snapshot.code, host.connectionId, { baseVersion: selected.snapshot.version, startingSeatId: 1 });
+    assert.equal(manual.snapshot.turn.startingPlayerSeatId, 1);
+    assert.equal(manual.snapshot.turn.startingPlayerRoll, null);
+  });
+
   test("tracks an active turn, supports a 15-second owner-only undo, and never auto-advances", async () => {
     let now = 100_000;
     const service = new RoomService({ now: () => now });
