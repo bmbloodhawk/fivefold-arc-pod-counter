@@ -9,7 +9,7 @@ An installable phone-first web prototype for synced Commander pods. Each phone o
 - Life, poison, commander damage, energy, storm, and generic counters
 - Shared active-turn flow: game-time or optional round countdown, player-driven End Turn, and a 15-second handoff undo
 - Warning and lethal evaluation with commander > poison > life priority
-- Atomic seat claims, private reconnect tokens, exact-version writes, and host-only reset
+- Atomic seat claims, private reconnect tokens, conflict-safe live counter deltas, exact-version structural writes, and host-only reset
 - Disconnected shared controls pause; offline changes are not queued or replayed
 - Installable PWA shell with no accounts, chat, analytics, or stored game history
 

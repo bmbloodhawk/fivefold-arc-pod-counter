@@ -602,6 +602,25 @@ describe("authority and convergence", () => {
     assert.throws(() => service.undoTurnHandoff(initial.code, host.connectionId, { baseVersion: again.snapshot.version }), { code: "HANDOFF_UNDO_EXPIRED" });
     assert.equal(service.snapshot(service.room(initial.code)).turn.activeSeatId, 1);
   });
+
+  test("applies concurrent live counter deltas without a stale-version re-entry error", async () => {
+    const made = await room();
+    const playerConnection = await connection();
+    const claimed = await call(`/api/rooms/${made.snapshot.code}/claim`, {
+      method: "POST", connectionId: playerConnection, body: { seatId: 1, name: "Jace" },
+    });
+    const hostChange = await call(`/api/rooms/${made.snapshot.code}/adjust`, {
+      method: "POST", connectionId: made.connectionId, body: { counter: "life", delta: -5 },
+    });
+    const playerChange = await call(`/api/rooms/${made.snapshot.code}/adjust`, {
+      method: "POST", connectionId: playerConnection, body: { counter: "life", delta: -3 },
+    });
+    assert.equal(hostChange.status, 200);
+    assert.equal(playerChange.status, 200);
+    assert.equal(playerChange.body.snapshot.seats[0].counters.life, 35);
+    assert.equal(playerChange.body.snapshot.seats[1].counters.life, 37);
+    assert.equal(playerChange.body.snapshot.version, claimed.body.snapshot.version + 2);
+  });
 });
 
 test("expired connections release transport ownership but preserve seat reservation", () => {

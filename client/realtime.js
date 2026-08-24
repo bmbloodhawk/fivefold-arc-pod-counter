@@ -61,6 +61,20 @@ export class RealtimeAdapter extends EventTarget {
     } catch (error) { if (!this.#isCurrentSession(epoch)) return { ignored: true }; return this.#handleConflict(error, epoch); }
   }
 
+  /** Atomic live delta for rapid counter entry; it intentionally does not use a stale absolute total. */
+  async adjust({ counter, delta, commanderSourceId } = {}) {
+    if (this.localMode) return { local: true };
+    if (this.status !== 'connected' || !this.snapshot) return { blocked: true };
+    const epoch = this.sessionEpoch;
+    try {
+      const result = await this.#request(`/api/rooms/${this.roomCode}/adjust`, {
+        method: 'POST', authenticated: true, body: { counter, delta, ...(commanderSourceId ? { commanderSourceId } : {}) }
+      });
+      if (!this.#isCurrentSession(epoch)) return { ignored: true };
+      this.#acceptSnapshot(result.snapshot, epoch); return result;
+    } catch (error) { if (!this.#isCurrentSession(epoch)) return { ignored: true }; throw error; }
+  }
+
   /** Owner-only commander count mutation. The server rejects a stale snapshot with 409. */
   async setCommanderCount(commanderCount) {
     return this.mutate({ commanderCount });

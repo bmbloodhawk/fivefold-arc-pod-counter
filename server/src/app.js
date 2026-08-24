@@ -414,6 +414,32 @@ export class RoomService {
     return { snapshot: this.snapshot(room) };
   }
 
+  adjustOwnSeat(code, connectionId, input = {}) {
+    const room = this.room(code);
+    const { seat } = this.requireOwner(room, connectionId);
+    const counter = input.counter;
+    const delta = asInteger(input.delta, "delta", -999, 999);
+    if (!MUTABLE_COUNTERS.has(counter) || delta === 0) {
+      throw Object.assign(new Error("Adjustments require one supported counter and a non-zero delta"), { status: 400, code: "INVALID_INPUT" });
+    }
+    if (counter === "commanderDamage") {
+      const sourceId = input.commanderSourceId;
+      const allowed = new Set(commanderSources(room).filter((source) => source.ownerSeatId !== seat.seatId).map((source) => source.id));
+      if (!allowed.has(sourceId)) {
+        throw Object.assign(new Error("Commander damage may reference only another claimed seat's active commander source"), { status: 400, code: "INVALID_INPUT" });
+      }
+      const applied = Math.max(-seat.commanderDamageReceived[sourceId], delta);
+      seat.commanderDamageReceived[sourceId] += applied;
+      seat.counters.life = Math.max(-999, Math.min(999, seat.counters.life - applied));
+    } else {
+      const minimum = counter === "life" ? -999 : 0;
+      seat.counters[counter] = Math.max(minimum, Math.min(999, seat.counters[counter] + delta));
+    }
+    room.version += 1;
+    this.broadcast(room);
+    return { snapshot: this.snapshot(room) };
+  }
+
   resetRoom(code, connectionId, input = {}) {
     const room = this.room(code);
     const { seatId } = this.requireOwner(room, connectionId);
@@ -586,6 +612,7 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "GET" && parts.length === 3) return json(res, 200, { snapshot: service.snapshot(service.room(code)) });
         if (req.method === "POST" && parts[3] === "claim") return json(res, 200, service.claimSeat(code, connectionId, await readJson(req)));
         if (req.method === "PATCH" && parts[3] === "me") return json(res, 200, service.mutateOwnSeat(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "adjust") return json(res, 200, service.adjustOwnSeat(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "reset") return json(res, 200, service.resetRoom(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "coin-toss") return json(res, 200, service.tossCoin(code, connectionId));
         if (req.method === "POST" && parts[3] === "turn-handoff" && parts[4] === "undo") return json(res, 200, service.undoTurnHandoff(code, connectionId, await readJson(req)));

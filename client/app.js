@@ -1,4 +1,4 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=18';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=19';
 
 const MODES = ['life', 'poison', 'commander', 'energy', 'storm', 'generic'];
 const $ = (selector) => document.querySelector(selector);
@@ -114,12 +114,13 @@ function renderTurnFlow() {
   dom.turnPlayer.textContent = turnPlayerValue ? displayName(turnPlayerValue) : state.turnSeatId;
   dom.turnElapsed.textContent = `TURN ${formatDuration(now - state.turn.turnStartedAt)}`;
   dom.gameTimer.textContent = state.turn.roundEndsAt ? `ROUND ENDS IN ${formatDuration(state.turn.roundEndsAt - now)}` : `GAME TIME ${formatDuration(now - state.turn.gameStartedAt)}`;
-  const isOwnerActive = state.turnSeatId === state.ownerPlayerId;
+  const actingSeatId = state.localSimulation ? state.activePlayerId : state.ownerPlayerId;
+  const isOwnerActive = state.turnSeatId === actingSeatId;
   const canAct = (state.localSimulation || transport.status === 'connected') && isOwnerActive;
   dom.endTurnButton.disabled = !canAct;
   dom.endTurnButton.hidden = !isOwnerActive;
   dom.turnActionDetail.textContent = isOwnerActive ? 'You are active. Press once when you pass the turn.' : `${turnPlayerValue ? displayName(turnPlayerValue) : state.turnSeatId} controls this turn.`;
-  const undoAvailable = handoff && Date.now() - handoff.handedOffAt <= 15_000 && (state.localSimulation ? state.ownerPlayerId === `P${handoff.fromSeatId + 1}` : state.ownerPlayerId === `P${handoff.fromSeatId + 1}`);
+  const undoAvailable = handoff && Date.now() - handoff.handedOffAt <= 15_000 && actingSeatId === `P${handoff.fromSeatId + 1}`;
   dom.undoTurnButton.hidden = !undoAvailable;
   if (undoAvailable) dom.undoTurnButton.textContent = `Undo handoff · ${Math.max(0, Math.ceil((15_000 - (Date.now() - handoff.handedOffAt)) / 1000))}s`;
   clearInterval(turnTicker);
@@ -274,12 +275,8 @@ async function adjust(delta) {
   }
   $$('[data-delta]').forEach(button => { button.disabled = true; });
   try {
-    const patch = state.mode === 'commander'
-      ? { commanderDamageReceived: { [source.id]: next }, counters: { life: player.life + lifeDelta } }
-      : { counters: { [target]: next } };
-    const result = await transport.mutate(patch);
-    if (result.conflict) showError(new Error('The table changed first. The latest totals are shown; please make your change again.'));
-    else if (lifeDelta && !result.blocked && !result.ignored) showLifeChange(player.id, lifeDelta);
+    const result = await transport.adjust({ counter: target, delta, ...(state.mode === 'commander' ? { commanderSourceId: source.id } : {}) });
+    if (lifeDelta && !result.blocked && !result.ignored) showLifeChange(player.id, lifeDelta);
   } catch (error) { renderConnection('disconnected'); showError(error); }
 }
 function remapLocalDamage(previousSources, nextSources) {
@@ -309,7 +306,8 @@ async function resetGame() {
   try { const result = await transport.reset(); if (result.conflict) showError(new Error('The table changed first. The latest totals are shown; confirm reset again if it is still needed.')); else { coinTossNotice = null; clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); render(); } } catch (error) { showError(error); }
 }
 async function handoffTurn() {
-  if (!state || state.turnSeatId !== state.ownerPlayerId || !(transport.status === 'local' || transport.status === 'connected')) return;
+  const actingSeatId = state?.localSimulation ? state.activePlayerId : state?.ownerPlayerId;
+  if (!state || state.turnSeatId !== actingSeatId || !(transport.status === 'local' || transport.status === 'connected')) return;
   if (transport.status === 'local') {
     const fromSeatId = Number(state.turnSeatId.slice(1)) - 1; const toSeatId = (fromSeatId + 1) % state.playerCount; const handedOffAt = Date.now();
     state.turn = { ...state.turn, activeSeatId: toSeatId, turnStartedAt: handedOffAt, lastHandoff: { fromSeatId, toSeatId, handedOffAt } }; state.turnSeatId = `P${toSeatId + 1}`; state.activePlayerId = state.turnSeatId; showTurnHandoff(); render(); return;
@@ -319,7 +317,7 @@ async function handoffTurn() {
   catch (error) { showError(error); } finally { if (state) render(); }
 }
 async function undoTurnHandoff() {
-  const handoff = state?.turn?.lastHandoff; if (!handoff || state.ownerPlayerId !== `P${handoff.fromSeatId + 1}`) return;
+  const handoff = state?.turn?.lastHandoff; const actingSeatId = state?.localSimulation ? state.activePlayerId : state?.ownerPlayerId; if (!handoff || actingSeatId !== `P${handoff.fromSeatId + 1}`) return;
   if (transport.status === 'local') { state.turn = { ...state.turn, activeSeatId: handoff.fromSeatId, turnStartedAt: handoff.handedOffAt, lastHandoff: null }; state.turnSeatId = `P${handoff.fromSeatId + 1}`; state.activePlayerId = state.turnSeatId; render(); return; }
   try { const result = await transport.undoTurnHandoff(); if (result.conflict) showError(new Error('The handoff undo window has closed. The latest turn is shown.')); }
   catch (error) { showError(error); }

@@ -31,6 +31,7 @@ This process is not itself a public deployment. A web host must run it behind HT
 - Each claimed seat owns a cast count for each of its active commander source IDs. Counts start at `0`; the server derives the next additional commander tax as `castCount * 2`. Another seat cannot edit these counts, and clients cannot submit derived tax values.
 - Only the current owner of host seat 0 can reset the game. Reset zeros counters, commander damage, and commander cast counts without discarding commander setup, claims, or reconnect tokens.
 - Every accepted claim, mutation, reset, disconnect expiry, or reconnect increments the room version. Writes require the exact `baseVersion`; a stale write gets `409 VERSION_CONFLICT` plus the current snapshot.
+- Routine live counter adjustments use a separate atomic delta endpoint, so simultaneous life/counter taps from different seats are applied against the newest server state instead of failing due to an old displayed total. Structural edits still use exact versions.
 - Only the active seat owner may hand off the turn. The server records the handoff timestamp and advances to the next table seat; only the player who handed off may undo it, for 15 seconds. Turn actions use exact versions and are broadcast over SSE.
 - Clients must never queue gameplay mutations while offline. After reconnecting, obtain/reclaim a connection, accept the newest snapshot, and let the player perform any still-needed action again. The exact-version check rejects stale queued requests.
 - Connections expire after 90 seconds without heartbeat/API activity. Seats remain reserved by their token. Rooms expire after six inactive hours. Restarting the process deletes every room.
@@ -137,6 +138,16 @@ The owner may change their own commander setup with the same endpoint:
 ```
 
 `commanderCount` must be `1` or `2`. Every accepted change increments the room version, reconciles every defender's damage keys, returns `{ snapshot }`, and broadcasts that authoritative snapshot over SSE. `409 VERSION_CONFLICT` includes the current `snapshot`; do not automatically replay the mutation.
+
+### Adjust a current counter
+
+`POST /api/rooms/:code/adjust` is the live gameplay path for a single ± counter entry. It uses the caller's connection header but deliberately does not require `baseVersion`: the server applies the delta to the newest authoritative value, increments the room version, and broadcasts the snapshot. It is not an offline queue; a disconnected request is never held or replayed.
+
+```json
+{ "counter": "life", "delta": -5 }
+```
+
+For commander damage, send `counter: "commanderDamage"`, the defender-owned `commanderSourceId`, and a delta. The server applies the damage delta and the inverse life delta atomically.
 
 ### Reset
 
