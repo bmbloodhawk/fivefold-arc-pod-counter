@@ -157,7 +157,7 @@ function seatIsEliminated(seat) {
 }
 
 function recordLastPlayerStanding(room, now) {
-  if (room.gameResult) return;
+  if (room.gameResult || !room.turn.gameStarted) return;
   const claimedSeats = room.seats.filter((seat) => seat.claimed);
   if (claimedSeats.length < 2) return;
   const survivors = claimedSeats.filter((seat) => !seatIsEliminated(seat));
@@ -240,9 +240,11 @@ export class RoomService {
       gameResult: null,
       turn: {
         activeSeatId: 0,
-        gameStartedAt: startedAt,
-        turnStartedAt: startedAt,
-        roundEndsAt: roundLimitMinutes ? startedAt + roundLimitMinutes * 60 * 1000 : null,
+        gameStarted: false,
+        gameStartedAt: null,
+        turnStartedAt: null,
+        roundEndsAt: null,
+        startingPlayerSeatId: null,
         lastHandoff: null,
       },
       seats,
@@ -271,9 +273,11 @@ export class RoomService {
       gameResult: room.gameResult ? { ...room.gameResult } : null,
       turn: {
         activeSeatId: room.turn.activeSeatId,
+        gameStarted: room.turn.gameStarted,
         gameStartedAt: room.turn.gameStartedAt,
         turnStartedAt: room.turn.turnStartedAt,
         roundEndsAt: room.turn.roundEndsAt,
+        startingPlayerSeatId: room.turn.startingPlayerSeatId,
         lastHandoff: room.turn.lastHandoff ? { ...room.turn.lastHandoff } : null,
       },
       commanderSources: sources,
@@ -478,6 +482,15 @@ export class RoomService {
     }
     room.lastCoinToss = null;
     room.gameResult = null;
+    room.turn = {
+      activeSeatId: 0,
+      gameStarted: false,
+      gameStartedAt: null,
+      turnStartedAt: null,
+      roundEndsAt: null,
+      startingPlayerSeatId: null,
+      lastHandoff: null,
+    };
     room.version += 1;
     this.broadcast(room);
     return { snapshot: this.snapshot(room) };
@@ -513,9 +526,47 @@ export class RoomService {
     return { snapshot: this.snapshot(room) };
   }
 
+  chooseStartingPlayer(code, connectionId, input = {}) {
+    const room = this.room(code);
+    const { seatId } = this.requireOwner(room, connectionId);
+    if (seatId !== room.hostSeatId) throw Object.assign(new Error("Only the host seat may choose the starting player"), { status: 403, code: "HOST_ONLY" });
+    if (room.turn.gameStarted) throw Object.assign(new Error("The game has already started"), { status: 409, code: "GAME_ALREADY_STARTED", snapshot: this.snapshot(room) });
+    if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
+    const claimedSeats = room.seats.filter((seat) => seat.claimed);
+    if (claimedSeats.length < 2) throw Object.assign(new Error("At least two claimed players are needed to choose who goes first"), { status: 409, code: "NOT_ENOUGH_PLAYERS", snapshot: this.snapshot(room) });
+    const chosen = claimedSeats[randomBytes(1)[0] % claimedSeats.length];
+    room.turn = { ...room.turn, activeSeatId: chosen.seatId, startingPlayerSeatId: chosen.seatId, lastHandoff: null };
+    room.version += 1;
+    this.broadcast(room);
+    return { snapshot: this.snapshot(room) };
+  }
+
+  startGame(code, connectionId, input = {}) {
+    const room = this.room(code);
+    const { seatId } = this.requireOwner(room, connectionId);
+    if (seatId !== room.hostSeatId) throw Object.assign(new Error("Only the host seat may start the game"), { status: 403, code: "HOST_ONLY" });
+    if (room.turn.gameStarted) throw Object.assign(new Error("The game has already started"), { status: 409, code: "GAME_ALREADY_STARTED", snapshot: this.snapshot(room) });
+    if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
+    if (room.seats.filter((seat) => seat.claimed).length < 2) throw Object.assign(new Error("At least two claimed players are needed to start the game"), { status: 409, code: "NOT_ENOUGH_PLAYERS", snapshot: this.snapshot(room) });
+    const startedAt = this.now();
+    room.turn = {
+      ...room.turn,
+      gameStarted: true,
+      gameStartedAt: startedAt,
+      turnStartedAt: startedAt,
+      roundEndsAt: room.config.roundLimitMinutes ? startedAt + room.config.roundLimitMinutes * 60 * 1000 : null,
+      startingPlayerSeatId: room.turn.startingPlayerSeatId ?? room.turn.activeSeatId,
+      lastHandoff: null,
+    };
+    room.version += 1;
+    this.broadcast(room);
+    return { snapshot: this.snapshot(room) };
+  }
+
   handoffTurn(code, connectionId, input = {}) {
     const room = this.room(code);
     const { seatId } = this.requireOwner(room, connectionId);
+    if (!room.turn.gameStarted) throw Object.assign(new Error("Start the game before handing off turns"), { status: 409, code: "GAME_NOT_STARTED", snapshot: this.snapshot(room) });
     if (input.baseVersion !== room.version) {
       throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
     }
@@ -652,6 +703,8 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "POST" && parts[3] === "reset") return json(res, 200, service.resetRoom(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "coin-toss") return json(res, 200, service.tossCoin(code, connectionId));
         if (req.method === "POST" && parts[3] === "declare-winner") return json(res, 200, service.declareWinner(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "choose-starting-player") return json(res, 200, service.chooseStartingPlayer(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "start-game") return json(res, 200, service.startGame(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "turn-handoff" && parts[4] === "undo") return json(res, 200, service.undoTurnHandoff(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "turn-handoff") return json(res, 200, service.handoffTurn(code, connectionId, await readJson(req)));
         if (req.method === "GET" && parts[3] === "events") {

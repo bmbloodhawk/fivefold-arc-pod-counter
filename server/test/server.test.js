@@ -580,27 +580,35 @@ describe("authority and convergence", () => {
     const created = service.createRoom(host.connectionId, { playerCount: 3, startingLife: 40, roundLimitMinutes: 60 });
     const initial = created.snapshot;
     assert.equal(initial.turn.activeSeatId, 0);
-    assert.equal(initial.turn.gameStartedAt, now);
-    assert.equal(initial.turn.roundEndsAt, now + 60 * 60 * 1000);
-
-    now += 6_000;
-    const handedOff = service.handoffTurn(initial.code, host.connectionId, { baseVersion: initial.version });
-    assert.equal(handedOff.snapshot.turn.activeSeatId, 1);
-    assert.deepEqual(handedOff.snapshot.turn.lastHandoff, { fromSeatId: 0, toSeatId: 1, handedOffAt: now });
-    assert.equal(handedOff.snapshot.version, initial.version + 1);
+    assert.equal(initial.turn.gameStarted, false);
+    assert.equal(initial.turn.gameStartedAt, null);
 
     const other = service.createConnection();
-    service.claimSeat(initial.code, other.connectionId, { seatId: 1, name: "Jace" });
-    assert.throws(() => service.undoTurnHandoff(initial.code, other.connectionId, { baseVersion: service.snapshot(service.room(initial.code)).version }), { code: "HANDOFF_UNDO_OWNER_ONLY" });
+    const claimed = service.claimSeat(initial.code, other.connectionId, { seatId: 1, name: "Jace" });
+    const selected = service.chooseStartingPlayer(initial.code, host.connectionId, { baseVersion: claimed.snapshot.version });
+    assert.ok([0, 1].includes(selected.snapshot.turn.startingPlayerSeatId));
+    const started = service.startGame(initial.code, host.connectionId, { baseVersion: selected.snapshot.version });
+    assert.equal(started.snapshot.turn.gameStarted, true);
+    assert.equal(started.snapshot.turn.gameStartedAt, now);
+    assert.equal(started.snapshot.turn.roundEndsAt, now + 60 * 60 * 1000);
+
+    now += 6_000;
+    const activeConnectionId = started.snapshot.turn.activeSeatId === 0 ? host.connectionId : other.connectionId;
+    const handedOff = service.handoffTurn(initial.code, activeConnectionId, { baseVersion: started.snapshot.version });
+    assert.equal(handedOff.snapshot.turn.activeSeatId, (started.snapshot.turn.activeSeatId + 1) % 3);
+    assert.deepEqual(handedOff.snapshot.turn.lastHandoff, { fromSeatId: started.snapshot.turn.activeSeatId, toSeatId: handedOff.snapshot.turn.activeSeatId, handedOffAt: now });
+
+    const nonOwnerConnectionId = activeConnectionId === host.connectionId ? other.connectionId : host.connectionId;
+    assert.throws(() => service.undoTurnHandoff(initial.code, nonOwnerConnectionId, { baseVersion: service.snapshot(service.room(initial.code)).version }), { code: "HANDOFF_UNDO_OWNER_ONLY" });
     const current = service.snapshot(service.room(initial.code));
-    const undone = service.undoTurnHandoff(initial.code, host.connectionId, { baseVersion: current.version });
-    assert.equal(undone.snapshot.turn.activeSeatId, 0);
+    const undone = service.undoTurnHandoff(initial.code, activeConnectionId, { baseVersion: current.version });
+    assert.equal(undone.snapshot.turn.activeSeatId, started.snapshot.turn.activeSeatId);
     assert.equal(undone.snapshot.turn.lastHandoff, null);
 
-    const again = service.handoffTurn(initial.code, host.connectionId, { baseVersion: undone.snapshot.version });
+    const again = service.handoffTurn(initial.code, activeConnectionId, { baseVersion: undone.snapshot.version });
     now += 15_001;
-    assert.throws(() => service.undoTurnHandoff(initial.code, host.connectionId, { baseVersion: again.snapshot.version }), { code: "HANDOFF_UNDO_EXPIRED" });
-    assert.equal(service.snapshot(service.room(initial.code)).turn.activeSeatId, 1);
+    assert.throws(() => service.undoTurnHandoff(initial.code, activeConnectionId, { baseVersion: again.snapshot.version }), { code: "HANDOFF_UNDO_EXPIRED" });
+    assert.equal(service.snapshot(service.room(initial.code)).turn.activeSeatId, (started.snapshot.turn.activeSeatId + 1) % 3);
   });
 
   test("applies concurrent live counter deltas without a stale-version re-entry error", async () => {
@@ -627,6 +635,9 @@ describe("authority and convergence", () => {
     const playerConnection = await connection();
     const claimed = await call(`/api/rooms/${made.snapshot.code}/claim`, {
       method: "POST", connectionId: playerConnection, body: { seatId: 1, name: "Jace" },
+    });
+    const started = await call(`/api/rooms/${made.snapshot.code}/start-game`, {
+      method: "POST", connectionId: made.connectionId, body: { baseVersion: claimed.body.snapshot.version },
     });
     const eliminated = await call(`/api/rooms/${made.snapshot.code}/adjust`, {
       method: "POST", connectionId: playerConnection, body: { counter: "life", delta: -40 },

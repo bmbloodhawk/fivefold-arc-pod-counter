@@ -1,4 +1,4 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=20';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=21';
 
 const MODES = ['life', 'poison', 'commander', 'energy', 'storm', 'generic'];
 const $ = (selector) => document.querySelector(selector);
@@ -11,7 +11,7 @@ const dom = {
   counterContext: $('#counterContext'), statusMessage: $('#statusMessage'), lethalMark: $('#lethalMark'), lifeChangeIndicator: $('#lifeChangeIndicator'), sourcePanel: $('#sourcePanel'),
   quickClearWrap: $('#quickClearWrap'), activeSeatBar: $('#activeSeatBar'), gameMenu: $('#gameMenu'), moreButton: $('#moreButton'),
   disconnectBanner: $('#disconnectBanner'), coinTossNotice: $('#coinTossNotice'), victoryNotice: $('#victoryNotice'), coinTossButton: $('#coinTossButton'), coinTossDialog: $('#coinTossDialog'), coinTossResult: $('#coinTossResult'), tossAgainButton: $('#tossAgainButton'), resetDialog: $('#resetDialog'), commanderSetupButton: $('#commanderSetupButton'), backToSetupButton: $('#backToSetupButton'), declareWinnerButton: $('#declareWinnerButton'), declareWinnerDialog: $('#declareWinnerDialog'), declareWinnerForm: $('#declareWinnerForm'), winnerSeat: $('#winnerSeat'), victoryDialog: $('#victoryDialog'), victoryTitle: $('#victoryTitle'), victoryDetail: $('#victoryDetail'),
-  turnBanner: $('#turnBanner'), turnLabel: $('#turnLabel'), turnPlayer: $('#turnPlayer'), turnElapsed: $('#turnElapsed'), gameTimer: $('#gameTimer'), turnActions: $('#turnActions'), endTurnButton: $('#endTurnButton'), undoTurnButton: $('#undoTurnButton'), turnActionDetail: $('#turnActionDetail'),
+  lobbyControls: $('#lobbyControls'), lobbyStatus: $('#lobbyStatus'), randomFirstButton: $('#randomFirstButton'), startGameButton: $('#startGameButton'), turnBanner: $('#turnBanner'), turnLabel: $('#turnLabel'), turnPlayer: $('#turnPlayer'), turnElapsed: $('#turnElapsed'), gameTimer: $('#gameTimer'), turnActions: $('#turnActions'), endTurnButton: $('#endTurnButton'), undoTurnButton: $('#undoTurnButton'), turnActionDetail: $('#turnActionDetail'),
   commanderCountDialog: $('#commanderCountDialog'), commanderCountDetail: $('#commanderCountDetail'), commanderCountForm: $('#commanderCountForm'), saveCommanderCountButton: $('#saveCommanderCountButton'),
   commanderTaxQuickButton: $('#commanderTaxQuickButton'), commanderTaxDialog: $('#commanderTaxDialog'), commanderTaxDetail: $('#commanderTaxDetail'), commanderTaxList: $('#commanderTaxList'),
   customLifeButton: $('#customLifeButton'), customLifeDialog: $('#customLifeDialog'), customLifeForm: $('#customLifeForm'), customLifeAmount: $('#customLifeAmount')
@@ -45,7 +45,7 @@ function createState({ playerCount = 4, startingLife = 40, ownerPlayerId = 'P1',
   const players = counts.map((count, index) => playerTemplate(index + 1, startingLife, count, commanderSources));
   players.find(player => player.id === ownerPlayerId).name = ownerName || ownerPlayerId;
   const startedAt = Date.now();
-  return { playerCount, startingLife, ownerPlayerId, activePlayerId: ownerPlayerId, turnSeatId: ownerPlayerId, turn: { activeSeatId: 0, gameStartedAt: startedAt, turnStartedAt: startedAt, roundEndsAt: roundLimitMinutes ? startedAt + roundLimitMinutes * 60000 : null, lastHandoff: null }, localSimulation, podCode, gameResult: null, mode: 'life', selectedSourceId: null, commanderSources, commanderCastCounts: blankDamage(commanderSources), players };
+  return { playerCount, startingLife, roundLimitMinutes, ownerPlayerId, activePlayerId: ownerPlayerId, turnSeatId: ownerPlayerId, turn: { activeSeatId: 0, gameStarted: false, gameStartedAt: null, turnStartedAt: null, roundEndsAt: null, startingPlayerSeatId: null, lastHandoff: null }, localSimulation, podCode, gameResult: null, mode: 'life', selectedSourceId: null, commanderSources, commanderCastCounts: blankDamage(commanderSources), players };
 }
 function playerIdForSource(source, fallbackLabel = '') {
   if (source.ownerPlayerId) return source.ownerPlayerId;
@@ -74,9 +74,9 @@ function stateFromSnapshot(snapshot) {
   const commanderSources = normaliseSnapshotSources(snapshot); const previous = state;
   const ownerPlayerId = `P${transport.seatId + 1}`;
   const activePlayerId = previous?.localSimulation === false && previous.podCode === snapshot.code && snapshot.seats.some(seat => `P${seat.seatId + 1}` === previous.activePlayerId) ? previous.activePlayerId : ownerPlayerId;
-  const turn = snapshot.turn || { activeSeatId: 0, gameStartedAt: Date.now(), turnStartedAt: Date.now(), roundEndsAt: null, lastHandoff: null };
+  const turn = snapshot.turn || { activeSeatId: 0, gameStarted: true, gameStartedAt: Date.now(), turnStartedAt: Date.now(), roundEndsAt: null, startingPlayerSeatId: 0, lastHandoff: null };
   return {
-    playerCount: snapshot.config.playerCount, startingLife: snapshot.config.startingLife, commanderSources, commanderCastCounts: castCountsFromSnapshot(snapshot, commanderSources), ownerPlayerId, activePlayerId, turnSeatId: `P${turn.activeSeatId + 1}`, turn,
+    playerCount: snapshot.config.playerCount, startingLife: snapshot.config.startingLife, roundLimitMinutes: snapshot.config.roundLimitMinutes || null, commanderSources, commanderCastCounts: castCountsFromSnapshot(snapshot, commanderSources), ownerPlayerId, activePlayerId, turnSeatId: `P${turn.activeSeatId + 1}`, turn,
     localSimulation: false, podCode: snapshot.code, version: snapshot.version, hostSeatId: snapshot.hostSeatId, lastCoinToss: snapshot.lastCoinToss || null, gameResult: snapshot.gameResult || null, mode: previous?.mode || 'life', selectedSourceId: previous?.selectedSourceId || null,
     players: snapshot.seats.map(seat => ({ id: `P${seat.seatId + 1}`, name: seat.name, commanderCount: seat.commanderCount === 2 ? 2 : 1, life: seat.counters.life, poison: seat.counters.poison, commanderDamage: damageFromSnapshot(seat, commanderSources), energy: seat.counters.energy, storm: seat.counters.storm, generic: seat.counters.generic, connectionStatus: seat.connected ? 'connected' : seat.claimed ? 'disconnected' : 'waiting', eliminated: false, lethalCause: null, warning: null }))
   };
@@ -133,6 +133,22 @@ function formatDuration(milliseconds) { const seconds = Math.max(0, Math.floor(m
 function renderTurnFlow() {
   if (!state?.turn) return;
   const turnPlayerValue = turnPlayer(); const now = Date.now(); const handoff = state.turn.lastHandoff;
+  const claimedPlayers = state.players.filter(player => player.connectionStatus !== 'waiting');
+  const isHost = state.localSimulation || transport.seatId === state.hostSeatId;
+  const isStarted = Boolean(state.turn.gameStarted);
+  dom.lobbyControls.hidden = isStarted;
+  dom.turnBanner.hidden = !isStarted;
+  dom.turnActions.hidden = !isStarted;
+  if (!isStarted) {
+    const selected = Number.isInteger(state.turn.startingPlayerSeatId) ? state.players.find(player => player.id === `P${state.turn.startingPlayerSeatId + 1}`) : null;
+    dom.lobbyStatus.textContent = selected ? `${displayName(selected)} will go first. Start when the table is ready.` : `${claimedPlayers.length}/${state.playerCount} players joined. Choose who goes first when ready.`;
+    dom.randomFirstButton.hidden = !isHost;
+    dom.startGameButton.hidden = !isHost;
+    dom.randomFirstButton.disabled = !isHost || claimedPlayers.length < 2;
+    dom.startGameButton.disabled = !isHost || claimedPlayers.length < 2;
+    clearInterval(turnTicker); turnTicker = null;
+    return;
+  }
   dom.turnLabel.textContent = `${state.turnSeatId}'S TURN`;
   dom.turnPlayer.textContent = turnPlayerValue ? displayName(turnPlayerValue) : state.turnSeatId;
   dom.turnElapsed.textContent = `TURN ${formatDuration(now - state.turn.turnStartedAt)}`;
@@ -327,12 +343,12 @@ async function updateCommanderCastCount(sourceId, delta) {
   catch (error) { renderConnection('disconnected'); showError(error); }
 }
 async function resetGame() {
-  if (transport.status === 'local') { const sources = state.commanderSources; const startedAt = Date.now(); state.players = state.players.map(player => ({ ...playerTemplate(Number(player.id.slice(1)), state.startingLife, player.commanderCount, sources), name: player.name, commanderCount: player.commanderCount })); state.commanderCastCounts = blankDamage(sources); state.lastCoinToss = null; state.turn = { ...state.turn, activeSeatId: 0, gameStartedAt: startedAt, turnStartedAt: startedAt, lastHandoff: null }; state.turnSeatId = 'P1'; coinTossNotice = null; clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); state.selectedSourceId = null; render(); return; }
+  if (transport.status === 'local') { const sources = state.commanderSources; state.players = state.players.map(player => ({ ...playerTemplate(Number(player.id.slice(1)), state.startingLife, player.commanderCount, sources), name: player.name, commanderCount: player.commanderCount })); state.commanderCastCounts = blankDamage(sources); state.lastCoinToss = null; state.gameResult = null; state.turn = { activeSeatId: 0, gameStarted: false, gameStartedAt: null, turnStartedAt: null, roundEndsAt: null, startingPlayerSeatId: null, lastHandoff: null }; state.turnSeatId = 'P1'; coinTossNotice = null; clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); state.selectedSourceId = null; render(); return; }
   try { const result = await transport.reset(); if (result.conflict) showError(new Error('The table changed first. The latest totals are shown; confirm reset again if it is still needed.')); else { coinTossNotice = null; clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); render(); } } catch (error) { showError(error); }
 }
 async function handoffTurn() {
   const actingSeatId = state?.localSimulation ? state.activePlayerId : state?.ownerPlayerId;
-  if (!state || state.turnSeatId !== actingSeatId || !(transport.status === 'local' || transport.status === 'connected')) return;
+  if (!state || !state.turn.gameStarted || state.turnSeatId !== actingSeatId || !(transport.status === 'local' || transport.status === 'connected')) return;
   if (transport.status === 'local') {
     const fromSeatId = Number(state.turnSeatId.slice(1)) - 1; const toSeatId = (fromSeatId + 1) % state.playerCount; const handedOffAt = Date.now();
     state.turn = { ...state.turn, activeSeatId: toSeatId, turnStartedAt: handedOffAt, lastHandoff: { fromSeatId, toSeatId, handedOffAt } }; state.turnSeatId = `P${toSeatId + 1}`; state.activePlayerId = state.turnSeatId; showTurnHandoff(); render(); return;
@@ -340,6 +356,22 @@ async function handoffTurn() {
   dom.endTurnButton.disabled = true;
   try { const result = await transport.handoffTurn(); if (result.conflict) showError(new Error('The table changed first. The latest turn is shown.')); }
   catch (error) { showError(error); } finally { if (state) render(); }
+}
+async function chooseStartingPlayer() {
+  if (!state || state.turn.gameStarted) return;
+  if (state.localSimulation) {
+    const seatId = crypto.getRandomValues(new Uint8Array(1))[0] % state.players.length;
+    state.turn = { ...state.turn, activeSeatId: seatId, startingPlayerSeatId: seatId }; state.turnSeatId = `P${seatId + 1}`; render(); return;
+  }
+  try { const result = await transport.chooseStartingPlayer(); if (result.conflict) showError(new Error('The table changed first. The latest lobby is shown.')); } catch (error) { showError(error); }
+}
+async function startGame() {
+  if (!state || state.turn.gameStarted) return;
+  if (state.localSimulation) {
+    const startedAt = Date.now(); const startingPlayerSeatId = state.turn.startingPlayerSeatId ?? state.turn.activeSeatId;
+    state.turn = { ...state.turn, gameStarted: true, activeSeatId: startingPlayerSeatId, startingPlayerSeatId, gameStartedAt: startedAt, turnStartedAt: startedAt, roundEndsAt: state.roundLimitMinutes ? startedAt + state.roundLimitMinutes * 60000 : null, lastHandoff: null }; state.turnSeatId = `P${startingPlayerSeatId + 1}`; state.activePlayerId = state.turnSeatId; render(); return;
+  }
+  try { const result = await transport.startGame(); if (result.conflict) showError(new Error('The table changed first. The latest lobby is shown.')); } catch (error) { showError(error); }
 }
 async function undoTurnHandoff() {
   const handoff = state?.turn?.lastHandoff; const actingSeatId = state?.localSimulation ? state.activePlayerId : state?.ownerPlayerId; if (!handoff || actingSeatId !== `P${handoff.fromSeatId + 1}`) return;
@@ -406,6 +438,7 @@ dom.activeSeat.addEventListener('change', () => { state.activePlayerId = dom.act
 dom.customLifeButton.addEventListener('click', () => { dom.customLifeAmount.value = ''; dom.customLifeDialog.showModal(); dom.customLifeAmount.focus(); });
 dom.customLifeForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; const form = new FormData(dom.customLifeForm); const amount = Number(form.get('amount')); if (!Number.isInteger(amount) || amount < 1 || amount > 999) { event.preventDefault(); dom.customLifeAmount.focus(); return; } const delta = form.get('direction') === 'subtract' ? -amount : amount; adjust(delta); });
 dom.endTurnButton.addEventListener('click', handoffTurn); dom.undoTurnButton.addEventListener('click', undoTurnHandoff);
+dom.randomFirstButton.addEventListener('click', chooseStartingPlayer); dom.startGameButton.addEventListener('click', startGame);
 dom.moreButton.addEventListener('click', () => { dom.gameMenu.hidden = !dom.gameMenu.hidden; dom.moreButton.setAttribute('aria-expanded', String(!dom.gameMenu.hidden)); }); dom.coinTossButton.addEventListener('click', () => { dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); tossCoin(); }); dom.declareWinnerButton.addEventListener('click', openDeclareWinner); dom.tossAgainButton.addEventListener('click', () => tossCoin()); $('#resetButton').addEventListener('click', () => { dom.gameMenu.hidden = true; dom.resetDialog.showModal(); }); $('#confirmResetButton').addEventListener('click', resetGame);
 dom.commanderSetupButton.addEventListener('click', () => { dom.gameMenu.hidden = true; const player = state.localSimulation ? activePlayer() : state.players.find(item => item.id === state.ownerPlayerId); dom.commanderCountDetail.textContent = state.localSimulation ? `Local simulation: set ${player.id}'s commanders.` : `Only your claimed seat (${player.id}) will change.`; $(`input[name="gameCommanderCount"][value="${player.commanderCount}"]`).checked = true; dom.commanderCountDialog.showModal(); });
 dom.commanderTaxQuickButton?.addEventListener('click', () => { renderCommanderTaxDialog(); dom.commanderTaxDialog.showModal(); });
