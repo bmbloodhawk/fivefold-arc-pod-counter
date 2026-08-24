@@ -9,11 +9,11 @@ export class RealtimeAdapter extends EventTarget {
     this.status = 'local'; this.localMode = true; this.stopped = false; this.sessionEpoch = 0;
   }
 
-  async createRoom({ playerCount, startingLife, commanderCount = 1, name = 'P1' }) {
+  async createRoom({ playerCount, startingLife, commanderCount = 1, name = 'P1', roundLimitMinutes = null }) {
     const epoch = this.#beginSession();
     try {
       if (!await this.#startConnection(epoch)) return { ignored: true };
-      const result = await this.#request('/api/rooms', { method: 'POST', authenticated: true, body: { playerCount, startingLife, commanderCount, name } });
+      const result = await this.#request('/api/rooms', { method: 'POST', authenticated: true, body: { playerCount, startingLife, commanderCount, name, ...(roundLimitMinutes ? { roundLimitMinutes } : {}) } });
       if (!this.#isCurrentSession(epoch)) return { ignored: true };
       this.#adoptSeat(result.snapshot.code, result.seatId, result.reclaimToken, result.snapshot, epoch);
       return result;
@@ -90,6 +90,21 @@ export class RealtimeAdapter extends EventTarget {
     if (!this.#isCurrentSession(epoch)) return { ignored: true };
     this.#acceptSnapshot(result.snapshot, epoch);
     return result;
+  }
+
+  async handoffTurn() { return this.#turnRequest('/turn-handoff'); }
+
+  async undoTurnHandoff() { return this.#turnRequest('/turn-handoff/undo'); }
+
+  async #turnRequest(path) {
+    if (this.localMode) return { local: true };
+    if (this.status !== 'connected' || !this.snapshot) return { blocked: true };
+    const epoch = this.sessionEpoch;
+    try {
+      const result = await this.#request(`/api/rooms/${this.roomCode}${path}`, { method: 'POST', authenticated: true, body: { baseVersion: this.snapshot.version } });
+      if (!this.#isCurrentSession(epoch)) return { ignored: true };
+      this.#acceptSnapshot(result.snapshot, epoch); return result;
+    } catch (error) { if (!this.#isCurrentSession(epoch)) return { ignored: true }; return this.#handleConflict(error, epoch); }
   }
 
   disconnect() {

@@ -572,6 +572,36 @@ describe("authority and convergence", () => {
     assert.equal(tossed.body.snapshot.lastCoinToss.tossedBySeatId, 0);
     assert.equal(typeof tossed.body.snapshot.lastCoinToss.tossedAt, "number");
   });
+
+  test("tracks an active turn, supports a 15-second owner-only undo, and never auto-advances", async () => {
+    let now = 100_000;
+    const service = new RoomService({ now: () => now });
+    const host = service.createConnection();
+    const created = service.createRoom(host.connectionId, { playerCount: 3, startingLife: 40, roundLimitMinutes: 60 });
+    const initial = created.snapshot;
+    assert.equal(initial.turn.activeSeatId, 0);
+    assert.equal(initial.turn.gameStartedAt, now);
+    assert.equal(initial.turn.roundEndsAt, now + 60 * 60 * 1000);
+
+    now += 6_000;
+    const handedOff = service.handoffTurn(initial.code, host.connectionId, { baseVersion: initial.version });
+    assert.equal(handedOff.snapshot.turn.activeSeatId, 1);
+    assert.deepEqual(handedOff.snapshot.turn.lastHandoff, { fromSeatId: 0, toSeatId: 1, handedOffAt: now });
+    assert.equal(handedOff.snapshot.version, initial.version + 1);
+
+    const other = service.createConnection();
+    service.claimSeat(initial.code, other.connectionId, { seatId: 1, name: "Jace" });
+    assert.throws(() => service.undoTurnHandoff(initial.code, other.connectionId, { baseVersion: service.snapshot(service.room(initial.code)).version }), { code: "HANDOFF_UNDO_OWNER_ONLY" });
+    const current = service.snapshot(service.room(initial.code));
+    const undone = service.undoTurnHandoff(initial.code, host.connectionId, { baseVersion: current.version });
+    assert.equal(undone.snapshot.turn.activeSeatId, 0);
+    assert.equal(undone.snapshot.turn.lastHandoff, null);
+
+    const again = service.handoffTurn(initial.code, host.connectionId, { baseVersion: undone.snapshot.version });
+    now += 15_001;
+    assert.throws(() => service.undoTurnHandoff(initial.code, host.connectionId, { baseVersion: again.snapshot.version }), { code: "HANDOFF_UNDO_EXPIRED" });
+    assert.equal(service.snapshot(service.room(initial.code)).turn.activeSeatId, 1);
+  });
 });
 
 test("expired connections release transport ownership but preserve seat reservation", () => {

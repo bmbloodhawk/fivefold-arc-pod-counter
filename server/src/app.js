@@ -100,6 +100,11 @@ function normalizeCommanderCount(value, fallback = 1) {
   return asInteger(value, "commanderCount", 1, 2);
 }
 
+function normalizeRoundLimitMinutes(value) {
+  if (value === undefined || value === null || value === "") return null;
+  return asInteger(value, "roundLimitMinutes", 1, 999);
+}
+
 function commanderSourceId(seatId, slot) {
   return `seat-${seatId}-commander-${slot === 0 ? "a" : "b"}`;
 }
@@ -193,6 +198,8 @@ export class RoomService {
     const startingLife = asInteger(input.startingLife, "startingLife", 20, 40);
     if (![20, 30, 40].includes(startingLife)) throw Object.assign(new Error("startingLife must be 20, 30, or 40"), { status: 400, code: "INVALID_INPUT" });
     const commanderCount = normalizeCommanderCount(input.commanderCount);
+    const roundLimitMinutes = normalizeRoundLimitMinutes(input.roundLimitMinutes);
+    const startedAt = this.now();
     const code = this.makeJoinCode();
     const reclaimToken = opaque(32);
     const seats = Array.from({ length: playerCount }, (_, seatId) => ({
@@ -209,11 +216,18 @@ export class RoomService {
     const room = {
       code,
       version: 1,
-      createdAt: this.now(),
-      lastActiveAt: this.now(),
+      createdAt: startedAt,
+      lastActiveAt: startedAt,
       hostSeatId: 0,
-      config: { playerCount, startingLife },
+      config: { playerCount, startingLife, roundLimitMinutes },
       lastCoinToss: null,
+      turn: {
+        activeSeatId: 0,
+        gameStartedAt: startedAt,
+        turnStartedAt: startedAt,
+        roundEndsAt: roundLimitMinutes ? startedAt + roundLimitMinutes * 60 * 1000 : null,
+        lastHandoff: null,
+      },
       seats,
     };
     synchronizeCommanderState(room);
@@ -237,6 +251,13 @@ export class RoomService {
       hostSeatId: room.hostSeatId,
       config: { ...room.config },
       lastCoinToss: room.lastCoinToss ? { ...room.lastCoinToss } : null,
+      turn: {
+        activeSeatId: room.turn.activeSeatId,
+        gameStartedAt: room.turn.gameStartedAt,
+        turnStartedAt: room.turn.turnStartedAt,
+        roundEndsAt: room.turn.roundEndsAt,
+        lastHandoff: room.turn.lastHandoff ? { ...room.turn.lastHandoff } : null,
+      },
       commanderSources: sources,
       seats: room.seats.map(({ seatId, name, claimed, ownerConnectionId, commanderCount, counters, commanderDamageReceived, commanderCastCounts }) => ({
         seatId,
@@ -430,6 +451,52 @@ export class RoomService {
     return { snapshot: this.snapshot(room) };
   }
 
+  handoffTurn(code, connectionId, input = {}) {
+    const room = this.room(code);
+    const { seatId } = this.requireOwner(room, connectionId);
+    if (input.baseVersion !== room.version) {
+      throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
+    }
+    if (seatId !== room.turn.activeSeatId) {
+      throw Object.assign(new Error("Only the active player may end this turn"), { status: 403, code: "NOT_ACTIVE_PLAYER" });
+    }
+    const handedOffAt = this.now();
+    const toSeatId = (seatId + 1) % room.config.playerCount;
+    room.turn = {
+      ...room.turn,
+      activeSeatId: toSeatId,
+      turnStartedAt: handedOffAt,
+      lastHandoff: { fromSeatId: seatId, toSeatId, handedOffAt },
+    };
+    room.version += 1;
+    this.broadcast(room);
+    return { snapshot: this.snapshot(room) };
+  }
+
+  undoTurnHandoff(code, connectionId, input = {}) {
+    const room = this.room(code);
+    const { seatId } = this.requireOwner(room, connectionId);
+    if (input.baseVersion !== room.version) {
+      throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
+    }
+    const handoff = room.turn.lastHandoff;
+    if (!handoff || this.now() - handoff.handedOffAt > 15_000) {
+      throw Object.assign(new Error("The turn-handoff undo window has expired"), { status: 409, code: "HANDOFF_UNDO_EXPIRED", snapshot: this.snapshot(room) });
+    }
+    if (seatId !== handoff.fromSeatId) {
+      throw Object.assign(new Error("Only the player who ended the turn may undo that handoff"), { status: 403, code: "HANDOFF_UNDO_OWNER_ONLY" });
+    }
+    room.turn = {
+      ...room.turn,
+      activeSeatId: handoff.fromSeatId,
+      turnStartedAt: handoff.handedOffAt,
+      lastHandoff: null,
+    };
+    room.version += 1;
+    this.broadcast(room);
+    return { snapshot: this.snapshot(room) };
+  }
+
   attachStream(code, connectionId, res) {
     const room = this.room(code);
     const { connection } = this.requireOwner(room, connectionId);
@@ -521,6 +588,8 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "PATCH" && parts[3] === "me") return json(res, 200, service.mutateOwnSeat(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "reset") return json(res, 200, service.resetRoom(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "coin-toss") return json(res, 200, service.tossCoin(code, connectionId));
+        if (req.method === "POST" && parts[3] === "turn-handoff" && parts[4] === "undo") return json(res, 200, service.undoTurnHandoff(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "turn-handoff") return json(res, 200, service.handoffTurn(code, connectionId, await readJson(req)));
         if (req.method === "GET" && parts[3] === "events") {
           res.writeHead(200, {
             "content-type": "text/event-stream",

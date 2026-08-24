@@ -20,6 +20,7 @@ This process is not itself a public deployment. A web host must run it behind HT
 
 - Rooms contain 2–8 fixed seats and use opaque six-character codes without ambiguous `0/O/1/I` characters.
 - Starting life is exactly 20, 30, or 40. Each claimed seat has one or two commanders; omitting `commanderCount` defaults that seat to one.
+- A room begins with seat 0 as the active turn. An optional `roundLimitMinutes` from 1 through 999 creates a countdown; without one, clients show elapsed game time. Timers are informational only and never advance, end, or penalize a game.
 - Every seat has a presentation-only display name. An omitted name falls back to `P1` through `P8`; names are never used as identity, authority, storage keys, or uniqueness constraints.
 - A newly created room assigns seat 0 to the creating connection; seat 0 is the host and declares its `commanderCount` during creation.
 - A connection can own at most one seat. The event loop makes seat claims atomic.
@@ -30,6 +31,7 @@ This process is not itself a public deployment. A web host must run it behind HT
 - Each claimed seat owns a cast count for each of its active commander source IDs. Counts start at `0`; the server derives the next additional commander tax as `castCount * 2`. Another seat cannot edit these counts, and clients cannot submit derived tax values.
 - Only the current owner of host seat 0 can reset the game. Reset zeros counters, commander damage, and commander cast counts without discarding commander setup, claims, or reconnect tokens.
 - Every accepted claim, mutation, reset, disconnect expiry, or reconnect increments the room version. Writes require the exact `baseVersion`; a stale write gets `409 VERSION_CONFLICT` plus the current snapshot.
+- Only the active seat owner may hand off the turn. The server records the handoff timestamp and advances to the next table seat; only the player who handed off may undo it, for 15 seconds. Turn actions use exact versions and are broadcast over SSE.
 - Clients must never queue gameplay mutations while offline. After reconnecting, obtain/reclaim a connection, accept the newest snapshot, and let the player perform any still-needed action again. The exact-version check rejects stale queued requests.
 - Connections expire after 90 seconds without heartbeat/API activity. Seats remain reserved by their token. Rooms expire after six inactive hours. Restarting the process deletes every room.
 
@@ -139,6 +141,12 @@ The owner may change their own commander setup with the same endpoint:
 ### Reset
 
 `POST /api/rooms/:code/reset` with `{ "baseVersion": 8 }` and the host connection header. Counters, existing commander-damage values, and active commander cast counts reset to their starting values; display names, seat reservations, commander counts, and active source identities remain.
+
+### Turn flow
+
+- `POST /api/rooms/:code/turn-handoff` with `{ "baseVersion": 8 }` ends the current owner's turn and advances the active table seat. The response includes the new authoritative snapshot.
+- `POST /api/rooms/:code/turn-handoff/undo` with `{ "baseVersion": 9 }` returns to the prior player only if the same player initiated the most recent handoff within 15 seconds.
+- Snapshots contain `turn.activeSeatId`, `gameStartedAt`, `turnStartedAt`, optional `roundEndsAt`, and the most recent `lastHandoff`. Clients calculate display time from these timestamps; no client controls turn advancement automatically.
 
 ### Errors and health
 
