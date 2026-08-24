@@ -621,6 +621,34 @@ describe("authority and convergence", () => {
     assert.equal(playerChange.body.snapshot.seats[1].counters.life, 37);
     assert.equal(playerChange.body.snapshot.version, claimed.body.snapshot.version + 2);
   });
+
+  test("records a last-player-standing winner and allows only the host to declare alternate wins", async () => {
+    const made = await room({ playerCount: 2 });
+    const playerConnection = await connection();
+    const claimed = await call(`/api/rooms/${made.snapshot.code}/claim`, {
+      method: "POST", connectionId: playerConnection, body: { seatId: 1, name: "Jace" },
+    });
+    const eliminated = await call(`/api/rooms/${made.snapshot.code}/adjust`, {
+      method: "POST", connectionId: playerConnection, body: { counter: "life", delta: -40 },
+    });
+    assert.deepEqual(eliminated.body.snapshot.gameResult, {
+      winnerSeatId: 0, reason: "last_player_standing", decidedAt: eliminated.body.snapshot.gameResult.decidedAt,
+    });
+    const reset = await call(`/api/rooms/${made.snapshot.code}/reset`, {
+      method: "POST", connectionId: made.connectionId, body: { baseVersion: eliminated.body.snapshot.version },
+    });
+    assert.equal(reset.body.snapshot.gameResult, null);
+    const denied = await call(`/api/rooms/${made.snapshot.code}/declare-winner`, {
+      method: "POST", connectionId: playerConnection, body: { baseVersion: reset.body.snapshot.version, winnerSeatId: 1 },
+    });
+    assert.equal(denied.status, 403);
+    const declared = await call(`/api/rooms/${made.snapshot.code}/declare-winner`, {
+      method: "POST", connectionId: made.connectionId, body: { baseVersion: reset.body.snapshot.version, winnerSeatId: 1 },
+    });
+    assert.equal(declared.status, 200);
+    assert.equal(declared.body.snapshot.gameResult.winnerSeatId, 1);
+    assert.equal(declared.body.snapshot.gameResult.reason, "declared_winner");
+  });
 });
 
 test("expired connections release transport ownership but preserve seat reservation", () => {

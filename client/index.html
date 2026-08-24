@@ -126,6 +126,7 @@
 
       <section id="podStrip" class="pod-strip" aria-label="Pod life totals"></section>
       <p id="coinTossNotice" class="coin-toss-notice" aria-live="polite" hidden></p>
+      <p id="victoryNotice" class="victory-notice" aria-live="polite" hidden></p>
       <section id="turnBanner" class="turn-banner" aria-live="polite">
         <p id="turnLabel">P1'S TURN</p>
         <strong id="turnPlayer">P1</strong>
@@ -176,6 +177,7 @@
 
       <aside id="gameMenu" class="game-menu" hidden>
         <button id="coinTossButton" type="button">Flip a coin</button>
+        <button id="declareWinnerButton" type="button">Declare winner</button>
         <button id="commanderSetupButton" type="button">My commanders: 1</button>
         <button id="backToSetupButton" type="button">Back to setup</button>
         <button id="resetButton" class="danger-text" type="button">Reset game</button>
@@ -267,6 +269,30 @@
     </form>
   </dialog>
 
-  <script type="module" src="app.js?v=19"></script>
+  <dialog id="victoryDialog" aria-labelledby="victoryTitle">
+    <form method="dialog">
+      <div class="dialog-mark victory-mark" aria-hidden="true">✦</div>
+      <p class="eyebrow">LAST PLAYER STANDING</p>
+      <h2 id="victoryTitle">Victory</h2>
+      <p id="victoryDetail">You are the last player standing.</p>
+      <button value="close" class="primary-action">Continue tracking</button>
+    </form>
+  </dialog>
+
+  <dialog id="declareWinnerDialog" aria-labelledby="declareWinnerTitle">
+    <form id="declareWinnerForm" method="dialog">
+      <h2 id="declareWinnerTitle">Declare winner</h2>
+      <p>Use this for an alternate win condition or any finish the counters cannot recognize.</p>
+      <label class="select-field">Winner
+        <select id="winnerSeat"></select>
+      </label>
+      <div class="dialog-actions">
+        <button value="cancel" class="secondary-action">Cancel</button>
+        <button value="confirm" class="primary-action">Celebrate winner</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="app.js?v=20"></script>
 </body>
 </html>

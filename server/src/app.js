@@ -150,6 +150,22 @@ function synchronizeCommanderState(room) {
   }
 }
 
+function seatIsEliminated(seat) {
+  return seat.counters.life <= 0
+    || seat.counters.poison >= 10
+    || Object.values(seat.commanderDamageReceived).some((damage) => damage >= 21);
+}
+
+function recordLastPlayerStanding(room, now) {
+  if (room.gameResult) return;
+  const claimedSeats = room.seats.filter((seat) => seat.claimed);
+  if (claimedSeats.length < 2) return;
+  const survivors = claimedSeats.filter((seat) => !seatIsEliminated(seat));
+  if (survivors.length === 1) {
+    room.gameResult = { winnerSeatId: survivors[0].seatId, reason: "last_player_standing", decidedAt: now };
+  }
+}
+
 export class RoomService {
   constructor({ now = () => Date.now(), roomTtlMs = 6 * 60 * 60 * 1000, connectionTtlMs = 90 * 1000 } = {}) {
     this.now = now;
@@ -221,6 +237,7 @@ export class RoomService {
       hostSeatId: 0,
       config: { playerCount, startingLife, roundLimitMinutes },
       lastCoinToss: null,
+      gameResult: null,
       turn: {
         activeSeatId: 0,
         gameStartedAt: startedAt,
@@ -251,6 +268,7 @@ export class RoomService {
       hostSeatId: room.hostSeatId,
       config: { ...room.config },
       lastCoinToss: room.lastCoinToss ? { ...room.lastCoinToss } : null,
+      gameResult: room.gameResult ? { ...room.gameResult } : null,
       turn: {
         activeSeatId: room.turn.activeSeatId,
         gameStartedAt: room.turn.gameStartedAt,
@@ -409,6 +427,7 @@ export class RoomService {
     seat.commanderCastCounts = nextCommanderCastCounts;
     seat.commanderCount = nextCommanderCount;
     synchronizeCommanderState(room);
+    recordLastPlayerStanding(room, this.now());
     room.version += 1;
     this.broadcast(room);
     return { snapshot: this.snapshot(room) };
@@ -435,6 +454,7 @@ export class RoomService {
       const minimum = counter === "life" ? -999 : 0;
       seat.counters[counter] = Math.max(minimum, Math.min(999, seat.counters[counter] + delta));
     }
+    recordLastPlayerStanding(room, this.now());
     room.version += 1;
     this.broadcast(room);
     return { snapshot: this.snapshot(room) };
@@ -457,6 +477,7 @@ export class RoomService {
       );
     }
     room.lastCoinToss = null;
+    room.gameResult = null;
     room.version += 1;
     this.broadcast(room);
     return { snapshot: this.snapshot(room) };
@@ -473,6 +494,21 @@ export class RoomService {
     // A toss is shared table utility information, not gameplay state. It is
     // broadcast without advancing the counter-write version, avoiding a
     // needless conflict with a simultaneous life update.
+    this.broadcast(room);
+    return { snapshot: this.snapshot(room) };
+  }
+
+  declareWinner(code, connectionId, input = {}) {
+    const room = this.room(code);
+    const { seatId } = this.requireOwner(room, connectionId);
+    if (seatId !== room.hostSeatId) throw Object.assign(new Error("Only the host seat may declare a winner"), { status: 403, code: "HOST_ONLY" });
+    if (input.baseVersion !== room.version) {
+      throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
+    }
+    const winnerSeatId = asInteger(input.winnerSeatId, "winnerSeatId", 0, room.config.playerCount - 1);
+    if (!room.seats[winnerSeatId].claimed) throw Object.assign(new Error("A winner must be a claimed seat"), { status: 400, code: "INVALID_INPUT" });
+    room.gameResult = { winnerSeatId, reason: "declared_winner", decidedAt: this.now() };
+    room.version += 1;
     this.broadcast(room);
     return { snapshot: this.snapshot(room) };
   }
@@ -615,6 +651,7 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "POST" && parts[3] === "adjust") return json(res, 200, service.adjustOwnSeat(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "reset") return json(res, 200, service.resetRoom(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "coin-toss") return json(res, 200, service.tossCoin(code, connectionId));
+        if (req.method === "POST" && parts[3] === "declare-winner") return json(res, 200, service.declareWinner(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "turn-handoff" && parts[4] === "undo") return json(res, 200, service.undoTurnHandoff(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "turn-handoff") return json(res, 200, service.handoffTurn(code, connectionId, await readJson(req)));
         if (req.method === "GET" && parts[3] === "events") {

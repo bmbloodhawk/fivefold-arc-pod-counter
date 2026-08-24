@@ -8,6 +8,7 @@ An installable phone-first web prototype for synced Commander pods. Each phone o
 - Connected rooms for 2–8 phones with opaque six-character join codes
 - Life, poison, commander damage, energy, storm, and generic counters
 - Shared active-turn flow: game-time or optional round countdown, player-driven End Turn, and a 15-second handoff undo
+- Shared Last Player Standing result, plus a host-only declared winner for alternate win conditions
 - Warning and lethal evaluation with commander > poison > life priority
 - Atomic seat claims, private reconnect tokens, conflict-safe live counter deltas, exact-version structural writes, and host-only reset
 - Disconnected shared controls pause; offline changes are not queued or replayed

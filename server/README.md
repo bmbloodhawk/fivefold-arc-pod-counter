@@ -30,6 +30,7 @@ This process is not itself a public deployment. A web host must run it behind HT
 - Commander source IDs are stable and seat-bound, such as `seat-1-commander-a`; they are not array positions. A defender never stores damage from their own commander source or sources.
 - Each claimed seat owns a cast count for each of its active commander source IDs. Counts start at `0`; the server derives the next additional commander tax as `castCount * 2`. Another seat cannot edit these counts, and clients cannot submit derived tax values.
 - Only the current owner of host seat 0 can reset the game. Reset zeros counters, commander damage, and commander cast counts without discarding commander setup, claims, or reconnect tokens.
+- When at least two seats are claimed and tracked counters leave one survivor, the server records a shared `last_player_standing` result. The host can declare a winner for alternate win conditions that counters cannot infer.
 - Every accepted claim, mutation, reset, disconnect expiry, or reconnect increments the room version. Writes require the exact `baseVersion`; a stale write gets `409 VERSION_CONFLICT` plus the current snapshot.
 - Routine live counter adjustments use a separate atomic delta endpoint, so simultaneous life/counter taps from different seats are applied against the newest server state instead of failing due to an old displayed total. Structural edits still use exact versions.
 - Only the active seat owner may hand off the turn. The server records the handoff timestamp and advances to the next table seat; only the player who handed off may undo it, for 15 seconds. Turn actions use exact versions and are broadcast over SSE.
@@ -158,6 +159,12 @@ For commander damage, send `counter: "commanderDamage"`, the defender-owned `com
 - `POST /api/rooms/:code/turn-handoff` with `{ "baseVersion": 8 }` ends the current owner's turn and advances the active table seat. The response includes the new authoritative snapshot.
 - `POST /api/rooms/:code/turn-handoff/undo` with `{ "baseVersion": 9 }` returns to the prior player only if the same player initiated the most recent handoff within 15 seconds.
 - Snapshots contain `turn.activeSeatId`, `gameStartedAt`, `turnStartedAt`, optional `roundEndsAt`, and the most recent `lastHandoff`. Clients calculate display time from these timestamps; no client controls turn advancement automatically.
+
+### Game result
+
+- A snapshot's optional `gameResult` contains `winnerSeatId`, `reason` (`last_player_standing` or `declared_winner`), and `decidedAt`.
+- `POST /api/rooms/:code/declare-winner` with `{ "baseVersion": 8, "winnerSeatId": 2 }` is host-only and records an alternate-win result for a claimed seat.
+- Reset clears the result. A recorded result does not lock counters, so the table may continue tracking until the host chooses to reset or return to setup.
 
 ### Errors and health
 
