@@ -321,6 +321,9 @@ function showCoinToss(toss, { dialog = false } = {}) {
   coinFlipTimer = setTimeout(() => advance(0), 400);
 }
 function renderPodStrip() {
+  // The strip is a table snapshot, not a second dashboard.  Let CSS use the
+  // player count to compact large pods without hiding their name or life.
+  dom.podStrip.dataset.playerCount = String(state.players.length);
   dom.podStrip.innerHTML = state.players.map(player => {
     const isWaiting = player.connectionStatus === 'waiting';
     const isOffline = player.connectionStatus === 'disconnected';
@@ -328,13 +331,15 @@ function renderPodStrip() {
     // last synced life total, reserving ? only for a seat that has never joined.
     const value = isWaiting ? '?' : player.eliminated ? '☠' : player.life;
     const marker = isWaiting ? 'WAITING' : isOffline ? 'OFFLINE' : player.eliminated ? 'ELIMINATED' : player.warning ? 'WARNING' : 'CONNECTED';
+    const stateClass = isWaiting ? 'waiting' : isOffline ? 'offline' : player.eliminated ? 'eliminated-state' : player.warning ? 'warning' : 'connected';
     const name = displayName(player); const tileName = `${name}${player.id === state.ownerPlayerId ? ' · YOU' : ''}`;
-    return `<button class="pod-seat ${player.id === state.activePlayerId ? 'active' : ''} ${player.id === state.turnSeatId ? 'turn-active' : ''} ${player.eliminated ? 'eliminated' : ''} ${isOffline ? 'disconnected' : ''}" data-seat="${player.id}" type="button" aria-label="${escapeHtml(`${displayPlayer(player)}, ${marker}, ${value}`)}"><span class="seat-name" title="${escapeHtml(displayPlayer(player))}">${escapeHtml(tileName)}</span><span class="seat-life">${value}</span><span class="seat-state">${marker}</span></button>`;
+    return `<button class="pod-seat ${player.id === state.activePlayerId ? 'active' : ''} ${player.id === state.turnSeatId ? 'turn-active' : ''} ${player.eliminated ? 'eliminated' : ''} ${isOffline ? 'disconnected' : ''}" data-seat="${player.id}" type="button" aria-label="${escapeHtml(`${displayPlayer(player)}, ${marker}, ${value}`)}"><span class="seat-name" title="${escapeHtml(displayPlayer(player))}">${escapeHtml(tileName)}</span><span class="seat-life">${value}</span><span class="seat-state ${stateClass}">${marker}</span></button>`;
   }).join('');
   $$('[data-seat]').forEach(button => button.addEventListener('click', () => { state.activePlayerId = button.dataset.seat; state.selectedSourceId = null; render(); }));
 }
 function renderSources(player) {
   dom.sourcePanel.hidden = state.mode !== 'commander'; if (dom.sourcePanel.hidden) return; const sources = sourcesForDefender(player.id); selectedSourceFor(player);
+  dom.sourcePanel.classList.toggle('source-panel-dense', sources.length > 4);
   dom.sourcePanel.innerHTML = sources.length ? sources.map(source => { const value = commanderValue(player, source.id); const severity = value >= 21 ? 'lethal' : value >= 18 ? 'near' : ''; const owner = source.commanderName ? `<strong>${escapeHtml(sourceOwnerLabel(source))}</strong><small>${escapeHtml(source.commanderName)}</small>` : `<strong>${escapeHtml(displaySource(source))}</strong>`; return `<button class="source-button ${source.id === state.selectedSourceId ? 'selected' : ''} ${severity}" data-source="${source.id}" type="button" aria-pressed="${source.id === state.selectedSourceId}">${owner}<span>${value}</span></button>`; }).join('') : '<p class="field-help">There are no opposing commanders to track for this seat.</p>';
   $$('[data-source]').forEach(button => button.addEventListener('click', () => { state.selectedSourceId = button.dataset.source; render(); }));
 }

@@ -92,11 +92,16 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .disconnect-banner > span { display: grid; place-items: center; flex: 0 0 28px; height: 28px; border: 2px solid var(--warning); border-radius: 50%; font-weight: 900; }
 .disconnect-banner p { margin: 0; color: var(--muted); font-size: .77rem; line-height: 1.35; }
 .disconnect-banner strong { color: var(--ink); }
-.pod-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin: 12px 0; }
-.pod-seat { position: relative; min-width: 0; min-height: 66px; padding: 7px 5px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); text-align: center; }
-.pod-seat .seat-name { display: block; color: var(--muted); font-size: .65rem; font-weight: 800; letter-spacing: .08em; }
-.pod-seat .seat-life { display: block; margin-top: 3px; font-family: Georgia, serif; font-size: 1.35rem; }
-.pod-seat .seat-state { display: block; font-size: .6rem; text-transform: uppercase; }
+.pod-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin: 10px 0; }
+.pod-seat { position: relative; min-width: 0; min-height: 58px; padding: 6px 5px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); text-align: center; }
+.pod-seat .seat-name { display: block; overflow: hidden; color: var(--ink); font-size: .68rem; font-weight: 800; letter-spacing: .04em; text-overflow: ellipsis; white-space: nowrap; }
+.pod-seat .seat-life { display: block; margin-top: 1px; font-family: Georgia, serif; font-size: 1.45rem; line-height: 1; }
+.pod-seat .seat-state { display: block; min-height: .8rem; margin-top: 2px; font-size: .58rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.pod-seat .seat-state.connected { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+.pod-seat .seat-state.offline, .pod-seat .seat-state.warning { color: var(--warning); }
+.pod-seat .seat-state.eliminated-state { color: var(--danger); }
+.pod-strip[data-player-count="5"] .pod-seat, .pod-strip[data-player-count="6"] .pod-seat, .pod-strip[data-player-count="7"] .pod-seat, .pod-strip[data-player-count="8"] .pod-seat { min-height: 52px; padding-block: 5px; }
+.pod-strip[data-player-count="5"] .seat-life, .pod-strip[data-player-count="6"] .seat-life, .pod-strip[data-player-count="7"] .seat-life, .pod-strip[data-player-count="8"] .seat-life { font-size: 1.3rem; }
 .pod-seat.active { border: 2px solid var(--brass); }
 .pod-seat.active::after { content: "ACTIVE"; position: absolute; top: -7px; right: 3px; padding: 1px 4px; background: var(--brass); color: #17120a; font-size: .48rem; font-weight: 900; }
 .pod-seat.eliminated { border-style: double; border-color: var(--danger); background: rgb(237 134 111 / .08); }
@@ -131,6 +136,7 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .status-message.lethal { color: var(--danger); }
 .lethal-mark { height: 32px; color: var(--danger); font-size: 2rem; }
 .source-panel { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin: -3px 0 13px; }
+.source-panel.source-panel-dense { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .source-button { min-height: 54px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
 .source-button strong, .source-button span { display: block; }
 .source-button strong { overflow: hidden; color: var(--muted); font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
@@ -194,6 +200,39 @@ dialog p { color: var(--muted); line-height: 1.5; }
 .commander-name-fields .select-field { margin: 0; }
 .source-button small { display: block; overflow: hidden; margin-top: 2px; color: var(--brass); font-size: .62rem; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
 .commander-tax-card-name { margin: 2px 0 0; color: var(--brass); font-size: .78rem; font-weight: 750; }
+@media (max-height: 700px) {
+  .brand-bar { min-height: 52px; padding-top: max(6px, env(safe-area-inset-top)); padding-bottom: 6px; }
+  .brand img { width: 28px; height: 28px; }
+  .brand small { display: none; }
+  .connection-pill { min-height: 36px; padding-inline: 8px; font-size: .7rem; }
+  .view { min-height: calc(100dvh - 52px); }
+  .game-shell { padding: 7px 12px calc(82px + env(safe-area-inset-bottom)); }
+  .game-topline { min-height: 38px; }
+  .pod-strip { gap: 5px; margin: 6px 0; }
+  .pod-seat, .pod-strip[data-player-count] .pod-seat { min-height: 44px; padding: 4px; }
+  .pod-seat .seat-name { font-size: .61rem; }
+  .pod-seat .seat-life, .pod-strip[data-player-count] .seat-life { font-size: 1.16rem; }
+  .pod-seat .seat-state { min-height: 0; margin-top: 0; font-size: .5rem; }
+  .turn-banner { padding: 5px 8px; }
+  .turn-actions { margin: 4px 0; }
+  .end-turn-button { min-height: 36px; padding: 6px 10px; font-size: .72rem; }
+  .counter-stage { min-height: 126px; padding: 5px 8px; }
+  .main-value { font-size: clamp(4.6rem, 22vw, 6.2rem); }
+  .counter-context { margin-top: 3px; }
+  .adjust-controls { gap: 6px; }
+  .adjust-controls button { min-height: 46px; }
+  .adjust-controls span { font-size: 1.35rem; }
+  .custom-life-button { min-height: 32px; margin-top: 4px; font-size: .76rem; }
+  .commander-tax-quick { margin-top: 6px; }
+  .commander-tax-quick button { min-height: 44px; padding: 5px 9px; }
+  .commander-tax-quick-values { gap: 4px; }
+  .commander-tax-quick-value { min-width: 46px; padding: 2px 5px; }
+  .mode-nav { padding-top: 3px; padding-bottom: calc(3px + env(safe-area-inset-bottom)); }
+  .mode-nav button > span { font-size: 1rem; }
+  .mode-nav small { font-size: .54rem; }
+  .source-panel.source-panel-dense { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .source-button { min-height: 48px; }
+}
 @media (min-width: 600px) {
   .setup-shell { padding-inline: 56px; }
   .game-shell { padding-inline: 24px; }
