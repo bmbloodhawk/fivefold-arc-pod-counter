@@ -125,7 +125,7 @@ function createCommanderIdentityLookup(fetchImpl = fetch) {
     if (!name) throw Object.assign(new Error("A commander name is required"), { status: 400, code: "INVALID_INPUT" });
     const cached = cache.get(name.toLocaleLowerCase());
     if (cached && cached.expiresAt > Date.now()) return cached.value;
-    const response = await fetchImpl(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`, { headers: { accept: "application/json", "user-agent": "Fivefold Arc Pod Counter/0.1 (commander identity lookup)" } });
+    const response = await fetchImpl(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(name)}`, { headers: { accept: "application/json", "user-agent": "Fivefold Arc Pod Counter/0.1 (commander identity lookup)" } });
     if (response.status === 404) throw Object.assign(new Error("Commander not found. Check the spelling and try again."), { status: 404, code: "COMMANDER_NOT_FOUND" });
     if (!response.ok) throw Object.assign(new Error("Commander lookup is temporarily unavailable. You can still start without a color identity."), { status: 503, code: "COMMANDER_LOOKUP_UNAVAILABLE" });
     const card = await response.json();
