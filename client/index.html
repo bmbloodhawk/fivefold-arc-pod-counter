@@ -188,6 +188,7 @@
 
       <aside id="gameMenu" class="game-menu" hidden>
         <button id="coinTossButton" type="button">Flip a coin</button>
+        <button id="deckAccentButton" type="button">Deck color accents: on</button>
         <button id="declareWinnerButton" type="button">Declare winner</button>
         <button id="commanderSetupButton" type="button">My commanders: 1</button>
         <button id="backToSetupButton" type="button">Back to setup</button>
@@ -252,7 +253,6 @@
           <label><input type="radio" name="direction" value="subtract"><span>Subtract −X</span></label>
         </div>
       </fieldset>
-      <div id="gameCommanderNames" class="commander-name-fields"></div>
       <div class="dialog-actions">
         <button value="cancel" class="secondary-action">Cancel</button>
         <button value="confirm" class="primary-action">Apply life change</button>
@@ -271,6 +271,7 @@
           <label><input type="radio" name="gameCommanderCount" value="2"><span>2 commanders</span></label>
         </div>
       </fieldset>
+      <div id="gameCommanderNames" class="commander-name-fields"></div>
       <div class="dialog-actions">
         <button value="cancel" class="secondary-action">Cancel</button>
         <button id="saveCommanderCountButton" value="confirm" class="primary-action">Update table</button>
@@ -315,6 +316,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="app.js?v=24"></script>
+  <script type="module" src="app.js?v=25"></script>
 </body>
 </html>
