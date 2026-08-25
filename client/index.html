@@ -110,7 +110,6 @@
           <small class="field-help">This updates the commander sources for everyone in the pod.</small>
         </fieldset>
         <div id="joinCommanderNames" class="commander-name-fields"></div>
-        <div class="notice"><span aria-hidden="true">⌁</span><p><strong>Shared play requires the pod server.</strong><br>It uses this page’s address by default. A test API can be selected with <code>?api=https://…</code>.</p></div>
         <button class="primary-action" type="submit">Connect to pod</button>
         <button id="joinDemoButton" class="secondary-action" type="button">Preview join locally</button>
       </form>
@@ -190,7 +189,7 @@
         <button id="coinTossButton" type="button">Flip a coin</button>
         <button id="deckAccentButton" type="button">Deck color accents: on</button>
         <button id="declareWinnerButton" type="button">Declare winner</button>
-        <button id="commanderSetupButton" type="button">My commanders: 1</button>
+        <button id="commanderSetupButton" type="button">My commander setup</button>
         <button id="backToSetupButton" type="button">Back to setup</button>
         <button id="resetButton" class="danger-text" type="button">Reset game</button>
       </aside>
@@ -262,8 +261,8 @@
 
   <dialog id="commanderCountDialog">
     <form id="commanderCountForm" method="dialog">
-      <h2>My commanders</h2>
-      <p id="commanderCountDetail">Choose the commander count for your seat.</p>
+      <h2>My commander setup</h2>
+      <p id="commanderCountDetail">Change your commander names and deck colors for this pod. Your current game and seat stay in place.</p>
       <fieldset class="choice-field">
         <legend class="sr-only">Commander count</legend>
         <div class="segmented commander-count-choice" role="radiogroup" aria-label="Commander count">
@@ -274,7 +273,7 @@
       <div id="gameCommanderNames" class="commander-name-fields"></div>
       <div class="dialog-actions">
         <button value="cancel" class="secondary-action">Cancel</button>
-        <button id="saveCommanderCountButton" value="confirm" class="primary-action">Update table</button>
+        <button id="saveCommanderCountButton" value="confirm" class="primary-action">Update this pod</button>
       </div>
     </form>
   </dialog>
@@ -316,6 +315,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="app.js?v=26"></script>
+  <script type="module" src="app.js?v=27"></script>
 </body>
 </html>
