@@ -73,8 +73,9 @@
           </div>
           <small class="field-help">Commander damage is labeled by the player who owns that commander.</small>
         </fieldset>
+        <div id="createCommanderNames" class="commander-name-fields"></div>
         <label class="toggle-field">
-          <input id="localSimulation" type="checkbox" checked>
+          <input id="localSimulation" type="checkbox">
           <span><strong>Local simulation</strong><small>Switch active seats on one phone for testing.</small></span>
         </label>
         <button class="primary-action" type="submit">Start game</button>
@@ -108,6 +109,7 @@
           </div>
           <small class="field-help">This updates the commander sources for everyone in the pod.</small>
         </fieldset>
+        <div id="joinCommanderNames" class="commander-name-fields"></div>
         <div class="notice"><span aria-hidden="true">⌁</span><p><strong>Shared play requires the pod server.</strong><br>It uses this page’s address by default. A test API can be selected with <code>?api=https://…</code>.</p></div>
         <button class="primary-action" type="submit">Connect to pod</button>
         <button id="joinDemoButton" class="secondary-action" type="button">Preview join locally</button>
@@ -250,6 +252,7 @@
           <label><input type="radio" name="direction" value="subtract"><span>Subtract −X</span></label>
         </div>
       </fieldset>
+      <div id="gameCommanderNames" class="commander-name-fields"></div>
       <div class="dialog-actions">
         <button value="cancel" class="secondary-action">Cancel</button>
         <button value="confirm" class="primary-action">Apply life change</button>
@@ -312,6 +315,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="app.js?v=23"></script>
+  <script type="module" src="app.js?v=24"></script>
 </body>
 </html>

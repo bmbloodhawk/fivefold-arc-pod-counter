@@ -90,6 +90,23 @@ describe("room configuration and claims", () => {
     assert.equal(bad.body.error.code, "INVALID_INPUT");
   });
 
+  test("shares optional commander card names while retaining stable commander source IDs", async () => {
+    const made = await room({ commanderCount: 2, commanderNames: ["Thrasios, Triton Hero", "Tymna the Weaver"] });
+    assert.deepEqual(made.snapshot.seats[0].commanderNames, ["Thrasios, Triton Hero", "Tymna the Weaver"]);
+    assert.deepEqual(made.snapshot.commanderSources, [
+      { id: "seat-0-commander-a", label: "Thrasios, Triton Hero", commanderName: "Thrasios, Triton Hero", ownerSeatId: 0 },
+      { id: "seat-0-commander-b", label: "Tymna the Weaver", commanderName: "Tymna the Weaver", ownerSeatId: 0 },
+    ]);
+    const renamed = await call(`/api/rooms/${made.snapshot.code}/me`, {
+      method: "PATCH", connectionId: made.connectionId,
+      body: { baseVersion: made.snapshot.version, commanderCount: 1, commanderNames: ["Thrasios, Triton Hero"] },
+    });
+    assert.equal(renamed.status, 200);
+    assert.deepEqual(renamed.body.snapshot.commanderSources, [
+      { id: "seat-0-commander-a", label: "Thrasios, Triton Hero", commanderName: "Thrasios, Triton Hero", ownerSeatId: 0 },
+    ]);
+  });
+
   test("normalizes short display names while preserving P# fallbacks and stable source IDs", async () => {
     const made = await room({ name: "  E\u0301owyn \n Forge  ", commanderCount: 2 });
     assert.equal(made.snapshot.seats[0].name, "Éowyn Forge");

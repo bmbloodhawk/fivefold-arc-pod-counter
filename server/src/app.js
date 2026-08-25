@@ -100,6 +100,21 @@ function normalizeCommanderCount(value, fallback = 1) {
   return asInteger(value, "commanderCount", 1, 2);
 }
 
+function normalizeCommanderNames(value, commanderCount, fallback = []) {
+  if (value === undefined) return Array.from({ length: commanderCount }, (_, slot) => fallback[slot] || "");
+  if (!Array.isArray(value) || value.length !== commanderCount) {
+    throw Object.assign(new Error("commanderNames must contain one name for each commander"), { status: 400, code: "INVALID_INPUT" });
+  }
+  return value.map((candidate) => {
+    if (typeof candidate !== "string") throw Object.assign(new Error("commander names must be text"), { status: 400, code: "INVALID_INPUT" });
+    const name = candidate.normalize("NFC").trim().replace(/\s+/gu, " ");
+    if (Array.from(name).length > 60 || /[\p{Cc}\p{Cf}]/u.test(name)) {
+      throw Object.assign(new Error("commander names may contain up to 60 printable characters"), { status: 400, code: "INVALID_INPUT" });
+    }
+    return name;
+  });
+}
+
 function normalizeRoundLimitMinutes(value) {
   if (value === undefined || value === null || value === "") return null;
   return asInteger(value, "roundLimitMinutes", 1, 999);
@@ -118,11 +133,15 @@ function commanderSources(room) {
   return room.seats.flatMap((seat) => {
     if (!seat.claimed) return [];
     const playerLabel = seat.name;
-    return Array.from({ length: seat.commanderCount }, (_, slot) => ({
-      id: commanderSourceId(seat.seatId, slot),
-      label: seat.commanderCount === 1 ? playerLabel : `${playerLabel} ${slot === 0 ? "A" : "B"}`,
-      ownerSeatId: seat.seatId,
-    }));
+    return Array.from({ length: seat.commanderCount }, (_, slot) => {
+      const commanderName = seat.commanderNames[slot] || "";
+      return {
+        id: commanderSourceId(seat.seatId, slot),
+        label: commanderName || (seat.commanderCount === 1 ? playerLabel : `${playerLabel} ${slot === 0 ? "A" : "B"}`),
+        ...(commanderName ? { commanderName } : {}),
+        ownerSeatId: seat.seatId,
+      };
+    });
   });
 }
 
@@ -238,6 +257,7 @@ export class RoomService {
     const startingLife = asInteger(input.startingLife, "startingLife", 20, 40);
     if (![20, 30, 40].includes(startingLife)) throw Object.assign(new Error("startingLife must be 20, 30, or 40"), { status: 400, code: "INVALID_INPUT" });
     const commanderCount = normalizeCommanderCount(input.commanderCount);
+    const commanderNames = normalizeCommanderNames(input.commanderNames, commanderCount);
     const roundLimitMinutes = normalizeRoundLimitMinutes(input.roundLimitMinutes);
     const startedAt = this.now();
     const code = this.makeJoinCode();
@@ -249,6 +269,7 @@ export class RoomService {
       ownerConnectionId: seatId === 0 ? connectionId : null,
       tokenHash: seatId === 0 ? tokenHash(reclaimToken) : null,
       commanderCount: seatId === 0 ? commanderCount : 1,
+      commanderNames: seatId === 0 ? commanderNames : [""],
       counters: { life: startingLife, poison: 0, energy: 0, storm: 0, generic: 0 },
       commanderDamageReceived: {},
       commanderCastCounts: {},
@@ -313,12 +334,13 @@ export class RoomService {
         lastHandoff: room.turn.lastHandoff ? { ...room.turn.lastHandoff } : null,
       },
       commanderSources: sources,
-      seats: room.seats.map(({ seatId, name, claimed, ownerConnectionId, commanderCount, counters, commanderDamageReceived, commanderCastCounts }) => ({
+      seats: room.seats.map(({ seatId, name, claimed, ownerConnectionId, commanderCount, commanderNames, counters, commanderDamageReceived, commanderCastCounts }) => ({
         seatId,
         name,
         claimed,
         connected: Boolean(ownerConnectionId),
         commanderCount,
+        commanderNames: [...commanderNames],
         counters: { ...counters },
         commanderDamageReceived: { ...commanderDamageReceived },
         commanderCastCounts: { ...commanderCastCounts },
@@ -342,11 +364,13 @@ export class RoomService {
     if (!seat.claimed) {
       const name = normalizeName(input.name, seat.name);
       const commanderCount = normalizeCommanderCount(input.commanderCount);
+      const commanderNames = normalizeCommanderNames(input.commanderNames, commanderCount);
       reclaimToken = opaque(32);
       seat.claimed = true;
       seat.tokenHash = tokenHash(reclaimToken);
       seat.name = name;
       seat.commanderCount = commanderCount;
+      seat.commanderNames = commanderNames;
     } else {
       if (!tokenMatches(reclaimToken, seat.tokenHash)) {
         throw Object.assign(new Error("That seat is reserved; its reclaim token is required"), { status: 403, code: "SEAT_RESERVED" });
@@ -359,6 +383,7 @@ export class RoomService {
           snapshot: this.snapshot(room),
         });
       }
+      if (input.commanderNames !== undefined) seat.commanderNames = normalizeCommanderNames(input.commanderNames, seat.commanderCount, seat.commanderNames);
       seat.name = name;
       if (seat.ownerConnectionId && seat.ownerConnectionId !== connectionId) {
         const oldConnection = this.connections.get(seat.ownerConnectionId);
@@ -430,6 +455,8 @@ export class RoomService {
     }
     const hasCommanderCount = input.commanderCount !== undefined;
     const nextCommanderCount = normalizeCommanderCount(input.commanderCount, seat.commanderCount);
+    const hasCommanderNames = input.commanderNames !== undefined;
+    const nextCommanderNames = normalizeCommanderNames(input.commanderNames, nextCommanderCount, seat.commanderNames);
     const hasName = input.name !== undefined;
     const nextName = normalizeName(input.name, seat.name);
     const commanderCastCounts = input.commanderCastCounts === undefined ? {} : input.commanderCastCounts;
@@ -454,7 +481,7 @@ export class RoomService {
       }
       nextCommanderCastCounts[sourceId] = asInteger(value, `commanderCastCounts.${sourceId}`, 0, 999);
     }
-    if (Object.keys(counters).length === 0 && Object.keys(commander).length === 0 && Object.keys(commanderCastCounts).length === 0 && !hasCommanderCount && !hasName) {
+    if (Object.keys(counters).length === 0 && Object.keys(commander).length === 0 && Object.keys(commanderCastCounts).length === 0 && !hasCommanderCount && !hasCommanderNames && !hasName) {
       throw Object.assign(new Error("Mutation contains no changes"), { status: 400, code: "INVALID_INPUT" });
     }
     seat.name = nextName;
@@ -462,6 +489,7 @@ export class RoomService {
     seat.commanderDamageReceived = nextCommander;
     seat.commanderCastCounts = nextCommanderCastCounts;
     seat.commanderCount = nextCommanderCount;
+    seat.commanderNames = nextCommanderNames;
     synchronizeCommanderState(room);
     recordLastPlayerStanding(room, this.now());
     room.version += 1;

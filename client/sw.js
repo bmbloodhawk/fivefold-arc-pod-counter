@@ -1,5 +1,5 @@
-const CACHE = 'fivefold-arc-v23';
-const APP_SHELL = ['./', './index.html', './styles.css', './app.js?v=23', './realtime.js?v=23', './manifest.webmanifest', './icons/arc-mark.svg'];
+const CACHE = 'fivefold-arc-v24';
+const APP_SHELL = ['./', './index.html', './styles.css', './app.js?v=24', './realtime.js?v=24', './manifest.webmanifest', './icons/arc-mark.svg'];
 
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(APP_SHELL))));
 self.addEventListener('activate', event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key))))));

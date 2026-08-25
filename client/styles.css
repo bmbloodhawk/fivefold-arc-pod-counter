@@ -189,6 +189,11 @@ dialog p { color: var(--muted); line-height: 1.5; }
 .commander-tax-cast:disabled, .commander-tax-undo:disabled { opacity: .45; cursor: not-allowed; }
 .commander-tax-read-only { margin: 0; color: var(--muted); font-size: .78rem; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
 .commander-tax-close { grid-template-columns: 1fr; }
+.commander-name-fields { display: grid; gap: 8px; }
+.commander-name-fields[hidden] { display: none; }
+.commander-name-fields .select-field { margin: 0; }
+.source-button small { display: block; overflow: hidden; margin-top: 2px; color: var(--brass); font-size: .62rem; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.commander-tax-card-name { margin: 2px 0 0; color: var(--brass); font-size: .78rem; font-weight: 750; }
 @media (min-width: 600px) {
   .setup-shell { padding-inline: 56px; }
   .game-shell { padding-inline: 24px; }
