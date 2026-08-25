@@ -1,4 +1,4 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=43';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=49';
 
 const MODES = ['life', 'poison', 'commander', 'energy', 'storm', 'generic'];
 const IDENTITY_ORDER = ['W', 'U', 'B', 'R', 'G'];
@@ -240,15 +240,16 @@ function renderLifeChange(player) {
   dom.lifeChangeIndicator.hidden = !visible;
   if (!visible) return;
   const sign = lifeChange.delta > 0 ? '+' : '−';
-  dom.lifeChangeIndicator.textContent = `LAST LIFE CHANGE ${sign}${Math.abs(lifeChange.delta)}`;
+  dom.lifeChangeIndicator.textContent = `${sign}${Math.abs(lifeChange.delta)} LIFE · ${lifeChange.from} → ${lifeChange.to}`;
   dom.lifeChangeIndicator.classList.toggle('negative', lifeChange.delta < 0);
 }
-function showLifeChange(playerId, delta) {
+function showLifeChange(playerId, delta, from, to) {
   if (!delta) return;
   // Keep one rolling confirmation while a player is entering a burst of life
   // changes. The total resets only after four quiet seconds or a seat switch.
-  const priorDelta = lifeChange?.playerId === playerId ? lifeChange.delta : 0;
-  lifeChange = { playerId, delta: priorDelta + delta };
+  const prior = lifeChange?.playerId === playerId && Math.sign(lifeChange.delta) === Math.sign(delta) ? lifeChange : null;
+  const start = prior?.from ?? from;
+  lifeChange = { playerId, from: start, to, delta: to - start };
   clearTimeout(lifeChangeTimer);
   lifeChangeTimer = setTimeout(() => { lifeChange = null; if (state) render(); }, 4000);
   if (state) render();
@@ -374,15 +375,15 @@ function commanderTaxPlayer() { return activePlayer(); }
 function commanderTaxEnabled() { return transport.status === 'local' || transport.status === 'connected'; }
 function renderCommanderTaxQuick(player, inspectingSharedSeat) {
   if (!dom.commanderTaxQuickButton) return;
-  const sources = ownCommanderSources(player.id); const isPartnerPair = sources.length === 2;
-  const title = inspectingSharedSeat ? `View ${displayName(player)} tax` : `${displayName(player)} commander${isPartnerPair ? 's' : ''}`;
+  const sources = ownCommanderSources(player.id);
+  const title = inspectingSharedSeat ? `View ${displayName(player)} tax` : 'My commander tax';
+  const names = sources.map(source => displaySource(source)).join(' · ') || displayName(player);
   const values = sources.map(source => {
     const tax = (state.commanderCastCounts[source.id] || 0) * 2;
-    const label = isPartnerPair ? source.slot || 'A' : 'Tax';
-    return `<span class="commander-tax-quick-value"><strong>${escapeHtml(label)}</strong><span>+${tax}</span></span>`;
-  }).join('') || '<span class="commander-tax-quick-value"><strong>TAX</strong><span>+0</span></span>';
-  const accessibleValues = sources.map(source => `${isPartnerPair ? `commander ${source.slot || 'A'}` : 'commander'} current tax +${(state.commanderCastCounts[source.id] || 0) * 2}`).join(', ') || 'current tax +0';
-  dom.commanderTaxQuickButton.innerHTML = `<span class="commander-tax-quick-title">${escapeHtml(title)}</span><span class="commander-tax-quick-values">${values}</span>`;
+    return `<span class="commander-tax-quick-value"><strong>${escapeHtml(source.slot || 'A')}</strong><span>+${tax}</span></span>`;
+  }).join('') || '<span class="commander-tax-quick-value"><strong>A</strong><span>+0</span></span>';
+  const accessibleValues = sources.map(source => `${displaySource(source)} current tax +${(state.commanderCastCounts[source.id] || 0) * 2}`).join(', ') || 'current tax +0';
+  dom.commanderTaxQuickButton.innerHTML = `<span class="commander-tax-quick-title">${escapeHtml(title)}</span><span class="commander-tax-quick-name">${escapeHtml(names)}</span><span class="commander-tax-quick-values">${values}</span>`;
   dom.commanderTaxQuickButton.setAttribute('aria-label', `${displayPlayer(player)} ${accessibleValues}${inspectingSharedSeat ? ', read only' : ''}. Open commander tax.`);
 }
 function canReturnToSetup() { return Boolean(state?.localSimulation || transport.seatId === state?.hostSeatId); }
@@ -410,17 +411,18 @@ async function adjust(delta) {
   // source and apply the exact inverse change to the defender's life total.
   const commanderDelta = state.mode === 'commander' ? next - previous : 0;
   const lifeDelta = state.mode === 'commander' ? -commanderDelta : state.mode === 'life' ? delta : 0;
+  const lifeBefore = player.life; const lifeAfter = lifeBefore + lifeDelta;
   if (state.mode === 'commander' && commanderDelta === 0) return;
   if (transport.status === 'local') {
     if (state.mode === 'commander') { player.commanderDamage[source.id] = next; player.life += lifeDelta; }
     else player[target] = next;
-    if (lifeDelta) showLifeChange(player.id, lifeDelta);
+    if (lifeDelta) showLifeChange(player.id, lifeDelta, lifeBefore, lifeAfter);
     render(); return;
   }
   $$('[data-delta]').forEach(button => { button.disabled = true; });
   try {
     const result = await transport.adjust({ counter: target, delta, ...(state.mode === 'commander' ? { commanderSourceId: source.id } : {}) });
-    if (lifeDelta && !result.blocked && !result.ignored) showLifeChange(player.id, lifeDelta);
+    if (lifeDelta && !result.blocked && !result.ignored) showLifeChange(player.id, lifeDelta, lifeBefore, lifeAfter);
   } catch (error) { renderConnection('disconnected'); showError(error); }
 }
 function remapLocalDamage(previousSources, nextSources) {
@@ -527,7 +529,7 @@ function returnToSetup() {
   closeGameOverlays(); clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); clearTimeout(startingRollTimer); clearInterval(turnTicker); dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); showView(dom.create); state = null; transport.clearSession();
 }
 function renderConnection(status = transport.status) {
-  const labels = { local: 'Local simulation', connected: 'Pod connected', waiting: 'Connecting…', disconnected: 'Disconnected' }; dom.connectionButton.dataset.state = status; dom.connectionText.textContent = labels[status] || status; dom.disconnectBanner.hidden = status !== 'disconnected';
+  const labels = { local: 'Local', connected: 'Connected', waiting: 'Connecting…', disconnected: 'Disconnected' }; dom.connectionButton.dataset.state = status; dom.connectionText.textContent = labels[status] || status; dom.disconnectBanner.hidden = status !== 'disconnected';
   dom.connectionDetail.textContent = status === 'local' ? 'This game is running entirely on this phone. Nothing is uploaded.' : status === 'connected' ? `Connected to shared pod ${state?.podCode || ''}. This phone controls ${state?.ownerPlayerId || 'its assigned seat'}. API: ${transport.apiBase}` : `The shared pod is not connected. Counter changes are paused to prevent conflicting table state. API: ${transport.apiBase}`; if (state && !dom.game.hidden) render();
 }
 function saveLocal() { if (!state || !state.localSimulation) return; try { localStorage.setItem('fivefold-arc-test-state', JSON.stringify(state)); } catch { /* storage is optional */ } }
@@ -545,6 +547,7 @@ dom.customLifeForm.addEventListener('submit', event => { if (event.submitter?.va
 dom.endTurnButton.addEventListener('click', handoffTurn); dom.undoTurnButton.addEventListener('click', undoTurnHandoff);
 dom.chooseFirstButton.addEventListener('click', () => chooseStartingPlayer(Number(dom.startingSeat.value))); dom.randomFirstButton.addEventListener('click', () => chooseStartingPlayer()); dom.startGameButton.addEventListener('click', startGame);
 dom.moreButton.addEventListener('click', () => { dom.gameMenu.hidden = !dom.gameMenu.hidden; dom.moreButton.setAttribute('aria-expanded', String(!dom.gameMenu.hidden)); }); dom.coinTossButton.addEventListener('click', () => { dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); tossCoin(); }); dom.declareWinnerButton.addEventListener('click', openDeclareWinner); dom.tossAgainButton.addEventListener('click', () => tossCoin()); $('#resetButton').addEventListener('click', () => { dom.gameMenu.hidden = true; dom.resetDialog.showModal(); }); $('#confirmResetButton').addEventListener('click', resetGame);
+$('#closeGameMenuButton').addEventListener('click', () => { dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); });
 dom.commanderSetupButton.addEventListener('click', () => { dom.gameMenu.hidden = true; const player = state.localSimulation ? activePlayer() : state.players.find(item => item.id === state.ownerPlayerId); dom.commanderCountDetail.textContent = state.localSimulation ? `Local simulation: change ${displayName(player)}'s commander details.` : `Change your commander names and color identity for this pod. Your current game and seat stay in place.`; $(`input[name="gameCommanderCount"][value="${player.commanderCount}"]`).checked = true; renderCommanderNameFields(dom.gameCommanderNames, player.commanderCount, player.commanderNames, player.commanderColors); dom.commanderCountDialog.showModal(); });
 dom.commanderTaxQuickButton?.addEventListener('click', () => { renderCommanderTaxDialog(); dom.commanderTaxDialog.showModal(); });
 dom.backToSetupButton?.addEventListener('click', returnToSetup);

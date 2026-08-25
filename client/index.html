@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=44">
+  <link rel="stylesheet" href="styles.css?v=49">
 </head>
 <body>
   <header class="brand-bar">
@@ -137,20 +137,16 @@
         <button id="randomFirstButton" class="secondary-action" type="button">Roll d20 for first player</button>
         <button id="startGameButton" class="primary-action" type="button">Start game</button>
       </section>
-      <section id="turnBanner" class="turn-banner" aria-live="polite">
-        <p id="turnLabel">P1'S TURN</p>
-        <strong id="turnPlayer">P1</strong>
-        <span id="turnElapsed">TURN 0:00</span>
-        <span id="gameTimer">GAME TIME 0:00</span>
-      </section>
-      <section id="turnActions" class="turn-actions" aria-label="Turn controls">
-        <button id="endTurnButton" class="end-turn-button" type="button">End turn → Next player</button>
-        <button id="undoTurnButton" class="undo-turn-button" type="button" hidden>Undo handoff</button>
-        <p id="turnActionDetail" class="turn-action-detail">Only the active player can end the turn.</p>
-      </section>
-
       <div class="counter-stage" aria-live="polite">
         <p id="modeTitle" class="counter-mode">LIFE</p>
+        <div class="counter-sigil" aria-hidden="true">
+          <svg viewBox="0 0 100 100" focusable="false">
+            <circle cx="50" cy="50" r="45"></circle>
+            <circle cx="50" cy="50" r="39"></circle>
+            <path d="M50 11 73 82 14 38H86L27 82Z"></path>
+            <circle cx="50" cy="50" r="7"></circle>
+          </svg>
+        </div>
         <div id="lethalMark" class="lethal-mark" hidden><span aria-hidden="true">☠</span><span class="sr-only">Eliminated</span></div>
         <output id="mainValue" class="main-value">40</output>
         <output id="lifeChangeIndicator" class="life-change-indicator" aria-live="polite" hidden></output>
@@ -172,20 +168,31 @@
       <div id="quickClearWrap" class="quick-clear" hidden><button id="quickClearButton" type="button">Clear storm to 0</button></div>
 
       <nav id="modeNav" class="mode-nav" aria-label="Counter mode">
-        <button type="button" data-mode="life"><span aria-hidden="true">♥</span><small>Life</small></button>
-        <button type="button" data-mode="poison"><span aria-hidden="true">◆</span><small>Poison</small></button>
-        <button type="button" data-mode="commander"><span aria-hidden="true">♜</span><small>Commander</small></button>
-        <button type="button" data-mode="energy"><span aria-hidden="true">ϟ</span><small>Energy</small></button>
-        <button type="button" data-mode="storm"><span aria-hidden="true">↯</span><small>Storm</small></button>
-        <button type="button" data-mode="generic"><span aria-hidden="true">◇</span><small>Generic</small></button>
+        <button type="button" data-mode="life"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 20.3 4.7 13C1 9.3 3.2 4 7.5 4c2 0 3.5 1.1 4.5 2.4C13 5.1 14.5 4 16.5 4 20.8 4 23 9.3 19.3 13Z"/></svg><small>Life</small></button>
+        <button type="button" data-mode="poison"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 15.5C3.3 13.7 3 10.8 3 9a9 9 0 0 1 18 0c0 1.8-.3 4.7-3 6.5V20h-3v-3h-2v3h-2v-3H9v3H6Z"/><circle cx="8.5" cy="10" r="1.6"/><circle cx="15.5" cy="10" r="1.6"/></svg><small>Poison</small></button>
+        <button type="button" data-mode="commander"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 2 20 6v6c0 5.2-3.4 8.2-8 10-4.6-1.8-8-4.8-8-10V6Z"/><path d="M12 5v13M8 8l4-3 4 3"/></svg><small>Commander</small></button>
+        <button type="button" data-mode="energy"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14 2-9 12h7l-2 8 9-12h-7Z"/></svg><small>Energy</small></button>
+        <button type="button" data-mode="storm"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M19 7c-3.5-3-10.8-2.4-12.8 2.1-1.8 4 2.1 7.2 6.1 6.2 3.1-.8 3.7-4.7.9-5.8-2.1-.8-3.8 1.6-2.4 3.1"/><path d="M5 19c3.2 1.6 8.1 1.4 11-.7"/></svg><small>Storm</small></button>
+        <button type="button" data-mode="generic"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m12 2 8 4.5v10L12 21l-8-4.5v-10Z"/><path d="m4 6.5 8 4.5 8-4.5M12 11v10"/></svg><small>Generic</small></button>
       </nav>
 
-      <div id="activeSeatBar" class="active-seat-bar">
-        <label for="activeSeat">Simulated active seat</label>
-        <select id="activeSeat"></select>
-      </div>
-
       <aside id="gameMenu" class="game-menu" hidden>
+        <button id="closeGameMenuButton" class="menu-close" type="button">Close menu <span aria-hidden="true">×</span></button>
+        <section id="turnBanner" class="turn-banner" aria-live="polite">
+          <p id="turnLabel">P1'S TURN</p>
+          <strong id="turnPlayer">P1</strong>
+          <span id="turnElapsed">TURN 0:00</span>
+          <span id="gameTimer">GAME TIME 0:00</span>
+        </section>
+        <section id="turnActions" class="turn-actions" aria-label="Turn controls">
+          <button id="endTurnButton" class="end-turn-button" type="button">End turn → Next player</button>
+          <button id="undoTurnButton" class="undo-turn-button" type="button" hidden>Undo handoff</button>
+          <p id="turnActionDetail" class="turn-action-detail">Only the active player can end the turn.</p>
+        </section>
+        <div id="activeSeatBar" class="active-seat-bar">
+          <label for="activeSeat">Simulated active seat</label>
+          <select id="activeSeat"></select>
+        </div>
         <button id="coinTossButton" type="button">Flip a coin</button>
         <button id="declareWinnerButton" type="button">Declare winner</button>
         <button id="commanderSetupButton" type="button">My commander setup</button>
@@ -314,6 +321,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="app.js?v=44"></script>
+  <script type="module" src="app.js?v=49"></script>
 </body>
 </html>

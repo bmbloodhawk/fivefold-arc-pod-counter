@@ -312,3 +312,54 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
 .custom-life-button { min-height: 78px; margin-top: 14px; border-color: #756649; border-radius: 8px; background: linear-gradient(135deg, #24231f, #101010); font-size: 1.1rem; letter-spacing: .13em; text-transform: uppercase; }.commander-tax-quick button { min-height: 102px; border-color: #756649; border-radius: 8px; background: linear-gradient(135deg, #24231f, #101010); }.commander-tax-quick-title { font-size: 1.1rem; letter-spacing: .13em; text-transform: uppercase; }
 .mode-nav { width: min(100%, 860px); padding-top: 12px; background: rgb(15 15 15 / .98); box-shadow: 0 -1px rgb(255 255 255 / .045); }.mode-nav button { min-height: 90px; border-left: 1px solid #292825; border-top: 3px solid transparent; }.mode-nav button:first-child { border-left: 0; }.mode-nav button > span { font-size: 2rem; }.mode-nav small { margin-top: 4px; color: #bcb4a8; font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }.mode-nav button.active { border-top-color: #e0bd78; color: #e0bd78; }.mode-nav button.active small { color: #e0bd78; }
 @media (max-width: 520px) { .brand-bar { min-height: 82px; padding: max(12px, env(safe-area-inset-top)) 17px 12px; }.brand span { gap: 9px; }.brand strong { font-size: 1.35rem; }.connection-pill { padding: 7px 10px; font-size: .59rem; }.game-shell { padding-inline: 12px; }.game-topline { min-height: 119px; }.pod-label { font-size: .79rem; }.owner-label { font-size: 1.9rem; }.pod-seat { min-height: 98px; padding-top: 14px; }.pod-seat .seat-life { margin-top: 10px; font-size: 2.65rem; }.counter-stage { min-height: 432px; }.main-value { margin-top: 96px; font-size: min(43vw, 10.7rem); }.adjust-controls { gap: 8px; }.adjust-controls button { min-height: 91px; }.custom-life-button { min-height: 68px; }.commander-tax-quick button { min-height: 82px; }.mode-nav button { min-height: 75px; }.mode-nav button > span { font-size: 1.6rem; } }
+
+/* Phone composition mirrors the supplied single-screen instrument layout. */
+@media (max-width: 599px) {
+  .brand-bar { min-height: 58px; padding: max(8px, env(safe-area-inset-top)) 14px 8px; gap: 8px; overflow: hidden; }
+  .brand { min-width: 0; gap: 7px; }.brand span { gap: 7px; }.brand strong { font-size: clamp(1.02rem, 5.2vw, 1.28rem); }.brand small { font-size: .48rem; }
+  .connection-pill { flex: 0 0 auto; max-width: 116px; min-height: 38px; padding: 5px 8px; font-size: .5rem; letter-spacing: .06em; white-space: nowrap; }
+  .game-shell { padding: 5px 12px calc(78px + env(safe-area-inset-bottom)); }
+  .game-topline { min-height: 82px; }.game-identity { gap: 2px; padding-top: 7px; }.pod-label { font-size: .72rem; }.owner-label { margin-top: 0; font-size: 1.55rem; }.commander-identity-name { font-size: .82rem; }.identity-header-rail { display: none; }.icon-button { top: 8px; width: 42px; min-height: 42px; }
+  .pod-strip { gap: 5px; margin: 3px 0 8px; }.pod-seat { min-height: 82px; padding: 9px 4px 12px; }.pod-seat .seat-name { font-size: .6rem; }.pod-seat .seat-life { margin-top: 7px; font-size: 2.25rem; }.identity-rail { right: 5px; bottom: 5px; left: 5px; height: 5px; }
+  .counter-stage { min-height: 318px; margin-top: 0; padding-top: 9px; }.counter-stage::after { width: min(79vw, 310px); }.counter-stage::before { width: min(72vw, 282px); }.counter-mode { font-size: 1.08rem; }.main-value { margin-top: 67px; font-size: min(37vw, 8.9rem); }.life-change-indicator { margin-top: 20px; font-size: .72rem; }.counter-context { margin-top: 13px; font-size: .86rem; }
+  .adjust-controls { gap: 7px; }.adjust-controls button { min-height: 64px; }.adjust-controls span { font-size: 2rem; }.custom-life-button { min-height: 46px; margin-top: 8px; font-size: .78rem; }.commander-tax-quick { margin-top: 8px; }.commander-tax-quick button { min-height: 64px; }
+  .mode-nav { padding-top: 4px; }.mode-nav button { min-height: 70px; }.mode-nav button > span { font-size: 1.35rem; }.mode-nav small { font-size: .54rem; }
+  .game-menu { position: fixed; top: 66px; right: 10px; width: min(310px, calc(100% - 20px)); max-height: calc(100dvh - 86px); overflow-y: auto; padding: 10px; }
+  .game-menu .turn-banner { margin-bottom: 6px; }.game-menu .turn-actions { margin: 0 0 8px; }.game-menu .active-seat-bar { display: grid; margin: 5px 0 8px; }
+}
+
+.counter-sigil { position: absolute; z-index: 0; top: 53%; left: 50%; width: min(69vw, 300px); aspect-ratio: 1; transform: translate(-50%, -43%); opacity: .3; pointer-events: none; }
+.counter-sigil svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 1px 0 rgb(220 196 150 / .16)) drop-shadow(0 -1px 0 #000); }
+.counter-sigil circle, .counter-sigil path { fill: none; stroke: #6f685b; stroke-width: .85; vector-effect: non-scaling-stroke; }
+.counter-sigil path { stroke-width: 1.15; }
+.counter-stage::before { background: repeating-conic-gradient(from -45deg, transparent 0 42deg, #090909 42deg 72deg), var(--identity-seal, transparent); -webkit-mask: radial-gradient(circle, transparent 0 54%, #000 55% 57%, transparent 58% 64%, #000 65% 66.5%, transparent 67%); mask: radial-gradient(circle, transparent 0 54%, #000 55% 57%, transparent 58% 64%, #000 65% 66.5%, transparent 67%); filter: drop-shadow(0 0 4px rgb(255 255 255 / .18)); }
+.counter-stage::after { background: repeating-conic-gradient(from 18deg, rgb(205 185 147 / .09) 0 .55deg, transparent .55deg 36deg), radial-gradient(circle, transparent 0 61%, rgb(205 185 147 / .1) 61.4% 61.8%, transparent 62.2%); }
+@media (max-width: 599px) { .counter-sigil { width: min(65vw, 255px); }.counter-stage::before { width: min(72vw, 282px); } }
+
+.life-change-indicator.negative { border-color: var(--brass-dark); color: var(--brass); }
+.commander-tax-quick button { grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto 1fr; }
+.commander-tax-quick-title { align-self: end; color: var(--brass); font-size: .67rem; letter-spacing: .16em; }
+.commander-tax-quick-name { align-self: start; overflow: hidden; color: var(--ink); font-family: Georgia, "Times New Roman", serif; font-size: 1.2rem; letter-spacing: .055em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.commander-tax-quick-values { grid-column: 2; grid-row: 1 / span 2; }
+.commander-tax-quick-value { min-width: 52px; min-height: 56px; align-content: center; border: 1px solid #8c7048; background: linear-gradient(145deg, #28241c, #101010); clip-path: polygon(50% 0, 92% 20%, 86% 78%, 50% 100%, 14% 78%, 8% 20%); }
+.commander-tax-quick-value strong { position: absolute; width: 1px; height: 1px; overflow: hidden; }
+.commander-tax-quick-value span { color: var(--brass); font-size: 1.35rem; }
+.mode-nav svg { width: 22px; height: 22px; overflow: visible; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; }
+.mode-nav [data-mode="life"] svg { fill: currentColor; stroke: none; }.mode-nav [data-mode="poison"] svg path:first-child { fill: currentColor; stroke: none; }.mode-nav [data-mode="poison"] svg circle { fill: #121212; stroke: none; }
+.mode-nav small { overflow: visible; text-overflow: clip; white-space: nowrap; }
+@media (max-width: 599px) { .commander-tax-quick-title { font-size: .58rem; }.commander-tax-quick-name { font-size: 1.02rem; }.commander-tax-quick-value { min-width: 47px; min-height: 50px; }.mode-nav small { font-size: clamp(.42rem, 1.65vw, .52rem); letter-spacing: .035em; } }
+
+.pod-label { background: linear-gradient(90deg, #554a38, transparent) left center / 26% 1px no-repeat, linear-gradient(90deg, transparent, #554a38) right center / 26% 1px no-repeat; }
+.connection-symbol { color: var(--brass); }
+.game-menu .menu-close { display: flex; align-items: center; justify-content: space-between; min-height: 42px; margin-bottom: 8px; border-bottom: 1px solid var(--line); color: var(--brass); font-weight: 800; text-transform: uppercase; }
+.game-menu .menu-close span { font-family: Georgia, serif; font-size: 1.5rem; font-weight: 400; }
+.game-menu .end-turn-button { border: 1px solid #f0cf8f; background: var(--brass); color: #1c170e; }
+.game-menu .end-turn-button:disabled { border-color: var(--line); background: var(--surface-2); color: var(--muted); }
+
+@media (max-width: 359px), (max-height: 740px) {
+  .brand-bar { min-height: 52px; padding-block: max(5px, env(safe-area-inset-top)) 5px; }.game-shell { padding-top: 2px; }.game-topline { min-height: 74px; }.game-identity { padding-top: 4px; }.owner-label { font-size: 1.38rem; }
+  .pod-strip[data-player-count] .pod-seat { min-height: 62px; padding: 6px 3px 9px; }.pod-seat .seat-life, .pod-strip[data-player-count] .seat-life { margin-top: 3px; font-size: 1.72rem; }.identity-rail { bottom: 4px; height: 4px; }
+  .counter-stage { min-height: 258px; }.counter-stage::after { width: min(76vw, 252px); }.counter-stage::before { width: min(69vw, 228px); }.counter-sigil { width: min(61vw, 204px); }.counter-mode { font-size: .94rem; }.main-value { margin-top: 49px; font-size: min(35vw, 7rem); }.life-change-indicator { margin-top: 13px; padding-block: 4px; }.counter-context { margin-top: 8px; font-size: .76rem; }
+  .adjust-controls button { min-height: 54px; }.adjust-controls span { font-size: 1.72rem; }.custom-life-button { min-height: 38px; margin-top: 6px; }.commander-tax-quick { margin-top: 6px; }.commander-tax-quick button { min-height: 54px; padding-block: 4px; }.commander-tax-quick-value { min-height: 44px; }.commander-tax-quick-name { font-size: .9rem; }
+  .mode-nav button { min-height: 58px; }.mode-nav svg { width: 18px; height: 18px; }
+}
