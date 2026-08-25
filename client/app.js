@@ -1,8 +1,8 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=38';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=39';
 
 const MODES = ['life', 'poison', 'commander', 'energy', 'storm', 'generic'];
 const IDENTITY_ORDER = ['W', 'U', 'B', 'R', 'G'];
-const IDENTITY_COLORS = { W: '#c9c2ad', U: '#496f8a', B: '#4b405c', R: '#8e4a45', G: '#4b735b' };
+const IDENTITY_COLORS = { W: '#d7c9a7', U: '#477ea7', B: '#78668b', R: '#a75a4b', G: '#527958' };
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const dom = {
@@ -69,7 +69,8 @@ function identityBackground(colors) {
   const stops = values.map((color, index) => `${IDENTITY_COLORS[color]} ${Math.round(index * 100 / values.length)}% ${Math.round((index + 1) * 100 / values.length)}%`).join(', ');
   return `conic-gradient(from -45deg at 50% 50%, ${stops})`;
 }
-function identityStyle(player) { const background = identityBackground(playerIdentity(player)); return background ? ` style="--identity-background: ${background}"` : ''; }
+function identityRail(colors) { const values = normaliseIdentity(colors); if (!values.length) return ''; const stops = values.map((color, index) => `${IDENTITY_COLORS[color]} ${Math.round(index * 100 / values.length)}% ${Math.round((index + 1) * 100 / values.length)}%`).join(', '); return `linear-gradient(90deg, ${stops})`; }
+function identityStyle(player) { const rail = identityRail(playerIdentity(player)); return rail ? ` style="--identity-rail: ${rail}"` : ''; }
 function identityLabel(player) { const colors = playerIdentity(player); return colors.length ? `Commander color identity: ${colors.join(', ')}.` : 'Commander color identity: colorless or not set.'; }
 function normaliseSnapshotSources(snapshot) {
   const raw = Array.isArray(snapshot.commanderSources) ? snapshot.commanderSources : null;
@@ -209,7 +210,7 @@ function renderTurnFlow() {
 function render() {
   if (!state.commanderCastCounts) state.commanderCastCounts = blankDamage(state.commanderSources);
   state.players.forEach(evaluatePlayer); localLastPlayerStanding(); const player = activePlayer(); const source = state.mode === 'commander' ? selectedSourceFor(player) : null;
-  dom.game.style.setProperty('--identity-background', identityBackground(playerIdentity(player)) || 'none');
+  dom.game.style.setProperty('--identity-seal', identityBackground(playerIdentity(player)) || 'none');
   dom.game.dataset.hasIdentity = String(playerIdentity(player).length > 0);
   dom.podLabel.textContent = state.podCode === 'LOCAL' ? 'LOCAL POD' : `POD ${state.podCode}`; dom.ownerLabel.textContent = `YOU · ${displayPlayer(state.players.find(item => item.id === state.ownerPlayerId))}`; dom.modeTitle.textContent = state.mode.toUpperCase(); dom.mainValue.value = currentValue(player);
   dom.counterContext.textContent = state.mode === 'commander' ? (source ? `${displayPlayer(player)} HAS RECEIVED DAMAGE FROM ${displaySource(source)}` : `NO OTHER COMMANDERS · ${displayPlayer(player)}`) : `${displayPlayer(player)}${player.id === state.ownerPlayerId ? ' · YOU' : state.localSimulation ? ' · SIMULATED' : ' · VIEW ONLY'}`;
@@ -356,7 +357,7 @@ function renderPodStrip() {
     const marker = isWaiting ? 'WAITING' : isOffline ? 'OFFLINE' : player.eliminated ? 'ELIMINATED' : player.warning ? 'WARNING' : 'CONNECTED';
     const stateClass = isWaiting ? 'waiting' : isOffline ? 'offline' : player.eliminated ? 'eliminated-state' : player.warning ? 'warning' : 'connected';
     const name = displayName(player); const tileName = `${name}${player.id === state.ownerPlayerId ? ' · YOU' : ''}`;
-    return `<button class="pod-seat ${player.id === state.activePlayerId ? 'active' : ''} ${player.id === state.turnSeatId ? 'turn-active' : ''} ${player.eliminated ? 'eliminated' : ''} ${isOffline ? 'disconnected' : ''}" data-seat="${player.id}" type="button" aria-label="${escapeHtml(`${displayPlayer(player)}, ${marker}, ${value}. ${identityLabel(player)}`)}"${identityStyle(player)}><span class="seat-name" title="${escapeHtml(displayPlayer(player))}">${escapeHtml(tileName)}</span><span class="seat-life">${value}</span><span class="seat-state ${stateClass}">${marker}</span></button>`;
+    return `<button class="pod-seat ${player.id === state.activePlayerId ? 'active' : ''} ${player.id === state.turnSeatId ? 'turn-active' : ''} ${player.eliminated ? 'eliminated' : ''} ${isOffline ? 'disconnected' : ''}" data-seat="${player.id}" type="button" aria-label="${escapeHtml(`${displayPlayer(player)}, ${marker}, ${value}. ${identityLabel(player)}`)}"${identityStyle(player)}><span class="seat-name" title="${escapeHtml(displayPlayer(player))}">${escapeHtml(tileName)}</span><span class="seat-life">${value}</span><span class="seat-state ${stateClass}">${marker}</span><span class="identity-rail" aria-hidden="true"></span></button>`;
   }).join('');
   $$('[data-seat]').forEach(button => button.addEventListener('click', () => { state.activePlayerId = button.dataset.seat; state.selectedSourceId = null; render(); }));
 }

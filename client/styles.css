@@ -83,7 +83,6 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .notice p { margin: 0; color: var(--muted); font-size: .85rem; line-height: 1.45; }
 .notice strong { color: var(--ink); }
 .game-shell { position: relative; padding: 12px 14px calc(100px + env(safe-area-inset-bottom)); }
-.game-shell[data-has-identity="true"] { background: radial-gradient(circle at 50% 52%, rgb(8 8 8 / .88) 0 13%, rgb(8 8 8 / .57) 30%, rgb(8 8 8 / .76) 82%), var(--identity-background); background-attachment: fixed; }
 .game-topline { display: flex; align-items: center; justify-content: space-between; min-height: 48px; }
 .pod-label, .owner-label { display: block; }
 .pod-label { color: var(--brass); font-size: .68rem; font-weight: 800; letter-spacing: .16em; }
@@ -94,8 +93,8 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .disconnect-banner p { margin: 0; color: var(--muted); font-size: .77rem; line-height: 1.35; }
 .disconnect-banner strong { color: var(--ink); }
 .pod-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin: 10px 0; }
-.pod-seat { position: relative; overflow: hidden; min-width: 0; min-height: 58px; padding: 6px 5px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); text-align: center; }
-.pod-seat[style] { background: linear-gradient(rgb(22 22 22 / .34), rgb(22 22 22 / .58)), var(--identity-background); border-color: rgb(244 236 217 / .4); }
+.pod-seat { position: relative; overflow: hidden; min-width: 0; min-height: 58px; padding: 6px 5px 9px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); text-align: center; }
+.identity-rail { position: absolute; right: 5px; bottom: 4px; left: 5px; height: 3px; background: var(--identity-rail, repeating-linear-gradient(90deg, #4a4640 0 4px, transparent 4px 7px)); }
 .pod-seat .seat-name { display: block; overflow: hidden; color: var(--ink); font-size: .68rem; font-weight: 800; letter-spacing: .04em; text-overflow: ellipsis; white-space: nowrap; }
 .pod-seat .seat-life { display: block; margin-top: 1px; font-family: Georgia, serif; font-size: 1.45rem; line-height: 1; }
 .pod-seat .seat-state { display: block; min-height: .8rem; margin-top: 2px; font-size: .58rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
@@ -128,7 +127,9 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .turn-action-detail { display: none; }
 .pod-seat.turn-active { box-shadow: inset 0 0 0 2px var(--brass); background: rgb(216 174 97 / .12); }
 @keyframes turn-handoff { 0% { filter: brightness(1); } 35% { filter: brightness(1.55); } 100% { filter: brightness(1); } }
-.counter-stage { display: grid; justify-items: center; min-height: 190px; padding: 10px 10px 7px; background: radial-gradient(circle, rgb(216 174 97 / .09), transparent 62%); }
+.counter-stage { position: relative; isolation: isolate; display: grid; justify-items: center; min-height: 190px; padding: 10px 10px 7px; background: radial-gradient(circle, rgb(216 174 97 / .09), transparent 62%); }
+.counter-stage::before { content: ""; position: absolute; z-index: 0; top: 50%; left: 50%; width: min(78vw, 300px); aspect-ratio: 1; transform: translate(-50%, -47%); background: var(--identity-seal, transparent); -webkit-mask: radial-gradient(circle, transparent 0 51%, #000 52% 55%, transparent 56% 63%, #000 64% 67%, transparent 68%); mask: radial-gradient(circle, transparent 0 51%, #000 52% 55%, transparent 56% 63%, #000 64% 67%, transparent 68%); opacity: .48; pointer-events: none; }
+.counter-stage > * { position: relative; z-index: 1; }
 .counter-mode { margin: 0; color: var(--brass); font-size: .76rem; font-weight: 900; letter-spacing: .2em; }
 .main-value { font-family: Georgia, serif; font-size: clamp(5.6rem, 25vw, 8.5rem); line-height: .9; font-variant-numeric: tabular-nums; text-shadow: 0 2px 24px rgb(216 174 97 / .2); }
 .life-change-indicator { min-width: 116px; margin-top: 8px; padding: 5px 10px; border: 1px solid var(--brass-dark); color: var(--brass); font-size: .74rem; font-weight: 900; letter-spacing: .09em; text-align: center; }
