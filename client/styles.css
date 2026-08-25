@@ -83,6 +83,7 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .notice p { margin: 0; color: var(--muted); font-size: .85rem; line-height: 1.45; }
 .notice strong { color: var(--ink); }
 .game-shell { position: relative; padding: 12px 14px calc(100px + env(safe-area-inset-bottom)); }
+.game-shell.has-deck-accent { background: radial-gradient(circle at 10% 0%, var(--deck-wash-a), transparent 43%), radial-gradient(circle at 94% 32%, var(--deck-wash-b), transparent 48%); }
 .game-topline { display: flex; align-items: center; justify-content: space-between; min-height: 48px; }
 .pod-label, .owner-label { display: block; }
 .pod-label { color: var(--brass); font-size: .68rem; font-weight: 800; letter-spacing: .16em; }
@@ -94,7 +95,7 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .disconnect-banner strong { color: var(--ink); }
 .pod-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin: 12px 0; }
 .pod-seat { position: relative; min-width: 0; min-height: 66px; padding: 7px 5px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); text-align: center; }
-.pod-seat.deck-colored { box-shadow: inset 0 3px 0 var(--seat-accent); }
+.pod-seat.deck-colored { border: 2px solid transparent; background: linear-gradient(var(--surface), var(--surface)) padding-box, var(--seat-accent) border-box; }
 .pod-seat .seat-name { display: block; color: var(--muted); font-size: .65rem; font-weight: 800; letter-spacing: .08em; }
 .pod-seat .seat-life { display: block; margin-top: 3px; font-family: Georgia, serif; font-size: 1.35rem; }
 .pod-seat .seat-state { display: block; font-size: .6rem; text-transform: uppercase; }
@@ -121,9 +122,10 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .undo-turn-button { margin-top: 4px; padding: 5px 10px; border: 1px solid var(--brass-dark); border-radius: 5px; background: transparent; color: var(--brass); font-size: .65rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 .turn-action-detail { display: none; }
 .pod-seat.turn-active { box-shadow: inset 0 0 0 2px var(--brass); background: rgb(216 174 97 / .12); }
+.pod-seat.deck-colored.active, .pod-seat.deck-colored.turn-active { border-color: transparent; background: linear-gradient(var(--surface), var(--surface)) padding-box, var(--seat-accent) border-box; }
 @keyframes turn-handoff { 0% { filter: brightness(1); } 35% { filter: brightness(1.55); } 100% { filter: brightness(1); } }
 .counter-stage { display: grid; justify-items: center; min-height: 190px; padding: 10px 10px 7px; background: radial-gradient(circle, rgb(216 174 97 / .09), transparent 62%); }
-.has-deck-accent .counter-stage { background: var(--deck-accent) top / 100% 3px no-repeat, radial-gradient(circle, rgb(216 174 97 / .09), transparent 62%); }
+.has-deck-accent .counter-stage { background: var(--deck-accent) top / 100% 4px no-repeat, radial-gradient(circle, var(--deck-wash-a), transparent 66%); }
 .counter-mode { margin: 0; color: var(--brass); font-size: .76rem; font-weight: 900; letter-spacing: .2em; }
 .main-value { font-family: Georgia, serif; font-size: clamp(5.6rem, 25vw, 8.5rem); line-height: .9; font-variant-numeric: tabular-nums; text-shadow: 0 2px 24px rgb(216 174 97 / .2); }
 .life-change-indicator { min-width: 116px; margin-top: 8px; padding: 5px 10px; border: 1px solid var(--brass-dark); color: var(--brass); font-size: .74rem; font-weight: 900; letter-spacing: .09em; text-align: center; }
