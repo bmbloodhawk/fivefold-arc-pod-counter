@@ -14,7 +14,7 @@
   <header class="brand-bar">
     <a class="brand" href="#" aria-label="Fivefold Arc home">
       <img src="icons/arc-mark.svg" alt="" width="34" height="34">
-      <span><strong>Fivefold Arc</strong><small>Pod Counter · Test Build</small></span>
+      <span><strong>Fivefold Arc</strong><small>Table Counter</small></span>
     </a>
     <button id="connectionButton" class="connection-pill" type="button" aria-label="Connection details">
       <span class="connection-symbol" aria-hidden="true">●</span>
@@ -117,7 +117,7 @@
 
     <section id="gameView" class="view game-shell" hidden aria-labelledby="modeTitle">
       <div class="game-topline">
-        <div><span id="podLabel" class="pod-label">LOCAL POD</span><span id="ownerLabel" class="owner-label">YOU · P1</span></div>
+        <div class="game-identity"><span id="podLabel" class="pod-label">LOCAL POD</span><span id="ownerLabel" class="owner-label">YOU · P1</span><span id="commanderIdentityName" class="commander-identity-name" hidden></span><span id="identityHeaderRail" class="identity-header-rail" aria-hidden="true"></span></div>
         <button id="moreButton" class="icon-button" type="button" aria-label="Game menu" aria-expanded="false">•••</button>
       </div>
 
@@ -314,6 +314,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="app.js?v=39"></script>
+  <script type="module" src="app.js?v=40"></script>
 </body>
 </html>
