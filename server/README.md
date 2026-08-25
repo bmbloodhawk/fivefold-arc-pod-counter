@@ -1,6 +1,6 @@
 # Fivefold Arc realtime server
 
-This is a dependency-free Node.js backend for the phone prototype. It keeps rooms in memory, uses server-authoritative versions, and pushes complete state snapshots with Server-Sent Events (SSE). It intentionally has no accounts, database, history, chat, or analytics. An optional read-only Scryfall card lookup is used only when a player asks to confirm a commander’s color identity; results are temporarily cached in process memory.
+This is a dependency-free Node.js backend for the phone prototype. It keeps rooms in memory, uses server-authoritative versions, and pushes complete state snapshots with Server-Sent Events (SSE). It intentionally has no accounts, database, history, chat, analytics, or third-party service.
 
 ## Run locally
 

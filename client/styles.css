@@ -94,7 +94,6 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .disconnect-banner strong { color: var(--ink); }
 .pod-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin: 12px 0; }
 .pod-seat { position: relative; min-width: 0; min-height: 66px; padding: 7px 5px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); text-align: center; }
-.pod-seat.deck-colored { box-shadow: inset 0 3px 0 var(--seat-accent); }
 .pod-seat .seat-name { display: block; color: var(--muted); font-size: .65rem; font-weight: 800; letter-spacing: .08em; }
 .pod-seat .seat-life { display: block; margin-top: 3px; font-family: Georgia, serif; font-size: 1.35rem; }
 .pod-seat .seat-state { display: block; font-size: .6rem; text-transform: uppercase; }
@@ -123,7 +122,6 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .pod-seat.turn-active { box-shadow: inset 0 0 0 2px var(--brass); background: rgb(216 174 97 / .12); }
 @keyframes turn-handoff { 0% { filter: brightness(1); } 35% { filter: brightness(1.55); } 100% { filter: brightness(1); } }
 .counter-stage { display: grid; justify-items: center; min-height: 190px; padding: 10px 10px 7px; background: radial-gradient(circle, rgb(216 174 97 / .09), transparent 62%); }
-.has-deck-accent .counter-stage { background: var(--deck-accent) top / 100% 3px no-repeat, radial-gradient(circle, rgb(216 174 97 / .09), transparent 62%); }
 .counter-mode { margin: 0; color: var(--brass); font-size: .76rem; font-weight: 900; letter-spacing: .2em; }
 .main-value { font-family: Georgia, serif; font-size: clamp(5.6rem, 25vw, 8.5rem); line-height: .9; font-variant-numeric: tabular-nums; text-shadow: 0 2px 24px rgb(216 174 97 / .2); }
 .life-change-indicator { min-width: 116px; margin-top: 8px; padding: 5px 10px; border: 1px solid var(--brass-dark); color: var(--brass); font-size: .74rem; font-weight: 900; letter-spacing: .09em; text-align: center; }
@@ -194,8 +192,6 @@ dialog p { color: var(--muted); line-height: 1.5; }
 .commander-name-fields { display: grid; gap: 8px; }
 .commander-name-fields[hidden] { display: none; }
 .commander-name-fields .select-field { margin: 0; }
-.commander-lookup { width: 100%; min-height: 34px; margin-top: 6px; border: 1px dashed var(--brass-dark); border-radius: 4px; background: transparent; color: var(--brass); font-size: .72rem; font-weight: 850; letter-spacing: .04em; }
-.commander-lookup-status { display: block; min-height: 1.2em; margin-top: 4px; color: var(--muted); font-size: .68rem; }
 .source-button small { display: block; overflow: hidden; margin-top: 2px; color: var(--brass); font-size: .62rem; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
 .commander-tax-card-name { margin: 2px 0 0; color: var(--brass); font-size: .78rem; font-weight: 750; }
 @media (min-width: 600px) {
