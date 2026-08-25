@@ -2,15 +2,15 @@
   color-scheme: dark;
   --ink: #f4ecd9;
   --muted: #afa590;
-  --surface: #211d16;
-  --surface-2: #2a251c;
-  --line: #4a4234;
+  --surface: #161616;
+  --surface-2: #202020;
+  --line: #403d38;
   --brass: #d8ae61;
   --brass-dark: #6e552a;
   --danger: #ed866f;
   --warning: #efc968;
   --safe: #85c799;
-  --bg: #13110e;
+  --bg: #080808;
   --shadow: 0 14px 40px rgb(0 0 0 / .38);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -82,7 +82,8 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .notice { display: flex; gap: 12px; padding: 14px; border-left: 3px solid var(--warning); background: rgb(239 201 104 / .08); }
 .notice p { margin: 0; color: var(--muted); font-size: .85rem; line-height: 1.45; }
 .notice strong { color: var(--ink); }
-.game-shell { position: relative; padding: 12px 14px calc(100px + env(safe-area-inset-bottom)); }
+.game-shell { position: relative; isolation: isolate; padding: 12px 14px calc(100px + env(safe-area-inset-bottom)); }
+.game-shell[data-has-identity="true"]::before { content: ""; position: fixed; z-index: -1; inset: 48px -22px -22px; background: radial-gradient(circle at 50% 52%, rgb(0 0 0 / .84) 0 13%, rgb(0 0 0 / .48) 22%, transparent 38%, rgb(0 0 0 / .74) 76%), var(--identity-background); filter: blur(12px); pointer-events: none; }
 .game-topline { display: flex; align-items: center; justify-content: space-between; min-height: 48px; }
 .pod-label, .owner-label { display: block; }
 .pod-label { color: var(--brass); font-size: .68rem; font-weight: 800; letter-spacing: .16em; }
@@ -93,7 +94,8 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .disconnect-banner p { margin: 0; color: var(--muted); font-size: .77rem; line-height: 1.35; }
 .disconnect-banner strong { color: var(--ink); }
 .pod-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin: 10px 0; }
-.pod-seat { position: relative; min-width: 0; min-height: 58px; padding: 6px 5px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); text-align: center; }
+.pod-seat { position: relative; isolation: isolate; overflow: hidden; min-width: 0; min-height: 58px; padding: 6px 5px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); text-align: center; }
+.pod-seat[style]::before { content: ""; position: absolute; z-index: -1; inset: -7px; background: linear-gradient(rgb(33 29 22 / .42), rgb(33 29 22 / .58)), var(--identity-background); filter: blur(5px); }
 .pod-seat .seat-name { display: block; overflow: hidden; color: var(--ink); font-size: .68rem; font-weight: 800; letter-spacing: .04em; text-overflow: ellipsis; white-space: nowrap; }
 .pod-seat .seat-life { display: block; margin-top: 1px; font-family: Georgia, serif; font-size: 1.45rem; line-height: 1; }
 .pod-seat .seat-state { display: block; min-height: .8rem; margin-top: 2px; font-size: .58rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
@@ -144,6 +146,7 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .source-button.selected { border: 2px solid var(--brass); color: var(--brass); background: rgb(216 174 97 / .1); }
 .source-button.near { border-style: dashed; border-color: var(--warning); }
 .source-button.lethal { border-color: var(--danger); color: var(--danger); }
+.commander-identity-field { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); background: rgb(19 17 14 / .28); }
 .adjust-controls { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .adjust-controls button { min-height: 54px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface-2); }
 .adjust-controls span { display: block; font-family: Georgia, serif; font-size: 1.55rem; }

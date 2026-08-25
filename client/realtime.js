@@ -9,11 +9,11 @@ export class RealtimeAdapter extends EventTarget {
     this.status = 'local'; this.localMode = true; this.stopped = false; this.sessionEpoch = 0;
   }
 
-  async createRoom({ playerCount, startingLife, commanderCount = 1, commanderNames = Array.from({ length: commanderCount }, () => ''), name = 'P1', roundLimitMinutes = null }) {
+  async createRoom({ playerCount, startingLife, commanderCount = 1, commanderNames = Array.from({ length: commanderCount }, () => ''), commanderColors = Array.from({ length: commanderCount }, () => []), name = 'P1', roundLimitMinutes = null }) {
     const epoch = this.#beginSession();
     try {
       if (!await this.#startConnection(epoch)) return { ignored: true };
-      const result = await this.#request('/api/rooms', { method: 'POST', authenticated: true, body: { playerCount, startingLife, commanderCount, commanderNames, name, ...(roundLimitMinutes ? { roundLimitMinutes } : {}) } });
+      const result = await this.#request('/api/rooms', { method: 'POST', authenticated: true, body: { playerCount, startingLife, commanderCount, commanderNames, commanderColors, name, ...(roundLimitMinutes ? { roundLimitMinutes } : {}) } });
       if (!this.#isCurrentSession(epoch)) return { ignored: true };
       this.#adoptSeat(result.snapshot.code, result.seatId, result.reclaimToken, result.snapshot, epoch);
       return result;
@@ -22,14 +22,14 @@ export class RealtimeAdapter extends EventTarget {
 
   inspectRoom(code) { return this.#request(`/api/rooms/${encodeURIComponent(code)}`); }
 
-  async claimRoom({ code, seatId, name, commanderCount = 1, commanderNames = Array.from({ length: commanderCount }, () => '') }) {
+  async claimRoom({ code, seatId, name, commanderCount = 1, commanderNames = Array.from({ length: commanderCount }, () => ''), commanderColors = Array.from({ length: commanderCount }, () => []) }) {
     const epoch = this.#beginSession();
     try {
       if (!await this.#startConnection(epoch)) return { ignored: true };
       const normalizedCode = code.toUpperCase();
       const savedToken = this.#storedToken(normalizedCode, seatId);
       const result = await this.#request(`/api/rooms/${encodeURIComponent(normalizedCode)}/claim`, {
-        method: 'POST', authenticated: true, body: { seatId, ...(savedToken ? { reclaimToken: savedToken } : { name, commanderCount, commanderNames }) }
+        method: 'POST', authenticated: true, body: { seatId, ...(savedToken ? { reclaimToken: savedToken } : { name, commanderCount, commanderNames, commanderColors }) }
       });
       if (!this.#isCurrentSession(epoch)) return { ignored: true };
       this.#adoptSeat(normalizedCode, result.seatId, result.reclaimToken || savedToken, result.snapshot, epoch);
@@ -47,14 +47,14 @@ export class RealtimeAdapter extends EventTarget {
     this.#setStatus('local');
   }
 
-  async mutate({ counters, commanderDamageReceived, commanderCount, commanderNames, commanderCastCounts } = {}) {
+  async mutate({ counters, commanderDamageReceived, commanderCount, commanderNames, commanderColors, commanderCastCounts } = {}) {
     if (this.localMode) return { local: true };
     if (this.status !== 'connected' || !this.snapshot) return { blocked: true };
     const epoch = this.sessionEpoch;
     try {
       const result = await this.#request(`/api/rooms/${this.roomCode}/me`, {
         method: 'PATCH', authenticated: true,
-        body: { baseVersion: this.snapshot.version, ...(counters && Object.keys(counters).length ? { counters } : {}), ...(commanderDamageReceived && Object.keys(commanderDamageReceived).length ? { commanderDamageReceived } : {}), ...(commanderCount !== undefined ? { commanderCount } : {}), ...(commanderNames !== undefined ? { commanderNames } : {}), ...(commanderCastCounts && Object.keys(commanderCastCounts).length ? { commanderCastCounts } : {}) }
+        body: { baseVersion: this.snapshot.version, ...(counters && Object.keys(counters).length ? { counters } : {}), ...(commanderDamageReceived && Object.keys(commanderDamageReceived).length ? { commanderDamageReceived } : {}), ...(commanderCount !== undefined ? { commanderCount } : {}), ...(commanderNames !== undefined ? { commanderNames } : {}), ...(commanderColors !== undefined ? { commanderColors } : {}), ...(commanderCastCounts && Object.keys(commanderCastCounts).length ? { commanderCastCounts } : {}) }
       });
       if (!this.#isCurrentSession(epoch)) return { ignored: true };
       this.#acceptSnapshot(result.snapshot, epoch); return result;
@@ -79,7 +79,7 @@ export class RealtimeAdapter extends EventTarget {
   async setCommanderCount(commanderCount) {
     return this.mutate({ commanderCount });
   }
-  async setCommanderSetup(commanderCount, commanderNames) { return this.mutate({ commanderCount, commanderNames }); }
+  async setCommanderSetup(commanderCount, commanderNames, commanderColors) { return this.mutate({ commanderCount, commanderNames, commanderColors }); }
 
   /** Owner-only commander tax mutation, keyed by a stable commander source ID. */
   async setCommanderCastCount(sourceId, count) {

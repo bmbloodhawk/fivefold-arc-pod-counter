@@ -115,6 +115,20 @@ function normalizeCommanderNames(value, commanderCount, fallback = []) {
   });
 }
 
+const COMMANDER_COLORS = new Set(["W", "U", "B", "R", "G"]);
+function normalizeCommanderColors(value, commanderCount, fallback = []) {
+  if (value === undefined) return Array.from({ length: commanderCount }, (_, slot) => [...(fallback[slot] || [])]);
+  if (!Array.isArray(value) || value.length !== commanderCount) {
+    throw Object.assign(new Error("commanderColors must contain one color list for each commander"), { status: 400, code: "INVALID_INPUT" });
+  }
+  return value.map((colors) => {
+    if (!Array.isArray(colors) || colors.some((color) => typeof color !== "string" || !COMMANDER_COLORS.has(color))) {
+      throw Object.assign(new Error("commander colors must use W, U, B, R, or G"), { status: 400, code: "INVALID_INPUT" });
+    }
+    return [...new Set(colors)];
+  });
+}
+
 function normalizeRoundLimitMinutes(value) {
   if (value === undefined || value === null || value === "") return null;
   return asInteger(value, "roundLimitMinutes", 1, 999);
@@ -135,10 +149,12 @@ function commanderSources(room) {
     const playerLabel = seat.name;
     return Array.from({ length: seat.commanderCount }, (_, slot) => {
       const commanderName = seat.commanderNames[slot] || "";
+      const colors = [...(seat.commanderColors[slot] || [])];
       return {
         id: commanderSourceId(seat.seatId, slot),
         label: commanderName || (seat.commanderCount === 1 ? playerLabel : `${playerLabel} ${slot === 0 ? "A" : "B"}`),
         ...(commanderName ? { commanderName } : {}),
+        ...(colors.length ? { commanderColors: colors } : {}),
         ownerSeatId: seat.seatId,
       };
     });
@@ -258,6 +274,7 @@ export class RoomService {
     if (![20, 30, 40].includes(startingLife)) throw Object.assign(new Error("startingLife must be 20, 30, or 40"), { status: 400, code: "INVALID_INPUT" });
     const commanderCount = normalizeCommanderCount(input.commanderCount);
     const commanderNames = normalizeCommanderNames(input.commanderNames, commanderCount);
+    const commanderColors = normalizeCommanderColors(input.commanderColors, commanderCount);
     const roundLimitMinutes = normalizeRoundLimitMinutes(input.roundLimitMinutes);
     const startedAt = this.now();
     const code = this.makeJoinCode();
@@ -270,6 +287,7 @@ export class RoomService {
       tokenHash: seatId === 0 ? tokenHash(reclaimToken) : null,
       commanderCount: seatId === 0 ? commanderCount : 1,
       commanderNames: seatId === 0 ? commanderNames : [""],
+      commanderColors: seatId === 0 ? commanderColors : [[]],
       counters: { life: startingLife, poison: 0, energy: 0, storm: 0, generic: 0 },
       commanderDamageReceived: {},
       commanderCastCounts: {},
@@ -334,13 +352,14 @@ export class RoomService {
         lastHandoff: room.turn.lastHandoff ? { ...room.turn.lastHandoff } : null,
       },
       commanderSources: sources,
-      seats: room.seats.map(({ seatId, name, claimed, ownerConnectionId, commanderCount, commanderNames, counters, commanderDamageReceived, commanderCastCounts }) => ({
+      seats: room.seats.map(({ seatId, name, claimed, ownerConnectionId, commanderCount, commanderNames, commanderColors, counters, commanderDamageReceived, commanderCastCounts }) => ({
         seatId,
         name,
         claimed,
         connected: Boolean(ownerConnectionId),
         commanderCount,
         commanderNames: [...commanderNames],
+        commanderColors: commanderColors.map((colors) => [...colors]),
         counters: { ...counters },
         commanderDamageReceived: { ...commanderDamageReceived },
         commanderCastCounts: { ...commanderCastCounts },
@@ -365,12 +384,14 @@ export class RoomService {
       const name = normalizeName(input.name, seat.name);
       const commanderCount = normalizeCommanderCount(input.commanderCount);
       const commanderNames = normalizeCommanderNames(input.commanderNames, commanderCount);
+      const commanderColors = normalizeCommanderColors(input.commanderColors, commanderCount);
       reclaimToken = opaque(32);
       seat.claimed = true;
       seat.tokenHash = tokenHash(reclaimToken);
       seat.name = name;
       seat.commanderCount = commanderCount;
       seat.commanderNames = commanderNames;
+      seat.commanderColors = commanderColors;
     } else {
       if (!tokenMatches(reclaimToken, seat.tokenHash)) {
         throw Object.assign(new Error("That seat is reserved; its reclaim token is required"), { status: 403, code: "SEAT_RESERVED" });
@@ -384,6 +405,7 @@ export class RoomService {
         });
       }
       if (input.commanderNames !== undefined) seat.commanderNames = normalizeCommanderNames(input.commanderNames, seat.commanderCount, seat.commanderNames);
+      if (input.commanderColors !== undefined) seat.commanderColors = normalizeCommanderColors(input.commanderColors, seat.commanderCount, seat.commanderColors);
       seat.name = name;
       if (seat.ownerConnectionId && seat.ownerConnectionId !== connectionId) {
         const oldConnection = this.connections.get(seat.ownerConnectionId);
@@ -457,6 +479,7 @@ export class RoomService {
     const nextCommanderCount = normalizeCommanderCount(input.commanderCount, seat.commanderCount);
     const hasCommanderNames = input.commanderNames !== undefined;
     const nextCommanderNames = normalizeCommanderNames(input.commanderNames, nextCommanderCount, seat.commanderNames);
+    const nextCommanderColors = normalizeCommanderColors(input.commanderColors, nextCommanderCount, seat.commanderColors);
     const hasName = input.name !== undefined;
     const nextName = normalizeName(input.name, seat.name);
     const commanderCastCounts = input.commanderCastCounts === undefined ? {} : input.commanderCastCounts;
@@ -490,6 +513,7 @@ export class RoomService {
     seat.commanderCastCounts = nextCommanderCastCounts;
     seat.commanderCount = nextCommanderCount;
     seat.commanderNames = nextCommanderNames;
+    seat.commanderColors = nextCommanderColors;
     synchronizeCommanderState(room);
     recordLastPlayerStanding(room, this.now());
     room.version += 1;

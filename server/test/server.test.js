@@ -107,6 +107,21 @@ describe("room configuration and claims", () => {
     ]);
   });
 
+  test("shares commander color identity and rejects invalid color letters", async () => {
+    const made = await room({ commanderCount: 2, commanderColors: [["W", "U"], ["B", "R"]] });
+    assert.deepEqual(made.snapshot.seats[0].commanderColors, [["W", "U"], ["B", "R"]]);
+    assert.deepEqual(made.snapshot.commanderSources.map(({ id, commanderColors }) => ({ id, commanderColors })), [
+      { id: "seat-0-commander-a", commanderColors: ["W", "U"] },
+      { id: "seat-0-commander-b", commanderColors: ["B", "R"] },
+    ]);
+    const invalid = await call("/api/rooms", {
+      method: "POST", connectionId: await connection(),
+      body: { playerCount: 2, startingLife: 40, commanderColors: [["X"]] },
+    });
+    assert.equal(invalid.status, 400);
+    assert.equal(invalid.body.error.code, "INVALID_INPUT");
+  });
+
   test("normalizes short display names while preserving P# fallbacks and stable source IDs", async () => {
     const made = await room({ name: "  E\u0301owyn \n Forge  ", commanderCount: 2 });
     assert.equal(made.snapshot.seats[0].name, "Éowyn Forge");
