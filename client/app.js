@@ -1,4 +1,4 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=28';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=25';
 
 const MODES = ['life', 'poison', 'commander', 'energy', 'storm', 'generic'];
 const $ = (selector) => document.querySelector(selector);
@@ -95,9 +95,7 @@ function displayPlayer(player) { const name = displayName(player); return name =
 function displaySource(source) { const owner = state?.players.find(player => player.id === source.ownerPlayerId); if (source.commanderName) return source.commanderName; if (!owner) return source.label; return owner.commanderCount === 2 ? `${displayName(owner)} ${source.slot || 'A'}` : displayName(owner); }
 function sourceOwnerLabel(source) { const owner = state?.players.find(player => player.id === source.ownerPlayerId); return displayName(owner || { name: source.ownerLabel, id: source.ownerPlayerId || 'Player' }); }
 const MANA_COLORS = { W: '#e7d7a5', U: '#4b9ed2', B: '#645878', R: '#d56057', G: '#58a76f' };
-function deckColors(player) { return [...new Set((player?.commanderCards || []).flatMap(card => card?.colorIdentity || []))].map(color => MANA_COLORS[color]); }
-function deckAccent(player) { const colors = deckColors(player); return colors.length ? `linear-gradient(135deg, ${colors.join(', ')})` : ''; }
-function colorWash(hex, alpha) { const value = Number.parseInt(hex.slice(1), 16); return `rgb(${value >> 16} ${(value >> 8) & 255} ${value & 255} / ${alpha})`; }
+function deckAccent(player) { const colors = [...new Set((player?.commanderCards || []).flatMap(card => card?.colorIdentity || []))]; return colors.length ? `linear-gradient(90deg, ${colors.map(color => MANA_COLORS[color]).join(', ')})` : ''; }
 function escapeHtml(value) { return String(value).replace(/[&<>"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[character]); }
 function selectedSourceFor(player) { const sources = sourcesForDefender(player.id); if (!sources.some(source => source.id === state.selectedSourceId)) state.selectedSourceId = sources[0]?.id || null; return sources.find(source => source.id === state.selectedSourceId) || null; }
 function commanderValue(player, sourceId = state.selectedSourceId) { return player.commanderDamage[sourceId] || 0; }
@@ -203,7 +201,7 @@ function render() {
   if (!state.commanderCastCounts) state.commanderCastCounts = blankDamage(state.commanderSources);
   state.players.forEach(evaluatePlayer); localLastPlayerStanding(); const player = activePlayer(); const source = state.mode === 'commander' ? selectedSourceFor(player) : null;
   dom.podLabel.textContent = state.podCode === 'LOCAL' ? 'LOCAL POD' : `POD ${state.podCode}`; dom.ownerLabel.textContent = `YOU · ${displayPlayer(state.players.find(item => item.id === state.ownerPlayerId))}`; dom.modeTitle.textContent = state.mode.toUpperCase(); dom.mainValue.value = currentValue(player);
-  const ownPlayer = state.players.find(item => item.id === state.ownerPlayerId); const ownColors = deckColors(ownPlayer); const ownAccent = deckAccent(ownPlayer); dom.game.style.setProperty('--deck-accent', ownAccent || 'rgb(216 174 97 / .22)'); dom.game.style.setProperty('--deck-wash-a', ownColors[0] ? colorWash(ownColors[0], '.34') : 'transparent'); dom.game.style.setProperty('--deck-wash-b', ownColors[1] ? colorWash(ownColors[1], '.24') : ownColors[0] ? colorWash(ownColors[0], '.15') : 'transparent'); dom.game.style.setProperty('--deck-frame', ownColors[0] ? colorWash(ownColors[0], '.72') : 'transparent'); dom.game.classList.toggle('has-deck-accent', Boolean(ownAccent) && deckAccentsEnabled); dom.deckAccentButton.textContent = `Deck color skin: ${deckAccentsEnabled ? 'on' : 'off'}`;
+  const ownAccent = deckAccent(state.players.find(item => item.id === state.ownerPlayerId)); dom.game.style.setProperty('--deck-accent', ownAccent || 'rgb(216 174 97 / .22)'); dom.game.classList.toggle('has-deck-accent', Boolean(ownAccent) && deckAccentsEnabled); dom.deckAccentButton.textContent = `Deck color accents: ${deckAccentsEnabled ? 'on' : 'off'}`;
   dom.counterContext.textContent = state.mode === 'commander' ? (source ? `${displayPlayer(player)} HAS RECEIVED DAMAGE FROM ${displaySource(source)}` : `NO OTHER COMMANDERS · ${displayPlayer(player)}`) : `${displayPlayer(player)}${player.id === state.ownerPlayerId ? ' · YOU' : state.localSimulation ? ' · SIMULATED' : ' · VIEW ONLY'}`;
   dom.lethalMark.hidden = !player.eliminated; const status = player.lethalCause || player.warning; dom.statusMessage.hidden = !status; dom.statusMessage.textContent = status || ''; dom.statusMessage.classList.toggle('lethal', Boolean(player.lethalCause));
   renderPodStrip(); renderSources(player); renderModeNav(); renderSeatPicker();
