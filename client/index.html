@@ -251,7 +251,6 @@
           <label><input type="radio" name="direction" value="subtract"><span>Subtract −X</span></label>
         </div>
       </fieldset>
-      <div id="gameCommanderNames" class="commander-name-fields"></div>
       <div class="dialog-actions">
         <button value="cancel" class="secondary-action">Cancel</button>
         <button value="confirm" class="primary-action">Apply life change</button>
@@ -262,7 +261,7 @@
   <dialog id="commanderCountDialog">
     <form id="commanderCountForm" method="dialog">
       <h2>My commander setup</h2>
-      <p id="commanderCountDetail">Change your commander names and deck colors for this pod. Your current game and seat stay in place.</p>
+      <p id="commanderCountDetail">Change your commander names for this pod. Your current game and seat stay in place.</p>
       <fieldset class="choice-field">
         <legend class="sr-only">Commander count</legend>
         <div class="segmented commander-count-choice" role="radiogroup" aria-label="Commander count">
@@ -270,6 +269,7 @@
           <label><input type="radio" name="gameCommanderCount" value="2"><span>2 commanders</span></label>
         </div>
       </fieldset>
+      <div id="gameCommanderNames" class="commander-name-fields"></div>
       <div class="dialog-actions">
         <button value="cancel" class="secondary-action">Cancel</button>
         <button id="saveCommanderCountButton" value="confirm" class="primary-action">Update this pod</button>
@@ -314,6 +314,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="app.js?v=24"></script>
+  <script type="module" src="app.js?v=29"></script>
 </body>
 </html>
