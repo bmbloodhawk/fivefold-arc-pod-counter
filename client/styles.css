@@ -363,3 +363,12 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
   .adjust-controls button { min-height: 54px; }.adjust-controls span { font-size: 1.72rem; }.custom-life-button { min-height: 38px; margin-top: 6px; }.commander-tax-quick { margin-top: 6px; }.commander-tax-quick button { min-height: 54px; padding-block: 4px; }.commander-tax-quick-value { min-height: 44px; }.commander-tax-quick-name { font-size: .9rem; }
   .mode-nav button { min-height: 58px; }.mode-nav svg { width: 18px; height: 18px; }
 }
+
+/* Keep every interactive control above the decorative dial artwork. */
+.adjust-controls, .custom-life-button, .commander-tax-quick, .source-panel { position: relative; z-index: 3; }
+.adjust-controls button { position: relative; z-index: 1; background-color: #171715; }
+.mode-nav button { border-top-color: transparent; border-bottom: 3px solid transparent; }
+.mode-nav button.active { border-top-color: transparent; border-bottom-color: var(--brass); }
+.mode-nav svg { filter: drop-shadow(0 1px 0 #000) drop-shadow(0 -1px 0 rgb(255 255 255 / .12)); }
+@media (max-width: 599px) { .mode-nav small { font-size: clamp(.46rem, 2.15vw, .58rem); } }
+@media (max-width: 359px) { .mode-nav small { font-size: .42rem; letter-spacing: .015em; } }

@@ -1,4 +1,4 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=49';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=51';
 
 const MODES = ['life', 'poison', 'commander', 'energy', 'storm', 'generic'];
 const IDENTITY_ORDER = ['W', 'U', 'B', 'R', 'G'];
