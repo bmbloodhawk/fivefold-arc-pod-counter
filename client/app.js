@@ -1,9 +1,8 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=36';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=37';
 
 const MODES = ['life', 'poison', 'commander', 'energy', 'storm', 'generic'];
 const IDENTITY_ORDER = ['W', 'U', 'B', 'R', 'G'];
 const IDENTITY_COLORS = { W: '#c9c2ad', U: '#496f8a', B: '#4b405c', R: '#8e4a45', G: '#4b735b' };
-const SCRYFALL_NAMED_CARD = 'https://api.scryfall.com/cards/named?exact=';
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const dom = {
@@ -145,7 +144,7 @@ function commanderNamesFromForm(form, count) { return Array.from({ length: count
 async function commanderColorsFromNames(names) {
   return Promise.all(names.map(async name => {
     if (!name) return [];
-    try { const response = await fetch(`${SCRYFALL_NAMED_CARD}${encodeURIComponent(name)}`); if (!response.ok) return []; const card = await response.json(); return normaliseIdentity(card.color_identity); }
+    try { const response = await fetch(`${apiBaseFromPage()}/api/commander-identity?name=${encodeURIComponent(name)}`); if (!response.ok) return []; const identity = await response.json(); return normaliseIdentity(identity.colors); }
     catch { return []; }
   }));
 }

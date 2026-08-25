@@ -5,6 +5,7 @@ import { extname, resolve, sep } from "node:path";
 
 const JOIN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const MUTABLE_COUNTERS = new Set(["life", "poison", "energy", "storm", "generic"]);
+const COMMANDER_IDENTITY_TTL_MS = 6 * 60 * 60 * 1000;
 const STATIC_TYPES = new Map([
   [".css", "text/css; charset=utf-8"],
   [".html", "text/html; charset=utf-8"],
@@ -116,6 +117,24 @@ function normalizeCommanderNames(value, commanderCount, fallback = []) {
 }
 
 const COMMANDER_COLORS = new Set(["W", "U", "B", "R", "G"]);
+
+function createCommanderIdentityLookup(fetchImpl = fetch) {
+  const cache = new Map();
+  return async (rawName) => {
+    const name = normalizeCommanderNames([rawName], 1)[0];
+    if (!name) throw Object.assign(new Error("A commander name is required"), { status: 400, code: "INVALID_INPUT" });
+    const cached = cache.get(name.toLocaleLowerCase());
+    if (cached && cached.expiresAt > Date.now()) return cached.value;
+    const response = await fetchImpl(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`, { headers: { accept: "application/json" } });
+    if (response.status === 404) throw Object.assign(new Error("Commander not found. Check the spelling and try again."), { status: 404, code: "COMMANDER_NOT_FOUND" });
+    if (!response.ok) throw Object.assign(new Error("Commander lookup is temporarily unavailable. You can still start without a color identity."), { status: 503, code: "COMMANDER_LOOKUP_UNAVAILABLE" });
+    const card = await response.json();
+    const value = { name: String(card.name || name), colors: normalizeCommanderColors([Array.isArray(card.color_identity) ? card.color_identity : []], 1)[0] };
+    cache.set(name.toLocaleLowerCase(), { value, expiresAt: Date.now() + COMMANDER_IDENTITY_TTL_MS });
+    return value;
+  };
+}
+
 function normalizeCommanderColors(value, commanderCount, fallback = []) {
   if (value === undefined) return Array.from({ length: commanderCount }, (_, slot) => [...(fallback[slot] || [])]);
   if (!Array.isArray(value) || value.length !== commanderCount) {
@@ -763,6 +782,7 @@ export class RoomService {
 
 export function createRealtimeServer(options = {}) {
   const service = options.service ?? new RoomService(options);
+  const lookupCommanderIdentity = options.lookupCommanderIdentity ?? createCommanderIdentityLookup(options.fetchImpl);
   const allowedOrigin = options.allowedOrigin ?? process.env.ALLOWED_ORIGIN ?? "*";
   const staticDir = options.staticDir ?? null;
   const server = createServer(async (req, res) => {
@@ -781,6 +801,7 @@ export function createRealtimeServer(options = {}) {
       const parts = url.pathname.split("/").filter(Boolean);
       const connectionId = req.headers["x-connection-id"];
       if (req.method === "GET" && url.pathname === "/health") return json(res, 200, { ok: true });
+      if (req.method === "GET" && url.pathname === "/api/commander-identity") return json(res, 200, await lookupCommanderIdentity(url.searchParams.get("name") || ""));
       if (req.method === "POST" && url.pathname === "/api/connections") return json(res, 201, service.createConnection());
       if (req.method === "POST" && url.pathname === "/api/connections/heartbeat") return json(res, 200, service.heartbeat(connectionId));
       if (req.method === "POST" && url.pathname === "/api/rooms") return json(res, 201, service.createRoom(connectionId, await readJson(req)));

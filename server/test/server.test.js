@@ -6,7 +6,10 @@ let server;
 let baseUrl;
 
 before(async () => {
-  ({ server } = createRealtimeServer({ connectionTtlMs: 60_000 }));
+  ({ server } = createRealtimeServer({ connectionTtlMs: 60_000, lookupCommanderIdentity: async (name) => {
+    if (name === "Unknown Commander") throw Object.assign(new Error("Commander not found. Check the spelling and try again."), { status: 404, code: "COMMANDER_NOT_FOUND" });
+    return { name: "Atraxa, Praetors' Voice", colors: ["W", "U", "B", "G"] };
+  } }));
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   baseUrl = `http://127.0.0.1:${server.address().port}`;
 });
@@ -43,6 +46,15 @@ async function room(config = {}) {
 }
 
 describe("room configuration and claims", () => {
+  test("looks up a commander identity through the pod server", async () => {
+    const found = await call("/api/commander-identity?name=Atraxa%2C%20Praetors%27%20Voice");
+    assert.equal(found.status, 200);
+    assert.deepEqual(found.body, { name: "Atraxa, Praetors' Voice", colors: ["W", "U", "B", "G"] });
+    const missing = await call("/api/commander-identity?name=Unknown%20Commander");
+    assert.equal(missing.status, 404);
+    assert.equal(missing.body.error.code, "COMMANDER_NOT_FOUND");
+  });
+
   test("creates a 2-8 player room with an opaque code and private reclaim token", async () => {
     const made = await room({ playerCount: 8, startingLife: 30, commanderCount: 2 });
     assert.match(made.snapshot.code, /^[A-HJ-NP-Z2-9]{6}$/);
