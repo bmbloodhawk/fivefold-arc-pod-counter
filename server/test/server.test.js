@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
-import { createRealtimeServer, RoomService } from "../src/app.js";
+import { createCommanderIdentityLookup, createRealtimeServer, RoomService } from "../src/app.js";
+import { LifeAdjustmentBatcher } from "../../client/life-adjustment-batcher.js";
 import { MemoryPlaytestLedger } from "../src/playtest-ledger.js";
 
 let server;
@@ -789,4 +790,34 @@ test("archives a reset playtest with its notes and hands turns only to claimed s
   assert.equal(completed.record.incomplete, true);
   assert.equal(completed.record.notes[0].text, "The table stayed readable.");
   assert.equal(completed.record.players[1].name, "Nissa");
+});
+
+test("treats repeated life operation IDs as one adjustment", async () => {
+  const made = await room({ playerCount: 2, startingLife: 40 });
+  const operationId = "a4a5b5ce-8e3b-4d62-a7c5-5b5d2e6a2b3c";
+  const first = await call(`/api/rooms/${made.snapshot.code}/adjust`, { method: "POST", connectionId: made.connectionId, body: { counter: "life", delta: -3, operationId } });
+  const retry = await call(`/api/rooms/${made.snapshot.code}/adjust`, { method: "POST", connectionId: made.connectionId, body: { counter: "life", delta: -3, operationId } });
+  assert.equal(first.status, 200); assert.equal(retry.status, 200);
+  assert.equal(retry.body.deduplicated, true);
+  assert.equal(retry.body.snapshot.seats[0].counters.life, 37);
+});
+
+test("bounds commander lookups and never turns an outage into a colorless result", async () => {
+  const lookup = createCommanderIdentityLookup((_url, { signal }) => new Promise((_resolve, reject) => signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true })), { timeoutMs: 20 });
+  await assert.rejects(() => lookup("Atraxa"), (error) => error.code === "COMMANDER_LOOKUP_UNAVAILABLE" && /without a color identity/.test(error.message));
+  const connectionId = await connection();
+  const made = await call("/api/rooms", { method: "POST", connectionId, body: { playerCount: 2, startingLife: 40, name: "<svg onload=alert(1)>" } });
+  assert.equal(made.status, 201);
+  assert.equal(made.body.snapshot.seats[0].name, "<svg onload=alert(1)>");
+  assert.equal(JSON.stringify(made.body.snapshot).includes(made.body.reclaimToken), false);
+});
+
+test("batches rapid life taps into one fresh client operation", async () => {
+  const jobs = []; const sent = [];
+  const batcher = new LifeAdjustmentBatcher({ operationId: () => `operation-${sent.length + 1}-fresh-id`, schedule: (job) => { jobs.push(job); return jobs.length; }, cancel: () => {}, send: (operation) => sent.push(operation) });
+  batcher.add(-1); batcher.add(-5);
+  await batcher.flush();
+  assert.deepEqual(sent, [{ delta: -6, operationId: "operation-1-fresh-id" }]);
+  batcher.add(1); await batcher.flush();
+  assert.equal(sent[1].operationId, "operation-2-fresh-id");
 });

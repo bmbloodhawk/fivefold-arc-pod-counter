@@ -7,6 +7,9 @@ import { NullPlaytestLedger, recapFromRoom } from "./playtest-ledger.js";
 const JOIN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const MUTABLE_COUNTERS = new Set(["life", "poison", "energy", "storm", "generic", "commanderDamage"]);
 const COMMANDER_IDENTITY_TTL_MS = 6 * 60 * 60 * 1000;
+const COMMANDER_LOOKUP_TIMEOUT_MS = 6_000;
+const COMMANDER_LOOKUP_MIN_INTERVAL_MS = 100;
+const MAX_RECENT_OPERATION_IDS = 100;
 const STATIC_TYPES = new Map([
   [".css", "text/css; charset=utf-8"],
   [".html", "text/html; charset=utf-8"],
@@ -119,19 +122,30 @@ function normalizeCommanderNames(value, commanderCount, fallback = []) {
 
 const COMMANDER_COLORS = new Set(["W", "U", "B", "R", "G"]);
 
-function createCommanderIdentityLookup(fetchImpl = fetch) {
+export function createCommanderIdentityLookup(fetchImpl = fetch, { timeoutMs = COMMANDER_LOOKUP_TIMEOUT_MS, now = () => Date.now() } = {}) {
   const cache = new Map();
+  let nextRequestAt = 0;
   return async (rawName) => {
     const name = normalizeCommanderNames([rawName], 1)[0];
     if (!name) throw Object.assign(new Error("A commander name is required"), { status: 400, code: "INVALID_INPUT" });
     const cached = cache.get(name.toLocaleLowerCase());
-    if (cached && cached.expiresAt > Date.now()) return cached.value;
-    const response = await fetchImpl(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(name)}`, { headers: { accept: "application/json", "user-agent": "Fivefold Arc Pod Counter/0.1 (commander identity lookup)" } });
+    if (cached && cached.expiresAt > now()) return cached.value;
+    const waitMs = Math.max(0, nextRequestAt - now());
+    if (waitMs) await new Promise((resolve) => setTimeout(resolve, waitMs));
+    nextRequestAt = now() + COMMANDER_LOOKUP_MIN_INTERVAL_MS;
+    const abort = new AbortController();
+    const timeout = setTimeout(() => abort.abort(), timeoutMs);
+    let response;
+    try {
+      response = await fetchImpl(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(name)}`, { signal: abort.signal, headers: { accept: "application/json", "user-agent": "Fivefold Arc Pod Counter/0.1 (commander identity lookup)" } });
+    } catch {
+      throw Object.assign(new Error("Commander lookup is temporarily unavailable. You can still start without a color identity."), { status: 503, code: "COMMANDER_LOOKUP_UNAVAILABLE" });
+    } finally { clearTimeout(timeout); }
     if (response.status === 404) throw Object.assign(new Error("Commander not found. Check the spelling and try again."), { status: 404, code: "COMMANDER_NOT_FOUND" });
     if (!response.ok) throw Object.assign(new Error("Commander lookup is temporarily unavailable. You can still start without a color identity."), { status: 503, code: "COMMANDER_LOOKUP_UNAVAILABLE" });
     const card = await response.json();
     const value = { name: String(card.name || name), colors: normalizeCommanderColors([Array.isArray(card.color_identity) ? card.color_identity : []], 1)[0] };
-    cache.set(name.toLocaleLowerCase(), { value, expiresAt: Date.now() + COMMANDER_IDENTITY_TTL_MS });
+    cache.set(name.toLocaleLowerCase(), { value, expiresAt: now() + COMMANDER_IDENTITY_TTL_MS });
     return value;
   };
 }
@@ -306,6 +320,7 @@ export class RoomService {
       claimed: seatId === 0,
       ownerConnectionId: seatId === 0 ? connectionId : null,
       tokenHash: seatId === 0 ? tokenHash(reclaimToken) : null,
+      recentOperationIds: new Map(),
       commanderCount: seatId === 0 ? commanderCount : 1,
       commanderNames: seatId === 0 ? commanderNames : [""],
       commanderColors: seatId === 0 ? commanderColors : [[]],
@@ -461,6 +476,7 @@ export class RoomService {
       reclaimToken = opaque(32);
       seat.claimed = true;
       seat.tokenHash = tokenHash(reclaimToken);
+      seat.recentOperationIds = new Map();
       seat.name = name;
       seat.commanderCount = commanderCount;
       seat.commanderNames = commanderNames;
@@ -603,6 +619,11 @@ export class RoomService {
   adjustOwnSeat(code, connectionId, input = {}) {
     const room = this.room(code);
     const { seat } = this.requireOwner(room, connectionId);
+    const operationId = input.operationId;
+    if (operationId !== undefined && (typeof operationId !== "string" || operationId.length < 16 || operationId.length > 128)) {
+      throw Object.assign(new Error("operationId must be a client-generated opaque identifier"), { status: 400, code: "INVALID_INPUT" });
+    }
+    if (operationId && seat.recentOperationIds.has(operationId)) return { snapshot: seat.recentOperationIds.get(operationId), deduplicated: true };
     const counter = input.counter;
     const delta = asInteger(input.delta, "delta", -999, 999);
     if (!MUTABLE_COUNTERS.has(counter) || delta === 0) {
@@ -627,7 +648,12 @@ export class RoomService {
     this.recordLedger(room, "counter_adjusted", seat.seatId, { counter, delta: applied, ...(counter === "commanderDamage" ? { commanderSourceId: input.commanderSourceId } : {}) });
     this.recordCompletion(room);
     this.broadcast(room);
-    return { snapshot: this.snapshot(room) };
+    const snapshot = this.snapshot(room);
+    if (operationId) {
+      seat.recentOperationIds.set(operationId, snapshot);
+      while (seat.recentOperationIds.size > MAX_RECENT_OPERATION_IDS) seat.recentOperationIds.delete(seat.recentOperationIds.keys().next().value);
+    }
+    return { snapshot };
   }
 
   resetRoom(code, connectionId, input = {}) {
@@ -637,7 +663,7 @@ export class RoomService {
     if (input.baseVersion !== room.version) {
       throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
     }
-    if (room.turn.gameStarted) this.completePlaytest(room, this.now(), { incomplete: !room.gameResult });
+    this.completePlaytest(room, this.now(), { incomplete: !room.gameResult });
     for (const seat of room.seats) {
       seat.counters = { life: room.config.startingLife, poison: 0, energy: 0, storm: 0, generic: 0 };
       seat.commanderDamageReceived = Object.fromEntries(
@@ -798,9 +824,13 @@ export class RoomService {
     return { snapshot: this.snapshot(room) };
   }
 
-  attachStream(code, connectionId, res) {
+  attachStream(code, connectionId, res, { maxStreamsPerConnection = 2, maxStreamsGlobal = 64 } = {}) {
     const room = this.room(code);
     const { connection } = this.requireOwner(room, connectionId);
+    const streamCount = [...this.connections.values()].reduce((total, item) => total + item.streams.size, 0);
+    if (connection.streams.size >= maxStreamsPerConnection || streamCount >= maxStreamsGlobal) {
+      throw Object.assign(new Error("Too many live update connections. Close an older tab and try again."), { status: 429, code: "SSE_LIMIT" });
+    }
     connection.streams.add(res);
     res.write(`event: snapshot\ndata: ${JSON.stringify(this.snapshot(room))}\n\n`);
     return () => connection.streams.delete(res);
@@ -846,7 +876,7 @@ export class RoomService {
     }
     for (const [code, room] of this.rooms) {
       if (now - room.lastActiveAt > this.roomTtlMs) {
-        if (room.turn.gameStarted) this.completePlaytest(room, now, { incomplete: !room.gameResult });
+        this.completePlaytest(room, now, { incomplete: !room.gameResult });
         for (const seat of room.seats) {
           const connection = this.connections.get(seat.ownerConnectionId);
           if (connection) {
@@ -865,6 +895,8 @@ export function createRealtimeServer(options = {}) {
   const lookupCommanderIdentity = options.lookupCommanderIdentity ?? createCommanderIdentityLookup(options.fetchImpl);
   const allowedOrigin = options.allowedOrigin ?? process.env.ALLOWED_ORIGIN ?? "*";
   const staticDir = options.staticDir ?? null;
+  const sseClients = new Map();
+  const maxStreamsPerIp = options.maxStreamsPerIp ?? 12;
   const server = createServer(async (req, res) => {
     const cors = {
       "access-control-allow-origin": allowedOrigin,
@@ -908,7 +940,11 @@ export function createRealtimeServer(options = {}) {
             connection: "keep-alive",
             "x-accel-buffering": "no",
           });
-          const detach = service.attachStream(code, url.searchParams.get("connectionId"), res);
+          const forwarded = String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown").split(",")[0].trim();
+          if ((sseClients.get(forwarded) || 0) >= maxStreamsPerIp) throw Object.assign(new Error("Too many live update connections from this network. Close an older tab and try again."), { status: 429, code: "SSE_LIMIT" });
+          const detachService = service.attachStream(code, url.searchParams.get("connectionId"), res);
+          sseClients.set(forwarded, (sseClients.get(forwarded) || 0) + 1);
+          const detach = () => { detachService(); const remaining = (sseClients.get(forwarded) || 1) - 1; if (remaining > 0) sseClients.set(forwarded, remaining); else sseClients.delete(forwarded); };
           req.on("close", detach);
           return;
         }

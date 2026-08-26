@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=52">
+  <link rel="stylesheet" href="styles.css?v=53">
 </head>
 <body>
   <header class="brand-bar">
@@ -189,17 +189,6 @@
 
       <aside id="gameMenu" class="game-menu" hidden>
         <button id="closeGameMenuButton" class="menu-close" type="button">Close menu <span aria-hidden="true">×</span></button>
-        <section id="menuTurnBanner" class="turn-banner" aria-hidden="true" hidden>
-          <p id="menuTurnLabel">P1'S TURN</p>
-          <strong id="menuTurnPlayer">P1</strong>
-          <span id="menuTurnElapsed">TURN 0:00</span>
-          <span id="menuGameTimer">GAME TIME 0:00</span>
-        </section>
-        <section id="menuTurnActions" class="turn-actions" aria-hidden="true" hidden>
-          <button id="menuEndTurnButton" class="end-turn-button" type="button">End turn → Next player</button>
-          <button id="menuUndoTurnButton" class="undo-turn-button" type="button" hidden>Undo handoff</button>
-          <p id="menuTurnActionDetail" class="turn-action-detail">Only the active player can end the turn.</p>
-        </section>
         <div id="activeSeatBar" class="active-seat-bar">
           <label for="activeSeat">Simulated active seat</label>
           <select id="activeSeat"></select>
@@ -351,6 +340,6 @@
     <form method="dialog"><h2 id="playtestRecapTitle">Playtest recap</h2><div id="playtestRecapContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
   </dialog>
 
-  <script type="module" src="app.js?v=52"></script>
+  <script type="module" src="app.js?v=53"></script>
 </body>
 </html>

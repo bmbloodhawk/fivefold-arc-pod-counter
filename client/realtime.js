@@ -62,14 +62,18 @@ export class RealtimeAdapter extends EventTarget {
   }
 
   /** Atomic live delta for rapid counter entry; it intentionally does not use a stale absolute total. */
-  async adjust({ counter, delta, commanderSourceId } = {}) {
+  async adjust({ counter, delta, commanderSourceId, operationId } = {}) {
     if (this.localMode) return { local: true };
     if (this.status !== 'connected' || !this.snapshot) return { blocked: true };
     const epoch = this.sessionEpoch;
     try {
-      const result = await this.#request(`/api/rooms/${this.roomCode}/adjust`, {
-        method: 'POST', authenticated: true, body: { counter, delta, ...(commanderSourceId ? { commanderSourceId } : {}) }
-      });
+      const body = { counter, delta, ...(commanderSourceId ? { commanderSourceId } : {}), ...(operationId ? { operationId } : {}) };
+      let result;
+      try { result = await this.#request(`/api/rooms/${this.roomCode}/adjust`, { method: 'POST', authenticated: true, body }); }
+      catch (error) {
+        if (!operationId || error.status) throw error;
+        result = await this.#request(`/api/rooms/${this.roomCode}/adjust`, { method: 'POST', authenticated: true, body });
+      }
       if (!this.#isCurrentSession(epoch)) return { ignored: true };
       this.#acceptSnapshot(result.snapshot, epoch); return result;
     } catch (error) { if (!this.#isCurrentSession(epoch)) return { ignored: true }; throw error; }

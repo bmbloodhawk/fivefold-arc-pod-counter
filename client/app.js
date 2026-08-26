@@ -1,4 +1,5 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=52';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=53';
+import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=53';
 
 const MODES = ['life', 'poison', 'commander', 'energy', 'storm', 'generic'];
 const IDENTITY_ORDER = ['W', 'U', 'B', 'R', 'G'];
@@ -34,6 +35,12 @@ let turnTicker = null;
 let turnUndoTimer = null;
 let lastTurnHandoffKey = null;
 let shownVictoryKey = null;
+let optimisticLifeDelta = 0;
+const lifeBatcher = new LifeAdjustmentBatcher({ send: async ({ delta, operationId }) => {
+  try { await transport.adjust({ counter: 'life', delta, operationId }); optimisticLifeDelta -= delta; }
+  catch (error) { optimisticLifeDelta -= delta; renderConnection('disconnected'); showError(error); }
+  finally { if (state) render(); }
+} });
 
 function sourceForSeat(player, slot) {
   const multiple = player.commanderCount === 2;
@@ -163,7 +170,7 @@ function beginLocalGame(config) { transport.useLocal(); state = createState(conf
 function showSharedGame(snapshot) { state = stateFromSnapshot(snapshot); showView(dom.game); render(); }
 function showError(error) { dom.connectionDetail.textContent = error?.message || 'The pod server could not complete that request.'; dom.connectionDialog.showModal(); }
 function activePlayer() { return state.players.find(player => player.id === state.activePlayerId); }
-function currentValue(player) { return state.mode === 'commander' ? commanderValue(player) : player[state.mode]; }
+function currentValue(player) { const value = state.mode === 'commander' ? commanderValue(player) : player[state.mode]; return state.mode === 'life' && !state.localSimulation && player.id === state.ownerPlayerId ? value + optimisticLifeDelta : value; }
 function turnPlayer() { return state.players.find(player => player.id === state.turnSeatId); }
 function formatDuration(milliseconds) { const seconds = Math.max(0, Math.floor(milliseconds / 1000)); return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`; }
 function renderTurnFlow() {
@@ -423,6 +430,13 @@ async function adjust(delta) {
     if (lifeDelta) showLifeChange(player.id, lifeDelta, lifeBefore, lifeAfter);
     render(); return;
   }
+  if (state.mode === 'life') {
+    optimisticLifeDelta += delta;
+    showLifeChange(player.id, delta, previous, previous + delta);
+    lifeBatcher.add(delta);
+    render();
+    return;
+  }
   $$('[data-delta]').forEach(button => { button.disabled = true; });
   try {
     const result = await transport.adjust({ counter: target, delta, ...(state.mode === 'commander' ? { commanderSourceId: source.id } : {}) });
@@ -533,6 +547,7 @@ function returnToSetup() {
   closeGameOverlays(); clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); clearTimeout(startingRollTimer); clearInterval(turnTicker); dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); showView(dom.create); state = null; transport.clearSession();
 }
 function renderConnection(status = transport.status) {
+  if (status !== 'connected' && optimisticLifeDelta) { lifeBatcher.clear(); optimisticLifeDelta = 0; }
   const labels = { local: 'Local', connected: 'Connected', waiting: 'Connecting…', disconnected: 'Disconnected' }; dom.connectionButton.dataset.state = status; dom.connectionText.textContent = labels[status] || status; dom.disconnectBanner.hidden = status !== 'disconnected';
   dom.connectionDetail.textContent = status === 'local' ? 'This game is running entirely on this phone. Nothing is uploaded.' : status === 'connected' ? `Connected to shared pod ${state?.podCode || ''}. This phone controls ${state?.ownerPlayerId || 'its assigned seat'}. API: ${transport.apiBase}` : `The shared pod is not connected. Counter changes are paused to prevent conflicting table state. API: ${transport.apiBase}`; if (state && !dom.game.hidden) render();
 }

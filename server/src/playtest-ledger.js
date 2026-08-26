@@ -5,6 +5,7 @@ export class NullPlaytestLedger {
   record() {}
   checkpoint() {}
   complete() {}
+  async flush() { return { ok: true }; }
 }
 
 export class MemoryPlaytestLedger {
@@ -23,6 +24,7 @@ export class MemoryPlaytestLedger {
   complete(record) {
     this.records.push({ kind: "complete", record });
   }
+  async flush() { return { ok: true }; }
 }
 
 // Server-only Firebase writer. The service-account key is supplied through
@@ -46,6 +48,8 @@ export class FirebasePlaytestLedger {
   enqueue(path, body) {
     this.pending = this.pending.then(() => this.writeWithRetry(path, body)).catch((error) => this.logger.error("Fivefold Arc playtest ledger write failed", error));
   }
+
+  async flush() { await this.pending; return { ok: true }; }
 
   async writeWithRetry(path, body) {
     let lastError;
