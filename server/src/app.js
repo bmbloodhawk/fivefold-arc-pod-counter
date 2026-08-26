@@ -824,13 +824,17 @@ export class RoomService {
     return { snapshot: this.snapshot(room) };
   }
 
-  attachStream(code, connectionId, res, { maxStreamsPerConnection = 2, maxStreamsGlobal = 64 } = {}) {
+  resolveStreamTarget(code, connectionId, { maxStreamsPerConnection = 2, maxStreamsGlobal = 64 } = {}) {
     const room = this.room(code);
     const { connection } = this.requireOwner(room, connectionId);
     const streamCount = [...this.connections.values()].reduce((total, item) => total + item.streams.size, 0);
     if (connection.streams.size >= maxStreamsPerConnection || streamCount >= maxStreamsGlobal) {
       throw Object.assign(new Error("Too many live update connections. Close an older tab and try again."), { status: 429, code: "SSE_LIMIT" });
     }
+    return { room, connection };
+  }
+
+  attachStream({ room, connection }, res) {
     connection.streams.add(res);
     res.write(`event: snapshot\ndata: ${JSON.stringify(this.snapshot(room))}\n\n`);
     return () => connection.streams.delete(res);
@@ -934,15 +938,16 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "POST" && parts[3] === "turn-handoff" && parts[4] === "undo") return json(res, 200, service.undoTurnHandoff(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "turn-handoff") return json(res, 200, service.handoffTurn(code, connectionId, await readJson(req)));
         if (req.method === "GET" && parts[3] === "events") {
+          const target = service.resolveStreamTarget(code, url.searchParams.get("connectionId"));
+          const forwarded = String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown").split(",")[0].trim();
+          if ((sseClients.get(forwarded) || 0) >= maxStreamsPerIp) throw Object.assign(new Error("Too many live update connections from this network. Close an older tab and try again."), { status: 429, code: "SSE_LIMIT" });
           res.writeHead(200, {
             "content-type": "text/event-stream",
             "cache-control": "no-cache, no-transform",
             connection: "keep-alive",
             "x-accel-buffering": "no",
           });
-          const forwarded = String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown").split(",")[0].trim();
-          if ((sseClients.get(forwarded) || 0) >= maxStreamsPerIp) throw Object.assign(new Error("Too many live update connections from this network. Close an older tab and try again."), { status: 429, code: "SSE_LIMIT" });
-          const detachService = service.attachStream(code, url.searchParams.get("connectionId"), res);
+          const detachService = service.attachStream(target, res);
           sseClients.set(forwarded, (sseClients.get(forwarded) || 0) + 1);
           const detach = () => { detachService(); const remaining = (sseClients.get(forwarded) || 1) - 1; if (remaining > 0) sseClients.set(forwarded, remaining); else sseClients.delete(forwarded); };
           req.on("close", detach);
