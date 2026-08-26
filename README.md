@@ -12,7 +12,7 @@ An installable phone-first web prototype for synced Commander pods. Each phone o
 - Warning and lethal evaluation with commander > poison > life priority
 - Atomic seat claims, private reconnect tokens, conflict-safe live counter deltas, exact-version structural writes, and host-only reset
 - Disconnected shared controls pause; offline changes are not queued or replayed
-- Installable PWA shell with no accounts, chat, analytics, or stored game history
+- Installable PWA shell with no accounts, chat, or analytics. Shared-pod playtest notes and compact game recaps are written server-side when Firebase credentials are configured.
 
 ## Run on this computer
 
@@ -30,7 +30,7 @@ Run automated server tests with `npm test`. Run the adversarial live suite using
 
 The prepared `render.yaml` describes a single free Render web service. It serves both the interface and ephemeral realtime rooms over HTTPS. Deployment requires a Git repository and a Render account; account creation, provider authorization, and accepting provider terms are intentionally not performed by this project.
 
-Important free-tier behavior: the service can sleep after inactivity and take roughly a minute to wake. Rooms are memory-only and disappear whenever the service restarts or redeploys. This is suitable for an interface test, not production.
+Important free-tier behavior: the service can sleep after inactivity and take roughly a minute to wake. Live rooms disappear whenever the service restarts or redeploys. When its Firebase environment variables are configured, the server separately writes compact playtest notes, game events, checkpoints, and completed-game recaps.
 
 Recommended deployment settings if entered manually:
 

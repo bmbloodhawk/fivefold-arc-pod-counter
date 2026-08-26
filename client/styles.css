@@ -27,6 +27,7 @@ body {
     var(--bg);
 }
 button, input, select { font: inherit; }
+textarea { width: 100%; min-height: 96px; padding: 10px 13px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); color: var(--ink); font: inherit; resize: vertical; }
 button, select, input { min-height: 48px; }
 button { color: inherit; }
 button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
@@ -189,6 +190,9 @@ dialog::backdrop { background: rgb(0 0 0 / .72); backdrop-filter: blur(3px); }
 dialog h2 { margin: 18px 0 8px; font-family: Georgia, serif; font-size: 1.8rem; }
 dialog p { color: var(--muted); line-height: 1.5; }
 .dialog-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 22px; }
+.playtest-notes-list { display: grid; gap: 10px; max-height: 34dvh; margin: 16px 0; padding: 0; overflow-y: auto; list-style: none; }
+.playtest-notes-list li { padding: 10px; border: 1px solid var(--line); background: var(--surface-2); }
+.playtest-notes-list p { margin: 5px 0 0; color: var(--ink); white-space: pre-wrap; }
 .coin-toss-result { margin: 16px 0 0; color: var(--brass); font-family: Georgia, serif; font-size: clamp(2rem, 12vw, 3.2rem); font-weight: 700; letter-spacing: .08em; text-align: center; text-transform: uppercase; }
 .coin-toss-result.spinning { color: var(--muted); letter-spacing: .16em; text-shadow: 0 0 16px rgb(216 174 97 / .45); }
 .starting-roll-status { margin: 14px 0 12px; color: var(--brass); font-size: .8rem; font-weight: 900; letter-spacing: .1em; text-align: center; }

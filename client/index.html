@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=51">
+  <link rel="stylesheet" href="styles.css?v=52">
 </head>
 <body>
   <header class="brand-bar">
@@ -33,7 +33,7 @@
         <button id="joinPodButton" class="secondary-action" type="button">Join a pod</button>
         <button id="quickTestButton" class="text-action" type="button">Try a 4-player local table</button>
       </div>
-      <p class="privacy-note"><span aria-hidden="true">◇</span> Test build · No account · No cloud storage</p>
+      <p class="privacy-note"><span aria-hidden="true">◇</span> Test build · No account · Private playtest records</p>
     </section>
 
     <section id="createView" class="view setup-shell" hidden aria-labelledby="createTitle">
@@ -137,6 +137,17 @@
         <button id="randomFirstButton" class="secondary-action" type="button">Roll d20 for first player</button>
         <button id="startGameButton" class="primary-action" type="button">Start game</button>
       </section>
+      <section id="turnBanner" class="turn-banner" aria-live="polite">
+        <p id="turnLabel">P1'S TURN</p>
+        <strong id="turnPlayer">P1</strong>
+        <span id="turnElapsed">TURN 0:00</span>
+        <span id="gameTimer">GAME TIME 0:00</span>
+      </section>
+      <section id="turnActions" class="turn-actions" aria-label="Turn controls">
+        <button id="endTurnButton" class="end-turn-button" type="button">End turn → Next player</button>
+        <button id="undoTurnButton" class="undo-turn-button" type="button" hidden>Undo handoff</button>
+        <p id="turnActionDetail" class="turn-action-detail">Only the active player can end this turn.</p>
+      </section>
       <div class="counter-stage" aria-live="polite">
         <p id="modeTitle" class="counter-mode">LIFE</p>
         <div class="counter-sigil" aria-hidden="true">
@@ -178,22 +189,24 @@
 
       <aside id="gameMenu" class="game-menu" hidden>
         <button id="closeGameMenuButton" class="menu-close" type="button">Close menu <span aria-hidden="true">×</span></button>
-        <section id="turnBanner" class="turn-banner" aria-live="polite">
-          <p id="turnLabel">P1'S TURN</p>
-          <strong id="turnPlayer">P1</strong>
-          <span id="turnElapsed">TURN 0:00</span>
-          <span id="gameTimer">GAME TIME 0:00</span>
+        <section id="menuTurnBanner" class="turn-banner" aria-hidden="true" hidden>
+          <p id="menuTurnLabel">P1'S TURN</p>
+          <strong id="menuTurnPlayer">P1</strong>
+          <span id="menuTurnElapsed">TURN 0:00</span>
+          <span id="menuGameTimer">GAME TIME 0:00</span>
         </section>
-        <section id="turnActions" class="turn-actions" aria-label="Turn controls">
-          <button id="endTurnButton" class="end-turn-button" type="button">End turn → Next player</button>
-          <button id="undoTurnButton" class="undo-turn-button" type="button" hidden>Undo handoff</button>
-          <p id="turnActionDetail" class="turn-action-detail">Only the active player can end the turn.</p>
+        <section id="menuTurnActions" class="turn-actions" aria-hidden="true" hidden>
+          <button id="menuEndTurnButton" class="end-turn-button" type="button">End turn → Next player</button>
+          <button id="menuUndoTurnButton" class="undo-turn-button" type="button" hidden>Undo handoff</button>
+          <p id="menuTurnActionDetail" class="turn-action-detail">Only the active player can end the turn.</p>
         </section>
         <div id="activeSeatBar" class="active-seat-bar">
           <label for="activeSeat">Simulated active seat</label>
           <select id="activeSeat"></select>
         </div>
         <button id="coinTossButton" type="button">Flip a coin</button>
+        <button id="playtestNotesButton" type="button">Playtest notes</button>
+        <button id="playtestRecapButton" type="button">Playtest recap</button>
         <button id="declareWinnerButton" type="button">Declare winner</button>
         <button id="commanderSetupButton" type="button">My commander setup</button>
         <button id="backToSetupButton" type="button">Back to setup</button>
@@ -321,6 +334,23 @@
     </form>
   </dialog>
 
-  <script type="module" src="app.js?v=51"></script>
+  <dialog id="playtestNotesDialog" aria-labelledby="playtestNotesTitle">
+    <form id="playtestNotesForm" method="dialog">
+      <h2 id="playtestNotesTitle">Playtest notes</h2>
+      <p>Share a suggestion while it is fresh. It is saved with your seat and time.</p>
+      <ol id="playtestNotesList" class="playtest-notes-list"></ol>
+      <label class="select-field">Suggestion for this playtest
+        <textarea id="playtestNoteText" maxlength="500" required placeholder="What worked, what was confusing, or what should change?"></textarea>
+      </label>
+      <p id="playtestNoteStatus" class="field-help" aria-live="polite"></p>
+      <div class="dialog-actions"><button value="close" class="secondary-action" formnovalidate>Close</button><button id="savePlaytestNoteButton" class="primary-action" type="submit">Save note</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="playtestRecapDialog" aria-labelledby="playtestRecapTitle">
+    <form method="dialog"><h2 id="playtestRecapTitle">Playtest recap</h2><div id="playtestRecapContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
+  </dialog>
+
+  <script type="module" src="app.js?v=52"></script>
 </body>
 </html>

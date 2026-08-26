@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { createRealtimeServer, RoomService } from "../src/app.js";
+import { MemoryPlaytestLedger } from "../src/playtest-ledger.js";
 
 let server;
 let baseUrl;
@@ -660,7 +661,7 @@ describe("authority and convergence", () => {
     now += 6_000;
     const activeConnectionId = started.snapshot.turn.activeSeatId === 0 ? host.connectionId : other.connectionId;
     const handedOff = service.handoffTurn(initial.code, activeConnectionId, { baseVersion: started.snapshot.version });
-    assert.equal(handedOff.snapshot.turn.activeSeatId, (started.snapshot.turn.activeSeatId + 1) % 3);
+    assert.equal(handedOff.snapshot.turn.activeSeatId, 0);
     assert.deepEqual(handedOff.snapshot.turn.lastHandoff, { fromSeatId: started.snapshot.turn.activeSeatId, toSeatId: handedOff.snapshot.turn.activeSeatId, handedOffAt: now });
 
     const nonOwnerConnectionId = activeConnectionId === host.connectionId ? other.connectionId : host.connectionId;
@@ -673,7 +674,7 @@ describe("authority and convergence", () => {
     const again = service.handoffTurn(initial.code, activeConnectionId, { baseVersion: undone.snapshot.version });
     now += 15_001;
     assert.throws(() => service.undoTurnHandoff(initial.code, activeConnectionId, { baseVersion: again.snapshot.version }), { code: "HANDOFF_UNDO_EXPIRED" });
-    assert.equal(service.snapshot(service.room(initial.code)).turn.activeSeatId, (started.snapshot.turn.activeSeatId + 1) % 3);
+    assert.equal(service.snapshot(service.room(initial.code)).turn.activeSeatId, 0);
   });
 
   test("applies concurrent live counter deltas without a stale-version re-entry error", async () => {
@@ -745,4 +746,47 @@ test("expired connections release transport ownership but preserve seat reservat
     reclaimToken: created.reclaimToken,
   });
   assert.equal(reclaimed.snapshot.seats[0].connected, true);
+});
+
+test("stores player-owned playtest notes and limits recaps to the host", async () => {
+  const made = await room({ playerCount: 2, name: "Host" });
+  const playerConnection = await connection();
+  const claimed = await call(`/api/rooms/${made.snapshot.code}/claim`, { method: "POST", connectionId: playerConnection, body: { seatId: 1, name: "Jace" } });
+  assert.equal(claimed.status, 200);
+  const note = await call(`/api/rooms/${made.snapshot.code}/playtest-notes`, { method: "POST", connectionId: playerConnection, body: { text: "Turn handoff was easy to find." } });
+  assert.equal(note.status, 201);
+  assert.equal(note.body.note.authorSeatId, 1);
+  const notes = await call(`/api/rooms/${made.snapshot.code}/playtest-notes`, { connectionId: made.connectionId });
+  assert.equal(notes.status, 200);
+  assert.equal(notes.body.notes[0].text, "Turn handoff was easy to find.");
+  const invalid = await call(`/api/rooms/${made.snapshot.code}/playtest-notes`, { method: "POST", connectionId: playerConnection, body: { text: " " } });
+  assert.equal(invalid.status, 400);
+  const denied = await call(`/api/rooms/${made.snapshot.code}/playtest-recap`, { connectionId: playerConnection });
+  assert.equal(denied.status, 403);
+  const recap = await call(`/api/rooms/${made.snapshot.code}/playtest-recap`, { connectionId: made.connectionId });
+  assert.equal(recap.status, 200);
+  assert.equal(recap.body.recap.players[1].name, "Jace");
+  assert.equal(recap.body.recap.notes.length, 1);
+});
+
+test("archives a reset playtest with its notes and hands turns only to claimed seats", () => {
+  let clock = 10_000;
+  const ledger = new MemoryPlaytestLedger();
+  const service = new RoomService({ now: () => clock, ledger });
+  const host = service.createConnection();
+  const made = service.createRoom(host.connectionId, { playerCount: 3, startingLife: 40, name: "Host" });
+  const other = service.createConnection();
+  const claimed = service.claimSeat(made.snapshot.code, other.connectionId, { seatId: 2, name: "Nissa" });
+  service.chooseStartingPlayer(made.snapshot.code, host.connectionId, { baseVersion: claimed.snapshot.version, startingSeatId: 0 });
+  const started = service.startGame(made.snapshot.code, host.connectionId, { baseVersion: service.snapshot(service.room(made.snapshot.code)).version });
+  clock += 4_000;
+  const handoff = service.handoffTurn(made.snapshot.code, host.connectionId, { baseVersion: started.snapshot.version });
+  assert.equal(handoff.snapshot.turn.activeSeatId, 2);
+  service.addPlaytestNote(made.snapshot.code, other.connectionId, { text: "The table stayed readable." });
+  const reset = service.resetRoom(made.snapshot.code, host.connectionId, { baseVersion: service.snapshot(service.room(made.snapshot.code)).version });
+  assert.notEqual(reset.snapshot.version, started.snapshot.version);
+  const completed = ledger.records.find((entry) => entry.kind === "complete");
+  assert.equal(completed.record.incomplete, true);
+  assert.equal(completed.record.notes[0].text, "The table stayed readable.");
+  assert.equal(completed.record.players[1].name, "Nissa");
 });

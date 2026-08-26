@@ -2,9 +2,10 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
+import { NullPlaytestLedger, recapFromRoom } from "./playtest-ledger.js";
 
 const JOIN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const MUTABLE_COUNTERS = new Set(["life", "poison", "energy", "storm", "generic"]);
+const MUTABLE_COUNTERS = new Set(["life", "poison", "energy", "storm", "generic", "commanderDamage"]);
 const COMMANDER_IDENTITY_TTL_MS = 6 * 60 * 60 * 1000;
 const STATIC_TYPES = new Map([
   [".css", "text/css; charset=utf-8"],
@@ -245,12 +246,13 @@ function recordLastPlayerStanding(room, now) {
 }
 
 export class RoomService {
-  constructor({ now = () => Date.now(), roomTtlMs = 6 * 60 * 60 * 1000, connectionTtlMs = 90 * 1000 } = {}) {
+  constructor({ now = () => Date.now(), roomTtlMs = 6 * 60 * 60 * 1000, connectionTtlMs = 90 * 1000, ledger = new NullPlaytestLedger() } = {}) {
     this.now = now;
     this.roomTtlMs = roomTtlMs;
     this.connectionTtlMs = connectionTtlMs;
     this.rooms = new Map();
     this.connections = new Map();
+    this.ledger = ledger;
   }
 
   createConnection() {
@@ -331,9 +333,15 @@ export class RoomService {
         lastHandoff: null,
       },
       seats,
+      playtestNotes: [],
+      gameId: opaque(12),
+      ledgerSequence: 0,
+      ledgerLastCheckpointAt: startedAt,
+      ledgerCompletedAt: null,
     };
     synchronizeCommanderState(room);
     this.rooms.set(code, room);
+    this.recordLedger(room, "room_created", 0, { playerCount, startingLife });
     connection.seatKey = `${code}:0`;
     return { snapshot: this.snapshot(room), seatId: 0, reclaimToken };
   }
@@ -389,6 +397,52 @@ export class RoomService {
     };
   }
 
+  recordLedger(room, type, actorSeatId, detail = {}) {
+    const at = this.now();
+    const event = { gameId: room.gameId, roomCode: room.code, sequence: ++room.ledgerSequence, at, type, actorSeatId, ...detail };
+    this.ledger.record(event);
+    if (event.sequence % 25 === 0 || at - room.ledgerLastCheckpointAt >= 60_000) {
+      this.ledger.checkpoint({ gameId: room.gameId, roomCode: room.code, sequence: event.sequence, at, recap: recapFromRoom(room, at), snapshot: this.snapshot(room) });
+      room.ledgerLastCheckpointAt = at;
+    }
+  }
+
+  completePlaytest(room, completedAt, { incomplete = false } = {}) {
+    if (room.ledgerCompletedAt) return;
+    room.ledgerCompletedAt = completedAt;
+    this.ledger.complete({
+      ...recapFromRoom(room, completedAt),
+      notes: room.playtestNotes.map((note) => ({ ...note })),
+      incomplete,
+    });
+  }
+
+  recordCompletion(room) {
+    if (!room.gameResult) return;
+    this.completePlaytest(room, room.gameResult.decidedAt);
+  }
+
+  listPlaytestNotes(code, connectionId) {
+    const room = this.room(code); this.requireOwner(room, connectionId);
+    return { notes: room.playtestNotes.map((note) => ({ ...note })), gameId: room.gameId };
+  }
+
+  addPlaytestNote(code, connectionId, input = {}) {
+    const room = this.room(code); const { seatId } = this.requireOwner(room, connectionId);
+    if (typeof input.text !== "string") throw Object.assign(new Error("A note must be text"), { status: 400, code: "INVALID_INPUT" });
+    const text = input.text.normalize("NFC").trim().replace(/\s+/gu, " ");
+    if (!text || Array.from(text).length > 500 || /[\p{Cc}\p{Cf}]/u.test(text)) throw Object.assign(new Error("Notes must contain 1 to 500 printable characters"), { status: 400, code: "INVALID_INPUT" });
+    const note = { noteId: opaque(12), gameId: room.gameId, authorSeatId: seatId, createdAt: this.now(), text };
+    room.playtestNotes.push(note); this.recordLedger(room, "playtest_note_added", seatId, { noteId: note.noteId }); this.broadcast(room);
+    return { note: { ...note } };
+  }
+
+  playtestRecap(code, connectionId) {
+    const room = this.room(code); const { seatId } = this.requireOwner(room, connectionId);
+    if (seatId !== room.hostSeatId) throw Object.assign(new Error("Only the host may view the playtest recap"), { status: 403, code: "HOST_ONLY" });
+    return { recap: { ...recapFromRoom(room, this.now()), notes: room.playtestNotes.map((note) => ({ ...note })) } };
+  }
+
   claimSeat(code, connectionId, input = {}) {
     const room = this.room(code);
     const connection = this.getConnection(connectionId);
@@ -438,6 +492,7 @@ export class RoomService {
     connection.seatKey = seatKey;
     synchronizeCommanderState(room);
     room.version += 1;
+    this.recordLedger(room, seat.claimed && input.reclaimToken ? "seat_reclaimed" : "seat_claimed", seatId, { name: seat.name, commanderCount: seat.commanderCount });
     this.broadcast(room);
     return { snapshot: this.snapshot(room), seatId, ...(!input.reclaimToken ? { reclaimToken } : {}) };
   }
@@ -536,6 +591,11 @@ export class RoomService {
     synchronizeCommanderState(room);
     recordLastPlayerStanding(room, this.now());
     room.version += 1;
+    this.recordLedger(room, "seat_configured", seat.seatId, {
+      counters: Object.keys(counters), commanderDamageSources: Object.keys(commander), commanderCastSources: Object.keys(commanderCastCounts),
+      renamed: hasName, commanderCountChanged: hasCommanderCount, commanderNamesChanged: hasCommanderNames,
+    });
+    this.recordCompletion(room);
     this.broadcast(room);
     return { snapshot: this.snapshot(room) };
   }
@@ -548,13 +608,14 @@ export class RoomService {
     if (!MUTABLE_COUNTERS.has(counter) || delta === 0) {
       throw Object.assign(new Error("Adjustments require one supported counter and a non-zero delta"), { status: 400, code: "INVALID_INPUT" });
     }
+    let applied = delta;
     if (counter === "commanderDamage") {
       const sourceId = input.commanderSourceId;
       const allowed = new Set(commanderSources(room).filter((source) => source.ownerSeatId !== seat.seatId).map((source) => source.id));
       if (!allowed.has(sourceId)) {
         throw Object.assign(new Error("Commander damage may reference only another claimed seat's active commander source"), { status: 400, code: "INVALID_INPUT" });
       }
-      const applied = Math.max(-seat.commanderDamageReceived[sourceId], delta);
+      applied = Math.max(-seat.commanderDamageReceived[sourceId], delta);
       seat.commanderDamageReceived[sourceId] += applied;
       seat.counters.life = Math.max(-999, Math.min(999, seat.counters.life - applied));
     } else {
@@ -563,6 +624,8 @@ export class RoomService {
     }
     recordLastPlayerStanding(room, this.now());
     room.version += 1;
+    this.recordLedger(room, "counter_adjusted", seat.seatId, { counter, delta: applied, ...(counter === "commanderDamage" ? { commanderSourceId: input.commanderSourceId } : {}) });
+    this.recordCompletion(room);
     this.broadcast(room);
     return { snapshot: this.snapshot(room) };
   }
@@ -574,6 +637,7 @@ export class RoomService {
     if (input.baseVersion !== room.version) {
       throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
     }
+    if (room.turn.gameStarted) this.completePlaytest(room, this.now(), { incomplete: !room.gameResult });
     for (const seat of room.seats) {
       seat.counters = { life: room.config.startingLife, poison: 0, energy: 0, storm: 0, generic: 0 };
       seat.commanderDamageReceived = Object.fromEntries(
@@ -585,6 +649,10 @@ export class RoomService {
     }
     room.lastCoinToss = null;
     room.gameResult = null;
+    room.gameId = opaque(12);
+    room.ledgerSequence = 0;
+    room.ledgerLastCheckpointAt = this.now();
+    room.ledgerCompletedAt = null;
     room.turn = {
       activeSeatId: 0,
       gameStarted: false,
@@ -596,6 +664,7 @@ export class RoomService {
       lastHandoff: null,
     };
     room.version += 1;
+    this.recordLedger(room, "room_reset", seatId);
     this.broadcast(room);
     return { snapshot: this.snapshot(room) };
   }
@@ -608,6 +677,7 @@ export class RoomService {
       tossedBySeatId: seatId,
       tossedAt: this.now(),
     };
+    this.recordLedger(room, "coin_tossed", seatId, { result: room.lastCoinToss.result });
     // A toss is shared table utility information, not gameplay state. It is
     // broadcast without advancing the counter-write version, avoiding a
     // needless conflict with a simultaneous life update.
@@ -626,6 +696,8 @@ export class RoomService {
     if (!room.seats[winnerSeatId].claimed) throw Object.assign(new Error("A winner must be a claimed seat"), { status: 400, code: "INVALID_INPUT" });
     room.gameResult = { winnerSeatId, reason: "declared_winner", decidedAt: this.now() };
     room.version += 1;
+    this.recordLedger(room, "winner_declared", seatId, { winnerSeatId });
+    this.recordCompletion(room);
     this.broadcast(room);
     return { snapshot: this.snapshot(room) };
   }
@@ -646,6 +718,7 @@ export class RoomService {
     if (!chosen?.claimed) throw Object.assign(new Error("The starting player must be a claimed seat"), { status: 400, code: "INVALID_INPUT" });
     room.turn = { ...room.turn, activeSeatId: chosen.seatId, startingPlayerSeatId: chosen.seatId, startingPlayerRoll: roll, lastHandoff: null };
     room.version += 1;
+    this.recordLedger(room, "first_player_selected", seatId, { startingSeatId: chosen.seatId, method: roll ? "d20" : "host" });
     this.broadcast(room);
     return { snapshot: this.snapshot(room) };
   }
@@ -668,6 +741,7 @@ export class RoomService {
       lastHandoff: null,
     };
     room.version += 1;
+    this.recordLedger(room, "game_started", seatId, { startingSeatId: room.turn.startingPlayerSeatId });
     this.broadcast(room);
     return { snapshot: this.snapshot(room) };
   }
@@ -683,7 +757,10 @@ export class RoomService {
       throw Object.assign(new Error("Only the active player may end this turn"), { status: 403, code: "NOT_ACTIVE_PLAYER" });
     }
     const handedOffAt = this.now();
-    const toSeatId = (seatId + 1) % room.config.playerCount;
+    const previousTurnStartedAt = room.turn.turnStartedAt;
+    const claimedSeats = room.seats.filter((seat) => seat.claimed);
+    const currentIndex = claimedSeats.findIndex((seat) => seat.seatId === seatId);
+    const toSeatId = claimedSeats[(currentIndex + 1) % claimedSeats.length].seatId;
     room.turn = {
       ...room.turn,
       activeSeatId: toSeatId,
@@ -691,6 +768,7 @@ export class RoomService {
       lastHandoff: { fromSeatId: seatId, toSeatId, handedOffAt },
     };
     room.version += 1;
+    this.recordLedger(room, "turn_handed_off", seatId, { toSeatId, turnLengthMs: Math.max(0, handedOffAt - (previousTurnStartedAt ?? handedOffAt)) });
     this.broadcast(room);
     return { snapshot: this.snapshot(room) };
   }
@@ -715,6 +793,7 @@ export class RoomService {
       lastHandoff: null,
     };
     room.version += 1;
+    this.recordLedger(room, "turn_handoff_undone", seatId, { toSeatId: handoff.fromSeatId });
     this.broadcast(room);
     return { snapshot: this.snapshot(room) };
   }
@@ -767,6 +846,7 @@ export class RoomService {
     }
     for (const [code, room] of this.rooms) {
       if (now - room.lastActiveAt > this.roomTtlMs) {
+        if (room.turn.gameStarted) this.completePlaytest(room, now, { incomplete: !room.gameResult });
         for (const seat of room.seats) {
           const connection = this.connections.get(seat.ownerConnectionId);
           if (connection) {
@@ -813,6 +893,9 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "POST" && parts[3] === "adjust") return json(res, 200, service.adjustOwnSeat(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "reset") return json(res, 200, service.resetRoom(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "coin-toss") return json(res, 200, service.tossCoin(code, connectionId));
+        if (req.method === "GET" && parts[3] === "playtest-notes") return json(res, 200, service.listPlaytestNotes(code, connectionId));
+        if (req.method === "POST" && parts[3] === "playtest-notes") return json(res, 201, service.addPlaytestNote(code, connectionId, await readJson(req)));
+        if (req.method === "GET" && parts[3] === "playtest-recap") return json(res, 200, service.playtestRecap(code, connectionId));
         if (req.method === "POST" && parts[3] === "declare-winner") return json(res, 200, service.declareWinner(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "choose-starting-player") return json(res, 200, service.chooseStartingPlayer(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "start-game") return json(res, 200, service.startGame(code, connectionId, await readJson(req)));

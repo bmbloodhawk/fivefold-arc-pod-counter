@@ -1,10 +1,11 @@
 import { createRealtimeServer } from "./app.js";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
+import { createPlaytestLedgerFromEnv } from "./playtest-ledger.js";
 
 const port = Number(process.env.PORT ?? 8787);
 const staticDir = resolve(fileURLToPath(new URL("../../client/", import.meta.url)));
-const { server, service } = createRealtimeServer({ staticDir });
+const { server, service } = createRealtimeServer({ staticDir, ledger: createPlaytestLedgerFromEnv() });
 const sweepTimer = setInterval(() => service.sweep(), 30_000);
 sweepTimer.unref();
 

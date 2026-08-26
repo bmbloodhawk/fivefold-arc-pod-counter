@@ -97,6 +97,14 @@ export class RealtimeAdapter extends EventTarget {
     } catch (error) { if (!this.#isCurrentSession(epoch)) return { ignored: true }; return this.#handleConflict(error, epoch); }
   }
 
+  async listPlaytestNotes() { return this.#request(`/api/rooms/${this.roomCode}/playtest-notes`, { authenticated: true }); }
+  async addPlaytestNote(text) {
+    if (this.localMode) throw new Error('Playtest notes are available in a shared pod.');
+    if (this.status !== 'connected') throw new Error('Reconnect before saving a note. Your draft has not been saved.');
+    return this.#request(`/api/rooms/${this.roomCode}/playtest-notes`, { method: 'POST', authenticated: true, body: { text } });
+  }
+  async getPlaytestRecap() { return this.#request(`/api/rooms/${this.roomCode}/playtest-recap`, { authenticated: true }); }
+
   async tossCoin() {
     if (this.localMode) return { local: true };
     if (this.status !== 'connected' || !this.snapshot) return { blocked: true };

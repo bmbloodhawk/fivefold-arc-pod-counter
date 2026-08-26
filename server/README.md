@@ -1,6 +1,6 @@
 # Fivefold Arc realtime server
 
-This is a dependency-free Node.js backend for the phone prototype. It keeps rooms in memory, uses server-authoritative versions, and pushes complete state snapshots with Server-Sent Events (SSE). It intentionally has no accounts, database, history, chat, analytics, or third-party service.
+This is a dependency-free Node.js backend for the phone prototype. It keeps active rooms in memory, uses server-authoritative versions, and pushes complete state snapshots with Server-Sent Events (SSE). It has no accounts, chat, or analytics. When the three Firebase server environment variables are present, it additionally writes compact, private playtest notes and game recaps to Realtime Database.
 
 ## Run locally
 
@@ -35,7 +35,7 @@ This process is not itself a public deployment. A web host must run it behind HT
 - Routine live counter adjustments use a separate atomic delta endpoint, so simultaneous life/counter taps from different seats are applied against the newest server state instead of failing due to an old displayed total. Structural edits still use exact versions.
 - Only the active seat owner may hand off the turn. The server records the handoff timestamp and advances to the next table seat; only the player who handed off may undo it, for 15 seconds. Turn actions use exact versions and are broadcast over SSE.
 - Clients must never queue gameplay mutations while offline. After reconnecting, obtain/reclaim a connection, accept the newest snapshot, and let the player perform any still-needed action again. The exact-version check rejects stale queued requests.
-- Connections expire after 90 seconds without heartbeat/API activity. Seats remain reserved by their token. Rooms expire after six inactive hours. Restarting the process deletes every room.
+- Connections expire after 90 seconds without heartbeat/API activity. Seats remain reserved by their token. Rooms expire after six inactive hours. Restarting the process deletes every active room; a configured Firebase ledger retains records successfully written before that restart.
 
 ## HTTP protocol
 
