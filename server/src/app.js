@@ -964,7 +964,7 @@ export function createRealtimeServer(options = {}) {
   const server = createServer(async (req, res) => {
     const cors = {
       "access-control-allow-origin": allowedOrigin,
-      "access-control-allow-methods": "GET,POST,PATCH,OPTIONS",
+      "access-control-allow-methods": "GET,POST,PATCH,DELETE,OPTIONS",
       "access-control-allow-headers": "content-type,x-connection-id,x-feedback-portal-key",
     };
     if (req.method === "OPTIONS") {
@@ -978,6 +978,17 @@ export function createRealtimeServer(options = {}) {
       const connectionId = req.headers["x-connection-id"];
       if (req.method === "GET" && url.pathname === "/health") return json(res, 200, { ok: true });
       if (req.method === "GET" && url.pathname === "/api/feedback") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { notes: await service.ledger.listFeedback() }); }
+      if ((req.method === "PATCH" || req.method === "DELETE") && parts[0] === "api" && parts[1] === "feedback" && parts[2]) {
+        feedbackKeyMatches(req.headers["x-feedback-portal-key"]);
+        const input = req.method === "DELETE" ? await readJson(req) : await readJson(req);
+        const gameId = typeof input.gameId === "string" ? input.gameId : "";
+        const status = req.method === "DELETE" ? "deleted" : String(input.status || "open");
+        const ownerNote = String(input.ownerNote || "").normalize("NFC").trim().replace(/\s+/gu, " ");
+        if (!gameId || !["open", "addressed", "dismissed", "deleted"].includes(status) || Array.from(ownerNote).length > 1000 || /[\p{Cc}\p{Cf}]/u.test(ownerNote)) throw Object.assign(new Error("Feedback review details were invalid"), { status: 400, code: "INVALID_INPUT" });
+        const review = { noteId: parts[2], gameId, status, ownerNote, updatedAt: Date.now() };
+        await service.ledger.updateFeedback(review);
+        return json(res, 200, { review });
+      }
       if (req.method === "GET" && url.pathname === "/api/commander-identity") return json(res, 200, await lookupCommanderIdentity(url.searchParams.get("name") || ""));
       if (req.method === "POST" && url.pathname === "/api/connections") return json(res, 201, service.createConnection());
       if (req.method === "POST" && url.pathname === "/api/connections/heartbeat") return json(res, 200, service.heartbeat(connectionId));

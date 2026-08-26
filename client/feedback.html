@@ -10,7 +10,8 @@
     * { box-sizing:border-box; } body { margin:0; min-height:100dvh; color:var(--ink); background:radial-gradient(circle at 50% -15%,rgb(216 174 97 / .14),transparent 32rem),var(--bg); }
     main { width:min(100%,760px); margin:auto; padding:clamp(28px,7vw,64px) 20px; } .eyebrow { color:var(--brass); font-size:.72rem; font-weight:800; letter-spacing:.16em; } h1 { margin:8px 0; font-family:Georgia,serif; font-size:clamp(2rem,8vw,3.5rem); font-weight:500; } p { color:var(--muted); line-height:1.45; }
     form { display:grid; gap:12px; max-width:480px; margin-top:30px; } label { display:grid; gap:7px; font-weight:700; } input { min-height:48px; padding:10px 12px; border:1px solid var(--line); border-radius:6px; background:var(--surface); color:var(--ink); font:inherit; } button { min-height:48px; padding:10px 14px; border:1px solid #f0cf8f; border-radius:6px; background:var(--brass); color:#1a150c; font:inherit; font-weight:850; cursor:pointer; } button.secondary { border-color:var(--line); background:transparent; color:var(--brass); } #status { min-height:1.4em; } .toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin:30px 0 12px; } .toolbar button { min-height:38px; background:transparent; border-color:var(--line); color:var(--brass); }
-    .note { margin:10px 0; padding:16px; border:1px solid var(--line); border-left:3px solid var(--teal); background:linear-gradient(145deg,#1e1d1a,#111); } .note header { display:flex; justify-content:space-between; gap:12px; color:var(--brass); font-size:.8rem; font-weight:800; } .note p { margin:10px 0 0; color:var(--ink); white-space:pre-wrap; } .empty { padding:22px; border:1px dashed var(--line); color:var(--muted); text-align:center; }
+    .filters { display:flex; flex-wrap:wrap; gap:7px; margin:0 0 12px; } .filters button,.note button { min-height:34px; padding:6px 9px; border-color:var(--line); background:transparent; color:var(--brass); font-size:.75rem; } .filters button.active { border-color:var(--teal); color:var(--teal); }
+    .note { margin:10px 0; padding:16px; border:1px solid var(--line); border-left:3px solid var(--teal); background:linear-gradient(145deg,#1e1d1a,#111); } .note[data-status="addressed"] { border-left-color:var(--brass); } .note[data-status="dismissed"],.note[data-status="deleted"] { opacity:.66; border-left-color:#70695d; } .note header { display:flex; justify-content:space-between; gap:12px; color:var(--brass); font-size:.8rem; font-weight:800; } .note p { margin:10px 0 0; color:var(--ink); white-space:pre-wrap; } .review { display:grid; gap:8px; margin-top:14px; } .review textarea { width:100%; min-height:64px; padding:8px; border:1px solid var(--line); border-radius:4px; background:var(--surface); color:var(--ink); font:inherit; resize:vertical; } .actions { display:flex; flex-wrap:wrap; gap:7px; } .status-pill { color:var(--teal); font-size:.72rem; letter-spacing:.08em; } .empty { padding:22px; border:1px dashed var(--line); color:var(--muted); text-align:center; }
     [hidden] { display:none!important; } button:focus-visible,input:focus-visible { outline:3px solid white; outline-offset:3px; }
   </style>
 </head>
@@ -26,19 +27,33 @@
     </form>
     <section id="inbox" hidden aria-live="polite">
       <div class="toolbar"><strong id="count"></strong><button id="lockButton" class="secondary" type="button">Lock inbox</button></div>
+      <div id="filters" class="filters" aria-label="Feedback status filters"></div>
       <div id="notes"></div>
     </section>
   </main>
   <script>
-    const form = document.querySelector('#unlockForm'); const key = document.querySelector('#ownerKey'); const status = document.querySelector('#status'); const inbox = document.querySelector('#inbox'); const notes = document.querySelector('#notes'); const count = document.querySelector('#count');
+    const form = document.querySelector('#unlockForm'); const key = document.querySelector('#ownerKey'); const status = document.querySelector('#status'); const inbox = document.querySelector('#inbox'); const notes = document.querySelector('#notes'); const count = document.querySelector('#count'); const filters = document.querySelector('#filters'); let allNotes = []; let filter = 'open';
     const escapeHtml = value => String(value).replace(/[&<>\"]/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' })[char]);
     const date = value => new Intl.DateTimeFormat(undefined, { dateStyle:'medium', timeStyle:'short' }).format(new Date(value));
+    const statusLabel = value => ({ open:'Open', addressed:'Addressed', dismissed:'Dismissed', deleted:'Deleted' })[value] || 'Open';
+    function renderFeedback() {
+      const visible = allNotes.filter(note => filter === 'all' || (note.status || 'open') === filter); count.textContent = `${visible.length} ${statusLabel(filter).toLowerCase()} feedback note${visible.length === 1 ? '' : 's'}`;
+      filters.innerHTML = ['open','addressed','dismissed','deleted','all'].map(item => `<button type="button" data-filter="${item}" class="${item === filter ? 'active' : ''}">${item === 'all' ? 'All' : statusLabel(item)}</button>`).join('');
+      notes.innerHTML = visible.length ? visible.map(note => `<article class="note" data-note="${escapeHtml(note.noteId)}" data-status="${escapeHtml(note.status || 'open')}"><header><span>${escapeHtml(note.authorName || `Seat ${Number(note.authorSeatId) + 1}`)} · ${escapeHtml(note.roomCode || 'Saved playtest')}</span><time datetime="${new Date(note.createdAt).toISOString()}">${escapeHtml(date(note.createdAt))}</time></header><p>${escapeHtml(note.text)}</p><section class="review"><strong class="status-pill">${escapeHtml(statusLabel(note.status || 'open'))}</strong><textarea maxlength="1000" aria-label="Private owner note for feedback" placeholder="Your private follow-up note">${escapeHtml(note.ownerNote || '')}</textarea><div class="actions"><button type="button" data-action="open">Keep open</button><button type="button" data-action="addressed">Mark addressed</button><button type="button" data-action="dismissed">Dismiss</button><button type="button" data-action="deleted">Delete from inbox</button></div></section></article>`).join('') : '<p class="empty">No feedback notes in this view.</p>';
+      filters.querySelectorAll('[data-filter]').forEach(button => button.addEventListener('click', () => { filter = button.dataset.filter; renderFeedback(); }));
+      notes.querySelectorAll('[data-action]').forEach(button => button.addEventListener('click', () => updateFeedback(button.closest('.note'), button.dataset.action)));
+    }
+    async function updateFeedback(card, nextStatus) {
+      const note = allNotes.find(item => item.noteId === card.dataset.note); const ownerNote = card.querySelector('textarea').value;
+      const response = await fetch(`/api/feedback/${encodeURIComponent(note.noteId)}`, { method: nextStatus === 'deleted' ? 'DELETE' : 'PATCH', headers: { 'content-type':'application/json', 'x-feedback-portal-key':key.value }, body: JSON.stringify({ gameId:note.gameId, status:nextStatus, ownerNote }) });
+      const payload = await response.json(); if (!response.ok) return status.textContent = payload.error?.message || 'Could not update feedback.';
+      Object.assign(note, payload.review); renderFeedback();
+    }
     async function loadFeedback() {
       status.textContent = 'Opening inbox…';
       const response = await fetch('/api/feedback', { headers: { 'x-feedback-portal-key': key.value }, cache:'no-store' });
       const payload = await response.json(); if (!response.ok) throw new Error(payload.error?.message || 'Could not open feedback inbox.');
-      const list = payload.notes || []; count.textContent = `${list.length} feedback note${list.length === 1 ? '' : 's'}`;
-      notes.innerHTML = list.length ? list.map(note => `<article class="note"><header><span>${escapeHtml(note.authorName || `Seat ${Number(note.authorSeatId) + 1}`)} · ${escapeHtml(note.roomCode || 'Saved playtest')}</span><time datetime="${new Date(note.createdAt).toISOString()}">${escapeHtml(date(note.createdAt))}</time></header><p>${escapeHtml(note.text)}</p></article>`).join('') : '<p class="empty">No saved feedback yet. Notes appear here after players submit them in a connected pod with durable storage enabled.</p>';
+      allNotes = payload.notes || []; renderFeedback();
       form.hidden = true; inbox.hidden = false; status.textContent = '';
     }
     form.addEventListener('submit', async event => { event.preventDefault(); try { await loadFeedback(); } catch (error) { status.textContent = error.message; } });

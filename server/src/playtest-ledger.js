@@ -10,6 +10,7 @@ export class NullPlaytestLedger {
   async readRecovery() { return null; }
   async listArchive() { return []; }
   async listFeedback() { return []; }
+  async updateFeedback() { throw new Error("Feedback storage is not configured"); }
   async flush() { return { ok: true }; }
 }
 
@@ -35,12 +36,15 @@ export class MemoryPlaytestLedger {
   async listArchive() { return this.records.filter((item) => item.kind === "complete").map((item) => item.record); }
   async listFeedback() {
     const notes = new Map();
+    const reviews = new Map();
     for (const item of this.records) {
       if (item.kind === "note") notes.set(item.record.noteId, item.record);
       if (item.kind === "complete") for (const note of item.record.notes || []) notes.set(note.noteId, { ...note, roomCode: note.roomCode || item.record.roomCode, authorName: note.authorName || item.record.players?.find((player) => player.seatId === note.authorSeatId)?.name || `P${note.authorSeatId + 1}` });
+      if (item.kind === "feedback_review") reviews.set(item.record.noteId, item.record);
     }
-    return [...notes.values()].sort((a, b) => b.createdAt - a.createdAt);
+    return [...notes.values()].map((note) => ({ ...note, ...(reviews.get(note.noteId) || {}) })).sort((a, b) => b.createdAt - a.createdAt);
   }
+  async updateFeedback(review) { this.records.push({ kind: "feedback_review", record: review }); }
   async flush() { return { ok: true }; }
 }
 
@@ -73,17 +77,19 @@ export class FirebasePlaytestLedger {
     const notes = new Map();
     for (const item of Object.values(playtests)) {
       const recap = item?.recap || {};
+      const reviews = item?.feedback || {};
       for (const note of Object.values(item?.notes || {})) {
         if (!note?.noteId) continue;
-        notes.set(note.noteId, { ...note, roomCode: note.roomCode || recap.roomCode, authorName: note.authorName || recap.players?.find((player) => player.seatId === note.authorSeatId)?.name || `P${Number(note.authorSeatId) + 1}` });
+        notes.set(note.noteId, { ...note, ...(reviews[note.noteId] || {}), roomCode: note.roomCode || recap.roomCode, authorName: note.authorName || recap.players?.find((player) => player.seatId === note.authorSeatId)?.name || `P${Number(note.authorSeatId) + 1}` });
       }
       for (const note of recap.notes || []) {
         if (!note?.noteId) continue;
-        notes.set(note.noteId, { ...note, roomCode: note.roomCode || recap.roomCode, authorName: note.authorName || recap.players?.find((player) => player.seatId === note.authorSeatId)?.name || `P${Number(note.authorSeatId) + 1}` });
+        notes.set(note.noteId, { ...note, ...(reviews[note.noteId] || {}), roomCode: note.roomCode || recap.roomCode, authorName: note.authorName || recap.players?.find((player) => player.seatId === note.authorSeatId)?.name || `P${Number(note.authorSeatId) + 1}` });
       }
     }
     return [...notes.values()].sort((a, b) => b.createdAt - a.createdAt);
   }
+  async updateFeedback(review) { this.enqueue(`playtests/${encodeURIComponent(review.gameId)}/feedback/${encodeURIComponent(review.noteId)}.json`, review); await this.flush(); }
 
   enqueue(path, body) {
     this.pending = this.pending.then(() => this.writeWithRetry(path, body)).catch((error) => this.logger.error("Fivefold Arc playtest ledger write failed", error));
