@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=63">
+  <link rel="stylesheet" href="styles.css?v=64">
 </head>
 <body>
   <header class="brand-bar">
@@ -95,7 +95,10 @@
         <button class="primary-action" type="submit">Find pod</button>
         <button id="recoverPodButton" class="text-action" type="button">Recover this host pod after a restart</button>
       </form>
-      <section id="joinDetails" hidden aria-labelledby="joinDetailsTitle">
+    </section>
+
+    <section id="joinSeatView" class="view setup-shell" hidden aria-labelledby="joinDetailsTitle">
+      <button id="changePodButton" class="back-button" type="button">← Change pod code</button>
       <p class="eyebrow">POD READY</p>
       <h2 id="joinDetailsTitle">Choose your seat.</h2>
       <form id="joinForm" class="setup-form">
@@ -121,7 +124,6 @@
         <button class="primary-action" type="submit">Connect to pod</button>
         <button id="joinDemoButton" class="secondary-action" type="button">Preview join locally</button>
       </form>
-      </section>
     </section>
 
     <section id="gameView" class="view game-shell" hidden aria-labelledby="modeTitle">
@@ -354,6 +356,6 @@
     <form method="dialog"><h2 id="savedPlaytestsTitle">Saved playtests</h2><div id="savedPlaytestsContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
   </dialog>
 
-  <script type="module" src="app.js?v=63"></script>
+  <script type="module" src="app.js?v=64"></script>
 </body>
 </html>
