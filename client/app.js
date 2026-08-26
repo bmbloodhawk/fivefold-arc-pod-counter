@@ -1,5 +1,5 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=59';
-import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=59';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=60';
+import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=60';
 
 const MODES = ['life', 'poison', 'commander', 'energy', 'storm', 'generic'];
 const IDENTITY_ORDER = ['W', 'U', 'B', 'R', 'G'];
@@ -448,10 +448,12 @@ async function adjust(delta) {
     render(); return;
   }
   if (state.mode === 'life') {
-    optimisticLifeDelta += delta;
     showLifeChange(player.id, delta, previous, previous + delta);
-    lifeBatcher.add(delta);
-    render();
+    // Shared life is an atomic server-side delta. Submit each tap immediately
+    // so Safari timer/identifier support can never leave a visible local-only
+    // total that was not written to the table.
+    try { await transport.adjust({ counter: 'life', delta }); }
+    catch (error) { renderConnection('disconnected'); showError(error); }
     return;
   }
   $$('[data-delta]').forEach(button => { button.disabled = true; });
