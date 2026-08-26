@@ -388,6 +388,7 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
   .pod-seat .seat-state { top: 4px; right: 4px; width: 10px; height: 10px; font-size: .48rem; }
 }
 
-/* Teal is complementary to brass, reserving brass for navigation and turn context. */
-.pod-seat.active { border-color: #55c9c2; box-shadow: inset 0 0 0 2px #071b1b, inset 0 0 0 4px #55c9c2, 0 0 18px rgb(85 201 194 / .32); }
-.pod-seat.active .seat-name, .pod-seat.active .seat-life { text-shadow: 0 0 10px rgb(85 201 194 / .25); }
+/* Brass identifies the inspected seat; teal is reserved for the table's active turn. */
+.pod-seat.active { border-color: #e2c17d; box-shadow: inset 0 0 0 2px #16130d, inset 0 0 0 4px #d4b16c; }
+.pod-seat.active .seat-name, .pod-seat.active .seat-life { text-shadow: 0 3px 8px rgb(0 0 0 / .7); }
+.pod-seat.turn-active { outline: 3px solid #55c9c2; outline-offset: 2px; box-shadow: 0 0 16px rgb(85 201 194 / .28); }
