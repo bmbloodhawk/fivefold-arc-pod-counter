@@ -456,7 +456,7 @@ export class RoomService {
     if (typeof input.text !== "string") throw Object.assign(new Error("A note must be text"), { status: 400, code: "INVALID_INPUT" });
     const text = input.text.normalize("NFC").trim().replace(/\s+/gu, " ");
     if (!text || Array.from(text).length > 500 || /[\p{Cc}\p{Cf}]/u.test(text)) throw Object.assign(new Error("Notes must contain 1 to 500 printable characters"), { status: 400, code: "INVALID_INPUT" });
-    const note = { noteId: opaque(12), gameId: room.gameId, authorSeatId: seatId, createdAt: this.now(), text };
+    const note = { noteId: opaque(12), gameId: room.gameId, roomCode: room.code, authorSeatId: seatId, authorName: room.seats[seatId].name, createdAt: this.now(), text };
     room.playtestNotes.push(note); this.ledger.note(note); this.recordLedger(room, "playtest_note_added", seatId, { noteId: note.noteId }); this.broadcast(room);
     return { note: { ...note } };
   }
@@ -956,11 +956,16 @@ export function createRealtimeServer(options = {}) {
   const staticDir = options.staticDir ?? null;
   const sseClients = new Map();
   const maxStreamsPerIp = options.maxStreamsPerIp ?? 12;
+  const feedbackPortalKey = options.feedbackPortalKey ?? process.env.FEEDBACK_PORTAL_KEY ?? "";
+  const feedbackKeyMatches = (provided) => {
+    if (!feedbackPortalKey) throw Object.assign(new Error("The feedback inbox is not configured yet"), { status: 503, code: "FEEDBACK_NOT_CONFIGURED" });
+    if (typeof provided !== "string" || provided.length !== feedbackPortalKey.length || !timingSafeEqual(Buffer.from(provided), Buffer.from(feedbackPortalKey))) throw Object.assign(new Error("That feedback key did not match"), { status: 403, code: "FEEDBACK_DENIED" });
+  };
   const server = createServer(async (req, res) => {
     const cors = {
       "access-control-allow-origin": allowedOrigin,
       "access-control-allow-methods": "GET,POST,PATCH,OPTIONS",
-      "access-control-allow-headers": "content-type,x-connection-id",
+      "access-control-allow-headers": "content-type,x-connection-id,x-feedback-portal-key",
     };
     if (req.method === "OPTIONS") {
       res.writeHead(204, cors);
@@ -972,6 +977,7 @@ export function createRealtimeServer(options = {}) {
       const parts = url.pathname.split("/").filter(Boolean);
       const connectionId = req.headers["x-connection-id"];
       if (req.method === "GET" && url.pathname === "/health") return json(res, 200, { ok: true });
+      if (req.method === "GET" && url.pathname === "/api/feedback") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { notes: await service.ledger.listFeedback() }); }
       if (req.method === "GET" && url.pathname === "/api/commander-identity") return json(res, 200, await lookupCommanderIdentity(url.searchParams.get("name") || ""));
       if (req.method === "POST" && url.pathname === "/api/connections") return json(res, 201, service.createConnection());
       if (req.method === "POST" && url.pathname === "/api/connections/heartbeat") return json(res, 200, service.heartbeat(connectionId));
@@ -1011,6 +1017,7 @@ export function createRealtimeServer(options = {}) {
           return;
         }
       }
+      if (req.method === "GET" && url.pathname === "/feedback" && await serveStatic(res, staticDir, "/feedback.html")) return;
       if (req.method === "GET" && !url.pathname.startsWith("/api/") && await serveStatic(res, staticDir, url.pathname)) return;
       return json(res, 404, errorBody("NOT_FOUND", "Endpoint not found"));
     } catch (error) {

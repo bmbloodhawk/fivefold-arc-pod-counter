@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Fivefold Arc — Feedback Inbox</title>
+  <style>
+    :root { color-scheme: dark; --ink:#f4ecd9; --muted:#afa590; --brass:#d8ae61; --teal:#55c9c2; --line:#403d38; --surface:#161616; --bg:#080808; font-family:Inter,ui-sans-serif,system-ui,sans-serif; }
+    * { box-sizing:border-box; } body { margin:0; min-height:100dvh; color:var(--ink); background:radial-gradient(circle at 50% -15%,rgb(216 174 97 / .14),transparent 32rem),var(--bg); }
+    main { width:min(100%,760px); margin:auto; padding:clamp(28px,7vw,64px) 20px; } .eyebrow { color:var(--brass); font-size:.72rem; font-weight:800; letter-spacing:.16em; } h1 { margin:8px 0; font-family:Georgia,serif; font-size:clamp(2rem,8vw,3.5rem); font-weight:500; } p { color:var(--muted); line-height:1.45; }
+    form { display:grid; gap:12px; max-width:480px; margin-top:30px; } label { display:grid; gap:7px; font-weight:700; } input { min-height:48px; padding:10px 12px; border:1px solid var(--line); border-radius:6px; background:var(--surface); color:var(--ink); font:inherit; } button { min-height:48px; padding:10px 14px; border:1px solid #f0cf8f; border-radius:6px; background:var(--brass); color:#1a150c; font:inherit; font-weight:850; cursor:pointer; } button.secondary { border-color:var(--line); background:transparent; color:var(--brass); } #status { min-height:1.4em; } .toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin:30px 0 12px; } .toolbar button { min-height:38px; background:transparent; border-color:var(--line); color:var(--brass); }
+    .note { margin:10px 0; padding:16px; border:1px solid var(--line); border-left:3px solid var(--teal); background:linear-gradient(145deg,#1e1d1a,#111); } .note header { display:flex; justify-content:space-between; gap:12px; color:var(--brass); font-size:.8rem; font-weight:800; } .note p { margin:10px 0 0; color:var(--ink); white-space:pre-wrap; } .empty { padding:22px; border:1px dashed var(--line); color:var(--muted); text-align:center; }
+    [hidden] { display:none!important; } button:focus-visible,input:focus-visible { outline:3px solid white; outline-offset:3px; }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">FIVEFOLD ARC · PRIVATE</p>
+    <h1>Feedback Inbox</h1>
+    <p>Review player suggestions across saved playtests. This page does not expose the key in its URL or retain it after you close the tab.</p>
+    <form id="unlockForm">
+      <label>Owner key <input id="ownerKey" type="password" autocomplete="current-password" required></label>
+      <button type="submit">Open feedback inbox</button>
+      <p id="status" role="status" aria-live="polite"></p>
+    </form>
+    <section id="inbox" hidden aria-live="polite">
+      <div class="toolbar"><strong id="count"></strong><button id="lockButton" class="secondary" type="button">Lock inbox</button></div>
+      <div id="notes"></div>
+    </section>
+  </main>
+  <script>
+    const form = document.querySelector('#unlockForm'); const key = document.querySelector('#ownerKey'); const status = document.querySelector('#status'); const inbox = document.querySelector('#inbox'); const notes = document.querySelector('#notes'); const count = document.querySelector('#count');
+    const escapeHtml = value => String(value).replace(/[&<>\"]/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' })[char]);
+    const date = value => new Intl.DateTimeFormat(undefined, { dateStyle:'medium', timeStyle:'short' }).format(new Date(value));
+    async function loadFeedback() {
+      status.textContent = 'Opening inbox…';
+      const response = await fetch('/api/feedback', { headers: { 'x-feedback-portal-key': key.value }, cache:'no-store' });
+      const payload = await response.json(); if (!response.ok) throw new Error(payload.error?.message || 'Could not open feedback inbox.');
+      const list = payload.notes || []; count.textContent = `${list.length} feedback note${list.length === 1 ? '' : 's'}`;
+      notes.innerHTML = list.length ? list.map(note => `<article class="note"><header><span>${escapeHtml(note.authorName || `Seat ${Number(note.authorSeatId) + 1}`)} · ${escapeHtml(note.roomCode || 'Saved playtest')}</span><time datetime="${new Date(note.createdAt).toISOString()}">${escapeHtml(date(note.createdAt))}</time></header><p>${escapeHtml(note.text)}</p></article>`).join('') : '<p class="empty">No saved feedback yet. Notes appear here after players submit them in a connected pod with durable storage enabled.</p>';
+      form.hidden = true; inbox.hidden = false; status.textContent = '';
+    }
+    form.addEventListener('submit', async event => { event.preventDefault(); try { await loadFeedback(); } catch (error) { status.textContent = error.message; } });
+    document.querySelector('#lockButton').addEventListener('click', () => { key.value = ''; inbox.hidden = true; form.hidden = false; notes.textContent = ''; count.textContent = ''; key.focus(); });
+  </script>
+</body>
+</html>

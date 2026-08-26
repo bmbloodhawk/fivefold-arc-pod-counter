@@ -10,3 +10,5 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 24.x
+      - key: FEEDBACK_PORTAL_KEY
+        sync: false

@@ -9,6 +9,7 @@ export class NullPlaytestLedger {
   note() {}
   async readRecovery() { return null; }
   async listArchive() { return []; }
+  async listFeedback() { return []; }
   async flush() { return { ok: true }; }
 }
 
@@ -32,6 +33,14 @@ export class MemoryPlaytestLedger {
   note(record) { this.records.push({ kind: "note", record }); }
   async readRecovery(roomCode) { return this.records.filter((item) => item.kind === "recovery" && item.record.roomCode === roomCode).at(-1)?.record ?? null; }
   async listArchive() { return this.records.filter((item) => item.kind === "complete").map((item) => item.record); }
+  async listFeedback() {
+    const notes = new Map();
+    for (const item of this.records) {
+      if (item.kind === "note") notes.set(item.record.noteId, item.record);
+      if (item.kind === "complete") for (const note of item.record.notes || []) notes.set(note.noteId, { ...note, roomCode: note.roomCode || item.record.roomCode, authorName: note.authorName || item.record.players?.find((player) => player.seatId === note.authorSeatId)?.name || `P${note.authorSeatId + 1}` });
+    }
+    return [...notes.values()].sort((a, b) => b.createdAt - a.createdAt);
+  }
   async flush() { return { ok: true }; }
 }
 
@@ -58,6 +67,22 @@ export class FirebasePlaytestLedger {
   async listArchive() {
     const playtests = await this.read("playtests.json") || {};
     return Object.values(playtests).map((item) => item.recap).filter(Boolean);
+  }
+  async listFeedback() {
+    const playtests = await this.read("playtests.json") || {};
+    const notes = new Map();
+    for (const item of Object.values(playtests)) {
+      const recap = item?.recap || {};
+      for (const note of Object.values(item?.notes || {})) {
+        if (!note?.noteId) continue;
+        notes.set(note.noteId, { ...note, roomCode: note.roomCode || recap.roomCode, authorName: note.authorName || recap.players?.find((player) => player.seatId === note.authorSeatId)?.name || `P${Number(note.authorSeatId) + 1}` });
+      }
+      for (const note of recap.notes || []) {
+        if (!note?.noteId) continue;
+        notes.set(note.noteId, { ...note, roomCode: note.roomCode || recap.roomCode, authorName: note.authorName || recap.players?.find((player) => player.seatId === note.authorSeatId)?.name || `P${Number(note.authorSeatId) + 1}` });
+      }
+    }
+    return [...notes.values()].sort((a, b) => b.createdAt - a.createdAt);
   }
 
   enqueue(path, body) {

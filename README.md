@@ -32,6 +32,10 @@ The prepared `render.yaml` describes a single free Render web service. It serves
 
 Important free-tier behavior: the service can sleep after inactivity and take roughly a minute to wake. Live rooms disappear whenever the service restarts or redeploys. When its Firebase environment variables are configured, the server separately writes compact playtest notes, game events, checkpoints, and completed-game recaps.
 
+## Private feedback inbox
+
+Players can leave notes from the in-game **Playtest notes** menu. To preserve and review them after a room ends, configure Firebase ledger credentials and a long random `FEEDBACK_PORTAL_KEY` server environment variable. Then open `/feedback`, enter that key, and review every saved note. The key is never included in the URL or stored after the inbox is locked. Without Firebase storage, notes remain available only while the active room exists.
+
 Recommended deployment settings if entered manually:
 
 ```text
