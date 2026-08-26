@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=61">
+  <link rel="stylesheet" href="styles.css?v=62">
 </head>
 <body>
   <header class="brand-bar">
@@ -85,11 +85,20 @@
     <section id="joinView" class="view setup-shell" hidden aria-labelledby="joinTitle">
       <button class="back-button" data-back type="button">← Back</button>
       <p class="eyebrow">JOIN POD</p>
-      <h1 id="joinTitle">Take your seat.</h1>
-      <form id="joinForm" class="setup-form">
+      <h1 id="joinTitle">Find your pod.</h1>
+      <form id="joinCodeForm" class="setup-form">
         <label class="select-field">Pod code
-          <input id="podCode" type="text" inputmode="text" autocomplete="off" maxlength="8" placeholder="e.g. ARC7K2" required>
+          <input id="podCode" type="text" inputmode="text" autocomplete="off" maxlength="6" placeholder="e.g. ARC7K2" required>
+          <small>Ask the pod host for the six-character code.</small>
         </label>
+        <p id="joinCodeStatus" class="field-help" aria-live="polite"></p>
+        <button class="primary-action" type="submit">Find pod</button>
+        <button id="recoverPodButton" class="text-action" type="button">Recover this host pod after a restart</button>
+      </form>
+      <section id="joinDetails" hidden aria-labelledby="joinDetailsTitle">
+      <p class="eyebrow">POD READY</p>
+      <h2 id="joinDetailsTitle">Choose your seat.</h2>
+      <form id="joinForm" class="setup-form">
         <label class="select-field">Open seat
           <select id="joinSeat" disabled>
             <option value="">Enter a pod code first</option>
@@ -110,9 +119,9 @@
         </fieldset>
         <div id="joinCommanderNames" class="commander-name-fields"></div>
         <button class="primary-action" type="submit">Connect to pod</button>
-        <button id="recoverPodButton" class="text-action" type="button">Recover this host pod after a restart</button>
         <button id="joinDemoButton" class="secondary-action" type="button">Preview join locally</button>
       </form>
+      </section>
     </section>
 
     <section id="gameView" class="view game-shell" hidden aria-labelledby="modeTitle">
@@ -345,6 +354,6 @@
     <form method="dialog"><h2 id="savedPlaytestsTitle">Saved playtests</h2><div id="savedPlaytestsContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
   </dialog>
 
-  <script type="module" src="app.js?v=61"></script>
+  <script type="module" src="app.js?v=62"></script>
 </body>
 </html>
