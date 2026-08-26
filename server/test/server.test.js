@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { createCommanderIdentityLookup, createRealtimeServer, RoomService } from "../src/app.js";
-import { LifeAdjustmentBatcher } from "../../client/life-adjustment-batcher.js";
+import { compatibleOperationId, LifeAdjustmentBatcher } from "../../client/life-adjustment-batcher.js";
 import { MemoryPlaytestLedger } from "../src/playtest-ledger.js";
 
 let server;
@@ -880,4 +880,15 @@ test("batches rapid life taps into one fresh client operation", async () => {
   assert.deepEqual(sent, [{ delta: -6, operationId: "operation-1-fresh-id" }]);
   batcher.add(1); await batcher.flush();
   assert.equal(sent[1].operationId, "operation-2-fresh-id");
+});
+
+test("uses a compatible life operation ID when randomUUID is unavailable", () => {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, "crypto");
+  try {
+    Object.defineProperty(globalThis, "crypto", { configurable: true, value: { getRandomValues: (bytes) => { bytes.forEach((_value, index) => { bytes[index] = index; }); return bytes; } } });
+    assert.equal(compatibleOperationId(), "000102030405060708090a0b0c0d0e0f");
+  } finally {
+    if (descriptor) Object.defineProperty(globalThis, "crypto", descriptor);
+    else delete globalThis.crypto;
+  }
 });

@@ -1,5 +1,5 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=58';
-import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=58';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=59';
+import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=59';
 
 const MODES = ['life', 'poison', 'commander', 'energy', 'storm', 'generic'];
 const IDENTITY_ORDER = ['W', 'U', 'B', 'R', 'G'];
