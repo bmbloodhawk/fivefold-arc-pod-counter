@@ -812,6 +812,36 @@ test("bounds commander lookups and never turns an outage into a colorless result
   assert.equal(JSON.stringify(made.body.snapshot).includes(made.body.reclaimToken), false);
 });
 
+test("restores a private recovery record with disconnected seats and token-scoped ownership", async () => {
+  const ledger = new MemoryPlaytestLedger();
+  const original = new RoomService({ ledger });
+  const host = original.createConnection();
+  const made = original.createRoom(host.connectionId, { playerCount: 2, startingLife: 40, commanderNames: ["Atraxa"] });
+  const player = original.createConnection();
+  const claimed = original.claimSeat(made.snapshot.code, player.connectionId, { seatId: 1, name: "Jace", commanderNames: ["Krenko"] });
+  original.adjustOwnSeat(made.snapshot.code, player.connectionId, { counter: "commanderDamage", commanderSourceId: "seat-0-commander-a", delta: 7 });
+  original.mutateOwnSeat(made.snapshot.code, player.connectionId, { baseVersion: original.snapshot(original.room(made.snapshot.code)).version, commanderCastCounts: { "seat-1-commander-a": 2 } });
+
+  const restarted = new RoomService({ ledger });
+  const restored = await restarted.restoreRoom(made.snapshot.code, made.hostRecoveryKey);
+  assert.equal(restored.restored, true);
+  assert.equal(restored.snapshot.seats[0].connected, false);
+  assert.equal(restored.snapshot.seats[1].connected, false);
+  assert.equal(restored.snapshot.seats[1].commanderDamageReceived["seat-0-commander-a"], 7);
+  assert.equal(restored.snapshot.seats[1].nextCommanderTax["seat-1-commander-a"], 4);
+
+  const stranger = restarted.createConnection();
+  assert.throws(() => restarted.adjustOwnSeat(made.snapshot.code, stranger.connectionId, { counter: "life", delta: -1 }), { code: "NOT_SEAT_OWNER" });
+  assert.throws(() => restarted.claimSeat(made.snapshot.code, stranger.connectionId, { seatId: 1, reclaimToken: made.reclaimToken }), { code: "SEAT_RESERVED" });
+  const hostConnection = restarted.createConnection();
+  restarted.claimSeat(made.snapshot.code, hostConnection.connectionId, { seatId: 0, reclaimToken: made.reclaimToken });
+  const playerConnection = restarted.createConnection();
+  const reclaimed = restarted.claimSeat(made.snapshot.code, playerConnection.connectionId, { seatId: 1, reclaimToken: claimed.reclaimToken });
+  assert.equal(reclaimed.snapshot.seats[1].connected, true);
+  assert.throws(() => restarted.mutateOwnSeat(made.snapshot.code, hostConnection.connectionId, { baseVersion: reclaimed.snapshot.version, commanderDamageReceived: { "seat-0-commander-a": 8 } }), { code: "INVALID_INPUT" });
+  assert.throws(() => restarted.mutateOwnSeat(made.snapshot.code, hostConnection.connectionId, { baseVersion: reclaimed.snapshot.version, commanderCastCounts: { "seat-1-commander-a": 3 } }), { code: "INVALID_INPUT" });
+});
+
 test("batches rapid life taps into one fresh client operation", async () => {
   const jobs = []; const sent = [];
   const batcher = new LifeAdjustmentBatcher({ operationId: () => `operation-${sent.length + 1}-fresh-id`, schedule: (job) => { jobs.push(job); return jobs.length; }, cancel: () => {}, send: (operation) => sent.push(operation) });

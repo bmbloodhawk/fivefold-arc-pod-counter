@@ -53,6 +53,9 @@ function tokenMatches(token, expectedHash) {
   return timingSafeEqual(tokenHash(token), expectedHash);
 }
 
+function encodedHash(hash) { return Buffer.from(hash).toString("base64url"); }
+function decodedHash(hash) { return Buffer.from(String(hash), "base64url"); }
+
 function json(res, status, body, extraHeaders = {}) {
   const data = JSON.stringify(body);
   res.writeHead(status, {
@@ -314,6 +317,7 @@ export class RoomService {
     const startedAt = this.now();
     const code = this.makeJoinCode();
     const reclaimToken = opaque(32);
+    const hostRecoveryKey = opaque(32);
     const seats = Array.from({ length: playerCount }, (_, seatId) => ({
       seatId,
       name: seatId === 0 ? normalizeName(input.name, "P1") : `P${seatId + 1}`,
@@ -353,12 +357,13 @@ export class RoomService {
       ledgerSequence: 0,
       ledgerLastCheckpointAt: startedAt,
       ledgerCompletedAt: null,
+      hostRecoveryKeyHash: tokenHash(hostRecoveryKey),
     };
     synchronizeCommanderState(room);
     this.rooms.set(code, room);
     this.recordLedger(room, "room_created", 0, { playerCount, startingLife });
     connection.seatKey = `${code}:0`;
-    return { snapshot: this.snapshot(room), seatId: 0, reclaimToken };
+    return { snapshot: this.snapshot(room), seatId: 0, reclaimToken, hostRecoveryKey };
   }
 
   room(code) {
@@ -416,6 +421,9 @@ export class RoomService {
     const at = this.now();
     const event = { gameId: room.gameId, roomCode: room.code, sequence: ++room.ledgerSequence, at, type, actorSeatId, ...detail };
     this.ledger.record(event);
+    // This record is deliberately server-private: it contains only hashes of
+    // credentials, never the reclaim or host recovery secrets themselves.
+    this.ledger.recovery(this.recoveryRecord(room, at));
     if (event.sequence % 25 === 0 || at - room.ledgerLastCheckpointAt >= 60_000) {
       this.ledger.checkpoint({ gameId: room.gameId, roomCode: room.code, sequence: event.sequence, at, recap: recapFromRoom(room, at), snapshot: this.snapshot(room) });
       room.ledgerLastCheckpointAt = at;
@@ -425,11 +433,12 @@ export class RoomService {
   completePlaytest(room, completedAt, { incomplete = false } = {}) {
     if (room.ledgerCompletedAt) return;
     room.ledgerCompletedAt = completedAt;
-    this.ledger.complete({
+    const recap = {
       ...recapFromRoom(room, completedAt),
       notes: room.playtestNotes.map((note) => ({ ...note })),
       incomplete,
-    });
+    };
+    this.ledger.complete(recap);
   }
 
   recordCompletion(room) {
@@ -448,7 +457,7 @@ export class RoomService {
     const text = input.text.normalize("NFC").trim().replace(/\s+/gu, " ");
     if (!text || Array.from(text).length > 500 || /[\p{Cc}\p{Cf}]/u.test(text)) throw Object.assign(new Error("Notes must contain 1 to 500 printable characters"), { status: 400, code: "INVALID_INPUT" });
     const note = { noteId: opaque(12), gameId: room.gameId, authorSeatId: seatId, createdAt: this.now(), text };
-    room.playtestNotes.push(note); this.recordLedger(room, "playtest_note_added", seatId, { noteId: note.noteId }); this.broadcast(room);
+    room.playtestNotes.push(note); this.ledger.note(note); this.recordLedger(room, "playtest_note_added", seatId, { noteId: note.noteId }); this.broadcast(room);
     return { note: { ...note } };
   }
 
@@ -834,6 +843,52 @@ export class RoomService {
     return { room, connection };
   }
 
+  recoveryRecord(room, updatedAt = this.now()) {
+    return {
+      schemaVersion: 1, roomCode: room.code, updatedAt,
+      hostRecoveryKeyHash: encodedHash(room.hostRecoveryKeyHash),
+      room: {
+        ...room,
+        hostRecoveryKeyHash: undefined,
+        seats: room.seats.map((seat) => ({
+          ...seat,
+          ownerConnectionId: null,
+          tokenHash: seat.tokenHash ? encodedHash(seat.tokenHash) : null,
+          recentOperationIds: [],
+        })),
+      },
+    };
+  }
+
+  async restoreRoom(roomCode, hostRecoveryKey) {
+    const code = String(roomCode || "").toUpperCase();
+    if (this.rooms.has(code)) return { snapshot: this.snapshot(this.room(code)), restored: false };
+    if (typeof hostRecoveryKey !== "string") throw Object.assign(new Error("A host recovery key is required"), { status: 403, code: "HOST_RECOVERY_REQUIRED" });
+    const record = await this.ledger.readRecovery(code);
+    if (!record?.room || !tokenMatches(hostRecoveryKey, decodedHash(record.hostRecoveryKeyHash))) {
+      throw Object.assign(new Error("The host recovery key did not match this room"), { status: 403, code: "HOST_RECOVERY_DENIED" });
+    }
+    const room = record.room;
+    if (room.code !== code || !Array.isArray(room.seats) || room.seats.length < 2 || room.seats.length > 8) {
+      throw Object.assign(new Error("The saved recovery record is invalid"), { status: 422, code: "INVALID_RECOVERY_RECORD" });
+    }
+    room.hostRecoveryKeyHash = decodedHash(record.hostRecoveryKeyHash);
+    room.seats = room.seats.map((seat) => ({ ...seat, ownerConnectionId: null, tokenHash: seat.tokenHash ? decodedHash(seat.tokenHash) : null, recentOperationIds: new Map() }));
+    room.lastActiveAt = this.now();
+    room.version += 1;
+    synchronizeCommanderState(room);
+    this.rooms.set(code, room);
+    this.recordLedger(room, "room_restored", room.hostSeatId, { restoredAt: this.now() });
+    return { snapshot: this.snapshot(room), restored: true };
+  }
+
+  async hostArchive(code, connectionId) {
+    const room = this.room(code); const { seatId } = this.requireOwner(room, connectionId);
+    if (seatId !== room.hostSeatId) throw Object.assign(new Error("Only the host may view saved playtests"), { status: 403, code: "HOST_ONLY" });
+    const recaps = await this.ledger.listArchive();
+    return { playtests: recaps.filter((recap) => recap.roomCode === room.code).map((recap) => ({ ...recap, notes: recap.notes || [] })) };
+  }
+
   attachStream({ room, connection }, res) {
     connection.streams.add(res);
     res.write(`event: snapshot\ndata: ${JSON.stringify(this.snapshot(room))}\n\n`);
@@ -921,6 +976,7 @@ export function createRealtimeServer(options = {}) {
       if (req.method === "POST" && url.pathname === "/api/connections") return json(res, 201, service.createConnection());
       if (req.method === "POST" && url.pathname === "/api/connections/heartbeat") return json(res, 200, service.heartbeat(connectionId));
       if (req.method === "POST" && url.pathname === "/api/rooms") return json(res, 201, service.createRoom(connectionId, await readJson(req)));
+      if (req.method === "POST" && parts[0] === "api" && parts[1] === "recovery" && parts[2]) return json(res, 200, await service.restoreRoom(parts[2], (await readJson(req)).hostRecoveryKey));
       if (parts[0] === "api" && parts[1] === "rooms" && parts[2]) {
         const code = parts[2].toUpperCase();
         if (req.method === "GET" && parts.length === 3) return json(res, 200, { snapshot: service.snapshot(service.room(code)) });
@@ -932,6 +988,7 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "GET" && parts[3] === "playtest-notes") return json(res, 200, service.listPlaytestNotes(code, connectionId));
         if (req.method === "POST" && parts[3] === "playtest-notes") return json(res, 201, service.addPlaytestNote(code, connectionId, await readJson(req)));
         if (req.method === "GET" && parts[3] === "playtest-recap") return json(res, 200, service.playtestRecap(code, connectionId));
+        if (req.method === "GET" && parts[3] === "saved-playtests") return json(res, 200, await service.hostArchive(code, connectionId));
         if (req.method === "POST" && parts[3] === "declare-winner") return json(res, 200, service.declareWinner(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "choose-starting-player") return json(res, 200, service.chooseStartingPlayer(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "start-game") return json(res, 200, service.startGame(code, connectionId, await readJson(req)));

@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=53">
+  <link rel="stylesheet" href="styles.css?v=56">
 </head>
 <body>
   <header class="brand-bar">
@@ -111,6 +111,7 @@
         </fieldset>
         <div id="joinCommanderNames" class="commander-name-fields"></div>
         <button class="primary-action" type="submit">Connect to pod</button>
+        <button id="recoverPodButton" class="text-action" type="button">Recover this host pod after a restart</button>
         <button id="joinDemoButton" class="secondary-action" type="button">Preview join locally</button>
       </form>
     </section>
@@ -196,6 +197,7 @@
         <button id="coinTossButton" type="button">Flip a coin</button>
         <button id="playtestNotesButton" type="button">Playtest notes</button>
         <button id="playtestRecapButton" type="button">Playtest recap</button>
+        <button id="savedPlaytestsButton" type="button">Saved playtests</button>
         <button id="declareWinnerButton" type="button">Declare winner</button>
         <button id="commanderSetupButton" type="button">My commander setup</button>
         <button id="backToSetupButton" type="button">Back to setup</button>
@@ -339,7 +341,10 @@
   <dialog id="playtestRecapDialog" aria-labelledby="playtestRecapTitle">
     <form method="dialog"><h2 id="playtestRecapTitle">Playtest recap</h2><div id="playtestRecapContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
   </dialog>
+  <dialog id="savedPlaytestsDialog" aria-labelledby="savedPlaytestsTitle">
+    <form method="dialog"><h2 id="savedPlaytestsTitle">Saved playtests</h2><div id="savedPlaytestsContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
+  </dialog>
 
-  <script type="module" src="app.js?v=53"></script>
+  <script type="module" src="app.js?v=56"></script>
 </body>
 </html>

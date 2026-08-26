@@ -5,7 +5,7 @@ export class RealtimeAdapter extends EventTarget {
     this.apiBase = String(apiBase).replace(/\/$/, '');
     this.connectionId = null; this.roomCode = null; this.seatId = null;
     this.reclaimToken = null; this.snapshot = null; this.events = null;
-    this.heartbeatTimer = null; this.reconnectTimer = null;
+    this.heartbeatTimer = null; this.reconnectTimer = null; this.snapshotRefreshTimer = null;
     this.status = 'local'; this.localMode = true; this.stopped = false; this.sessionEpoch = 0;
   }
 
@@ -16,6 +16,7 @@ export class RealtimeAdapter extends EventTarget {
       const result = await this.#request('/api/rooms', { method: 'POST', authenticated: true, body: { playerCount, startingLife, commanderCount, commanderNames, commanderColors, name, ...(roundLimitMinutes ? { roundLimitMinutes } : {}) } });
       if (!this.#isCurrentSession(epoch)) return { ignored: true };
       this.#adoptSeat(result.snapshot.code, result.seatId, result.reclaimToken, result.snapshot, epoch);
+      if (result.hostRecoveryKey) { try { localStorage.setItem(this.#recoveryKey(result.snapshot.code), result.hostRecoveryKey); } catch { /* storage optional */ } }
       return result;
     } catch (error) { if (!this.#isCurrentSession(epoch)) return { ignored: true }; throw error; }
   }
@@ -108,6 +109,12 @@ export class RealtimeAdapter extends EventTarget {
     return this.#request(`/api/rooms/${this.roomCode}/playtest-notes`, { method: 'POST', authenticated: true, body: { text } });
   }
   async getPlaytestRecap() { return this.#request(`/api/rooms/${this.roomCode}/playtest-recap`, { authenticated: true }); }
+  async getSavedPlaytests() { return this.#request(`/api/rooms/${this.roomCode}/saved-playtests`, { authenticated: true }); }
+  async restoreRoom(code) {
+    const normalizedCode = String(code).toUpperCase(); const hostRecoveryKey = this.#storedRecoveryKey(normalizedCode);
+    if (!hostRecoveryKey) throw new Error('This device does not have the host recovery key for that room.');
+    return this.#request(`/api/recovery/${encodeURIComponent(normalizedCode)}`, { method: 'POST', body: { hostRecoveryKey } });
+  }
 
   async tossCoin() {
     if (this.localMode) return { local: true };
@@ -162,8 +169,8 @@ export class RealtimeAdapter extends EventTarget {
 
   disconnect() {
     this.stopped = true; this.events?.close(); this.events = null;
-    clearInterval(this.heartbeatTimer); clearTimeout(this.reconnectTimer);
-    this.heartbeatTimer = null; this.reconnectTimer = null; this.connectionId = null;
+    clearInterval(this.heartbeatTimer); clearTimeout(this.reconnectTimer); clearInterval(this.snapshotRefreshTimer);
+    this.heartbeatTimer = null; this.reconnectTimer = null; this.snapshotRefreshTimer = null; this.connectionId = null;
     if (!this.localMode) this.#setStatus('disconnected');
   }
 
@@ -179,7 +186,7 @@ export class RealtimeAdapter extends EventTarget {
     if (!this.#isCurrentSession(epoch)) return;
     this.roomCode = code; this.seatId = seatId; this.reclaimToken = reclaimToken;
     if (reclaimToken) { try { localStorage.setItem(this.#tokenKey(code, seatId), reclaimToken); } catch { /* storage optional */ } }
-    this.#acceptSnapshot(snapshot, epoch); this.#subscribe(epoch); this.#startHeartbeat(epoch); this.#setStatus('connected');
+    this.#acceptSnapshot(snapshot, epoch); this.#subscribe(epoch); this.#startHeartbeat(epoch); this.#startSnapshotRefresh(epoch); this.#setStatus('connected');
   }
 
   async #startConnection(epoch) {
@@ -209,6 +216,20 @@ export class RealtimeAdapter extends EventTarget {
     }, 40000);
   }
 
+  // A mobile network or proxy can leave SSE open while delaying events. This
+  // read-only refresh keeps displayed seat state current; it never queues or
+  // sends a mutation.
+  #startSnapshotRefresh(epoch) {
+    clearInterval(this.snapshotRefreshTimer);
+    this.snapshotRefreshTimer = setInterval(async () => {
+      if (!this.#isCurrentSession(epoch) || !this.roomCode || document.visibilityState === 'hidden') return;
+      try {
+        const result = await this.#request(`/api/rooms/${this.roomCode}`);
+        if (this.#isCurrentSession(epoch)) this.#acceptSnapshot(result.snapshot, epoch);
+      } catch { /* The SSE reconnect/heartbeat paths handle connection state. */ }
+    }, 2500);
+  }
+
   #scheduleReconnect(epoch) {
     if (!this.#isCurrentSession(epoch) || this.reconnectTimer) return;
     this.#setStatus('disconnected');
@@ -221,7 +242,7 @@ export class RealtimeAdapter extends EventTarget {
         if (!await this.#startConnection(epoch)) return;
         const result = await this.#request(`/api/rooms/${this.roomCode}/claim`, { method: 'POST', authenticated: true, body: { seatId: this.seatId, reclaimToken: this.reclaimToken } });
         if (!this.#isCurrentSession(epoch)) return;
-        this.#acceptSnapshot(result.snapshot, epoch); this.#subscribe(epoch); this.#startHeartbeat(epoch); this.#setStatus('connected');
+        this.#acceptSnapshot(result.snapshot, epoch); this.#subscribe(epoch); this.#startHeartbeat(epoch); this.#startSnapshotRefresh(epoch); this.#setStatus('connected');
       } catch { if (this.#isCurrentSession(epoch)) { this.#setStatus('disconnected'); this.#scheduleReconnect(epoch); } }
     }, 3000);
     this.reconnectTimer = timer;
@@ -235,8 +256,8 @@ export class RealtimeAdapter extends EventTarget {
   #beginSession() {
     this.sessionEpoch += 1;
     this.events?.close(); this.events = null;
-    clearInterval(this.heartbeatTimer); clearTimeout(this.reconnectTimer);
-    this.heartbeatTimer = null; this.reconnectTimer = null;
+    clearInterval(this.heartbeatTimer); clearTimeout(this.reconnectTimer); clearInterval(this.snapshotRefreshTimer);
+    this.heartbeatTimer = null; this.reconnectTimer = null; this.snapshotRefreshTimer = null;
     this.connectionId = null; this.roomCode = null; this.seatId = null; this.reclaimToken = null; this.snapshot = null;
     this.localMode = false; this.stopped = false; this.#setStatus('waiting');
     return this.sessionEpoch;
@@ -260,7 +281,9 @@ export class RealtimeAdapter extends EventTarget {
   }
 
   #tokenKey(code, seatId) { return `fivefold-arc:reclaim:${code}:${seatId}`; }
+  #recoveryKey(code) { return `fivefold-arc:host-recovery:${code}`; }
   #storedToken(code, seatId) { try { return localStorage.getItem(this.#tokenKey(code, seatId)); } catch { return null; } }
+  #storedRecoveryKey(code) { try { return localStorage.getItem(this.#recoveryKey(code)); } catch { return null; } }
   #setStatus(status) { this.status = status; this.dispatchEvent(new CustomEvent('status', { detail: status })); }
 }
 

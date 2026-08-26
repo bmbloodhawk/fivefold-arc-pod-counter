@@ -5,6 +5,10 @@ export class NullPlaytestLedger {
   record() {}
   checkpoint() {}
   complete() {}
+  recovery() {}
+  note() {}
+  async readRecovery() { return null; }
+  async listArchive() { return []; }
   async flush() { return { ok: true }; }
 }
 
@@ -24,6 +28,10 @@ export class MemoryPlaytestLedger {
   complete(record) {
     this.records.push({ kind: "complete", record });
   }
+  recovery(record) { this.records.push({ kind: "recovery", record }); }
+  note(record) { this.records.push({ kind: "note", record }); }
+  async readRecovery(roomCode) { return this.records.filter((item) => item.kind === "recovery" && item.record.roomCode === roomCode).at(-1)?.record ?? null; }
+  async listArchive() { return this.records.filter((item) => item.kind === "complete").map((item) => item.record); }
   async flush() { return { ok: true }; }
 }
 
@@ -44,6 +52,13 @@ export class FirebasePlaytestLedger {
   record(event) { this.enqueue(`playtests/${encodeURIComponent(event.gameId)}/events/${event.sequence}.json`, event); }
   checkpoint(checkpoint) { this.enqueue(`playtests/${encodeURIComponent(checkpoint.gameId)}/checkpoints/${checkpoint.sequence}.json`, checkpoint); }
   complete(recap) { this.enqueue(`playtests/${encodeURIComponent(recap.gameId)}/recap.json`, recap); }
+  recovery(record) { this.enqueue(`recovery/${encodeURIComponent(record.roomCode)}.json`, record); }
+  note(note) { this.enqueue(`playtests/${encodeURIComponent(note.gameId)}/notes/${encodeURIComponent(note.noteId)}.json`, note); }
+  async readRecovery(roomCode) { return this.read(`recovery/${encodeURIComponent(roomCode)}.json`); }
+  async listArchive() {
+    const playtests = await this.read("playtests.json") || {};
+    return Object.values(playtests).map((item) => item.recap).filter(Boolean);
+  }
 
   enqueue(path, body) {
     this.pending = this.pending.then(() => this.writeWithRetry(path, body)).catch((error) => this.logger.error("Fivefold Arc playtest ledger write failed", error));
@@ -73,6 +88,14 @@ export class FirebasePlaytestLedger {
       body: JSON.stringify(body),
     });
     if (!response.ok) throw new Error(`Firebase ledger write failed (${response.status})`);
+  }
+
+  async read(path) {
+    if (!this.databaseUrl || !this.clientEmail || !this.privateKey) throw new Error("Firebase playtest ledger is missing server credentials");
+    const token = await this.accessToken();
+    const response = await this.fetch(`${this.databaseUrl}/${path}`, { headers: { authorization: `Bearer ${token}` } });
+    if (!response.ok) throw new Error(`Firebase ledger read failed (${response.status})`);
+    return response.json();
   }
 
   async accessToken() {
