@@ -607,6 +607,36 @@ describe("authority and convergence", () => {
     await reader.cancel();
   });
 
+  test("shares a life change with two claimed phone windows", async () => {
+    const made = await room({ playerCount: 2, startingLife: 40 });
+    const playerConnection = await connection();
+    const claimed = await call(`/api/rooms/${made.snapshot.code}/claim`, {
+      method: "POST", connectionId: playerConnection, body: { seatId: 1, name: "Player two" },
+    });
+    assert.equal(claimed.status, 200);
+    const openStream = async (connectionId) => {
+      const response = await fetch(`${baseUrl}/api/rooms/${made.snapshot.code}/events?connectionId=${encodeURIComponent(connectionId)}`);
+      assert.equal(response.status, 200);
+      const reader = response.body.getReader(); const decoder = new TextDecoder();
+      await reader.read(); // initial authoritative snapshot
+      return { reader, decoder };
+    };
+    const hostWindow = await openStream(made.connectionId);
+    const playerWindow = await openStream(playerConnection);
+    const updated = await call(`/api/rooms/${made.snapshot.code}/adjust`, {
+      method: "POST", connectionId: made.connectionId, body: { counter: "life", delta: -3, operationId: "two-window-life-change-0001" },
+    });
+    assert.equal(updated.status, 200);
+    assert.equal(updated.body.snapshot.seats[0].counters.life, 37);
+    const [hostEvent, playerEvent] = await Promise.all([hostWindow.reader.read(), playerWindow.reader.read()]);
+    for (const event of [hostEvent, playerEvent]) {
+      const payload = hostWindow.decoder.decode(event.value);
+      assert.match(payload, /"life":37/);
+      assert.match(payload, /"name":"Player two"/);
+    }
+    await Promise.all([hostWindow.reader.cancel(), playerWindow.reader.cancel()]);
+  });
+
   test("shares a coin toss without changing the gameplay version", async () => {
     const made = await room();
     const tossed = await call(`/api/rooms/${made.snapshot.code}/coin-toss`, {

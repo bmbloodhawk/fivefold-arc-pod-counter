@@ -22,6 +22,12 @@ export class RealtimeAdapter extends EventTarget {
   }
 
   inspectRoom(code) { return this.#request(`/api/rooms/${encodeURIComponent(code)}`); }
+  async refreshRoom() {
+    if (this.localMode || !this.roomCode) return { snapshot: this.snapshot, local: true };
+    const result = await this.inspectRoom(this.roomCode);
+    if (result.snapshot) this.#acceptSnapshot(result.snapshot);
+    return result;
+  }
 
   async claimRoom({ code, seatId, name, commanderCount = 1, commanderNames = Array.from({ length: commanderCount }, () => ''), commanderColors = Array.from({ length: commanderCount }, () => []) }) {
     const epoch = this.#beginSession();
