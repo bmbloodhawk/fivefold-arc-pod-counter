@@ -798,9 +798,21 @@ export class RoomService {
     return { snapshot: this.snapshot(room) };
   }
 
-  attachStream(code, connectionId, res) {
+  /**
+   * Validates the room/connection BEFORE any response headers are sent. Must be called by the
+   * caller prior to writeHead() on the SSE route — see createRealtimeServer() below. Splitting
+   * this from attachStream() is what lets an invalid/expired connectionId produce a clean 401/403
+   * JSON error instead of a second writeHead() attempt after a 200 has already been sent, which
+   * previously crashed the whole process with ERR_HTTP_HEADERS_SENT on every reconnect with a
+   * stale connection id (the normal case for a phone reconnecting after being backgrounded).
+   */
+  resolveStreamTarget(code, connectionId) {
     const room = this.room(code);
     const { connection } = this.requireOwner(room, connectionId);
+    return { room, connection };
+  }
+
+  attachStream({ room, connection }, res) {
     connection.streams.add(res);
     res.write(`event: snapshot\ndata: ${JSON.stringify(this.snapshot(room))}\n\n`);
     return () => connection.streams.delete(res);
@@ -902,13 +914,14 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "POST" && parts[3] === "turn-handoff" && parts[4] === "undo") return json(res, 200, service.undoTurnHandoff(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "turn-handoff") return json(res, 200, service.handoffTurn(code, connectionId, await readJson(req)));
         if (req.method === "GET" && parts[3] === "events") {
+          const target = service.resolveStreamTarget(code, url.searchParams.get("connectionId"));
           res.writeHead(200, {
             "content-type": "text/event-stream",
             "cache-control": "no-cache, no-transform",
             connection: "keep-alive",
             "x-accel-buffering": "no",
           });
-          const detach = service.attachStream(code, url.searchParams.get("connectionId"), res);
+          const detach = service.attachStream(target, res);
           req.on("close", detach);
           return;
         }
