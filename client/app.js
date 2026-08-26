@@ -1,5 +1,5 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=60';
-import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=60';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=61';
+import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=61';
 
 const MODES = ['life', 'poison', 'commander', 'energy', 'storm', 'generic'];
 const IDENTITY_ORDER = ['W', 'U', 'B', 'R', 'G'];
@@ -404,16 +404,26 @@ async function openSavedPlaytests() { try { const { playtests } = await transpor
 function canReturnToSetup() { return Boolean(state?.localSimulation || transport.seatId === state?.hostSeatId); }
 async function refreshJoinSeats() {
   const code = $('#podCode').value.trim().toUpperCase();
-  if (code.length !== 6) return;
+  if (code.length !== 6) {
+    dom.joinSeat.innerHTML = '<option value="">Enter a six-character pod code</option>';
+    dom.joinSeat.disabled = true;
+    return;
+  }
   try {
     const { snapshot } = await transport.inspectRoom(code);
+    if ($('#podCode').value.trim().toUpperCase() !== code) return;
     const openSeats = snapshot.seats.filter(seat => !seat.claimed);
     dom.joinSeat.innerHTML = openSeats.length
       ? openSeats.map(seat => `<option value="P${seat.seatId + 1}">P${seat.seatId + 1}</option>`).join('')
       : '<option value="">No open seats</option>';
     dom.joinSeat.disabled = openSeats.length === 0;
     dom.joinName.placeholder = dom.joinSeat.value || 'No open seat';
-  } catch { /* The form submission gives the player the actionable error. */ }
+  } catch {
+    if ($('#podCode').value.trim().toUpperCase() === code) {
+      dom.joinSeat.innerHTML = '<option value="">Pod not available</option>';
+      dom.joinSeat.disabled = true;
+    }
+  }
 }
 function renderCommanderTaxDialog() {
   if (!state || !dom.commanderTaxDetail || !dom.commanderTaxList) return;
@@ -574,10 +584,10 @@ function saveLocal() { if (!state || !state.localSimulation) return; try { local
 function loadLocal() { try { const saved = JSON.parse(localStorage.getItem('fivefold-arc-test-state')); if (saved?.commanderSources && saved?.players?.length && saved.playerCount === saved.players.length) return saved; } catch { /* ignore malformed state */ } return null; }
 
 fillSetupControls(); refreshSetupCommanderNames(); renderConnection();
-$('#createPodButton').addEventListener('click', () => showView(dom.create)); $('#joinPodButton').addEventListener('click', () => showView(dom.join)); $$('[data-back]').forEach(button => button.addEventListener('click', () => showView(dom.landing))); dom.playerCountChoices.addEventListener('change', event => syncOwnerChoices(Number(event.target.value))); dom.ownerSeat.addEventListener('change', () => { dom.createName.placeholder = dom.ownerSeat.value; }); $('#joinSeat').addEventListener('change', () => { dom.joinName.placeholder = dom.joinSeat.value; }); $('#podCode').addEventListener('change', refreshJoinSeats); $('#podCode').addEventListener('blur', refreshJoinSeats); $$('input[name="commanderCount"], input[name="joinCommanderCount"]').forEach(input => input.addEventListener('change', refreshSetupCommanderNames));
+$('#createPodButton').addEventListener('click', () => showView(dom.create)); $('#joinPodButton').addEventListener('click', () => { showView(dom.join); refreshJoinSeats(); }); $$('[data-back]').forEach(button => button.addEventListener('click', () => showView(dom.landing))); dom.playerCountChoices.addEventListener('change', event => syncOwnerChoices(Number(event.target.value))); dom.ownerSeat.addEventListener('change', () => { dom.createName.placeholder = dom.ownerSeat.value; }); $('#joinSeat').addEventListener('change', () => { dom.joinName.placeholder = dom.joinSeat.value; }); $('#podCode').addEventListener('input', refreshJoinSeats); $('#podCode').addEventListener('change', refreshJoinSeats); $('#podCode').addEventListener('blur', refreshJoinSeats); $$('input[name="commanderCount"], input[name="joinCommanderCount"]').forEach(input => input.addEventListener('change', refreshSetupCommanderNames));
 $('#quickTestButton').addEventListener('click', () => { const saved = loadLocal(); if (saved) { transport.useLocal(); state = saved; showView(dom.game); render(); } else beginLocalGame({}); });
 $('#createForm').addEventListener('submit', async event => { event.preventDefault(); const form = new FormData(event.currentTarget); const playerCount = Number(form.get('playerCount')); const ownerCommanderCount = Number(form.get('commanderCount')); const ownerCommanderNames = commanderNamesFromForm(form, ownerCommanderCount); const ownerCommanderColors = commanderColorsFromFields(dom.createCommanderNames, ownerCommanderCount); const ownerPlayerId = dom.ownerSeat.value; const ownerName = String(form.get('name') || '').trim() || ownerPlayerId; const enteredRoundLimit = String(form.get('roundLimitMinutes') || '').trim(); const roundLimitMinutes = enteredRoundLimit ? Number(enteredRoundLimit) : null; if (roundLimitMinutes !== null && (!Number.isInteger(roundLimitMinutes) || roundLimitMinutes < 1 || roundLimitMinutes > 999)) { dom.roundLimitMinutes.focus(); return; } const config = { playerCount, startingLife: Number(form.get('startingLife')), ownerPlayerId, ownerName, ownerCommanderCount, ownerCommanderNames, ownerCommanderColors, roundLimitMinutes }; if (dom.localSimulation.checked) return beginLocalGame({ ...config, localSimulation: true, podCode: 'LOCAL' }); try { const result = await transport.createRoom({ playerCount, startingLife: config.startingLife, commanderCount: ownerCommanderCount, commanderNames: ownerCommanderNames, commanderColors: ownerCommanderColors, name: ownerName, roundLimitMinutes }); showSharedGame(result.snapshot); } catch (error) { showError(error); } });
-$('#joinForm').addEventListener('submit', async event => { event.preventDefault(); const form = new FormData(event.currentTarget); const code = $('#podCode').value.trim().toUpperCase(); const ownerPlayerId = $('#joinSeat').value; const seatId = Number(ownerPlayerId.slice(1)) - 1; const commanderCount = Number(form.get('joinCommanderCount')); const commanderNames = commanderNamesFromForm(form, commanderCount); const commanderColors = commanderColorsFromFields(dom.joinCommanderNames, commanderCount); const ownerName = String(form.get('name') || '').trim() || ownerPlayerId; try { const room = await transport.inspectRoom(code); if (!room.snapshot.seats[seatId]) throw new Error('That seat does not exist in this pod.'); const result = await transport.claimRoom({ code, seatId, name: ownerName, commanderCount, commanderNames, commanderColors }); showSharedGame(result.snapshot); } catch (error) { showError(error); } });
+$('#joinForm').addEventListener('submit', async event => { event.preventDefault(); const form = new FormData(event.currentTarget); const code = $('#podCode').value.trim().toUpperCase(); const ownerPlayerId = $('#joinSeat').value; if (!/^P[1-8]$/.test(ownerPlayerId)) return showError(new Error('Wait for this pod’s open seats to load, then choose one.')); const seatId = Number(ownerPlayerId.slice(1)) - 1; const commanderCount = Number(form.get('joinCommanderCount')); const commanderNames = commanderNamesFromForm(form, commanderCount); const commanderColors = commanderColorsFromFields(dom.joinCommanderNames, commanderCount); const ownerName = String(form.get('name') || '').trim() || ownerPlayerId; try { const room = await transport.inspectRoom(code); if (!room.snapshot.seats[seatId] || room.snapshot.seats[seatId].claimed) throw new Error('That seat is no longer open. Choose one of the available seats.'); const result = await transport.claimRoom({ code, seatId, name: ownerName, commanderCount, commanderNames, commanderColors }); showSharedGame(result.snapshot); } catch (error) { showError(error); } });
 $('#recoverPodButton').addEventListener('click', async () => { const code = $('#podCode').value.trim().toUpperCase(); if (code.length !== 6) return showError(new Error('Enter the six-character pod code first.')); try { const { snapshot } = await transport.restoreRoom(code); const host = snapshot.seats[snapshot.hostSeatId]; const result = await transport.claimRoom({ code, seatId: snapshot.hostSeatId, name: host.name, commanderCount: host.commanderCount, commanderNames: host.commanderNames, commanderColors: host.commanderColors }); showSharedGame(result.snapshot); } catch (error) { showError(error); } });
 $('#joinDemoButton').addEventListener('click', () => { const ownerPlayerId = $('#joinSeat').value; const ownerName = dom.joinName.value.trim() || ownerPlayerId; beginLocalGame({ ownerPlayerId, ownerName, ownerCommanderCount: Number(new FormData($('#joinForm')).get('joinCommanderCount')), localSimulation: true, podCode: 'DEMO' }); });
 dom.activeSeat.addEventListener('change', () => { state.activePlayerId = dom.activeSeat.value; render(); }); $$('[data-mode]').forEach(button => button.addEventListener('click', () => { state.mode = button.dataset.mode; render(); })); $$('[data-delta]').forEach(button => button.addEventListener('click', () => adjust(Number(button.dataset.delta)))); $('#quickClearButton').addEventListener('click', () => adjust(-activePlayer().storm));

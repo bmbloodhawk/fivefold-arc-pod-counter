@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=60">
+  <link rel="stylesheet" href="styles.css?v=61">
 </head>
 <body>
   <header class="brand-bar">
@@ -91,11 +91,10 @@
           <input id="podCode" type="text" inputmode="text" autocomplete="off" maxlength="8" placeholder="e.g. ARC7K2" required>
         </label>
         <label class="select-field">Open seat
-          <select id="joinSeat">
-            <option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option><option value="P4">P4</option>
-            <option value="P5">P5</option><option value="P6">P6</option><option value="P7">P7</option><option value="P8">P8</option>
+          <select id="joinSeat" disabled>
+            <option value="">Enter a pod code first</option>
           </select>
-          <small>Available seats will come from the pod host when connected.</small>
+          <small>Only currently open seats are shown after the pod code is checked.</small>
         </label>
         <label class="select-field">Your name <small>(optional)</small>
           <input id="joinName" name="name" type="text" autocomplete="name" maxlength="24" placeholder="P1">
@@ -346,6 +345,6 @@
     <form method="dialog"><h2 id="savedPlaytestsTitle">Saved playtests</h2><div id="savedPlaytestsContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
   </dialog>
 
-  <script type="module" src="app.js?v=60"></script>
+  <script type="module" src="app.js?v=61"></script>
 </body>
 </html>
