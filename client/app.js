@@ -1,5 +1,5 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=64';
-import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=64';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=65';
+import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=65';
 
 const MODES = ['life', 'poison', 'commander', 'energy', 'storm', 'generic'];
 const IDENTITY_ORDER = ['W', 'U', 'B', 'R', 'G'];
@@ -11,7 +11,7 @@ const dom = {
   connectionButton: $('#connectionButton'), connectionText: $('#connectionText'), connectionDialog: $('#connectionDialog'), connectionDetail: $('#connectionDetail'),
   playerCountChoices: $('#playerCountChoices'), ownerSeat: $('#ownerSeat'), createName: $('#createName'), joinSeat: $('#joinSeat'), joinName: $('#joinName'), activeSeat: $('#activeSeat'), localSimulation: $('#localSimulation'), roundLimitMinutes: $('#roundLimitMinutes'), createCommanderNames: $('#createCommanderNames'), joinCommanderNames: $('#joinCommanderNames'), gameCommanderNames: $('#gameCommanderNames'),
   podStrip: $('#podStrip'), podLabel: $('#podLabel'), ownerLabel: $('#ownerLabel'), commanderIdentityName: $('#commanderIdentityName'), identityHeaderRail: $('#identityHeaderRail'), modeTitle: $('#modeTitle'), mainValue: $('#mainValue'),
-  counterContext: $('#counterContext'), statusMessage: $('#statusMessage'), lethalMark: $('#lethalMark'), lifeChangeIndicator: $('#lifeChangeIndicator'), sourcePanel: $('#sourcePanel'),
+  counterContext: $('#counterContext'), statusMessage: $('#statusMessage'), lethalMark: $('#lethalMark'), lifeChangeIndicator: $('#lifeChangeIndicator'), sourcePanel: $('#sourcePanel'), inspectionNotice: $('#inspectionNotice'),
   quickClearWrap: $('#quickClearWrap'), activeSeatBar: $('#activeSeatBar'), gameMenu: $('#gameMenu'), moreButton: $('#moreButton'),
   disconnectBanner: $('#disconnectBanner'), coinTossNotice: $('#coinTossNotice'), victoryNotice: $('#victoryNotice'), coinTossButton: $('#coinTossButton'), coinTossDialog: $('#coinTossDialog'), coinTossResult: $('#coinTossResult'), tossAgainButton: $('#tossAgainButton'), resetDialog: $('#resetDialog'), commanderSetupButton: $('#commanderSetupButton'), backToSetupButton: $('#backToSetupButton'), declareWinnerButton: $('#declareWinnerButton'), declareWinnerDialog: $('#declareWinnerDialog'), declareWinnerForm: $('#declareWinnerForm'), winnerSeat: $('#winnerSeat'), victoryDialog: $('#victoryDialog'), victoryTitle: $('#victoryTitle'), victoryDetail: $('#victoryDetail'),
   lobbyControls: $('#lobbyControls'), lobbyStatus: $('#lobbyStatus'), startingSeatField: $('#startingSeatField'), startingSeat: $('#startingSeat'), chooseFirstButton: $('#chooseFirstButton'), randomFirstButton: $('#randomFirstButton'), startGameButton: $('#startGameButton'), startingRollDialog: $('#startingRollDialog'), startingRollStatus: $('#startingRollStatus'), startingRollDice: $('#startingRollDice'), turnBanner: $('#turnBanner'), turnLabel: $('#turnLabel'), turnPlayer: $('#turnPlayer'), turnElapsed: $('#turnElapsed'), gameTimer: $('#gameTimer'), turnActions: $('#turnActions'), endTurnButton: $('#endTurnButton'), undoTurnButton: $('#undoTurnButton'), turnActionDetail: $('#turnActionDetail'),
@@ -221,7 +221,10 @@ function render() {
   dom.game.dataset.hasIdentity = String(playerIdentity(player).length > 0);
   const identityNames = player.commanderNames.filter(Boolean).join(' · ');
   dom.podLabel.textContent = state.podCode === 'LOCAL' ? 'LOCAL POD' : `POD ${state.podCode}`; dom.ownerLabel.textContent = `YOU · ${displayName(state.players.find(item => item.id === state.ownerPlayerId))}`; dom.commanderIdentityName.hidden = !identityNames; dom.commanderIdentityName.textContent = identityNames; dom.identityHeaderRail.style.setProperty('--identity-rail', identityRail(playerIdentity(player)) || 'transparent'); dom.identityHeaderRail.hidden = !playerIdentity(player).length; dom.modeTitle.textContent = state.mode.toUpperCase(); dom.mainValue.value = currentValue(player);
-  dom.counterContext.textContent = state.mode === 'commander' ? (source ? `${displayPlayer(player)} HAS RECEIVED DAMAGE FROM ${displaySource(source)}` : `NO OTHER COMMANDERS · ${displayPlayer(player)}`) : `${displayName(player)}${player.id === state.ownerPlayerId ? ' · YOU' : state.localSimulation ? ' · SIMULATED' : ' · VIEW ONLY'}`;
+  const inspectingSharedSeat = !state.localSimulation && player.id !== state.ownerPlayerId;
+  dom.counterContext.textContent = state.mode === 'commander' ? (source ? `${displayPlayer(player)} HAS RECEIVED DAMAGE FROM ${displaySource(source)}` : `NO OTHER COMMANDERS · ${displayPlayer(player)}`) : `${displayName(player)}${player.id === state.ownerPlayerId ? ' · YOU' : state.localSimulation ? ' · SIMULATED' : ' · READ ONLY'}`;
+  dom.inspectionNotice.hidden = !inspectingSharedSeat;
+  dom.inspectionNotice.textContent = inspectingSharedSeat ? `VIEWING ${displayPlayer(player)} · READ ONLY ON THIS PHONE` : '';
   dom.lethalMark.hidden = !player.eliminated; const status = player.lethalCause || player.warning; dom.statusMessage.hidden = !status; dom.statusMessage.textContent = status || ''; dom.statusMessage.classList.toggle('lethal', Boolean(player.lethalCause));
   renderPodStrip(); renderSources(player); renderModeNav(); renderSeatPicker();
   renderTurnFlow();
@@ -233,7 +236,7 @@ function render() {
   dom.customLifeButton.hidden = state.mode !== 'life'; dom.customLifeButton.disabled = !playerCanMutate || !(transport.status === 'local' || transport.status === 'connected');
   renderLifeChange(player);
   dom.quickClearWrap.hidden = state.mode !== 'storm' || !playerCanMutate; dom.activeSeatBar.hidden = !state.localSimulation; $('#resetButton').hidden = !state.localSimulation && transport.seatId !== state.hostSeatId;
-  const commanderOwner = state.localSimulation ? activePlayer() : state.players.find(item => item.id === state.ownerPlayerId); const taxPlayer = activePlayer(); const inspectingSharedSeat = !state.localSimulation && taxPlayer.id !== state.ownerPlayerId;
+  const commanderOwner = state.localSimulation ? activePlayer() : state.players.find(item => item.id === state.ownerPlayerId); const taxPlayer = activePlayer();
   dom.commanderSetupButton.textContent = state.localSimulation ? `${displayName(commanderOwner)} commander setup` : 'My commander setup';
   dom.coinTossButton.disabled = !(transport.status === 'local' || transport.status === 'connected');
   dom.declareWinnerButton.hidden = !state.localSimulation && transport.seatId !== state.hostSeatId;
@@ -249,16 +252,16 @@ function renderLifeChange(player) {
   dom.lifeChangeIndicator.hidden = !visible;
   if (!visible) return;
   const sign = lifeChange.delta > 0 ? '+' : '−';
-  dom.lifeChangeIndicator.textContent = `${sign}${Math.abs(lifeChange.delta)} LIFE · ${lifeChange.from} → ${lifeChange.to}`;
+  dom.lifeChangeIndicator.textContent = `${sign}${Math.abs(lifeChange.delta)} LIFE · ${lifeChange.from} → ${lifeChange.to}${lifeChange.confirmed ? ' · SYNCED JUST NOW' : ''}`;
   dom.lifeChangeIndicator.classList.toggle('negative', lifeChange.delta < 0);
 }
-function showLifeChange(playerId, delta, from, to) {
+function showLifeChange(playerId, delta, from, to, { confirmed = false } = {}) {
   if (!delta) return;
   // Keep one rolling confirmation while a player is entering a burst of life
   // changes. The total resets only after four quiet seconds or a seat switch.
   const prior = lifeChange?.playerId === playerId && Math.sign(lifeChange.delta) === Math.sign(delta) ? lifeChange : null;
   const start = prior?.from ?? from;
-  lifeChange = { playerId, from: start, to, delta: to - start };
+  lifeChange = { playerId, from: start, to, delta: to - start, confirmed };
   clearTimeout(lifeChangeTimer);
   lifeChangeTimer = setTimeout(() => { lifeChange = null; if (state) render(); }, 4000);
   if (state) render();
@@ -371,7 +374,8 @@ function renderPodStrip() {
     const marker = isWaiting ? 'WAITING' : isOffline ? 'OFFLINE' : player.eliminated ? 'ELIMINATED' : player.warning ? 'WARNING' : 'CONNECTED';
     const stateClass = isWaiting ? 'waiting' : isOffline ? 'offline' : player.eliminated ? 'eliminated-state' : player.warning ? 'warning' : 'connected';
     const name = displayName(player); const tileName = `${name}${player.id === state.ownerPlayerId ? ' · YOU' : ''}`;
-    return `<button class="pod-seat ${player.id === state.activePlayerId ? 'active' : ''} ${player.id === state.turnSeatId ? 'turn-active' : ''} ${player.eliminated ? 'eliminated' : ''} ${isOffline ? 'disconnected' : ''}" data-seat="${player.id}" type="button" aria-label="${escapeHtml(`${displayPlayer(player)}, ${marker}, ${value}. ${identityLabel(player)}`)}"${identityStyle(player)}><span class="seat-name" title="${escapeHtml(displayPlayer(player))}">${escapeHtml(tileName)}</span><span class="seat-life">${value}</span><span class="seat-state ${stateClass}">${marker}</span><span class="identity-rail" aria-hidden="true"></span></button>`;
+    const stateSymbol = isWaiting ? '○' : isOffline ? '×' : player.eliminated ? '☠' : player.warning ? '!' : '●';
+    return `<button class="pod-seat ${player.id === state.activePlayerId ? 'active' : ''} ${player.id === state.turnSeatId ? 'turn-active' : ''} ${player.eliminated ? 'eliminated' : ''} ${isOffline ? 'disconnected' : ''}" data-seat="${player.id}" type="button" aria-label="${escapeHtml(`${displayPlayer(player)}, ${marker}, ${value}. ${identityLabel(player)}`)}"${identityStyle(player)}><span class="seat-name" title="${escapeHtml(displayPlayer(player))}">${escapeHtml(tileName)}</span><span class="seat-life">${value}</span><span class="seat-state ${stateClass}" title="${marker}">${stateSymbol}<span class="sr-only">${marker}</span></span><span class="identity-rail" aria-hidden="true"></span></button>`;
   }).join('');
   $$('[data-seat]').forEach(button => button.addEventListener('click', () => { state.activePlayerId = button.dataset.seat; state.selectedSourceId = null; render(); }));
 }
@@ -398,6 +402,7 @@ function renderCommanderTaxQuick(player, inspectingSharedSeat) {
   dom.commanderTaxQuickButton.innerHTML = `<span class="commander-tax-quick-title">${escapeHtml(title)}</span><span class="commander-tax-quick-name">${escapeHtml(names)}</span><span class="commander-tax-quick-values">${values}</span>`;
   dom.commanderTaxQuickButton.setAttribute('aria-label', `${displayPlayer(player)} ${accessibleValues}${inspectingSharedSeat ? ', read only' : ''}. Open commander tax.`);
 }
+function confirmLifeChange(playerId) { if (lifeChange?.playerId === playerId) { lifeChange.confirmed = true; render(); } }
 async function openPlaytestNotes() { try { const { notes } = await transport.listPlaytestNotes(); dom.playtestNotesList.innerHTML = notes.length ? notes.map(note => `<li><strong>${note.authorSeatId === transport.seatId ? 'You' : escapeHtml(displayName(state.players[note.authorSeatId]))}</strong><p>${escapeHtml(note.text)}</p></li>`).join('') : '<li>No notes yet. Add something while it is fresh.</li>'; dom.gameMenu.hidden = true; dom.playtestNotesDialog.showModal(); } catch (error) { showError(error); } }
 async function openPlaytestRecap() { try { const { recap } = await transport.getPlaytestRecap(); const winner = recap.winner ? displayName(state.players[recap.winner.seatId]) : 'Not recorded yet'; const players = recap.players.map(player => `${escapeHtml(player.name)}${player.commanders.length ? ` · ${player.commanders.map(escapeHtml).join(' / ')}` : ''}`).join('<br>'); dom.playtestRecapContent.innerHTML = `<p><strong>Duration:</strong> ${Math.round(recap.durationMs / 60000)} min</p><p><strong>Winner:</strong> ${escapeHtml(winner)}</p><p><strong>Players:</strong><br>${players || 'No claimed players'}</p><p><strong>Notes:</strong> ${recap.notes.length}</p>`; dom.gameMenu.hidden = true; dom.playtestRecapDialog.showModal(); } catch (error) { showError(error); } }
 async function openSavedPlaytests() { try { const { playtests } = await transport.getSavedPlaytests(); dom.savedPlaytestsContent.innerHTML = playtests.length ? playtests.map(item => { const players = item.players.map(player => `${escapeHtml(player.name)}${player.commanders.length ? ` · ${player.commanders.map(escapeHtml).join(' / ')}` : ''}`).join('<br>'); const winner = item.winner ? escapeHtml(item.players.find(player => player.seatId === item.winner.seatId)?.name || 'Recorded winner') : 'Interrupted'; return `<section class="playtest-notes-list"><p><strong>${winner}</strong> · ${Math.round(item.durationMs / 60000)} min</p><p>${players}</p><p>${item.notes?.length || 0} note(s)</p></section>`; }).join('') : '<p>No completed or interrupted playtests are saved for this table yet.</p>'; dom.gameMenu.hidden = true; dom.savedPlaytestsDialog.showModal(); } catch (error) { showError(error); } }
@@ -467,7 +472,7 @@ async function adjust(delta) {
     // Shared life is an atomic server-side delta. Submit each tap immediately
     // so Safari timer/identifier support can never leave a visible local-only
     // total that was not written to the table.
-    try { await transport.adjust({ counter: 'life', delta }); }
+    try { const result = await transport.adjust({ counter: 'life', delta }); if (!result.blocked && !result.ignored) confirmLifeChange(player.id); }
     catch (error) { renderConnection('disconnected'); showError(error); }
     return;
   }

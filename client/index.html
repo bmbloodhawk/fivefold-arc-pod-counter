@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=64">
+  <link rel="stylesheet" href="styles.css?v=65">
 </head>
 <body>
   <header class="brand-bar">
@@ -93,7 +93,11 @@
         </label>
         <p id="joinCodeStatus" class="field-help" aria-live="polite"></p>
         <button class="primary-action" type="submit">Find pod</button>
-        <button id="recoverPodButton" class="text-action" type="button">Recover this host pod after a restart</button>
+        <details class="recovery-details">
+          <summary>Having trouble?</summary>
+          <p>Only the phone that created this pod can recover it after a restart.</p>
+          <button id="recoverPodButton" class="text-action" type="button">Recover this host pod</button>
+        </details>
       </form>
     </section>
 
@@ -137,6 +141,7 @@
       </div>
 
       <section id="podStrip" class="pod-strip" aria-label="Pod life totals"></section>
+      <p id="inspectionNotice" class="inspection-notice" role="status" hidden></p>
       <p id="coinTossNotice" class="coin-toss-notice" aria-live="polite" hidden></p>
       <p id="victoryNotice" class="victory-notice" aria-live="polite" hidden></p>
       <section id="lobbyControls" class="lobby-controls" aria-live="polite">
@@ -356,6 +361,6 @@
     <form method="dialog"><h2 id="savedPlaytestsTitle">Saved playtests</h2><div id="savedPlaytestsContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
   </dialog>
 
-  <script type="module" src="app.js?v=64"></script>
+  <script type="module" src="app.js?v=65"></script>
 </body>
 </html>

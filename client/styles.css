@@ -60,6 +60,10 @@ h1 { max-width: 560px; margin: 0; font-family: Georgia, "Times New Roman", serif
 .secondary-action { border: 1px solid var(--line); background: var(--surface-2); }
 .danger-action { border: 1px solid #f6a18e; background: #b64f3b; color: white; }
 .text-action, .back-button { border: 0; background: transparent; color: var(--brass); text-decoration: underline; text-underline-offset: 4px; }
+.recovery-details { margin-top: -6px; color: var(--muted); font-size: .8rem; }
+.recovery-details summary { color: var(--brass); cursor: pointer; font-weight: 700; }
+.recovery-details p { margin: 10px 0 3px; line-height: 1.4; }
+.recovery-details .text-action { min-height: 38px; padding: 4px 0; font-size: .8rem; }
 .privacy-note { margin-top: 28px; color: var(--muted); text-align: center; font-size: .76rem; }
 .back-button { margin: -18px 0 14px -10px; padding: 10px; }
 .setup-form { display: grid; gap: 24px; margin-top: 30px; }
@@ -99,13 +103,14 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .disconnect-banner > span { display: grid; place-items: center; flex: 0 0 28px; height: 28px; border: 2px solid var(--warning); border-radius: 50%; font-weight: 900; }
 .disconnect-banner p { margin: 0; color: var(--muted); font-size: .77rem; line-height: 1.35; }
 .disconnect-banner strong { color: var(--ink); }
+.inspection-notice { margin: 0 0 8px; padding: 8px 10px; border: 1px solid var(--brass-dark); border-left: 3px solid var(--brass); background: rgb(216 174 97 / .08); color: var(--brass); font-size: .68rem; font-weight: 900; letter-spacing: .08em; text-align: center; }
 .pod-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin: 7px 0 10px; }
 .pod-seat { position: relative; overflow: hidden; min-width: 0; min-height: 72px; padding: 8px 5px 11px; border: 1px solid #62583f; border-radius: 7px; background: linear-gradient(145deg, #2a2823, #151515 68%); box-shadow: inset 0 1px 0 rgb(255 255 255 / .06), 0 3px 0 #090909; text-align: center; }
 .identity-rail { position: absolute; right: 7px; bottom: 5px; left: 7px; height: 4px; border: 1px solid rgb(244 236 217 / .24); background: var(--identity-rail, repeating-linear-gradient(90deg, #4a4640 0 4px, transparent 4px 7px)); }
 .pod-seat .seat-name { display: block; overflow: hidden; color: var(--ink); font-family: Georgia, "Times New Roman", serif; font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-overflow: ellipsis; white-space: nowrap; }
 .pod-seat .seat-life { display: block; margin-top: 5px; font-family: Georgia, serif; font-size: 1.82rem; line-height: .9; }
-.pod-seat .seat-state { display: block; min-height: .8rem; margin-top: 2px; font-size: .58rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
-.pod-seat .seat-state.connected { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+.pod-seat .seat-state { position: absolute; top: 5px; right: 5px; display: grid; place-items: center; width: 12px; height: 12px; border: 1px solid currentColor; border-radius: 50%; background: #151515; color: var(--muted); font-size: .57rem; font-weight: 900; line-height: 1; }
+.pod-seat .seat-state.connected { color: var(--safe); }
 .pod-seat .seat-state.offline, .pod-seat .seat-state.warning { color: var(--warning); }
 .pod-seat .seat-state.eliminated-state { color: var(--danger); }
 .pod-strip[data-player-count="5"] .pod-seat, .pod-strip[data-player-count="6"] .pod-seat, .pod-strip[data-player-count="7"] .pod-seat, .pod-strip[data-player-count="8"] .pod-seat { min-height: 52px; padding-block: 5px; }
@@ -376,3 +381,9 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
 .mode-nav svg { filter: drop-shadow(0 1px 0 #000) drop-shadow(0 -1px 0 rgb(255 255 255 / .12)); }
 @media (max-width: 599px) { .mode-nav small { font-size: clamp(.46rem, 2.15vw, .58rem); } }
 @media (max-width: 359px) { .mode-nav small { font-size: .42rem; letter-spacing: .015em; } }
+
+/* Shared-state clarity pass: compact, non-color-only seat state and explicit inspection mode. */
+@media (max-width: 599px) {
+  .inspection-notice { margin-bottom: 6px; padding: 6px 8px; font-size: .56rem; }
+  .pod-seat .seat-state { top: 4px; right: 4px; width: 10px; height: 10px; font-size: .48rem; }
+}
