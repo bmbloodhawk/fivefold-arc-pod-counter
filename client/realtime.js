@@ -227,13 +227,17 @@ export class RealtimeAdapter extends EventTarget {
   // sends a mutation.
   #startSnapshotRefresh(epoch) {
     clearInterval(this.snapshotRefreshTimer);
-    this.snapshotRefreshTimer = setInterval(async () => {
+    const refresh = async () => {
       if (!this.#isCurrentSession(epoch) || !this.roomCode || document.visibilityState === 'hidden') return;
       try {
-        const result = await this.#request(`/api/rooms/${this.roomCode}`);
+        // The cache-buster protects this safety net from an intermediary that
+        // incorrectly reuses a public room GET despite the server's no-store.
+        const result = await this.#request(`/api/rooms/${this.roomCode}?refresh=${Date.now()}`);
         if (this.#isCurrentSession(epoch)) this.#acceptSnapshot(result.snapshot, epoch);
       } catch { /* The SSE reconnect/heartbeat paths handle connection state. */ }
-    }, 2500);
+    };
+    void refresh();
+    this.snapshotRefreshTimer = setInterval(() => { void refresh(); }, 750);
   }
 
   #scheduleReconnect(epoch) {
@@ -276,7 +280,7 @@ export class RealtimeAdapter extends EventTarget {
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (authenticated && this.connectionId) headers['X-Connection-Id'] = this.connectionId;
     let response;
-    try { response = await fetch(`${this.apiBase}${path}`, { method, headers, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) }); }
+    try { response = await fetch(`${this.apiBase}${path}`, { method, headers, cache: 'no-store', ...(body !== undefined ? { body: JSON.stringify(body) } : {}) }); }
     catch (cause) { const error = new Error('The pod server could not be reached.'); error.cause = cause; throw error; }
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
