@@ -132,6 +132,7 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .turn-banner span { font-size: .62rem; font-weight: 800; letter-spacing: .05em; color: var(--muted); text-align: right; }
 .turn-banner #gameTimer { grid-column: 3; grid-row: 1; }
 .turn-banner #turnElapsed { display: block; grid-column: 3; grid-row: 2; }
+.turn-banner #lastTurnSummary { grid-column: 1 / -1; grid-row: 3; margin-top: 2px; padding-top: 3px; border-top: 1px solid rgb(216 174 97 / .18); color: var(--muted); font-size: .55rem; text-align: center; }
 .turn-actions { margin: 5px 0 7px; text-align: center; }
 .end-turn-button { width: 100%; min-height: 42px; padding: 9px 12px; border: 1px solid var(--brass); border-radius: 5px; background: var(--brass); color: #1c170e; font-size: .82rem; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; }
 .end-turn-button:disabled { border-color: var(--line); background: var(--surface); color: var(--muted); }

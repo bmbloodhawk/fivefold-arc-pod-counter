@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=71">
+  <link rel="stylesheet" href="styles.css?v=72">
 </head>
 <body>
   <header class="brand-bar">
@@ -158,6 +158,7 @@
         <strong id="turnPlayer">P1</strong>
         <span id="turnElapsed">TURN 0:00</span>
         <span id="gameTimer">GAME TIME 0:00</span>
+        <span id="lastTurnSummary" hidden>LAST TURN · —</span>
       </section>
       <section id="turnActions" class="turn-actions" aria-label="Turn controls">
         <button id="endTurnButton" class="end-turn-button" type="button">End turn → Next player</button>
@@ -361,6 +362,6 @@
     <form method="dialog"><h2 id="savedPlaytestsTitle">Saved playtests</h2><div id="savedPlaytestsContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
   </dialog>
 
-  <script type="module" src="app.js?v=71"></script>
+  <script type="module" src="app.js?v=72"></script>
 </body>
 </html>

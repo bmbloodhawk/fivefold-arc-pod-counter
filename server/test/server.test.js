@@ -693,7 +693,7 @@ describe("authority and convergence", () => {
     const activeConnectionId = started.snapshot.turn.activeSeatId === 0 ? host.connectionId : other.connectionId;
     const handedOff = service.handoffTurn(initial.code, activeConnectionId, { baseVersion: started.snapshot.version });
     assert.equal(handedOff.snapshot.turn.activeSeatId, 0);
-    assert.deepEqual(handedOff.snapshot.turn.lastHandoff, { fromSeatId: started.snapshot.turn.activeSeatId, toSeatId: handedOff.snapshot.turn.activeSeatId, handedOffAt: now });
+    assert.deepEqual(handedOff.snapshot.turn.lastHandoff, { fromSeatId: started.snapshot.turn.activeSeatId, toSeatId: handedOff.snapshot.turn.activeSeatId, handedOffAt: now, turnLengthMs: 6_000 });
 
     const nonOwnerConnectionId = activeConnectionId === host.connectionId ? other.connectionId : host.connectionId;
     assert.throws(() => service.undoTurnHandoff(initial.code, nonOwnerConnectionId, { baseVersion: service.snapshot(service.room(initial.code)).version }), { code: "HANDOFF_UNDO_OWNER_ONLY" });
@@ -717,6 +717,10 @@ describe("authority and convergence", () => {
     const third = service.createConnection();
     let snapshot = service.claimSeat(created.snapshot.code, second.connectionId, { seatId: 1, name: "Jace" }).snapshot;
     snapshot = service.claimSeat(created.snapshot.code, third.connectionId, { seatId: 2, name: "Nissa" }).snapshot;
+    snapshot = service.setTurnTracking(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version, enabled: false }).snapshot;
+    assert.equal(snapshot.turn.gameStarted, false);
+    assert.equal(snapshot.turn.trackingEnabled, false);
+    snapshot = service.setTurnTracking(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version, enabled: true }).snapshot;
     snapshot = service.startGame(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
     now += 3_000;
     snapshot = service.setTurnPaused(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version, paused: true }).snapshot;

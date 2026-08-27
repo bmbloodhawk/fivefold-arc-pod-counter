@@ -1,5 +1,5 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=70';
-import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=70';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=72';
+import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=72';
 
 const MODES = ['life', 'commander', 'radiation', 'poison', 'energy', 'generic'];
 const IDENTITY_ORDER = ['W', 'U', 'B', 'R', 'G'];
@@ -14,7 +14,7 @@ const dom = {
   counterContext: $('#counterContext'), statusMessage: $('#statusMessage'), lethalMark: $('#lethalMark'), lifeChangeIndicator: $('#lifeChangeIndicator'), sourcePanel: $('#sourcePanel'), inspectionNotice: $('#inspectionNotice'),
   activeSeatBar: $('#activeSeatBar'), gameMenu: $('#gameMenu'), moreButton: $('#moreButton'),
   disconnectBanner: $('#disconnectBanner'), coinTossNotice: $('#coinTossNotice'), victoryNotice: $('#victoryNotice'), coinTossButton: $('#coinTossButton'), coinTossDialog: $('#coinTossDialog'), coinTossResult: $('#coinTossResult'), tossAgainButton: $('#tossAgainButton'), resetDialog: $('#resetDialog'), commanderSetupButton: $('#commanderSetupButton'), backToSetupButton: $('#backToSetupButton'), declareWinnerButton: $('#declareWinnerButton'), declareWinnerDialog: $('#declareWinnerDialog'), declareWinnerForm: $('#declareWinnerForm'), winnerSeat: $('#winnerSeat'), victoryDialog: $('#victoryDialog'), victoryTitle: $('#victoryTitle'), victoryDetail: $('#victoryDetail'),
-  lobbyControls: $('#lobbyControls'), lobbyStatus: $('#lobbyStatus'), startingSeatField: $('#startingSeatField'), startingSeat: $('#startingSeat'), chooseFirstButton: $('#chooseFirstButton'), randomFirstButton: $('#randomFirstButton'), startGameButton: $('#startGameButton'), startingRollDialog: $('#startingRollDialog'), startingRollStatus: $('#startingRollStatus'), startingRollDice: $('#startingRollDice'), turnBanner: $('#turnBanner'), turnLabel: $('#turnLabel'), turnPlayer: $('#turnPlayer'), turnElapsed: $('#turnElapsed'), gameTimer: $('#gameTimer'), turnActions: $('#turnActions'), endTurnButton: $('#endTurnButton'), undoTurnButton: $('#undoTurnButton'), pauseTurnButton: $('#pauseTurnButton'), toggleTurnTrackingButton: $('#toggleTurnTrackingButton'), turnActionDetail: $('#turnActionDetail'),
+  lobbyControls: $('#lobbyControls'), lobbyStatus: $('#lobbyStatus'), startingSeatField: $('#startingSeatField'), startingSeat: $('#startingSeat'), chooseFirstButton: $('#chooseFirstButton'), randomFirstButton: $('#randomFirstButton'), startGameButton: $('#startGameButton'), startingRollDialog: $('#startingRollDialog'), startingRollStatus: $('#startingRollStatus'), startingRollDice: $('#startingRollDice'), turnBanner: $('#turnBanner'), turnLabel: $('#turnLabel'), turnPlayer: $('#turnPlayer'), turnElapsed: $('#turnElapsed'), gameTimer: $('#gameTimer'), lastTurnSummary: $('#lastTurnSummary'), turnActions: $('#turnActions'), endTurnButton: $('#endTurnButton'), undoTurnButton: $('#undoTurnButton'), pauseTurnButton: $('#pauseTurnButton'), toggleTurnTrackingButton: $('#toggleTurnTrackingButton'), turnActionDetail: $('#turnActionDetail'),
   commanderCountDialog: $('#commanderCountDialog'), commanderCountDetail: $('#commanderCountDetail'), commanderCountForm: $('#commanderCountForm'), saveCommanderCountButton: $('#saveCommanderCountButton'),
   commanderTaxQuickButton: $('#commanderTaxQuickButton'), commanderTaxDialog: $('#commanderTaxDialog'), commanderTaxDetail: $('#commanderTaxDetail'), commanderTaxList: $('#commanderTaxList'),
   customLifeButton: $('#customLifeButton'), customLifeDialog: $('#customLifeDialog'), customLifeForm: $('#customLifeForm'), customLifeAmount: $('#customLifeAmount'), cancelCustomLifeButton: $('#cancelCustomLifeButton'), playtestNotesButton: $('#playtestNotesButton'), playtestRecapButton: $('#playtestRecapButton'), savedPlaytestsButton: $('#savedPlaytestsButton'), refreshTableButton: $('#refreshTableButton'), playtestNotesDialog: $('#playtestNotesDialog'), playtestNotesForm: $('#playtestNotesForm'), playtestNotesList: $('#playtestNotesList'), playtestNoteText: $('#playtestNoteText'), playtestNoteStatus: $('#playtestNoteStatus'), playtestRecapDialog: $('#playtestRecapDialog'), playtestRecapContent: $('#playtestRecapContent'), savedPlaytestsDialog: $('#savedPlaytestsDialog'), savedPlaytestsContent: $('#savedPlaytestsContent')
@@ -184,6 +184,10 @@ function renderTurnFlow() {
   const paused = Boolean(state.turn.pausedAt);
   dom.turnBanner.hidden = !isStarted || !trackingEnabled;
   dom.turnActions.hidden = !isStarted;
+  dom.toggleTurnTrackingButton.hidden = !isHost;
+  dom.toggleTurnTrackingButton.disabled = !isHost || !(state.localSimulation || transport.status === 'connected');
+  dom.toggleTurnTrackingButton.textContent = `Turn tracking: ${trackingEnabled ? 'on' : 'off'}`;
+  dom.pauseTurnButton.hidden = !isStarted || !isHost || !trackingEnabled;
   if (!isStarted) {
     const selected = Number.isInteger(state.turn.startingPlayerSeatId) ? state.players.find(player => player.id === `P${state.turn.startingPlayerSeatId + 1}`) : null;
     dom.lobbyStatus.textContent = selected ? `${displayName(selected)} will go first. Start when the table is ready.` : `${claimedPlayers.length}/${state.playerCount} players joined. Choose who goes first when ready.`;
@@ -205,17 +209,16 @@ function renderTurnFlow() {
   dom.turnPlayer.textContent = turnPlayerValue ? displayName(turnPlayerValue) : state.turnSeatId;
   dom.turnElapsed.textContent = `TURN ${formatDuration(timerNow - state.turn.turnStartedAt)}`;
   dom.gameTimer.textContent = state.turn.roundEndsAt ? `ROUND ENDS IN ${formatDuration(state.turn.roundEndsAt - timerNow)}` : `GAME TIME ${formatDuration(timerNow - state.turn.gameStartedAt)}`;
+  const completedTurn = handoff ? state.players.find(player => player.id === `P${handoff.fromSeatId + 1}`) : null;
+  dom.lastTurnSummary.hidden = !handoff || !Number.isFinite(handoff.turnLengthMs);
+  if (!dom.lastTurnSummary.hidden) dom.lastTurnSummary.textContent = `LAST TURN · ${displayName(completedTurn || { id: `P${handoff.fromSeatId + 1}` })} · ${formatDuration(handoff.turnLengthMs)}`;
   const actingSeatId = state.localSimulation ? state.activePlayerId : state.ownerPlayerId;
   const isOwnerActive = state.turnSeatId === actingSeatId;
   const canAct = (state.localSimulation || transport.status === 'connected') && isOwnerActive && trackingEnabled && !paused;
   dom.endTurnButton.disabled = !canAct;
   dom.endTurnButton.hidden = !isOwnerActive || !trackingEnabled;
-  dom.pauseTurnButton.hidden = !isHost || !trackingEnabled;
   dom.pauseTurnButton.disabled = !isHost || !(state.localSimulation || transport.status === 'connected');
   dom.pauseTurnButton.textContent = paused ? 'Resume timers' : 'Pause timers';
-  dom.toggleTurnTrackingButton.hidden = !isHost;
-  dom.toggleTurnTrackingButton.disabled = !isHost || !(state.localSimulation || transport.status === 'connected');
-  dom.toggleTurnTrackingButton.textContent = `Turn tracking: ${trackingEnabled ? 'on' : 'off'}`;
   dom.turnActionDetail.textContent = !trackingEnabled ? 'Turn tracking is off for this table.' : paused ? 'Timers are paused by the host.' : isOwnerActive ? 'You are active. Press once when you pass the turn.' : `${turnPlayerValue ? displayName(turnPlayerValue) : state.turnSeatId} controls this turn.`;
   const undoAvailable = trackingEnabled && handoff && Date.now() - handoff.handedOffAt <= 15_000 && actingSeatId === `P${handoff.fromSeatId + 1}`;
   dom.undoTurnButton.hidden = !undoAvailable;
@@ -522,7 +525,7 @@ async function handoffTurn() {
   if (!state || !state.turn.gameStarted || state.turn.trackingEnabled === false || state.turn.pausedAt || state.turnSeatId !== actingSeatId || !(transport.status === 'local' || transport.status === 'connected')) return;
   if (transport.status === 'local') {
     const fromSeatId = Number(state.turnSeatId.slice(1)) - 1; const living = state.players.filter(player => player.connectionStatus !== 'waiting' && player.life > 0); const sequence = living.length ? living : state.players.filter(player => player.connectionStatus !== 'waiting'); const currentIndex = sequence.findIndex(player => player.id === state.turnSeatId); const toSeatId = Number(sequence[(currentIndex + 1) % sequence.length].id.slice(1)) - 1; const handedOffAt = Date.now();
-    state.turn = { ...state.turn, activeSeatId: toSeatId, turnStartedAt: handedOffAt, lastHandoff: { fromSeatId, toSeatId, handedOffAt } }; state.turnSeatId = `P${toSeatId + 1}`; state.activePlayerId = state.turnSeatId; showTurnHandoff(); render(); return;
+    const turnLengthMs = Math.max(0, handedOffAt - state.turn.turnStartedAt); state.turn = { ...state.turn, activeSeatId: toSeatId, turnStartedAt: handedOffAt, lastHandoff: { fromSeatId, toSeatId, handedOffAt, turnLengthMs } }; state.turnSeatId = `P${toSeatId + 1}`; state.activePlayerId = state.turnSeatId; showTurnHandoff(); render(); return;
   }
   dom.endTurnButton.disabled = true;
   try { const result = await transport.handoffTurn(); if (result.conflict) showError(new Error('The table changed first. The latest turn is shown.')); }

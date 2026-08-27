@@ -812,7 +812,7 @@ export class RoomService {
       ...room.turn,
       activeSeatId: toSeatId,
       turnStartedAt: handedOffAt,
-      lastHandoff: { fromSeatId: seatId, toSeatId, handedOffAt },
+      lastHandoff: { fromSeatId: seatId, toSeatId, handedOffAt, turnLengthMs: Math.max(0, handedOffAt - (previousTurnStartedAt ?? handedOffAt)) },
     };
     room.version += 1;
     this.recordLedger(room, "turn_handed_off", seatId, { toSeatId, turnLengthMs: Math.max(0, handedOffAt - (previousTurnStartedAt ?? handedOffAt)) });
