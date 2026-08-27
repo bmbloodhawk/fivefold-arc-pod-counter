@@ -29,6 +29,7 @@ let coinFlipTimer = null;
 let coinFlipSequence = 0;
 let coinTossDialogRequested = false;
 let startingRollTimer = null;
+let startingRollTimers = [];
 let startingRollSequence = 0;
 let lastStartingRollKey = null;
 let turnTicker = null;
@@ -300,40 +301,54 @@ function createLocalStartingPlayerRoll(players) {
   }
   throw new Error('Could not complete the d20 roll-off. Please roll again.');
 }
-function renderStartingRollDice(round, values = null) {
+function clearStartingRollTimers() { clearTimeout(startingRollTimer); startingRollTimers.forEach(timer => clearTimeout(timer)); startingRollTimers = []; }
+function d20StopDelay(selectedAt, roundIndex, roll) {
+  let seed = (((selectedAt >>> 0) * 1103515245) + ((roundIndex + 1) * 12345) + ((roll.seatId + 1) * 2654435761) + (roll.value * 97)) >>> 0;
+  seed ^= seed >>> 16; seed = Math.imul(seed, 0x7feb352d); seed ^= seed >>> 15; seed = Math.imul(seed, 0x846ca68b); seed ^= seed >>> 16;
+  return 720 + ((seed >>> 0) % 920);
+}
+function renderStartingRollDice(round, { animate = false, selectedAt = 0, roundIndex = 0 } = {}) {
   if (!dom.startingRollDice) return;
   dom.startingRollDice.innerHTML = round.rolls.map(roll => {
     const player = state?.players.find(item => item.id === `P${roll.seatId + 1}`);
-    const value = values?.[roll.seatId] ?? roll.value;
-    return `<div class="starting-roll-die"><span>${escapeHtml(displayName(player || { id: `P${roll.seatId + 1}` }))}</span><strong>d20 · ${value}</strong></div>`;
+    const delay = d20StopDelay(selectedAt, roundIndex, roll);
+    const name = escapeHtml(displayName(player || { id: `P${roll.seatId + 1}` }));
+    return `<div class="starting-roll-die${animate ? ' rolling' : ' landed'}" data-seat-id="${roll.seatId}" style="--stop-delay: ${delay}ms; --roll-offset: ${(delay / 19) % 19}deg"><span>${name}</span><div class="d20-shape" aria-hidden="true"><b>?</b></div><strong><small>d20</small><output>${animate ? '—' : roll.value}</output></strong></div>`;
   }).join('');
+  if (!animate) return 0;
+  const delays = round.rolls.map(roll => d20StopDelay(selectedAt, roundIndex, roll));
+  round.rolls.forEach((roll, index) => {
+    const timer = setTimeout(() => {
+      const die = dom.startingRollDice.querySelector(`[data-seat-id="${roll.seatId}"]`);
+      if (!die) return;
+      die.classList.remove('rolling'); die.classList.add('landed');
+      die.querySelector('.d20-shape b').textContent = String(roll.value);
+      die.querySelector('output').textContent = String(roll.value);
+    }, delays[index]);
+    startingRollTimers.push(timer);
+  });
+  return Math.max(...delays);
 }
 function showStartingPlayerRoll(roll, { dialog = true } = {}) {
   if (!roll?.rounds?.length) return;
   const sequence = ++startingRollSequence;
-  clearTimeout(startingRollTimer);
+  clearStartingRollTimers();
   if (dialog && !dom.startingRollDialog.open) dom.startingRollDialog.showModal();
   let roundIndex = 0;
   const playRound = () => {
     if (sequence !== startingRollSequence) return;
-    const round = roll.rounds[roundIndex]; let tick = 0;
+    const round = roll.rounds[roundIndex];
     dom.startingRollStatus.textContent = roundIndex ? 'TIE — ROLLING AGAIN…' : 'ROLLING FOR FIRST…';
-    const spin = () => {
+    const finishRound = () => {
       if (sequence !== startingRollSequence) return;
-      if (tick >= 7) {
-        renderStartingRollDice(round);
-        if (round.tiedSeatIds.length > 1) { startingRollTimer = setTimeout(() => { roundIndex += 1; playRound(); }, 850); return; }
-        const winner = state?.players.find(player => player.id === `P${roll.winnerSeatId + 1}`);
-        const winningValue = round.rolls.find(item => item.seatId === roll.winnerSeatId)?.value;
-        dom.startingRollStatus.textContent = `${displayName(winner || { id: `P${roll.winnerSeatId + 1}` })} ROLLS ${winningValue} — GOES FIRST`;
-        render();
-        return;
-      }
-      const values = Object.fromEntries(round.rolls.map(item => [item.seatId, ((tick * 7 + item.seatId * 5) % 20) + 1]));
-      renderStartingRollDice(round, values); tick += 1;
-      startingRollTimer = setTimeout(spin, [90, 110, 140, 180, 230, 290, 370][tick - 1]);
+      if (round.tiedSeatIds.length > 1) { startingRollTimer = setTimeout(() => { roundIndex += 1; playRound(); }, 850); return; }
+      const winner = state?.players.find(player => player.id === `P${roll.winnerSeatId + 1}`);
+      const winningValue = round.rolls.find(item => item.seatId === roll.winnerSeatId)?.value;
+      dom.startingRollStatus.textContent = `${displayName(winner || { id: `P${roll.winnerSeatId + 1}` })} ROLLS ${winningValue} — GOES FIRST`;
+      render();
     };
-    startingRollTimer = setTimeout(spin, 350);
+    const longestStop = renderStartingRollDice(round, { animate: true, selectedAt: roll.selectedAt, roundIndex });
+    startingRollTimer = setTimeout(finishRound, longestStop + 360);
   };
   playRound();
 }
@@ -517,7 +532,7 @@ async function updateCommanderCastCount(sourceId, delta) {
   catch (error) { renderConnection('disconnected'); showError(error); }
 }
 async function resetGame() {
-  if (transport.status === 'local') { const sources = state.commanderSources; state.players = state.players.map(player => ({ ...playerTemplate(Number(player.id.slice(1)), state.startingLife, player.commanderCount, sources, player.commanderNames, player.commanderColors), name: player.name, commanderCount: player.commanderCount, commanderNames: player.commanderNames, commanderColors: player.commanderColors })); state.commanderCastCounts = blankDamage(sources); state.lastCoinToss = null; state.gameResult = null; state.turn = { activeSeatId: 0, gameStarted: false, gameStartedAt: null, turnStartedAt: null, roundEndsAt: null, startingPlayerSeatId: null, startingPlayerRoll: null, lastHandoff: null, trackingEnabled: true, pausedAt: null }; state.turnSeatId = 'P1'; coinTossNotice = null; clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); clearTimeout(startingRollTimer); state.selectedSourceId = null; render(); return; }
+  if (transport.status === 'local') { const sources = state.commanderSources; state.players = state.players.map(player => ({ ...playerTemplate(Number(player.id.slice(1)), state.startingLife, player.commanderCount, sources, player.commanderNames, player.commanderColors), name: player.name, commanderCount: player.commanderCount, commanderNames: player.commanderNames, commanderColors: player.commanderColors })); state.commanderCastCounts = blankDamage(sources); state.lastCoinToss = null; state.gameResult = null; state.turn = { activeSeatId: 0, gameStarted: false, gameStartedAt: null, turnStartedAt: null, roundEndsAt: null, startingPlayerSeatId: null, startingPlayerRoll: null, lastHandoff: null, trackingEnabled: true, pausedAt: null }; state.turnSeatId = 'P1'; coinTossNotice = null; clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); clearStartingRollTimers(); state.selectedSourceId = null; render(); return; }
   try { const result = await transport.reset(); if (result.conflict) showError(new Error('The table changed first. The latest totals are shown; confirm reset again if it is still needed.')); else { coinTossNotice = null; clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); render(); } } catch (error) { showError(error); }
 }
 async function handoffTurn() {
@@ -609,7 +624,7 @@ async function tossCoin({ dialog = true } = {}) {
 function closeGameOverlays() { [dom.resetDialog, dom.connectionDialog, dom.coinTossDialog, dom.startingRollDialog, dom.customLifeDialog, dom.commanderCountDialog, dom.commanderTaxDialog, dom.victoryDialog, dom.declareWinnerDialog, dom.playtestNotesDialog, dom.playtestRecapDialog, dom.savedPlaytestsDialog].forEach(dialog => { if (dialog?.open) dialog.close(); }); }
 function returnToSetup() {
   if (!canReturnToSetup()) return;
-  closeGameOverlays(); clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); clearTimeout(startingRollTimer); clearInterval(turnTicker); dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); showView(dom.create); state = null; transport.clearSession();
+  closeGameOverlays(); clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); clearStartingRollTimers(); clearInterval(turnTicker); dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); showView(dom.create); state = null; transport.clearSession();
 }
 function renderConnection(status = transport.status) {
   if (status !== 'connected' && optimisticLifeDelta) { lifeBatcher.clear(); optimisticLifeDelta = 0; }
@@ -633,6 +648,7 @@ dom.endTurnButton.addEventListener('click', handoffTurn); dom.undoTurnButton.add
 dom.chooseFirstButton.addEventListener('click', () => chooseStartingPlayer(Number(dom.startingSeat.value))); dom.randomFirstButton.addEventListener('click', () => chooseStartingPlayer()); dom.startGameButton.addEventListener('click', startGame);
 dom.moreButton.addEventListener('click', () => { dom.gameMenu.hidden = !dom.gameMenu.hidden; dom.moreButton.setAttribute('aria-expanded', String(!dom.gameMenu.hidden)); }); dom.coinTossButton.addEventListener('click', () => { dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); tossCoin(); }); dom.declareWinnerButton.addEventListener('click', openDeclareWinner); dom.tossAgainButton.addEventListener('click', () => tossCoin()); $('#resetButton').addEventListener('click', () => { dom.gameMenu.hidden = true; dom.resetDialog.showModal(); }); $('#confirmResetButton').addEventListener('click', resetGame);
 dom.playtestNotesButton.addEventListener('click', openPlaytestNotes); dom.playtestRecapButton.addEventListener('click', openPlaytestRecap); dom.savedPlaytestsButton.addEventListener('click', openSavedPlaytests); dom.refreshTableButton.addEventListener('click', async () => { try { const { snapshot } = await transport.refreshRoom(); if (snapshot) showSharedGame(snapshot); dom.gameMenu.hidden = true; } catch (error) { showError(error); } }); dom.playtestNotesForm.addEventListener('submit', async event => { if (event.submitter?.id !== 'savePlaytestNoteButton') return; event.preventDefault(); const text = dom.playtestNoteText.value; try { dom.playtestNoteStatus.textContent = 'Saving…'; await transport.addPlaytestNote(text); dom.playtestNoteText.value = ''; dom.playtestNoteStatus.textContent = 'Saved.'; await openPlaytestNotes(); } catch (error) { dom.playtestNoteStatus.textContent = `Not saved: ${error.message}`; } });
+dom.startingRollDialog.addEventListener('close', () => { startingRollSequence += 1; clearStartingRollTimers(); });
 $('#closeGameMenuButton').addEventListener('click', () => { dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); });
 dom.commanderSetupButton.addEventListener('click', () => { dom.gameMenu.hidden = true; const player = state.localSimulation ? activePlayer() : state.players.find(item => item.id === state.ownerPlayerId); dom.commanderCountDetail.textContent = state.localSimulation ? `Local simulation: change ${displayName(player)}'s commander details.` : `Change your commander names and color identity for this pod. Your current game and seat stay in place.`; $(`input[name="gameCommanderCount"][value="${player.commanderCount}"]`).checked = true; renderCommanderNameFields(dom.gameCommanderNames, player.commanderCount, player.commanderNames, player.commanderColors); dom.commanderCountDialog.showModal(); });
 dom.commanderTaxQuickButton?.addEventListener('click', () => { renderCommanderTaxDialog(); dom.commanderTaxDialog.showModal(); });

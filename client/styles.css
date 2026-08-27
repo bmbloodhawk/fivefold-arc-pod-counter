@@ -202,10 +202,21 @@ dialog p { color: var(--muted); line-height: 1.5; }
 .coin-toss-result { margin: 16px 0 0; color: var(--brass); font-family: Georgia, serif; font-size: clamp(2rem, 12vw, 3.2rem); font-weight: 700; letter-spacing: .08em; text-align: center; text-transform: uppercase; }
 .coin-toss-result.spinning { color: var(--muted); letter-spacing: .16em; text-shadow: 0 0 16px rgb(216 174 97 / .45); }
 .starting-roll-status { margin: 14px 0 12px; color: var(--brass); font-size: .8rem; font-weight: 900; letter-spacing: .1em; text-align: center; }
-.starting-roll-dice { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
-.starting-roll-die { display: grid; gap: 6px; min-height: 74px; padding: 10px; border: 1px solid var(--brass-dark); background: rgb(216 174 97 / .08); text-align: center; }
+.starting-roll-dice { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; perspective: 500px; }
+.starting-roll-die { display: grid; justify-items: center; gap: 6px; min-height: 154px; padding: 10px; border: 1px solid var(--brass-dark); background: radial-gradient(circle at 50% 46%, rgb(216 174 97 / .13), rgb(216 174 97 / .03) 66%); text-align: center; }
 .starting-roll-die span { overflow: hidden; color: var(--muted); font-size: .72rem; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
-.starting-roll-die strong { color: var(--paper); font-family: Georgia, serif; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.starting-roll-die strong { display: flex; align-items: baseline; gap: 5px; color: var(--paper); font-family: Georgia, serif; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.starting-roll-die strong small { color: var(--muted); font-family: inherit; font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; }
+.d20-shape { position: relative; display: grid; place-items: center; width: 68px; aspect-ratio: 1; clip-path: polygon(50% 0%, 77% 12%, 100% 43%, 85% 78%, 50% 100%, 15% 78%, 0% 43%, 23% 12%); background: conic-gradient(from 8deg, #e4c881 0 12.5%, #8f7040 12.5% 25%, #d7b56b 25% 37.5%, #6a512e 37.5% 50%, #c59d54 50% 62.5%, #7b5f35 62.5% 75%, #e1bf76 75% 87.5%, #8e6d3b 87.5%); box-shadow: inset 0 0 0 1px #f0d994, inset 0 -8px 12px rgb(30 20 9 / .58), 0 8px 12px rgb(0 0 0 / .42); transform-style: preserve-3d; }
+.d20-shape::before, .d20-shape::after { content: ""; position: absolute; inset: 9%; border: 1px solid rgb(54 39 17 / .7); clip-path: polygon(50% 0%, 100% 100%, 0 100%); transform: rotate(30deg); }
+.d20-shape::after { transform: rotate(150deg); }
+.d20-shape b { position: relative; z-index: 1; color: #241a0a; font-family: Georgia, serif; font-size: 2.05rem; line-height: 1; text-shadow: 0 1px rgb(255 242 195 / .65); }
+.starting-roll-die.rolling .d20-shape { animation: d20-tumble .36s linear infinite; }
+.starting-roll-die.landed .d20-shape { animation: d20-land .34s cubic-bezier(.2, 1.25, .45, 1) both; }
+.starting-roll-die.landed { border-color: var(--brass); box-shadow: 0 0 0 1px rgb(216 174 97 / .18), 0 0 18px rgb(216 174 97 / .12); }
+@keyframes d20-tumble { 0% { transform: rotateX(0) rotateY(0) rotateZ(var(--roll-offset)); } 25% { transform: rotateX(150deg) rotateY(80deg) rotateZ(calc(var(--roll-offset) + 100deg)); } 50% { transform: rotateX(285deg) rotateY(190deg) rotateZ(calc(var(--roll-offset) + 195deg)); } 75% { transform: rotateX(405deg) rotateY(290deg) rotateZ(calc(var(--roll-offset) + 280deg)); } 100% { transform: rotateX(540deg) rotateY(360deg) rotateZ(calc(var(--roll-offset) + 360deg)); } }
+@keyframes d20-land { 0% { transform: rotateX(530deg) rotateY(350deg) rotateZ(calc(var(--roll-offset) + 355deg)) scale(1.08); } 62% { transform: rotateX(5deg) rotateY(-3deg) rotateZ(var(--roll-offset)) scale(.93); } 100% { transform: rotateX(0) rotateY(0) rotateZ(var(--roll-offset)) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .starting-roll-die.rolling .d20-shape, .starting-roll-die.landed .d20-shape { animation: none; } }
 .commander-tax-list { display: grid; gap: 12px; margin-top: 18px; }
 .commander-tax-row { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--line); background: var(--surface-2); }
 .commander-tax-summary { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
