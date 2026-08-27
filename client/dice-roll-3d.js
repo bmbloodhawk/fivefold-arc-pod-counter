@@ -33,23 +33,29 @@ async function getDiceBox(container) {
  * Runs physical Dice Box d20s. Results from this function are intentionally
  * cosmetic: Fivefold Arc keeps the server-selected values authoritative.
  */
-export async function rollPhysicalD20s({ container, colors = [], onDieSettled = () => {} }) {
-  const count = colors.length;
+export async function rollPhysicalD20s({ container, dice = [], onDieSettled = () => {}, onRollSettled = () => {} }) {
+  const count = dice.length;
   if (!container || !Number.isInteger(count) || count < 1 || prefersReducedMotion()) return { animated: false, results: [] };
   const sequence = ++activeRoll;
   try {
     const box = await getDiceBox(container);
     if (sequence !== activeRoll) return { animated: false, results: [] };
+    box.canvas?.setAttribute('aria-hidden', 'true');
     container.dataset.diceCount = String(count);
-    await box.updateConfig({ scale: scaleForDiceCount(count) });
+    const externalThemes = Object.fromEntries(dice.map(({ theme }) => [theme, `/dice-skins/${theme.replace('fivefold-', '')}`]));
+    await box.updateConfig({ scale: scaleForDiceCount(count), externalThemes });
     let settled = 0;
+    let complete = false;
+    const safetyTimer = setTimeout(() => { if (!complete && sequence === activeRoll) { complete = true; onRollSettled(false); } }, 14_000);
     box.onDieComplete = () => {
       if (sequence !== activeRoll) return;
       onDieSettled(settled);
       settled += 1;
+      if (settled >= count && !complete) { complete = true; clearTimeout(safetyTimer); }
     };
-    const results = await box.roll(colors.map(themeColor => ({ sides: 20, qty: 1, themeColor })));
-    return sequence === activeRoll ? { animated: true, results } : { animated: false, results: [] };
+    box.clear();
+    dice.forEach(({ theme, themeColor }, index) => box.add({ sides: 20, qty: 1, theme, themeColor }, { newStartPoint: index === 0 }));
+    return sequence === activeRoll ? { animated: true, results: [] } : { animated: false, results: [] };
   } catch (error) {
     console.warn('3D dice unavailable; showing the locked table result instead.', error);
     return { animated: false, results: [] };

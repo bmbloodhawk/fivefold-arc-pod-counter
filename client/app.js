@@ -1,6 +1,6 @@
 import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=72';
 import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=72';
-import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=76';
+import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=81';
 
 const MODES = ['life', 'commander', 'radiation', 'poison', 'energy', 'generic'];
 const IDENTITY_ORDER = ['W', 'U', 'B', 'R', 'G'];
@@ -15,7 +15,7 @@ const dom = {
   counterContext: $('#counterContext'), statusMessage: $('#statusMessage'), lethalMark: $('#lethalMark'), lifeChangeIndicator: $('#lifeChangeIndicator'), sourcePanel: $('#sourcePanel'), inspectionNotice: $('#inspectionNotice'),
   activeSeatBar: $('#activeSeatBar'), gameMenu: $('#gameMenu'), moreButton: $('#moreButton'),
   disconnectBanner: $('#disconnectBanner'), coinTossNotice: $('#coinTossNotice'), victoryNotice: $('#victoryNotice'), coinTossButton: $('#coinTossButton'), coinTossDialog: $('#coinTossDialog'), coinTossResult: $('#coinTossResult'), tossAgainButton: $('#tossAgainButton'), resetDialog: $('#resetDialog'), commanderSetupButton: $('#commanderSetupButton'), backToSetupButton: $('#backToSetupButton'), declareWinnerButton: $('#declareWinnerButton'), declareWinnerDialog: $('#declareWinnerDialog'), declareWinnerForm: $('#declareWinnerForm'), winnerSeat: $('#winnerSeat'), victoryDialog: $('#victoryDialog'), victoryTitle: $('#victoryTitle'), victoryDetail: $('#victoryDetail'),
-  lobbyControls: $('#lobbyControls'), lobbyStatus: $('#lobbyStatus'), startingSeatField: $('#startingSeatField'), startingSeat: $('#startingSeat'), chooseFirstButton: $('#chooseFirstButton'), randomFirstButton: $('#randomFirstButton'), startGameButton: $('#startGameButton'), startingRollDialog: $('#startingRollDialog'), startingRollStatus: $('#startingRollStatus'), startingRollCanvas: $('#startingRollCanvas'), startingRollDice: $('#startingRollDice'), turnBanner: $('#turnBanner'), turnLabel: $('#turnLabel'), turnPlayer: $('#turnPlayer'), turnElapsed: $('#turnElapsed'), gameTimer: $('#gameTimer'), lastTurnSummary: $('#lastTurnSummary'), turnActions: $('#turnActions'), endTurnButton: $('#endTurnButton'), undoTurnButton: $('#undoTurnButton'), pauseTurnButton: $('#pauseTurnButton'), toggleTurnTrackingButton: $('#toggleTurnTrackingButton'), turnActionDetail: $('#turnActionDetail'),
+  lobbyControls: $('#lobbyControls'), lobbyStatus: $('#lobbyStatus'), startingSeatField: $('#startingSeatField'), startingSeat: $('#startingSeat'), chooseFirstButton: $('#chooseFirstButton'), randomFirstButton: $('#randomFirstButton'), startGameButton: $('#startGameButton'), startingRollDialog: $('#startingRollDialog'), startingRollStatus: $('#startingRollStatus'), startingRollCanvas: $('#startingRollCanvas'), startingRollOverlays: $('#startingRollOverlays'), startingRollLive: $('#startingRollLive'), turnBanner: $('#turnBanner'), turnLabel: $('#turnLabel'), turnPlayer: $('#turnPlayer'), turnElapsed: $('#turnElapsed'), gameTimer: $('#gameTimer'), lastTurnSummary: $('#lastTurnSummary'), turnActions: $('#turnActions'), endTurnButton: $('#endTurnButton'), undoTurnButton: $('#undoTurnButton'), pauseTurnButton: $('#pauseTurnButton'), toggleTurnTrackingButton: $('#toggleTurnTrackingButton'), turnActionDetail: $('#turnActionDetail'),
   commanderCountDialog: $('#commanderCountDialog'), commanderCountDetail: $('#commanderCountDetail'), commanderCountForm: $('#commanderCountForm'), saveCommanderCountButton: $('#saveCommanderCountButton'),
   commanderTaxQuickButton: $('#commanderTaxQuickButton'), commanderTaxDialog: $('#commanderTaxDialog'), commanderTaxDetail: $('#commanderTaxDetail'), commanderTaxList: $('#commanderTaxList'),
   customLifeButton: $('#customLifeButton'), customLifeDialog: $('#customLifeDialog'), customLifeForm: $('#customLifeForm'), customLifeAmount: $('#customLifeAmount'), cancelCustomLifeButton: $('#cancelCustomLifeButton'), playtestNotesButton: $('#playtestNotesButton'), playtestRecapButton: $('#playtestRecapButton'), savedPlaytestsButton: $('#savedPlaytestsButton'), refreshTableButton: $('#refreshTableButton'), playtestNotesDialog: $('#playtestNotesDialog'), playtestNotesForm: $('#playtestNotesForm'), playtestNotesList: $('#playtestNotesList'), playtestNoteText: $('#playtestNoteText'), playtestNoteStatus: $('#playtestNoteStatus'), playtestRecapDialog: $('#playtestRecapDialog'), playtestRecapContent: $('#playtestRecapContent'), savedPlaytestsDialog: $('#savedPlaytestsDialog'), savedPlaytestsContent: $('#savedPlaytestsContent')
@@ -309,15 +309,19 @@ function diceColorForIdentity(colors) {
   const mixed = [0, 1, 2].map(channel => Math.round(channels.reduce((total, value) => total + value[channel], 0) / channels.length * .82 + 255 * .18));
   return `#${mixed.map(value => value.toString(16).padStart(2, '0')).join('')}`;
 }
+function diceSkinForIdentity(colors) { const key = normaliseIdentity(colors).join('').toLowerCase() || 'c'; return { theme: `fivefold-${key}`, themeColor: diceColorForIdentity(colors) }; }
 function renderStartingRollDice(round, { settled = 0, revealAll = false } = {}) {
-  if (!dom.startingRollDice) return;
-  dom.startingRollDice.innerHTML = round.rolls.map((roll, index) => {
+  if (!dom.startingRollOverlays) return;
+  dom.startingRollCanvas.dataset.diceCount = String(round.rolls.length);
+  dom.startingRollOverlays.innerHTML = round.rolls.map((roll, index) => {
     const player = state?.players.find(item => item.id === `P${roll.seatId + 1}`);
     const name = escapeHtml(displayName(player || { id: `P${roll.seatId + 1}` }));
     const identity = playerIdentity(player || {}); const diceColor = diceColorForIdentity(identity);
     const revealed = revealAll || settled > index;
-    return `<div class="starting-roll-die${revealed ? ' landed' : ' rolling'}" data-seat-id="${roll.seatId}" style="--dice-color: ${diceColor}"><span><i class="roll-identity" style="background: ${identityBackground(identity) || diceColor}" aria-label="${identity.length ? `${identity.join('')} commander identity` : 'Colorless commander identity'}"></i>${name}</span><strong><small>d20</small><output>${revealed ? roll.value : '—'}</output></strong></div>`;
+    return `<div class="dice-result-chip${revealed ? ' landed' : ''}" data-seat-id="${roll.seatId}" style="--dice-color: ${diceColor}; --dice-identity: ${identityBackground(identity) || diceColor}" ${revealed ? '' : 'hidden'}><span>${name}</span><strong>${roll.value}</strong></div>`;
   }).join('');
+  const newest = revealAll ? round.rolls.at(-1) : round.rolls[settled - 1];
+  if (newest) { const player = state?.players.find(item => item.id === `P${newest.seatId + 1}`); dom.startingRollLive.textContent = `${displayName(player || { id: `P${newest.seatId + 1}` })} rolled ${newest.value}.`; }
 }
 function showStartingPlayerRoll(roll, { dialog = true } = {}) {
   if (!roll?.rounds?.length) return;
@@ -330,21 +334,26 @@ function showStartingPlayerRoll(roll, { dialog = true } = {}) {
     const round = roll.rounds[roundIndex];
     dom.startingRollStatus.textContent = roundIndex ? 'TIE — ROLLING AGAIN…' : 'ROLLING FOR FIRST…';
     let settled = 0;
+    let finished = false;
     renderStartingRollDice(round);
-    const physicalRoll = await rollPhysicalD20s({ container: dom.startingRollCanvas, colors: round.rolls.map(item => diceColorForIdentity(playerIdentity(state?.players.find(player => player.id === `P${item.seatId + 1}`) || {}))), onDieSettled: () => {
+    const finishRound = () => {
+      if (finished || sequence !== startingRollSequence) return;
+      finished = true;
+      renderStartingRollDice(round, { revealAll: true });
+      if (round.tiedSeatIds.length > 1) { startingRollTimer = setTimeout(() => { roundIndex += 1; playRound(); }, 850); return; }
+      const winner = state?.players.find(player => player.id === `P${roll.winnerSeatId + 1}`);
+      const winningValue = round.rolls.find(item => item.seatId === roll.winnerSeatId)?.value;
+      dom.startingRollStatus.textContent = `${displayName(winner || { id: `P${roll.winnerSeatId + 1}` })} ROLLS ${winningValue} — GOES FIRST`;
+      render();
+    };
+    const physicalRoll = await rollPhysicalD20s({ container: dom.startingRollCanvas, dice: round.rolls.map(item => diceSkinForIdentity(playerIdentity(state?.players.find(player => player.id === `P${item.seatId + 1}`) || {}))), onDieSettled: () => {
       if (sequence !== startingRollSequence) return;
       settled = Math.min(settled + 1, round.rolls.length);
       renderStartingRollDice(round, { settled });
-    } });
-    if (sequence !== startingRollSequence) return;
-    renderStartingRollDice(round, { revealAll: true });
-    if (!physicalRoll.animated) await new Promise(resolve => { const timer = setTimeout(resolve, 450); startingRollTimers.push(timer); });
-    if (sequence !== startingRollSequence) return;
-    if (round.tiedSeatIds.length > 1) { startingRollTimer = setTimeout(() => { roundIndex += 1; playRound(); }, 850); return; }
-    const winner = state?.players.find(player => player.id === `P${roll.winnerSeatId + 1}`);
-    const winningValue = round.rolls.find(item => item.seatId === roll.winnerSeatId)?.value;
-    dom.startingRollStatus.textContent = `${displayName(winner || { id: `P${roll.winnerSeatId + 1}` })} ROLLS ${winningValue} — GOES FIRST`;
-    render();
+      if (settled >= round.rolls.length) finishRound();
+    }, onRollSettled: finishRound });
+    if (!physicalRoll.animated) { startingRollTimer = setTimeout(finishRound, 450); }
+    else if (!finished) { startingRollTimer = setTimeout(finishRound, 14_500); }
   };
   playRound();
 }

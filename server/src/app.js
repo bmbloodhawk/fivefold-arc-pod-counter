@@ -10,6 +10,7 @@ const COMMANDER_IDENTITY_TTL_MS = 6 * 60 * 60 * 1000;
 const COMMANDER_LOOKUP_TIMEOUT_MS = 6_000;
 const COMMANDER_LOOKUP_MIN_INTERVAL_MS = 100;
 const MAX_RECENT_OPERATION_IDS = 100;
+const DICE_IDENTITY_COLORS = { w: "#eee4c9", u: "#4f92c6", b: "#6f5b91", r: "#bd5a4c", g: "#4f8a63" };
 const STATIC_TYPES = new Map([
   [".css", "text/css; charset=utf-8"],
   [".html", "text/html; charset=utf-8"],
@@ -67,6 +68,29 @@ function json(res, status, body, extraHeaders = {}) {
     ...extraHeaders,
   });
   res.end(data);
+}
+
+function diceSkin(key) {
+  const normalized = String(key || "").toLowerCase();
+  if (!/^(c|w?u?b?r?g?)$/.test(normalized) || normalized === "") return null;
+  const colors = normalized === "c" ? ["#80613c", "#3f2c1d"] : [...normalized].map(color => DICE_IDENTITY_COLORS[color]);
+  if (colors.some(color => !color)) return null;
+  const stops = colors.map((color, index) => `<stop offset="${Math.round(index * 100 / Math.max(colors.length - 1, 1))}%" stop-color="${color}"/>`).join("");
+  const label = normalized === "c" ? "Colorless" : normalized.toUpperCase();
+  const config = { name: `Fivefold Arc ${label}`, systemName: `fivefold-${normalized}`, author: "Fivefold Arc", version: 1, extends: "default", material: { type: "color", diffuseTexture: { light: "skin.svg", dark: "skin.svg" }, diffuseLevel: 1 }, diceAvailable: ["d20"] };
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1024 1024"><defs><linearGradient id="gem" x1="0" y1="0" x2="1" y2="1">${stops}</linearGradient><radialGradient id="shine" cx="28%" cy="18%" r="80%"><stop offset="0" stop-color="#ffffff" stop-opacity=".38"/><stop offset=".42" stop-color="#ffffff" stop-opacity="0"/><stop offset="1" stop-color="#09070c" stop-opacity=".32"/></radialGradient></defs><rect width="1024" height="1024" fill="url(#gem)"/><path d="M0 0 512 0 280 512Z M512 0 1024 0 760 512Z M0 1024 512 1024 280 512Z M512 1024 1024 1024 760 512Z" fill="#ffffff" fill-opacity=".11"/><rect width="1024" height="1024" fill="url(#shine)"/><image x="0" y="0" width="1024" height="1024" href="/vendor/dice-box/assets/themes/default/diffuse-light.png" xlink:href="/vendor/dice-box/assets/themes/default/diffuse-light.png"/></svg>`;
+  return { config, svg };
+}
+
+function serveDiceSkin(res, key, file) {
+  const skin = diceSkin(key); if (!skin) return false;
+  if (file === "theme.config.json") {
+    res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "public, max-age=300" }); res.end(JSON.stringify(skin.config)); return true;
+  }
+  if (file === "skin.svg") {
+    res.writeHead(200, { "content-type": "image/svg+xml", "cache-control": "public, max-age=300" }); res.end(skin.svg); return true;
+  }
+  return false;
 }
 
 function errorBody(code, message, snapshot) {
@@ -1024,6 +1048,7 @@ export function createRealtimeServer(options = {}) {
       const parts = url.pathname.split("/").filter(Boolean);
       const connectionId = req.headers["x-connection-id"];
       if (req.method === "GET" && url.pathname === "/health") return json(res, 200, { ok: true });
+      if (req.method === "GET" && parts[0] === "dice-skins" && parts[1] && parts[2] && serveDiceSkin(res, parts[1], parts[2])) return;
       if (req.method === "GET" && url.pathname === "/api/feedback") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { notes: await service.ledger.listFeedback() }); }
       if ((req.method === "PATCH" || req.method === "DELETE") && parts[0] === "api" && parts[1] === "feedback" && parts[2]) {
         feedbackKeyMatches(req.headers["x-feedback-portal-key"]);
