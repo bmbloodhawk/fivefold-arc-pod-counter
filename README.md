@@ -7,7 +7,7 @@ An installable phone-first web prototype for synced Commander pods. Each phone o
 - Local one-phone simulation for 1–8 players
 - Connected rooms for 2–8 phones with opaque six-character join codes
 - Life, commander damage, radiation, poison, energy, and generic counters
-- Host-controlled game start, shared server-locked d20 roll-off or host-selected first player, game-time or optional round countdown, player-driven End Turn, and a 15-second handoff undo
+- Host-controlled game start, shared server-locked d20 roll-off or host-selected first player, visible current-turn plus game/round timers, player-driven End Turn, eliminated-seat skipping, host pause/resume, optional turn tracking, and a 15-second handoff undo
 - Shared Last Player Standing result, plus a host-only declared winner for alternate win conditions
 - Warning and lethal evaluation with commander > poison > life priority
 - Atomic seat claims, private reconnect tokens, conflict-safe live counter deltas, exact-version structural writes, and host-only reset

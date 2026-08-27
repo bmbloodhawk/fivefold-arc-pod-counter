@@ -708,6 +708,32 @@ describe("authority and convergence", () => {
     assert.equal(service.snapshot(service.room(initial.code)).turn.activeSeatId, 0);
   });
 
+  test("host can pause or disable turn tracking, and handoffs skip eliminated seats", () => {
+    let now = 100_000;
+    const service = new RoomService({ now: () => now });
+    const host = service.createConnection();
+    const created = service.createRoom(host.connectionId, { playerCount: 3, startingLife: 40 });
+    const second = service.createConnection();
+    const third = service.createConnection();
+    let snapshot = service.claimSeat(created.snapshot.code, second.connectionId, { seatId: 1, name: "Jace" }).snapshot;
+    snapshot = service.claimSeat(created.snapshot.code, third.connectionId, { seatId: 2, name: "Nissa" }).snapshot;
+    snapshot = service.startGame(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
+    now += 3_000;
+    snapshot = service.setTurnPaused(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version, paused: true }).snapshot;
+    assert.equal(snapshot.turn.pausedAt, now);
+    assert.throws(() => service.handoffTurn(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version }), { code: "TURN_PAUSED" });
+    now += 5_000;
+    snapshot = service.setTurnPaused(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version, paused: false }).snapshot;
+    assert.equal(snapshot.turn.pausedAt, null);
+    assert.equal(snapshot.turn.gameStartedAt, 105_000);
+    snapshot = service.adjustOwnSeat(created.snapshot.code, second.connectionId, { counter: "life", delta: -40 }).snapshot;
+    snapshot = service.handoffTurn(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
+    assert.equal(snapshot.turn.activeSeatId, 2);
+    snapshot = service.setTurnTracking(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version, enabled: false }).snapshot;
+    assert.equal(snapshot.turn.trackingEnabled, false);
+    assert.throws(() => service.handoffTurn(created.snapshot.code, third.connectionId, { baseVersion: snapshot.version }), { code: "TURN_TRACKING_OFF" });
+  });
+
   test("applies concurrent live counter deltas without a stale-version re-entry error", async () => {
     const made = await room();
     const playerConnection = await connection();

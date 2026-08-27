@@ -124,14 +124,14 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .lobby-controls { display: grid; gap: 7px; margin: 8px 0; padding: 12px; border: 1px solid var(--brass-dark); background: rgb(216 174 97 / .08); text-align: center; }
 .lobby-controls p { margin: 0 0 2px; color: var(--paper); font-size: .8rem; font-weight: 800; letter-spacing: .04em; }
 .lobby-controls .primary-action, .lobby-controls .secondary-action { min-height: 42px; }
-.turn-banner { display: grid; grid-template-columns: auto 1fr auto; gap: 0 8px; align-items: center; margin: 0; padding: 7px 10px; border: 1px solid var(--brass-dark); background: linear-gradient(90deg, rgb(216 174 97 / .22), rgb(216 174 97 / .06)); color: var(--paper); }
+.turn-banner { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 8px; align-items: center; margin: 0; padding: 7px 10px; border: 1px solid var(--brass-dark); background: linear-gradient(90deg, rgb(216 174 97 / .22), rgb(216 174 97 / .06)); color: var(--paper); }
 .turn-banner.handoff { animation: turn-handoff .7s ease; }
 .turn-banner p, .turn-banner strong, .turn-banner span { margin: 0; }
 .turn-banner p { font-size: .67rem; font-weight: 900; letter-spacing: .1em; color: var(--brass); }
 .turn-banner strong { font-size: .92rem; }
 .turn-banner span { font-size: .62rem; font-weight: 800; letter-spacing: .05em; color: var(--muted); text-align: right; }
-.turn-banner #turnElapsed { display: none; }
-.turn-banner #gameTimer { grid-column: 3; grid-row: 1; }
+.turn-banner #turnElapsed { display: block; grid-column: 2; grid-row: 2; text-align: left; }
+.turn-banner #gameTimer { grid-column: 3; grid-row: 1 / span 2; }
 .turn-actions { margin: 5px 0 7px; text-align: center; }
 .end-turn-button { width: 100%; min-height: 42px; padding: 9px 12px; border: 1px solid var(--brass); border-radius: 5px; background: var(--brass); color: #1c170e; font-size: .82rem; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; }
 .end-turn-button:disabled { border-color: var(--line); background: var(--surface); color: var(--muted); }

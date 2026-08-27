@@ -350,6 +350,9 @@ export class RoomService {
         startingPlayerSeatId: null,
         startingPlayerRoll: null,
         lastHandoff: null,
+        trackingEnabled: true,
+        pausedAt: null,
+        pausedDurationMs: 0,
       },
       seats,
       playtestNotes: [],
@@ -397,6 +400,9 @@ export class RoomService {
           })),
         } : null,
         lastHandoff: room.turn.lastHandoff ? { ...room.turn.lastHandoff } : null,
+        trackingEnabled: room.turn.trackingEnabled !== false,
+        pausedAt: room.turn.pausedAt ?? null,
+        pausedDurationMs: room.turn.pausedDurationMs ?? 0,
       },
       commanderSources: sources,
       seats: room.seats.map(({ seatId, name, claimed, ownerConnectionId, commanderCount, commanderNames, commanderColors, counters, commanderDamageReceived, commanderCastCounts }) => ({
@@ -697,6 +703,9 @@ export class RoomService {
       startingPlayerSeatId: null,
       startingPlayerRoll: null,
       lastHandoff: null,
+      trackingEnabled: true,
+      pausedAt: null,
+      pausedDurationMs: 0,
     };
     room.version += 1;
     this.recordLedger(room, "room_reset", seatId);
@@ -785,6 +794,8 @@ export class RoomService {
     const room = this.room(code);
     const { seatId } = this.requireOwner(room, connectionId);
     if (!room.turn.gameStarted) throw Object.assign(new Error("Start the game before handing off turns"), { status: 409, code: "GAME_NOT_STARTED", snapshot: this.snapshot(room) });
+    if (!room.turn.trackingEnabled) throw Object.assign(new Error("Turn tracking is off for this game"), { status: 409, code: "TURN_TRACKING_OFF", snapshot: this.snapshot(room) });
+    if (room.turn.pausedAt) throw Object.assign(new Error("The host has paused turn tracking"), { status: 409, code: "TURN_PAUSED", snapshot: this.snapshot(room) });
     if (input.baseVersion !== room.version) {
       throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
     }
@@ -793,9 +804,10 @@ export class RoomService {
     }
     const handedOffAt = this.now();
     const previousTurnStartedAt = room.turn.turnStartedAt;
-    const claimedSeats = room.seats.filter((seat) => seat.claimed);
-    const currentIndex = claimedSeats.findIndex((seat) => seat.seatId === seatId);
-    const toSeatId = claimedSeats[(currentIndex + 1) % claimedSeats.length].seatId;
+    const claimedSeats = room.seats.filter((seat) => seat.claimed && seat.counters.life > 0);
+    const eligibleSeats = claimedSeats.length ? claimedSeats : room.seats.filter((seat) => seat.claimed);
+    const currentIndex = eligibleSeats.findIndex((seat) => seat.seatId === seatId);
+    const toSeatId = eligibleSeats[(currentIndex + 1) % eligibleSeats.length].seatId;
     room.turn = {
       ...room.turn,
       activeSeatId: toSeatId,
@@ -841,6 +853,38 @@ export class RoomService {
       throw Object.assign(new Error("Too many live update connections. Close an older tab and try again."), { status: 429, code: "SSE_LIMIT" });
     }
     return { room, connection };
+  }
+
+  setTurnTracking(code, connectionId, input = {}) {
+    const room = this.room(code);
+    const { seatId } = this.requireOwner(room, connectionId);
+    if (seatId !== room.hostSeatId) throw Object.assign(new Error("Only the host seat may change turn tracking"), { status: 403, code: "HOST_ONLY" });
+    if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
+    if (typeof input.enabled !== "boolean") throw Object.assign(new Error("Turn tracking must be on or off"), { status: 400, code: "INVALID_INPUT" });
+    const now = this.now();
+    room.turn = { ...room.turn, trackingEnabled: input.enabled, pausedAt: null, turnStartedAt: input.enabled && room.turn.gameStarted ? now : room.turn.turnStartedAt, pausedDurationMs: input.enabled && room.turn.gameStarted ? 0 : room.turn.pausedDurationMs, lastHandoff: null };
+    room.version += 1;
+    this.recordLedger(room, "turn_tracking_changed", seatId, { enabled: input.enabled });
+    this.broadcast(room);
+    return { snapshot: this.snapshot(room) };
+  }
+
+  setTurnPaused(code, connectionId, input = {}) {
+    const room = this.room(code);
+    const { seatId } = this.requireOwner(room, connectionId);
+    if (seatId !== room.hostSeatId) throw Object.assign(new Error("Only the host seat may pause turn tracking"), { status: 403, code: "HOST_ONLY" });
+    if (!room.turn.gameStarted || !room.turn.trackingEnabled) throw Object.assign(new Error("Turn tracking is not running"), { status: 409, code: "TURN_TRACKING_OFF", snapshot: this.snapshot(room) });
+    if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
+    const now = this.now();
+    if (input.paused === true && !room.turn.pausedAt) room.turn = { ...room.turn, pausedAt: now };
+    else if (input.paused === false && room.turn.pausedAt) {
+      const pausedFor = now - room.turn.pausedAt;
+      room.turn = { ...room.turn, pausedAt: null, pausedDurationMs: (room.turn.pausedDurationMs ?? 0) + pausedFor, turnStartedAt: room.turn.turnStartedAt + pausedFor, gameStartedAt: room.turn.gameStartedAt + pausedFor, roundEndsAt: room.turn.roundEndsAt ? room.turn.roundEndsAt + pausedFor : null };
+    } else return { snapshot: this.snapshot(room) };
+    room.version += 1;
+    this.recordLedger(room, input.paused ? "turn_tracking_paused" : "turn_tracking_resumed", seatId, {});
+    this.broadcast(room);
+    return { snapshot: this.snapshot(room) };
   }
 
   recoveryRecord(room, updatedAt = this.now()) {
@@ -1010,6 +1054,8 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "POST" && parts[3] === "choose-starting-player") return json(res, 200, service.chooseStartingPlayer(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "start-game") return json(res, 200, service.startGame(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "turn-handoff" && parts[4] === "undo") return json(res, 200, service.undoTurnHandoff(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "turn-tracking") return json(res, 200, service.setTurnTracking(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "turn-pause") return json(res, 200, service.setTurnPaused(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "turn-handoff") return json(res, 200, service.handoffTurn(code, connectionId, await readJson(req)));
         if (req.method === "GET" && parts[3] === "events") {
           const target = service.resolveStreamTarget(code, url.searchParams.get("connectionId"));

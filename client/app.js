@@ -1,5 +1,5 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=69';
-import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=69';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=70';
+import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=70';
 
 const MODES = ['life', 'commander', 'radiation', 'poison', 'energy', 'generic'];
 const IDENTITY_ORDER = ['W', 'U', 'B', 'R', 'G'];
@@ -14,7 +14,7 @@ const dom = {
   counterContext: $('#counterContext'), statusMessage: $('#statusMessage'), lethalMark: $('#lethalMark'), lifeChangeIndicator: $('#lifeChangeIndicator'), sourcePanel: $('#sourcePanel'), inspectionNotice: $('#inspectionNotice'),
   activeSeatBar: $('#activeSeatBar'), gameMenu: $('#gameMenu'), moreButton: $('#moreButton'),
   disconnectBanner: $('#disconnectBanner'), coinTossNotice: $('#coinTossNotice'), victoryNotice: $('#victoryNotice'), coinTossButton: $('#coinTossButton'), coinTossDialog: $('#coinTossDialog'), coinTossResult: $('#coinTossResult'), tossAgainButton: $('#tossAgainButton'), resetDialog: $('#resetDialog'), commanderSetupButton: $('#commanderSetupButton'), backToSetupButton: $('#backToSetupButton'), declareWinnerButton: $('#declareWinnerButton'), declareWinnerDialog: $('#declareWinnerDialog'), declareWinnerForm: $('#declareWinnerForm'), winnerSeat: $('#winnerSeat'), victoryDialog: $('#victoryDialog'), victoryTitle: $('#victoryTitle'), victoryDetail: $('#victoryDetail'),
-  lobbyControls: $('#lobbyControls'), lobbyStatus: $('#lobbyStatus'), startingSeatField: $('#startingSeatField'), startingSeat: $('#startingSeat'), chooseFirstButton: $('#chooseFirstButton'), randomFirstButton: $('#randomFirstButton'), startGameButton: $('#startGameButton'), startingRollDialog: $('#startingRollDialog'), startingRollStatus: $('#startingRollStatus'), startingRollDice: $('#startingRollDice'), turnBanner: $('#turnBanner'), turnLabel: $('#turnLabel'), turnPlayer: $('#turnPlayer'), turnElapsed: $('#turnElapsed'), gameTimer: $('#gameTimer'), turnActions: $('#turnActions'), endTurnButton: $('#endTurnButton'), undoTurnButton: $('#undoTurnButton'), turnActionDetail: $('#turnActionDetail'),
+  lobbyControls: $('#lobbyControls'), lobbyStatus: $('#lobbyStatus'), startingSeatField: $('#startingSeatField'), startingSeat: $('#startingSeat'), chooseFirstButton: $('#chooseFirstButton'), randomFirstButton: $('#randomFirstButton'), startGameButton: $('#startGameButton'), startingRollDialog: $('#startingRollDialog'), startingRollStatus: $('#startingRollStatus'), startingRollDice: $('#startingRollDice'), turnBanner: $('#turnBanner'), turnLabel: $('#turnLabel'), turnPlayer: $('#turnPlayer'), turnElapsed: $('#turnElapsed'), gameTimer: $('#gameTimer'), turnActions: $('#turnActions'), endTurnButton: $('#endTurnButton'), undoTurnButton: $('#undoTurnButton'), pauseTurnButton: $('#pauseTurnButton'), toggleTurnTrackingButton: $('#toggleTurnTrackingButton'), turnActionDetail: $('#turnActionDetail'),
   commanderCountDialog: $('#commanderCountDialog'), commanderCountDetail: $('#commanderCountDetail'), commanderCountForm: $('#commanderCountForm'), saveCommanderCountButton: $('#saveCommanderCountButton'),
   commanderTaxQuickButton: $('#commanderTaxQuickButton'), commanderTaxDialog: $('#commanderTaxDialog'), commanderTaxDetail: $('#commanderTaxDetail'), commanderTaxList: $('#commanderTaxList'),
   customLifeButton: $('#customLifeButton'), customLifeDialog: $('#customLifeDialog'), customLifeForm: $('#customLifeForm'), customLifeAmount: $('#customLifeAmount'), playtestNotesButton: $('#playtestNotesButton'), playtestRecapButton: $('#playtestRecapButton'), savedPlaytestsButton: $('#savedPlaytestsButton'), refreshTableButton: $('#refreshTableButton'), playtestNotesDialog: $('#playtestNotesDialog'), playtestNotesForm: $('#playtestNotesForm'), playtestNotesList: $('#playtestNotesList'), playtestNoteText: $('#playtestNoteText'), playtestNoteStatus: $('#playtestNoteStatus'), playtestRecapDialog: $('#playtestRecapDialog'), playtestRecapContent: $('#playtestRecapContent'), savedPlaytestsDialog: $('#savedPlaytestsDialog'), savedPlaytestsContent: $('#savedPlaytestsContent')
@@ -59,7 +59,7 @@ function createState({ playerCount = 4, startingLife = 40, ownerPlayerId = 'P1',
   const commanderSources = sourcesFromPlayers(players);
   players.forEach(player => { player.commanderDamage = blankDamage(commanderSources); });
   const startedAt = Date.now();
-  return { playerCount, startingLife, roundLimitMinutes, ownerPlayerId, activePlayerId: ownerPlayerId, turnSeatId: ownerPlayerId, turn: { activeSeatId: 0, gameStarted: false, gameStartedAt: null, turnStartedAt: null, roundEndsAt: null, startingPlayerSeatId: null, startingPlayerRoll: null, lastHandoff: null }, localSimulation, podCode, gameResult: null, mode: 'life', selectedSourceId: null, commanderSources, commanderCastCounts: blankDamage(commanderSources), players };
+  return { playerCount, startingLife, roundLimitMinutes, ownerPlayerId, activePlayerId: ownerPlayerId, turnSeatId: ownerPlayerId, turn: { activeSeatId: 0, gameStarted: false, gameStartedAt: null, turnStartedAt: null, roundEndsAt: null, startingPlayerSeatId: null, startingPlayerRoll: null, lastHandoff: null, trackingEnabled: true, pausedAt: null }, localSimulation, podCode, gameResult: null, mode: 'life', selectedSourceId: null, commanderSources, commanderCastCounts: blankDamage(commanderSources), players };
 }
 function playerIdForSource(source, fallbackLabel = '') {
   if (source.ownerPlayerId) return source.ownerPlayerId;
@@ -99,7 +99,7 @@ function stateFromSnapshot(snapshot) {
   const commanderSources = normaliseSnapshotSources(snapshot); const previous = state;
   const ownerPlayerId = `P${transport.seatId + 1}`;
   const activePlayerId = previous?.localSimulation === false && previous.podCode === snapshot.code && snapshot.seats.some(seat => `P${seat.seatId + 1}` === previous.activePlayerId) ? previous.activePlayerId : ownerPlayerId;
-  const turn = snapshot.turn || { activeSeatId: 0, gameStarted: true, gameStartedAt: Date.now(), turnStartedAt: Date.now(), roundEndsAt: null, startingPlayerSeatId: 0, startingPlayerRoll: null, lastHandoff: null };
+  const turn = snapshot.turn || { activeSeatId: 0, gameStarted: true, gameStartedAt: Date.now(), turnStartedAt: Date.now(), roundEndsAt: null, startingPlayerSeatId: 0, startingPlayerRoll: null, lastHandoff: null, trackingEnabled: true, pausedAt: null };
   return {
     playerCount: snapshot.config.playerCount, startingLife: snapshot.config.startingLife, roundLimitMinutes: snapshot.config.roundLimitMinutes || null, commanderSources, commanderCastCounts: castCountsFromSnapshot(snapshot, commanderSources), ownerPlayerId, activePlayerId, turnSeatId: `P${turn.activeSeatId + 1}`, turn,
     localSimulation: false, podCode: snapshot.code, version: snapshot.version, hostSeatId: snapshot.hostSeatId, lastCoinToss: snapshot.lastCoinToss || null, gameResult: snapshot.gameResult || null, mode: previous?.mode || 'life', selectedSourceId: previous?.selectedSourceId || null,
@@ -180,7 +180,9 @@ function renderTurnFlow() {
   const isHost = state.localSimulation || transport.seatId === state.hostSeatId;
   const isStarted = Boolean(state.turn.gameStarted);
   dom.lobbyControls.hidden = isStarted;
-  dom.turnBanner.hidden = !isStarted;
+  const trackingEnabled = state.turn.trackingEnabled !== false;
+  const paused = Boolean(state.turn.pausedAt);
+  dom.turnBanner.hidden = !isStarted || !trackingEnabled;
   dom.turnActions.hidden = !isStarted;
   if (!isStarted) {
     const selected = Number.isInteger(state.turn.startingPlayerSeatId) ? state.players.find(player => player.id === `P${state.turn.startingPlayerSeatId + 1}`) : null;
@@ -198,17 +200,24 @@ function renderTurnFlow() {
     clearInterval(turnTicker); turnTicker = null;
     return;
   }
-  dom.turnLabel.textContent = `${state.turnSeatId}'S TURN`;
+  const timerNow = state.turn.pausedAt || now;
+  dom.turnLabel.textContent = paused ? 'TURN PAUSED' : `${state.turnSeatId}'S TURN`;
   dom.turnPlayer.textContent = turnPlayerValue ? displayName(turnPlayerValue) : state.turnSeatId;
-  dom.turnElapsed.textContent = `TURN ${formatDuration(now - state.turn.turnStartedAt)}`;
-  dom.gameTimer.textContent = state.turn.roundEndsAt ? `ROUND ENDS IN ${formatDuration(state.turn.roundEndsAt - now)}` : `GAME TIME ${formatDuration(now - state.turn.gameStartedAt)}`;
+  dom.turnElapsed.textContent = `TURN ${formatDuration(timerNow - state.turn.turnStartedAt)}`;
+  dom.gameTimer.textContent = state.turn.roundEndsAt ? `ROUND ENDS IN ${formatDuration(state.turn.roundEndsAt - timerNow)}` : `GAME TIME ${formatDuration(timerNow - state.turn.gameStartedAt)}`;
   const actingSeatId = state.localSimulation ? state.activePlayerId : state.ownerPlayerId;
   const isOwnerActive = state.turnSeatId === actingSeatId;
-  const canAct = (state.localSimulation || transport.status === 'connected') && isOwnerActive;
+  const canAct = (state.localSimulation || transport.status === 'connected') && isOwnerActive && trackingEnabled && !paused;
   dom.endTurnButton.disabled = !canAct;
-  dom.endTurnButton.hidden = !isOwnerActive;
-  dom.turnActionDetail.textContent = isOwnerActive ? 'You are active. Press once when you pass the turn.' : `${turnPlayerValue ? displayName(turnPlayerValue) : state.turnSeatId} controls this turn.`;
-  const undoAvailable = handoff && Date.now() - handoff.handedOffAt <= 15_000 && actingSeatId === `P${handoff.fromSeatId + 1}`;
+  dom.endTurnButton.hidden = !isOwnerActive || !trackingEnabled;
+  dom.pauseTurnButton.hidden = !isHost || !trackingEnabled;
+  dom.pauseTurnButton.disabled = !isHost || !(state.localSimulation || transport.status === 'connected');
+  dom.pauseTurnButton.textContent = paused ? 'Resume timers' : 'Pause timers';
+  dom.toggleTurnTrackingButton.hidden = !isHost;
+  dom.toggleTurnTrackingButton.disabled = !isHost || !(state.localSimulation || transport.status === 'connected');
+  dom.toggleTurnTrackingButton.textContent = `Turn tracking: ${trackingEnabled ? 'on' : 'off'}`;
+  dom.turnActionDetail.textContent = !trackingEnabled ? 'Turn tracking is off for this table.' : paused ? 'Timers are paused by the host.' : isOwnerActive ? 'You are active. Press once when you pass the turn.' : `${turnPlayerValue ? displayName(turnPlayerValue) : state.turnSeatId} controls this turn.`;
+  const undoAvailable = trackingEnabled && handoff && Date.now() - handoff.handedOffAt <= 15_000 && actingSeatId === `P${handoff.fromSeatId + 1}`;
   dom.undoTurnButton.hidden = !undoAvailable;
   if (undoAvailable) dom.undoTurnButton.textContent = `Undo handoff · ${Math.max(0, Math.ceil((15_000 - (Date.now() - handoff.handedOffAt)) / 1000))}s`;
   clearInterval(turnTicker);
@@ -505,14 +514,14 @@ async function updateCommanderCastCount(sourceId, delta) {
   catch (error) { renderConnection('disconnected'); showError(error); }
 }
 async function resetGame() {
-  if (transport.status === 'local') { const sources = state.commanderSources; state.players = state.players.map(player => ({ ...playerTemplate(Number(player.id.slice(1)), state.startingLife, player.commanderCount, sources, player.commanderNames, player.commanderColors), name: player.name, commanderCount: player.commanderCount, commanderNames: player.commanderNames, commanderColors: player.commanderColors })); state.commanderCastCounts = blankDamage(sources); state.lastCoinToss = null; state.gameResult = null; state.turn = { activeSeatId: 0, gameStarted: false, gameStartedAt: null, turnStartedAt: null, roundEndsAt: null, startingPlayerSeatId: null, startingPlayerRoll: null, lastHandoff: null }; state.turnSeatId = 'P1'; coinTossNotice = null; clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); clearTimeout(startingRollTimer); state.selectedSourceId = null; render(); return; }
+  if (transport.status === 'local') { const sources = state.commanderSources; state.players = state.players.map(player => ({ ...playerTemplate(Number(player.id.slice(1)), state.startingLife, player.commanderCount, sources, player.commanderNames, player.commanderColors), name: player.name, commanderCount: player.commanderCount, commanderNames: player.commanderNames, commanderColors: player.commanderColors })); state.commanderCastCounts = blankDamage(sources); state.lastCoinToss = null; state.gameResult = null; state.turn = { activeSeatId: 0, gameStarted: false, gameStartedAt: null, turnStartedAt: null, roundEndsAt: null, startingPlayerSeatId: null, startingPlayerRoll: null, lastHandoff: null, trackingEnabled: true, pausedAt: null }; state.turnSeatId = 'P1'; coinTossNotice = null; clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); clearTimeout(startingRollTimer); state.selectedSourceId = null; render(); return; }
   try { const result = await transport.reset(); if (result.conflict) showError(new Error('The table changed first. The latest totals are shown; confirm reset again if it is still needed.')); else { coinTossNotice = null; clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); render(); } } catch (error) { showError(error); }
 }
 async function handoffTurn() {
   const actingSeatId = state?.localSimulation ? state.activePlayerId : state?.ownerPlayerId;
-  if (!state || !state.turn.gameStarted || state.turnSeatId !== actingSeatId || !(transport.status === 'local' || transport.status === 'connected')) return;
+  if (!state || !state.turn.gameStarted || state.turn.trackingEnabled === false || state.turn.pausedAt || state.turnSeatId !== actingSeatId || !(transport.status === 'local' || transport.status === 'connected')) return;
   if (transport.status === 'local') {
-    const fromSeatId = Number(state.turnSeatId.slice(1)) - 1; const toSeatId = (fromSeatId + 1) % state.playerCount; const handedOffAt = Date.now();
+    const fromSeatId = Number(state.turnSeatId.slice(1)) - 1; const living = state.players.filter(player => player.connectionStatus !== 'waiting' && player.life > 0); const sequence = living.length ? living : state.players.filter(player => player.connectionStatus !== 'waiting'); const currentIndex = sequence.findIndex(player => player.id === state.turnSeatId); const toSeatId = Number(sequence[(currentIndex + 1) % sequence.length].id.slice(1)) - 1; const handedOffAt = Date.now();
     state.turn = { ...state.turn, activeSeatId: toSeatId, turnStartedAt: handedOffAt, lastHandoff: { fromSeatId, toSeatId, handedOffAt } }; state.turnSeatId = `P${toSeatId + 1}`; state.activePlayerId = state.turnSeatId; showTurnHandoff(); render(); return;
   }
   dom.endTurnButton.disabled = true;
@@ -542,6 +551,18 @@ async function undoTurnHandoff() {
   if (transport.status === 'local') { state.turn = { ...state.turn, activeSeatId: handoff.fromSeatId, turnStartedAt: handoff.handedOffAt, lastHandoff: null }; state.turnSeatId = `P${handoff.fromSeatId + 1}`; state.activePlayerId = state.turnSeatId; render(); return; }
   try { const result = await transport.undoTurnHandoff(); if (result.conflict) showError(new Error('The handoff undo window has closed. The latest turn is shown.')); }
   catch (error) { showError(error); }
+}
+async function toggleTurnTracking() {
+  if (!state || (!state.localSimulation && transport.seatId !== state.hostSeatId)) return;
+  const enabled = state.turn.trackingEnabled === false;
+  if (transport.status === 'local') { state.turn = { ...state.turn, trackingEnabled: enabled, pausedAt: null, turnStartedAt: enabled && state.turn.gameStarted ? Date.now() : state.turn.turnStartedAt, lastHandoff: null }; render(); return; }
+  try { const result = await transport.setTurnTracking(enabled); if (result.conflict) showError(new Error('The table changed first. The latest turn settings are shown.')); } catch (error) { showError(error); }
+}
+async function toggleTurnPause() {
+  if (!state || state.turn.trackingEnabled === false || (!state.localSimulation && transport.seatId !== state.hostSeatId)) return;
+  const paused = !state.turn.pausedAt;
+  if (transport.status === 'local') { const now = Date.now(); const pausedFor = !paused && state.turn.pausedAt ? now - state.turn.pausedAt : 0; state.turn = { ...state.turn, pausedAt: paused ? now : null, turnStartedAt: pausedFor ? state.turn.turnStartedAt + pausedFor : state.turn.turnStartedAt, gameStartedAt: pausedFor ? state.turn.gameStartedAt + pausedFor : state.turn.gameStartedAt, roundEndsAt: pausedFor && state.turn.roundEndsAt ? state.turn.roundEndsAt + pausedFor : state.turn.roundEndsAt }; render(); return; }
+  try { const result = await transport.setTurnPaused(paused); if (result.conflict) showError(new Error('The table changed first. The latest timer state is shown.')); } catch (error) { showError(error); }
 }
 function openDeclareWinner() {
   if (!state || (!state.localSimulation && transport.seatId !== state.hostSeatId)) return;
@@ -603,7 +624,7 @@ $('#joinDemoButton').addEventListener('click', () => { const ownerPlayerId = $('
 dom.activeSeat.addEventListener('change', () => { state.activePlayerId = dom.activeSeat.value; render(); }); $$('[data-mode]').forEach(button => button.addEventListener('click', () => { state.mode = button.dataset.mode; render(); })); $$('[data-delta]').forEach(button => button.addEventListener('click', () => adjust(Number(button.dataset.delta))));
 dom.customLifeButton.addEventListener('click', () => { dom.customLifeAmount.value = ''; dom.customLifeDialog.showModal(); dom.customLifeAmount.focus(); });
 dom.customLifeForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; const form = new FormData(dom.customLifeForm); const amount = Number(form.get('amount')); if (!Number.isInteger(amount) || amount < 1 || amount > 999) { event.preventDefault(); dom.customLifeAmount.focus(); return; } const delta = form.get('direction') === 'subtract' ? -amount : amount; adjust(delta); });
-dom.endTurnButton.addEventListener('click', handoffTurn); dom.undoTurnButton.addEventListener('click', undoTurnHandoff);
+dom.endTurnButton.addEventListener('click', handoffTurn); dom.undoTurnButton.addEventListener('click', undoTurnHandoff); dom.pauseTurnButton.addEventListener('click', toggleTurnPause); dom.toggleTurnTrackingButton.addEventListener('click', toggleTurnTracking);
 dom.chooseFirstButton.addEventListener('click', () => chooseStartingPlayer(Number(dom.startingSeat.value))); dom.randomFirstButton.addEventListener('click', () => chooseStartingPlayer()); dom.startGameButton.addEventListener('click', startGame);
 dom.moreButton.addEventListener('click', () => { dom.gameMenu.hidden = !dom.gameMenu.hidden; dom.moreButton.setAttribute('aria-expanded', String(!dom.gameMenu.hidden)); }); dom.coinTossButton.addEventListener('click', () => { dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); tossCoin(); }); dom.declareWinnerButton.addEventListener('click', openDeclareWinner); dom.tossAgainButton.addEventListener('click', () => tossCoin()); $('#resetButton').addEventListener('click', () => { dom.gameMenu.hidden = true; dom.resetDialog.showModal(); }); $('#confirmResetButton').addEventListener('click', resetGame);
 dom.playtestNotesButton.addEventListener('click', openPlaytestNotes); dom.playtestRecapButton.addEventListener('click', openPlaytestRecap); dom.savedPlaytestsButton.addEventListener('click', openSavedPlaytests); dom.refreshTableButton.addEventListener('click', async () => { try { const { snapshot } = await transport.refreshRoom(); if (snapshot) showSharedGame(snapshot); dom.gameMenu.hidden = true; } catch (error) { showError(error); } }); dom.playtestNotesForm.addEventListener('submit', async event => { if (event.submitter?.id !== 'savePlaytestNoteButton') return; event.preventDefault(); const text = dom.playtestNoteText.value; try { dom.playtestNoteStatus.textContent = 'Saving…'; await transport.addPlaytestNote(text); dom.playtestNoteText.value = ''; dom.playtestNoteStatus.textContent = 'Saved.'; await openPlaytestNotes(); } catch (error) { dom.playtestNoteStatus.textContent = `Not saved: ${error.message}`; } });

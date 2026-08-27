@@ -33,7 +33,7 @@ This process is not itself a public deployment. A web host must run it behind HT
 - When at least two seats are claimed and tracked counters leave one survivor, the server records a shared `last_player_standing` result. The host can declare a winner for alternate win conditions that counters cannot infer.
 - Every accepted claim, mutation, reset, disconnect expiry, or reconnect increments the room version. Writes require the exact `baseVersion`; a stale write gets `409 VERSION_CONFLICT` plus the current snapshot.
 - Routine live counter adjustments use a separate atomic delta endpoint, so simultaneous life/counter taps from different seats are applied against the newest server state instead of failing due to an old displayed total. Structural edits still use exact versions.
-- Only the active seat owner may hand off the turn. The server records the handoff timestamp and advances to the next table seat; only the player who handed off may undo it, for 15 seconds. Turn actions use exact versions and are broadcast over SSE.
+- Only the active seat owner may hand off the turn. The server records the handoff timestamp and advances to the next living claimed seat; only the player who handed off may undo it, for 15 seconds. The host can pause/resume timers or turn tracking off entirely. Turn actions use exact versions and are broadcast over SSE.
 - Clients must never queue gameplay mutations while offline. After reconnecting, obtain/reclaim a connection, accept the newest snapshot, and let the player perform any still-needed action again. The exact-version check rejects stale queued requests.
 - Connections expire after 90 seconds without heartbeat/API activity. Seats remain reserved by their token. Rooms expire after six inactive hours. Restarting the process deletes every active room; a configured Firebase ledger retains records successfully written before that restart.
 
@@ -160,7 +160,9 @@ For commander damage, send `counter: "commanderDamage"`, the defender-owned `com
 - `POST /api/rooms/:code/start-game` with `{ "baseVersion": 9 }` is host-only. It starts game/turn timing only after at least two seats are claimed; without a roll-off or manual selection, the host's seat remains first.
 - `POST /api/rooms/:code/turn-handoff` with `{ "baseVersion": 8 }` ends the current owner's turn and advances the active table seat. The response includes the new authoritative snapshot.
 - `POST /api/rooms/:code/turn-handoff/undo` with `{ "baseVersion": 9 }` returns to the prior player only if the same player initiated the most recent handoff within 15 seconds.
-- Snapshots contain `turn.activeSeatId`, `gameStartedAt`, `turnStartedAt`, optional `roundEndsAt`, and the most recent `lastHandoff`. Clients calculate display time from these timestamps; no client controls turn advancement automatically.
+- `POST /api/rooms/:code/turn-tracking` with `{ "baseVersion": 9, "enabled": true|false }` is host-only and shows or hides turn prompts without changing gameplay ownership.
+- `POST /api/rooms/:code/turn-pause` with `{ "baseVersion": 9, "paused": true|false }` is host-only and pauses/resumes both turn and game/round timers.
+- Snapshots contain `turn.activeSeatId`, `gameStartedAt`, `turnStartedAt`, optional `roundEndsAt`, `trackingEnabled`, `pausedAt`, and the most recent `lastHandoff`. Clients calculate display time from these timestamps; no client controls turn advancement automatically.
 
 ### Game result
 

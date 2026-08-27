@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=69">
+  <link rel="stylesheet" href="styles.css?v=70">
 </head>
 <body>
   <header class="brand-bar">
@@ -162,6 +162,8 @@
       <section id="turnActions" class="turn-actions" aria-label="Turn controls">
         <button id="endTurnButton" class="end-turn-button" type="button">End turn → Next player</button>
         <button id="undoTurnButton" class="undo-turn-button" type="button" hidden>Undo handoff</button>
+        <button id="pauseTurnButton" class="undo-turn-button" type="button" hidden>Pause timers</button>
+        <button id="toggleTurnTrackingButton" class="undo-turn-button" type="button" hidden>Turn tracking: on</button>
         <p id="turnActionDetail" class="turn-action-detail">Only the active player can end this turn.</p>
       </section>
       <div class="counter-stage" aria-live="polite">
@@ -359,6 +361,6 @@
     <form method="dialog"><h2 id="savedPlaytestsTitle">Saved playtests</h2><div id="savedPlaytestsContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
   </dialog>
 
-  <script type="module" src="app.js?v=69"></script>
+  <script type="module" src="app.js?v=70"></script>
 </body>
 </html>
