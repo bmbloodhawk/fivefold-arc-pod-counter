@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=73">
+  <link rel="stylesheet" href="styles.css?v=74">
 </head>
 <body>
   <header class="brand-bar">
@@ -260,6 +260,7 @@
       <div class="dialog-mark" aria-hidden="true">⚄</div>
       <h2 id="startingRollTitle">Roll for first player</h2>
       <p id="startingRollStatus" class="starting-roll-status" aria-live="polite">ROLLING FOR FIRST…</p>
+      <div id="startingRollCanvas" class="starting-roll-canvas" aria-hidden="true"></div>
       <div id="startingRollDice" class="starting-roll-dice" aria-live="polite"></div>
       <div class="dialog-actions"><button value="close" class="primary-action">Back to lobby</button></div>
     </form>
@@ -362,6 +363,6 @@
     <form method="dialog"><h2 id="savedPlaytestsTitle">Saved playtests</h2><div id="savedPlaytestsContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
   </dialog>
 
-  <script type="module" src="app.js?v=73"></script>
+  <script type="module" src="app.js?v=75"></script>
 </body>
 </html>

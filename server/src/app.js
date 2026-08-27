@@ -15,6 +15,9 @@ const STATIC_TYPES = new Map([
   [".html", "text/html; charset=utf-8"],
   [".js", "text/javascript; charset=utf-8"],
   [".json", "application/json; charset=utf-8"],
+  [".wasm", "application/wasm"],
+  [".png", "image/png"],
+  [".jpg", "image/jpeg"],
   [".svg", "image/svg+xml"],
   [".webmanifest", "application/manifest+json"],
 ]);

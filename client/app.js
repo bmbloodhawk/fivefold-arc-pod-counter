@@ -1,5 +1,6 @@
 import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=72';
 import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=72';
+import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=75';
 
 const MODES = ['life', 'commander', 'radiation', 'poison', 'energy', 'generic'];
 const IDENTITY_ORDER = ['W', 'U', 'B', 'R', 'G'];
@@ -14,7 +15,7 @@ const dom = {
   counterContext: $('#counterContext'), statusMessage: $('#statusMessage'), lethalMark: $('#lethalMark'), lifeChangeIndicator: $('#lifeChangeIndicator'), sourcePanel: $('#sourcePanel'), inspectionNotice: $('#inspectionNotice'),
   activeSeatBar: $('#activeSeatBar'), gameMenu: $('#gameMenu'), moreButton: $('#moreButton'),
   disconnectBanner: $('#disconnectBanner'), coinTossNotice: $('#coinTossNotice'), victoryNotice: $('#victoryNotice'), coinTossButton: $('#coinTossButton'), coinTossDialog: $('#coinTossDialog'), coinTossResult: $('#coinTossResult'), tossAgainButton: $('#tossAgainButton'), resetDialog: $('#resetDialog'), commanderSetupButton: $('#commanderSetupButton'), backToSetupButton: $('#backToSetupButton'), declareWinnerButton: $('#declareWinnerButton'), declareWinnerDialog: $('#declareWinnerDialog'), declareWinnerForm: $('#declareWinnerForm'), winnerSeat: $('#winnerSeat'), victoryDialog: $('#victoryDialog'), victoryTitle: $('#victoryTitle'), victoryDetail: $('#victoryDetail'),
-  lobbyControls: $('#lobbyControls'), lobbyStatus: $('#lobbyStatus'), startingSeatField: $('#startingSeatField'), startingSeat: $('#startingSeat'), chooseFirstButton: $('#chooseFirstButton'), randomFirstButton: $('#randomFirstButton'), startGameButton: $('#startGameButton'), startingRollDialog: $('#startingRollDialog'), startingRollStatus: $('#startingRollStatus'), startingRollDice: $('#startingRollDice'), turnBanner: $('#turnBanner'), turnLabel: $('#turnLabel'), turnPlayer: $('#turnPlayer'), turnElapsed: $('#turnElapsed'), gameTimer: $('#gameTimer'), lastTurnSummary: $('#lastTurnSummary'), turnActions: $('#turnActions'), endTurnButton: $('#endTurnButton'), undoTurnButton: $('#undoTurnButton'), pauseTurnButton: $('#pauseTurnButton'), toggleTurnTrackingButton: $('#toggleTurnTrackingButton'), turnActionDetail: $('#turnActionDetail'),
+  lobbyControls: $('#lobbyControls'), lobbyStatus: $('#lobbyStatus'), startingSeatField: $('#startingSeatField'), startingSeat: $('#startingSeat'), chooseFirstButton: $('#chooseFirstButton'), randomFirstButton: $('#randomFirstButton'), startGameButton: $('#startGameButton'), startingRollDialog: $('#startingRollDialog'), startingRollStatus: $('#startingRollStatus'), startingRollCanvas: $('#startingRollCanvas'), startingRollDice: $('#startingRollDice'), turnBanner: $('#turnBanner'), turnLabel: $('#turnLabel'), turnPlayer: $('#turnPlayer'), turnElapsed: $('#turnElapsed'), gameTimer: $('#gameTimer'), lastTurnSummary: $('#lastTurnSummary'), turnActions: $('#turnActions'), endTurnButton: $('#endTurnButton'), undoTurnButton: $('#undoTurnButton'), pauseTurnButton: $('#pauseTurnButton'), toggleTurnTrackingButton: $('#toggleTurnTrackingButton'), turnActionDetail: $('#turnActionDetail'),
   commanderCountDialog: $('#commanderCountDialog'), commanderCountDetail: $('#commanderCountDetail'), commanderCountForm: $('#commanderCountForm'), saveCommanderCountButton: $('#saveCommanderCountButton'),
   commanderTaxQuickButton: $('#commanderTaxQuickButton'), commanderTaxDialog: $('#commanderTaxDialog'), commanderTaxDetail: $('#commanderTaxDetail'), commanderTaxList: $('#commanderTaxList'),
   customLifeButton: $('#customLifeButton'), customLifeDialog: $('#customLifeDialog'), customLifeForm: $('#customLifeForm'), customLifeAmount: $('#customLifeAmount'), cancelCustomLifeButton: $('#cancelCustomLifeButton'), playtestNotesButton: $('#playtestNotesButton'), playtestRecapButton: $('#playtestRecapButton'), savedPlaytestsButton: $('#savedPlaytestsButton'), refreshTableButton: $('#refreshTableButton'), playtestNotesDialog: $('#playtestNotesDialog'), playtestNotesForm: $('#playtestNotesForm'), playtestNotesList: $('#playtestNotesList'), playtestNoteText: $('#playtestNoteText'), playtestNoteStatus: $('#playtestNoteStatus'), playtestRecapDialog: $('#playtestRecapDialog'), playtestRecapContent: $('#playtestRecapContent'), savedPlaytestsDialog: $('#savedPlaytestsDialog'), savedPlaytestsContent: $('#savedPlaytestsContent')
@@ -301,33 +302,15 @@ function createLocalStartingPlayerRoll(players) {
   }
   throw new Error('Could not complete the d20 roll-off. Please roll again.');
 }
-function clearStartingRollTimers() { clearTimeout(startingRollTimer); startingRollTimers.forEach(timer => clearTimeout(timer)); startingRollTimers = []; }
-function d20StopDelay(selectedAt, roundIndex, roll) {
-  let seed = (((selectedAt >>> 0) * 1103515245) + ((roundIndex + 1) * 12345) + ((roll.seatId + 1) * 2654435761) + (roll.value * 97)) >>> 0;
-  seed ^= seed >>> 16; seed = Math.imul(seed, 0x7feb352d); seed ^= seed >>> 15; seed = Math.imul(seed, 0x846ca68b); seed ^= seed >>> 16;
-  return 720 + ((seed >>> 0) % 920);
-}
-function renderStartingRollDice(round, { animate = false, selectedAt = 0, roundIndex = 0 } = {}) {
+function clearStartingRollTimers() { clearTimeout(startingRollTimer); startingRollTimers.forEach(timer => clearTimeout(timer)); startingRollTimers = []; stopPhysicalD20s(); }
+function renderStartingRollDice(round, { settled = 0, revealAll = false } = {}) {
   if (!dom.startingRollDice) return;
-  dom.startingRollDice.innerHTML = round.rolls.map(roll => {
+  dom.startingRollDice.innerHTML = round.rolls.map((roll, index) => {
     const player = state?.players.find(item => item.id === `P${roll.seatId + 1}`);
-    const delay = d20StopDelay(selectedAt, roundIndex, roll);
     const name = escapeHtml(displayName(player || { id: `P${roll.seatId + 1}` }));
-    return `<div class="starting-roll-die${animate ? ' rolling' : ' landed'}" data-seat-id="${roll.seatId}" style="--stop-delay: ${delay}ms; --roll-offset: ${(delay / 19) % 19}deg"><span>${name}</span><div class="d20-shape" aria-hidden="true"><b>?</b></div><strong><small>d20</small><output>${animate ? '—' : roll.value}</output></strong></div>`;
+    const revealed = revealAll || settled > index;
+    return `<div class="starting-roll-die${revealed ? ' landed' : ' rolling'}" data-seat-id="${roll.seatId}"><span>${name}</span><strong><small>d20</small><output>${revealed ? roll.value : '—'}</output></strong></div>`;
   }).join('');
-  if (!animate) return 0;
-  const delays = round.rolls.map(roll => d20StopDelay(selectedAt, roundIndex, roll));
-  round.rolls.forEach((roll, index) => {
-    const timer = setTimeout(() => {
-      const die = dom.startingRollDice.querySelector(`[data-seat-id="${roll.seatId}"]`);
-      if (!die) return;
-      die.classList.remove('rolling'); die.classList.add('landed');
-      die.querySelector('.d20-shape b').textContent = String(roll.value);
-      die.querySelector('output').textContent = String(roll.value);
-    }, delays[index]);
-    startingRollTimers.push(timer);
-  });
-  return Math.max(...delays);
 }
 function showStartingPlayerRoll(roll, { dialog = true } = {}) {
   if (!roll?.rounds?.length) return;
@@ -335,20 +318,26 @@ function showStartingPlayerRoll(roll, { dialog = true } = {}) {
   clearStartingRollTimers();
   if (dialog && !dom.startingRollDialog.open) dom.startingRollDialog.showModal();
   let roundIndex = 0;
-  const playRound = () => {
+  const playRound = async () => {
     if (sequence !== startingRollSequence) return;
     const round = roll.rounds[roundIndex];
     dom.startingRollStatus.textContent = roundIndex ? 'TIE — ROLLING AGAIN…' : 'ROLLING FOR FIRST…';
-    const finishRound = () => {
+    let settled = 0;
+    renderStartingRollDice(round);
+    const physicalRoll = await rollPhysicalD20s({ container: dom.startingRollCanvas, count: round.rolls.length, onDieSettled: () => {
       if (sequence !== startingRollSequence) return;
-      if (round.tiedSeatIds.length > 1) { startingRollTimer = setTimeout(() => { roundIndex += 1; playRound(); }, 850); return; }
-      const winner = state?.players.find(player => player.id === `P${roll.winnerSeatId + 1}`);
-      const winningValue = round.rolls.find(item => item.seatId === roll.winnerSeatId)?.value;
-      dom.startingRollStatus.textContent = `${displayName(winner || { id: `P${roll.winnerSeatId + 1}` })} ROLLS ${winningValue} — GOES FIRST`;
-      render();
-    };
-    const longestStop = renderStartingRollDice(round, { animate: true, selectedAt: roll.selectedAt, roundIndex });
-    startingRollTimer = setTimeout(finishRound, longestStop + 360);
+      settled = Math.min(settled + 1, round.rolls.length);
+      renderStartingRollDice(round, { settled });
+    } });
+    if (sequence !== startingRollSequence) return;
+    renderStartingRollDice(round, { revealAll: true });
+    if (!physicalRoll.animated) await new Promise(resolve => { const timer = setTimeout(resolve, 450); startingRollTimers.push(timer); });
+    if (sequence !== startingRollSequence) return;
+    if (round.tiedSeatIds.length > 1) { startingRollTimer = setTimeout(() => { roundIndex += 1; playRound(); }, 850); return; }
+    const winner = state?.players.find(player => player.id === `P${roll.winnerSeatId + 1}`);
+    const winningValue = round.rolls.find(item => item.seatId === roll.winnerSeatId)?.value;
+    dom.startingRollStatus.textContent = `${displayName(winner || { id: `P${roll.winnerSeatId + 1}` })} ROLLS ${winningValue} — GOES FIRST`;
+    render();
   };
   playRound();
 }
