@@ -69,7 +69,7 @@ network that will be used. A local demo is not a substitute.
 | RULE-02 | P0 | Poison at 8/9/10 | warning at 8–9; lethal at 10; never below zero |
 | RULE-03 | P0 | Commander at 18/20/21 | source-specific warning; lethal at 21 from one source only |
 | RULE-04 | P0 | Multiple lethal causes | Commander > poison > life priority |
-| RULE-05 | P1 | Energy/storm/generic decrement | Floor is zero; no lethal state |
+| RULE-05 | P1 | Radiation/energy/generic decrement | Floor is zero; no lethal state |
 | CMDR-01 | P0 | One/partner labels and source topology | Single source is `P1`; partners are `P2 A`/`P2 B`; stable IDs and seat/slot order |
 | CMDR-02 | P0 | Defender source choices | Damage map contains every active claimed opponent source and excludes every own source |
 | CMDR-03 | P0 | Change 1→2 | Existing A/unrelated damage preserved; B added at zero; all clients converge |

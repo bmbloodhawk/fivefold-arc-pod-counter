@@ -26,7 +26,7 @@ This process is not itself a public deployment. A web host must run it behind HT
 - A connection can own at most one seat. The event loop makes seat claims atomic.
 - First claim returns a high-entropy `reclaimToken`. The client stores it locally; it is never included in snapshots. A claimed seat cannot be taken without it.
 - A joining player declares `commanderCount` on first claim. Reclaim binds the seat to the new connection immediately and invalidates the old owner, but it preserves the seat's declared count and commander cast counts. A reclaim request that supplies a different commander count is rejected; after reclaim, the owner can change it through the exact-version mutation.
-- A player can mutate only their own seat: life, poison, energy, storm, generic, and commander damage **received by that seat**. There is no endpoint for editing another player.
+- A player can mutate only their own seat: life, radiation, poison, energy, generic, and commander damage **received by that seat**. There is no endpoint for editing another player.
 - Commander source IDs are stable and seat-bound, such as `seat-1-commander-a`; they are not array positions. A defender never stores damage from their own commander source or sources.
 - Each claimed seat owns a cast count for each of its active commander source IDs. Counts start at `0`; the server derives the next additional commander tax as `castCount * 2`. Another seat cannot edit these counts, and clients cannot submit derived tax values.
 - Only the current owner of host seat 0 can reset the game. Reset zeros counters, commander damage, and commander cast counts without discarding commander setup, claims, or reconnect tokens.

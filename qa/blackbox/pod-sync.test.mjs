@@ -110,7 +110,7 @@ live('reset clears gameplay state, preserves preferences and claims, and is host
   const p2Commander = commanderSource(state, 1).id;
   const changed = await mutate(f.podId, f.claims[0].connectionId, {
     baseVersion: state.version,
-    counters: { life: 1, poison: 9, energy: 6, storm: 4, generic: 12 },
+    counters: { life: 1, radiation: 4, poison: 9, energy: 6, generic: 12 },
     commanderDamageReceived: { [p2Commander]: 20 },
   });
   await resetPod(f.podId, f.claims[1].connectionId, changed.snapshot.version, { expected: 403 });
@@ -121,7 +121,7 @@ live('reset clears gameplay state, preserves preferences and claims, and is host
   assert.deepEqual(state.seats.map(value => value.commanderCount), [2, 1, 2, 1]);
   assert.ok(state.seats.every(value => value.claimed));
   assert.equal(seat(state, 0).counters.life, 30);
-  for (const key of ['poison', 'energy', 'storm', 'generic']) assert.equal(seat(state, 0).counters[key], 0);
+  for (const key of ['radiation', 'poison', 'energy', 'generic']) assert.equal(seat(state, 0).counters[key], 0);
   assert.ok(Object.values(seat(state, 0).commanderDamageReceived).every(value => value === 0));
 });
 

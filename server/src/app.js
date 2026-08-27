@@ -5,7 +5,7 @@ import { extname, resolve, sep } from "node:path";
 import { NullPlaytestLedger, recapFromRoom } from "./playtest-ledger.js";
 
 const JOIN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const MUTABLE_COUNTERS = new Set(["life", "poison", "energy", "storm", "generic", "commanderDamage"]);
+const MUTABLE_COUNTERS = new Set(["life", "radiation", "poison", "energy", "generic", "commanderDamage"]);
 const COMMANDER_IDENTITY_TTL_MS = 6 * 60 * 60 * 1000;
 const COMMANDER_LOOKUP_TIMEOUT_MS = 6_000;
 const COMMANDER_LOOKUP_MIN_INTERVAL_MS = 100;
@@ -328,7 +328,7 @@ export class RoomService {
       commanderCount: seatId === 0 ? commanderCount : 1,
       commanderNames: seatId === 0 ? commanderNames : [""],
       commanderColors: seatId === 0 ? commanderColors : [[]],
-      counters: { life: startingLife, poison: 0, energy: 0, storm: 0, generic: 0 },
+      counters: { life: startingLife, radiation: 0, poison: 0, energy: 0, generic: 0 },
       commanderDamageReceived: {},
       commanderCastCounts: {},
     }));
@@ -650,7 +650,7 @@ export class RoomService {
       seat.counters.life = Math.max(-999, Math.min(999, seat.counters.life - applied));
     } else {
       const minimum = counter === "life" ? -999 : 0;
-      seat.counters[counter] = Math.max(minimum, Math.min(999, seat.counters[counter] + delta));
+      seat.counters[counter] = Math.max(minimum, Math.min(999, (seat.counters[counter] ?? 0) + delta));
     }
     recordLastPlayerStanding(room, this.now());
     room.version += 1;
@@ -674,7 +674,7 @@ export class RoomService {
     }
     this.completePlaytest(room, this.now(), { incomplete: !room.gameResult });
     for (const seat of room.seats) {
-      seat.counters = { life: room.config.startingLife, poison: 0, energy: 0, storm: 0, generic: 0 };
+      seat.counters = { life: room.config.startingLife, radiation: 0, poison: 0, energy: 0, generic: 0 };
       seat.commanderDamageReceived = Object.fromEntries(
         Object.keys(seat.commanderDamageReceived).map((sourceId) => [sourceId, 0]),
       );
