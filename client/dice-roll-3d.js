@@ -6,6 +6,7 @@ let ready = null;
 let activeRoll = 0;
 
 const prefersReducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+const scaleForDiceCount = count => count <= 2 ? 7 : count <= 4 ? 5.5 : count <= 6 ? 4.35 : 3.7;
 
 async function getDiceBox(container) {
   if (diceBox && diceContainer === container) return diceBox;
@@ -32,19 +33,22 @@ async function getDiceBox(container) {
  * Runs physical Dice Box d20s. Results from this function are intentionally
  * cosmetic: Fivefold Arc keeps the server-selected values authoritative.
  */
-export async function rollPhysicalD20s({ container, count, onDieSettled = () => {} }) {
+export async function rollPhysicalD20s({ container, colors = [], onDieSettled = () => {} }) {
+  const count = colors.length;
   if (!container || !Number.isInteger(count) || count < 1 || prefersReducedMotion()) return { animated: false, results: [] };
   const sequence = ++activeRoll;
   try {
     const box = await getDiceBox(container);
     if (sequence !== activeRoll) return { animated: false, results: [] };
+    container.dataset.diceCount = String(count);
+    await box.updateConfig({ scale: scaleForDiceCount(count) });
     let settled = 0;
     box.onDieComplete = () => {
       if (sequence !== activeRoll) return;
       onDieSettled(settled);
       settled += 1;
     };
-    const results = await box.roll(`${count}d20`);
+    const results = await box.roll(colors.map(themeColor => ({ sides: 20, qty: 1, themeColor })));
     return sequence === activeRoll ? { animated: true, results } : { animated: false, results: [] };
   } catch (error) {
     console.warn('3D dice unavailable; showing the locked table result instead.', error);

@@ -1,6 +1,6 @@
 import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=72';
 import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=72';
-import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=75';
+import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=76';
 
 const MODES = ['life', 'commander', 'radiation', 'poison', 'energy', 'generic'];
 const IDENTITY_ORDER = ['W', 'U', 'B', 'R', 'G'];
@@ -303,13 +303,20 @@ function createLocalStartingPlayerRoll(players) {
   throw new Error('Could not complete the d20 roll-off. Please roll again.');
 }
 function clearStartingRollTimers() { clearTimeout(startingRollTimer); startingRollTimers.forEach(timer => clearTimeout(timer)); startingRollTimers = []; stopPhysicalD20s(); }
+function diceColorForIdentity(colors) {
+  const values = normaliseIdentity(colors); if (!values.length) return '#b88a45';
+  const channels = values.map(color => IDENTITY_COLORS[color].slice(1).match(/.{2}/g).map(part => Number.parseInt(part, 16)));
+  const mixed = [0, 1, 2].map(channel => Math.round(channels.reduce((total, value) => total + value[channel], 0) / channels.length * .82 + 255 * .18));
+  return `#${mixed.map(value => value.toString(16).padStart(2, '0')).join('')}`;
+}
 function renderStartingRollDice(round, { settled = 0, revealAll = false } = {}) {
   if (!dom.startingRollDice) return;
   dom.startingRollDice.innerHTML = round.rolls.map((roll, index) => {
     const player = state?.players.find(item => item.id === `P${roll.seatId + 1}`);
     const name = escapeHtml(displayName(player || { id: `P${roll.seatId + 1}` }));
+    const identity = playerIdentity(player || {}); const diceColor = diceColorForIdentity(identity);
     const revealed = revealAll || settled > index;
-    return `<div class="starting-roll-die${revealed ? ' landed' : ' rolling'}" data-seat-id="${roll.seatId}"><span>${name}</span><strong><small>d20</small><output>${revealed ? roll.value : '—'}</output></strong></div>`;
+    return `<div class="starting-roll-die${revealed ? ' landed' : ' rolling'}" data-seat-id="${roll.seatId}" style="--dice-color: ${diceColor}"><span><i class="roll-identity" style="background: ${identityBackground(identity) || diceColor}" aria-label="${identity.length ? `${identity.join('')} commander identity` : 'Colorless commander identity'}"></i>${name}</span><strong><small>d20</small><output>${revealed ? roll.value : '—'}</output></strong></div>`;
   }).join('');
 }
 function showStartingPlayerRoll(roll, { dialog = true } = {}) {
@@ -324,7 +331,7 @@ function showStartingPlayerRoll(roll, { dialog = true } = {}) {
     dom.startingRollStatus.textContent = roundIndex ? 'TIE — ROLLING AGAIN…' : 'ROLLING FOR FIRST…';
     let settled = 0;
     renderStartingRollDice(round);
-    const physicalRoll = await rollPhysicalD20s({ container: dom.startingRollCanvas, count: round.rolls.length, onDieSettled: () => {
+    const physicalRoll = await rollPhysicalD20s({ container: dom.startingRollCanvas, colors: round.rolls.map(item => diceColorForIdentity(playerIdentity(state?.players.find(player => player.id === `P${item.seatId + 1}`) || {}))), onDieSettled: () => {
       if (sequence !== startingRollSequence) return;
       settled = Math.min(settled + 1, round.rolls.length);
       renderStartingRollDice(round, { settled });
