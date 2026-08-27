@@ -130,8 +130,8 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .turn-banner p { font-size: .67rem; font-weight: 900; letter-spacing: .1em; color: var(--brass); }
 .turn-banner strong { font-size: .92rem; }
 .turn-banner span { font-size: .62rem; font-weight: 800; letter-spacing: .05em; color: var(--muted); text-align: right; }
-.turn-banner #turnElapsed { display: block; grid-column: 2; grid-row: 2; text-align: left; }
-.turn-banner #gameTimer { grid-column: 3; grid-row: 1 / span 2; }
+.turn-banner #gameTimer { grid-column: 3; grid-row: 1; }
+.turn-banner #turnElapsed { display: block; grid-column: 3; grid-row: 2; }
 .turn-actions { margin: 5px 0 7px; text-align: center; }
 .end-turn-button { width: 100%; min-height: 42px; padding: 9px 12px; border: 1px solid var(--brass); border-radius: 5px; background: var(--brass); color: #1c170e; font-size: .82rem; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; }
 .end-turn-button:disabled { border-color: var(--line); background: var(--surface); color: var(--muted); }
@@ -364,6 +364,7 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
 .game-menu .menu-close span { font-family: Georgia, serif; font-size: 1.5rem; font-weight: 400; }
 .game-menu .end-turn-button { border: 1px solid #f0cf8f; background: var(--brass); color: #1c170e; }
 .game-menu .end-turn-button:disabled { border-color: var(--line); background: var(--surface-2); color: var(--muted); }
+.game-menu #pauseTurnButton, .game-menu #toggleTurnTrackingButton { margin-top: 4px; padding: 8px 6px; border-top: 1px solid var(--line); color: var(--brass); font-size: .72rem; font-weight: 800; letter-spacing: .04em; }
 
 @media (max-width: 359px), (max-height: 740px) {
   .brand-bar { min-height: 52px; padding-block: max(5px, env(safe-area-inset-top)) 5px; }.game-shell { padding-top: 2px; }.game-topline { min-height: 74px; }.game-identity { padding-top: 4px; }.owner-label { font-size: 1.38rem; }
