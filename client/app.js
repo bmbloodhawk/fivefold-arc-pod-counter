@@ -1,6 +1,6 @@
 import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=72';
 import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=72';
-import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=98';
+import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=100';
 import { connectionPresentation } from './connection-state.js?v=1';
 
 const MODES = ['life', 'commander', 'radiation', 'poison', 'energy', 'generic'];
@@ -16,7 +16,7 @@ const dom = {
   counterContext: $('#counterContext'), statusMessage: $('#statusMessage'), lethalMark: $('#lethalMark'), lifeChangeIndicator: $('#lifeChangeIndicator'), sourcePanel: $('#sourcePanel'), inspectionNotice: $('#inspectionNotice'),
   activeSeatBar: $('#activeSeatBar'), gameMenu: $('#gameMenu'), moreButton: $('#moreButton'),
   disconnectBanner: $('#disconnectBanner'), syncBanner: $('#syncBanner'), coinTossNotice: $('#coinTossNotice'), victoryNotice: $('#victoryNotice'), coinTossButton: $('#coinTossButton'), coinTossDialog: $('#coinTossDialog'), coinTossResult: $('#coinTossResult'), tossAgainButton: $('#tossAgainButton'), resetDialog: $('#resetDialog'), commanderSetupButton: $('#commanderSetupButton'), backToSetupButton: $('#backToSetupButton'), declareWinnerButton: $('#declareWinnerButton'), declareWinnerDialog: $('#declareWinnerDialog'), declareWinnerForm: $('#declareWinnerForm'), winnerSeat: $('#winnerSeat'), victoryDialog: $('#victoryDialog'), victoryTitle: $('#victoryTitle'), victoryDetail: $('#victoryDetail'),
-  lobbyControls: $('#lobbyControls'), lobbyStatus: $('#lobbyStatus'), startingSeatField: $('#startingSeatField'), startingSeat: $('#startingSeat'), chooseFirstButton: $('#chooseFirstButton'), randomFirstButton: $('#randomFirstButton'), startGameButton: $('#startGameButton'), startingRollDialog: $('#startingRollDialog'), startingRollStatus: $('#startingRollStatus'), startingRollCanvas: $('#startingRollCanvas'), startingRollFinalDice: $('#startingRollFinalDice'), startingRollOverlays: $('#startingRollOverlays'), startingRollLive: $('#startingRollLive'), turnBanner: $('#turnBanner'), turnLabel: $('#turnLabel'), turnPlayer: $('#turnPlayer'), turnElapsed: $('#turnElapsed'), gameTimer: $('#gameTimer'), lastTurnSummary: $('#lastTurnSummary'), turnActions: $('#turnActions'), endTurnButton: $('#endTurnButton'), undoTurnButton: $('#undoTurnButton'), pauseTurnButton: $('#pauseTurnButton'), toggleTurnTrackingButton: $('#toggleTurnTrackingButton'), turnActionDetail: $('#turnActionDetail'),
+  lobbyControls: $('#lobbyControls'), lobbyStatus: $('#lobbyStatus'), startingSeatField: $('#startingSeatField'), startingSeat: $('#startingSeat'), chooseFirstButton: $('#chooseFirstButton'), randomFirstButton: $('#randomFirstButton'), startGameButton: $('#startGameButton'), startingRollDialog: $('#startingRollDialog'), startingRollStatus: $('#startingRollStatus'), rollMyD20Button: $('#rollMyD20Button'), startingRollCanvas: $('#startingRollCanvas'), startingRollFinalDice: $('#startingRollFinalDice'), startingRollOverlays: $('#startingRollOverlays'), startingRollLive: $('#startingRollLive'), turnBanner: $('#turnBanner'), turnLabel: $('#turnLabel'), turnPlayer: $('#turnPlayer'), turnElapsed: $('#turnElapsed'), gameTimer: $('#gameTimer'), lastTurnSummary: $('#lastTurnSummary'), turnActions: $('#turnActions'), endTurnButton: $('#endTurnButton'), undoTurnButton: $('#undoTurnButton'), pauseTurnButton: $('#pauseTurnButton'), toggleTurnTrackingButton: $('#toggleTurnTrackingButton'), turnActionDetail: $('#turnActionDetail'),
   commanderCountDialog: $('#commanderCountDialog'), commanderCountDetail: $('#commanderCountDetail'), commanderCountForm: $('#commanderCountForm'), saveCommanderCountButton: $('#saveCommanderCountButton'),
   commanderTaxQuickButton: $('#commanderTaxQuickButton'), commanderTaxDialog: $('#commanderTaxDialog'), commanderTaxDetail: $('#commanderTaxDetail'), commanderTaxList: $('#commanderTaxList'),
   customLifeButton: $('#customLifeButton'), customLifeDialog: $('#customLifeDialog'), customLifeForm: $('#customLifeForm'), customLifeAmount: $('#customLifeAmount'), cancelCustomLifeButton: $('#cancelCustomLifeButton'), playtestNotesButton: $('#playtestNotesButton'), playtestRecapButton: $('#playtestRecapButton'), savedPlaytestsButton: $('#savedPlaytestsButton'), refreshTableButton: $('#refreshTableButton'), playtestNotesDialog: $('#playtestNotesDialog'), playtestNotesForm: $('#playtestNotesForm'), playtestNotesList: $('#playtestNotesList'), playtestNoteText: $('#playtestNoteText'), playtestNoteStatus: $('#playtestNoteStatus'), playtestRecapDialog: $('#playtestRecapDialog'), playtestRecapContent: $('#playtestRecapContent'), savedPlaytestsDialog: $('#savedPlaytestsDialog'), savedPlaytestsContent: $('#savedPlaytestsContent')
@@ -35,6 +35,7 @@ let startingRollTimers = [];
 let startingRollSequence = 0;
 let lastStartingRollKey = null;
 let localStartingRollKey = null;
+let pendingStartingRoll = null;
 let turnTicker = null;
 let turnUndoTimer = null;
 let lastTurnHandoffKey = null;
@@ -337,14 +338,21 @@ function showStartingPlayerRoll(roll, { dialog = true } = {}) {
   const round = roll.rounds.at(-1); renderStartingRollDice(round);
   const contenderSeatIds = round.contenderSeatIds || round.rolls.map(item => item.seatId);
   const complete = roll.status === 'complete' || (!roll.status && Number.isInteger(roll.winnerSeatId));
+  dom.rollMyD20Button.hidden = true; dom.rollMyD20Button.disabled = false; pendingStartingRoll = null;
   if (complete) { const winner = state?.players.find(player => player.id === `P${roll.winnerSeatId + 1}`); const winningValue = round.rolls.find(item => item.seatId === roll.winnerSeatId)?.value; dom.startingRollStatus.textContent = `${displayName(winner || { id: `P${roll.winnerSeatId + 1}` })} ROLLS ${winningValue} — GOES FIRST`; render(); return; }
   const ownSeatId = Number(state?.ownerPlayerId?.slice(1)) - 1; const ownReported = round.rolls.some(item => item.seatId === ownSeatId); const key = `${roll.startedAt ?? roll.selectedAt}:${contenderSeatIds.join('-')}:${ownSeatId}`;
   if (!contenderSeatIds.includes(ownSeatId) || ownReported) { const waiting = contenderSeatIds.length - round.rolls.length; dom.startingRollStatus.textContent = `WAITING FOR ${waiting} LOCAL ROLL${waiting === 1 ? '' : 'S'}…`; return; }
-  if (localStartingRollKey === key) return;
-  localStartingRollKey = key; dom.startingRollStatus.textContent = contenderSeatIds.length < (state?.players.length || 0) ? 'TIE — ROLL AGAIN…' : 'ROLL YOUR D20…';
-  const player = state?.players.find(candidate => candidate.id === state.ownerPlayerId) || {}; const value = localD20();
-  const report = async () => { try { await transport.reportStartingPlayerRoll(value); } catch (error) { localStartingRollKey = null; showError(error); } };
-  rollPhysicalD20s({ container: dom.startingRollCanvas, dice: [{ colors: playerIdentity(player), value, seed: crypto.getRandomValues(new Uint32Array(1))[0], startedAt: Date.now() + 120 }], onRollSettled: report }).then(result => { if (!result.animated) report(); });
+  dom.rollMyD20Button.hidden = false;
+  if (localStartingRollKey === key) { dom.rollMyD20Button.disabled = true; dom.startingRollStatus.textContent = 'YOUR D20 IS ROLLING…'; return; }
+  pendingStartingRoll = { key, player: state?.players.find(candidate => candidate.id === state.ownerPlayerId) || {} };
+  dom.startingRollStatus.textContent = contenderSeatIds.length < (state?.players.length || 0) ? 'TIE — ROLL AGAIN' : 'ROLL WHEN YOU ARE READY';
+}
+async function rollMyStartingD20() {
+  const pending = pendingStartingRoll; if (!pending || localStartingRollKey === pending.key) return;
+  localStartingRollKey = pending.key; pendingStartingRoll = null; dom.rollMyD20Button.disabled = true; dom.startingRollStatus.textContent = 'YOUR D20 IS ROLLING…';
+  const report = async (value) => { try { await transport.reportStartingPlayerRoll(value); } catch (error) { localStartingRollKey = null; showError(error); } };
+  const result = await rollPhysicalD20s({ container: dom.startingRollCanvas, dice: [{ colors: playerIdentity(pending.player), seed: crypto.getRandomValues(new Uint32Array(1))[0], startedAt: Date.now() + 120 }], onRollSettled: ({ results }) => report(results[0]) });
+  if (!result.animated) report(localD20());
 }
 function renderCoinTossNotice() {
   if (!dom.coinTossNotice) return;
@@ -645,6 +653,7 @@ dom.chooseFirstButton.addEventListener('click', () => chooseStartingPlayer(Numbe
 dom.moreButton.addEventListener('click', () => { dom.gameMenu.hidden = !dom.gameMenu.hidden; dom.moreButton.setAttribute('aria-expanded', String(!dom.gameMenu.hidden)); }); dom.coinTossButton.addEventListener('click', () => { dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); tossCoin(); }); dom.declareWinnerButton.addEventListener('click', openDeclareWinner); dom.tossAgainButton.addEventListener('click', () => tossCoin()); $('#resetButton').addEventListener('click', () => { dom.gameMenu.hidden = true; dom.resetDialog.showModal(); }); $('#confirmResetButton').addEventListener('click', resetGame);
 dom.playtestNotesButton.addEventListener('click', openPlaytestNotes); dom.playtestRecapButton.addEventListener('click', openPlaytestRecap); dom.savedPlaytestsButton.addEventListener('click', openSavedPlaytests); dom.refreshTableButton.addEventListener('click', async () => { try { const { snapshot } = await transport.refreshRoom(); if (snapshot) showSharedGame(snapshot); dom.gameMenu.hidden = true; } catch (error) { showError(error); } }); dom.playtestNotesForm.addEventListener('submit', async event => { if (event.submitter?.id !== 'savePlaytestNoteButton') return; event.preventDefault(); const text = dom.playtestNoteText.value; try { dom.playtestNoteStatus.textContent = 'Saving…'; await transport.addPlaytestNote(text); dom.playtestNoteText.value = ''; dom.playtestNoteStatus.textContent = 'Saved.'; await openPlaytestNotes(); } catch (error) { dom.playtestNoteStatus.textContent = `Not saved: ${error.message}`; } });
 dom.startingRollDialog.addEventListener('close', () => { startingRollSequence += 1; clearStartingRollTimers(); });
+dom.rollMyD20Button.addEventListener('click', rollMyStartingD20);
 $('#closeGameMenuButton').addEventListener('click', () => { dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); });
 dom.commanderSetupButton.addEventListener('click', () => { dom.gameMenu.hidden = true; const player = state.localSimulation ? activePlayer() : state.players.find(item => item.id === state.ownerPlayerId); dom.commanderCountDetail.textContent = state.localSimulation ? `Local simulation: change ${displayName(player)}'s commander details.` : `Change your commander names and color identity for this pod. Your current game and seat stay in place.`; $(`input[name="gameCommanderCount"][value="${player.commanderCount}"]`).checked = true; renderCommanderNameFields(dom.gameCommanderNames, player.commanderCount, player.commanderNames, player.commanderColors); dom.commanderCountDialog.showModal(); });
 dom.commanderTaxQuickButton?.addEventListener('click', () => { renderCommanderTaxDialog(); dom.commanderTaxDialog.showModal(); });

@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=98">
+  <link rel="stylesheet" href="styles.css?v=100">
 </head>
 <body>
   <header class="brand-bar">
@@ -262,7 +262,7 @@
       <p id="startingRollStatus" class="starting-roll-status" aria-live="polite">ROLLING FOR FIRST…</p>
       <div id="startingRollCanvas" class="starting-roll-canvas"><div id="startingRollFinalDice" class="starting-roll-final-dice" aria-hidden="true"></div><div id="startingRollOverlays" class="starting-roll-overlays"></div></div>
       <p id="startingRollLive" class="sr-only" aria-live="polite"></p>
-      <div class="dialog-actions"><button value="close" class="primary-action">Back to lobby</button></div>
+      <div class="dialog-actions"><button id="rollMyD20Button" type="button" class="primary-action" hidden>Roll my d20</button><button value="close" class="secondary-action">Back to lobby</button></div>
     </form>
   </dialog>
 
@@ -363,6 +363,6 @@
     <form method="dialog"><h2 id="savedPlaytestsTitle">Saved playtests</h2><div id="savedPlaytestsContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
   </dialog>
 
-  <script type="module" src="app.js?v=98"></script>
+  <script type="module" src="app.js?v=100"></script>
 </body>
 </html>
