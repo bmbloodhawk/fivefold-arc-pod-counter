@@ -474,6 +474,8 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
 .turn-actions { margin: 4px 0 5px; }
 .end-turn-button { min-height: 40px; padding-block: 7px; }
 @media (max-width: 599px) {
+  .game-shell[data-your-turn="true"] .turn-actions { position: relative; z-index: 4; margin-bottom: -32px; transform: translateY(28px); }
+  .game-shell[data-your-turn="true"] .counter-stage { margin-top: 0; }
   .game-shell[data-your-turn="true"] .counter-stage { min-height: 278px; }
   .game-shell[data-your-turn="true"] .main-value { margin-top: 53px; }
 }
