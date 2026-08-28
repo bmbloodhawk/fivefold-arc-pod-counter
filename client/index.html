@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=86">
+  <link rel="stylesheet" href="styles.css?v=88">
 </head>
 <body>
   <header class="brand-bar">
@@ -45,7 +45,11 @@
           <legend>Players</legend>
           <div id="playerCountChoices" class="segmented dense" role="radiogroup" aria-label="Number of players"></div>
         </fieldset>
-        <p class="field-help setup-fast-path">Four players at 40 life is ready by default. Create now; each player claims their own seat when joining.</p>
+        <p class="field-help setup-fast-path">You are P1. Four players at 40 life is ready by default; each other player claims an open seat when joining.</p>
+        <label class="select-field">Your name <small>(optional)</small>
+          <input id="createName" name="name" type="text" autocomplete="name" maxlength="24" placeholder="P1">
+          <small>This is shown to the table. Leave blank to use P1.</small>
+        </label>
         <details class="setup-options">
           <summary>More setup options</summary>
           <label class="select-field">Round limit <small>(optional)</small>
@@ -60,14 +64,6 @@
               <label><input type="radio" name="startingLife" value="40" checked><span>40</span></label>
             </div>
           </fieldset>
-          <label class="select-field">This phone belongs to
-            <select id="ownerSeat"></select>
-            <small>Each player records damage received by their own seat.</small>
-          </label>
-          <label class="select-field">Your name <small>(optional)</small>
-            <input id="createName" name="name" type="text" autocomplete="name" maxlength="24" placeholder="P1">
-            <small>Leave blank to use your seat name. Up to 24 characters.</small>
-          </label>
           <fieldset class="choice-field">
             <legend>My commanders</legend>
             <div class="segmented commander-count-choice" role="radiogroup" aria-label="Number of commanders for your claimed seat">
@@ -367,6 +363,6 @@
     <form method="dialog"><h2 id="savedPlaytestsTitle">Saved playtests</h2><div id="savedPlaytestsContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
   </dialog>
 
-  <script type="module" src="app.js?v=86"></script>
+  <script type="module" src="app.js?v=88"></script>
 </body>
 </html>

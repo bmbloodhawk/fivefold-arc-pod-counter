@@ -468,3 +468,20 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
   :root { --mode-nav-height: 66px; }
   .game-shell { padding-bottom: calc(var(--mode-nav-height) + 16px + env(safe-area-inset-bottom)); }
 }
+
+/* Active-turn priority: one concise status strip leaves room for commander tax. */
+.turn-banner { grid-template-columns: auto minmax(0, 1fr) auto; min-height: 40px; padding: 5px 9px; gap: 1px 7px; }
+.turn-banner p { font-size: .61rem; }
+.turn-banner strong { overflow: hidden; font-size: .82rem; text-overflow: ellipsis; white-space: nowrap; }
+.turn-banner span { font-size: .56rem; }
+.turn-banner #lastTurnSummary { margin-top: 1px; padding-top: 2px; font-size: .51rem; }
+.turn-actions { margin: 4px 0 5px; }
+.end-turn-button { min-height: 40px; padding-block: 7px; }
+@media (max-width: 599px) {
+  .game-shell[data-your-turn="true"] .counter-stage { min-height: 278px; }
+  .game-shell[data-your-turn="true"] .main-value { margin-top: 53px; }
+}
+@media (max-width: 359px), (max-height: 740px) {
+  .game-shell[data-your-turn="true"] .counter-stage { min-height: 230px; }
+  .game-shell[data-your-turn="true"] .main-value { margin-top: 43px; }
+}
