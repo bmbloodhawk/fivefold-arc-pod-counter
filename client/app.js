@@ -1,6 +1,6 @@
 import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=72';
 import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=72';
-import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=85';
+import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=93';
 import { connectionPresentation } from './connection-state.js?v=1';
 
 const MODES = ['life', 'commander', 'radiation', 'poison', 'energy', 'generic'];
@@ -300,7 +300,7 @@ function createLocalStartingPlayerRoll(players) {
     const rolls = contenders.map(player => ({ seatId: Number(player.id.slice(1)) - 1, value: localD20() }));
     const high = Math.max(...rolls.map(roll => roll.value)); const tiedSeatIds = rolls.filter(roll => roll.value === high).map(roll => roll.seatId);
     rounds.push({ rolls, tiedSeatIds });
-    if (tiedSeatIds.length === 1) return { rounds, winnerSeatId: tiedSeatIds[0], selectedAt: Date.now() };
+    if (tiedSeatIds.length === 1) return { rounds, winnerSeatId: tiedSeatIds[0], selectedAt: Date.now(), visualSeed: crypto.getRandomValues(new Uint32Array(1))[0] };
     contenders = players.filter(player => tiedSeatIds.includes(Number(player.id.slice(1)) - 1));
   }
   throw new Error('Could not complete the d20 roll-off. Please roll again.');
@@ -312,16 +312,11 @@ function diceColorForIdentity(colors) {
   const mixed = [0, 1, 2].map(channel => Math.round(channels.reduce((total, value) => total + value[channel], 0) / channels.length * .82 + 255 * .18));
   return `#${mixed.map(value => value.toString(16).padStart(2, '0')).join('')}`;
 }
-function diceSkinForIdentity(colors) { const key = normaliseIdentity(colors).join('').toLowerCase() || 'c'; return { theme: `fivefold-${key}`, themeColor: diceColorForIdentity(colors) }; }
 function renderStartingRollDice(round, { settled = 0, revealAll = false } = {}) {
   if (!dom.startingRollOverlays || !dom.startingRollFinalDice) return;
   dom.startingRollCanvas.dataset.diceCount = String(round.rolls.length);
   dom.startingRollCanvas.dataset.rollComplete = String(revealAll);
-  dom.startingRollFinalDice.innerHTML = revealAll ? round.rolls.map(roll => {
-    const player = state?.players.find(item => item.id === `P${roll.seatId + 1}`);
-    const identity = playerIdentity(player || {}); const diceColor = diceColorForIdentity(identity);
-    return `<div class="roll-result-die" style="--dice-color: ${diceColor}; --dice-identity: ${identityBackground(identity) || diceColor}"><span>${roll.value}</span></div>`;
-  }).join('') : '';
+  dom.startingRollFinalDice.innerHTML = '';
   dom.startingRollOverlays.innerHTML = round.rolls.map((roll, index) => {
     const player = state?.players.find(item => item.id === `P${roll.seatId + 1}`);
     const name = escapeHtml(displayName(player || { id: `P${roll.seatId + 1}` }));
@@ -342,7 +337,6 @@ function showStartingPlayerRoll(roll, { dialog = true } = {}) {
     if (sequence !== startingRollSequence) return;
     const round = roll.rounds[roundIndex];
     dom.startingRollStatus.textContent = roundIndex ? 'TIE — ROLLING AGAIN…' : 'ROLLING FOR FIRST…';
-    let settled = 0;
     let finished = false;
     renderStartingRollDice(round);
     const finishRound = () => {
@@ -355,12 +349,11 @@ function showStartingPlayerRoll(roll, { dialog = true } = {}) {
       dom.startingRollStatus.textContent = `${displayName(winner || { id: `P${roll.winnerSeatId + 1}` })} ROLLS ${winningValue} — GOES FIRST`;
       render();
     };
-    const physicalRoll = await rollPhysicalD20s({ container: dom.startingRollCanvas, dice: round.rolls.map(item => diceSkinForIdentity(playerIdentity(state?.players.find(player => player.id === `P${item.seatId + 1}`) || {}))), onDieSettled: () => {
-      if (sequence !== startingRollSequence) return;
-      settled = Math.min(settled + 1, round.rolls.length);
-      renderStartingRollDice(round, { settled });
-      if (settled >= round.rolls.length) finishRound();
-    }, onRollSettled: finishRound });
+    const animationStartAt = Date.now() + 120;
+    const physicalRoll = await rollPhysicalD20s({ container: dom.startingRollCanvas, dice: round.rolls.map(item => {
+      const player = state?.players.find(candidate => candidate.id === `P${item.seatId + 1}`) || {};
+      return { colors: playerIdentity(player), value: item.value, seed: roll.visualSeed ?? roll.selectedAt, startedAt: animationStartAt };
+    }), onRollSettled: finishRound });
     if (!physicalRoll.animated) { startingRollTimer = setTimeout(finishRound, 450); }
     else if (!finished) { startingRollTimer = setTimeout(finishRound, 14_500); }
   };

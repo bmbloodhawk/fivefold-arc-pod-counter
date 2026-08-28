@@ -268,12 +268,15 @@ function rollD20() {
 function createStartingPlayerRoll(claimedSeats, selectedAt) {
   let contenders = claimedSeats;
   const rounds = [];
+  // This is visual-only: every client follows the same tumble, while the
+  // already-selected d20 values above remain the sole source of truth.
+  const visualSeed = randomBytes(4).readUInt32BE(0);
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const rolls = contenders.map((seat) => ({ seatId: seat.seatId, value: rollD20() }));
     const highRoll = Math.max(...rolls.map((roll) => roll.value));
     const tiedSeatIds = rolls.filter((roll) => roll.value === highRoll).map((roll) => roll.seatId);
     rounds.push({ rolls, tiedSeatIds });
-    if (tiedSeatIds.length === 1) return { rounds, winnerSeatId: tiedSeatIds[0], selectedAt };
+    if (tiedSeatIds.length === 1) return { rounds, winnerSeatId: tiedSeatIds[0], selectedAt, visualSeed };
     contenders = claimedSeats.filter((seat) => tiedSeatIds.includes(seat.seatId));
   }
   throw Object.assign(new Error("Could not complete the d20 roll-off"), { status: 503, code: "ROLL_FAILED" });
