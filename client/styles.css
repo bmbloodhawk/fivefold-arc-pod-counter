@@ -193,7 +193,7 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .danger-text { color: var(--danger); }
 dialog { width: min(calc(100% - 30px), 440px); padding: 24px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
 dialog::backdrop { background: rgb(0 0 0 / .72); backdrop-filter: blur(3px); }
-#startingRollDialog { max-height: calc(100dvh - 24px); overflow-y: auto; }
+#startingRollDialog { width: min(calc(100% - 16px), 620px); max-height: calc(100dvh - 16px); overflow-y: auto; }
 #startingRollDialog h2 { margin-top: 0; }
 dialog h2 { margin: 18px 0 8px; font-family: Georgia, serif; font-size: 1.8rem; }
 dialog p { color: var(--muted); line-height: 1.5; }
@@ -204,10 +204,9 @@ dialog p { color: var(--muted); line-height: 1.5; }
 .coin-toss-result { margin: 16px 0 0; color: var(--brass); font-family: Georgia, serif; font-size: clamp(2rem, 12vw, 3.2rem); font-weight: 700; letter-spacing: .08em; text-align: center; text-transform: uppercase; }
 .coin-toss-result.spinning { color: var(--muted); letter-spacing: .16em; text-shadow: 0 0 16px rgb(216 174 97 / .45); }
 .starting-roll-status { margin: 14px 0 12px; color: var(--brass); font-size: .8rem; font-weight: 900; letter-spacing: .1em; text-align: center; }
-.starting-roll-canvas { position: relative; height: clamp(190px, 36dvh, 290px); overflow: hidden; border: 1px solid var(--brass-dark); border-radius: 5px; background: radial-gradient(ellipse at center, rgb(94 66 28 / .72), rgb(18 15 10 / .96) 72%); box-shadow: inset 0 0 36px rgb(0 0 0 / .55); }
-.starting-roll-canvas[data-dice-count="2"] { height: clamp(250px, 44dvh, 340px); }
-.starting-roll-canvas[data-dice-count="3"], .starting-roll-canvas[data-dice-count="4"] { height: clamp(220px, 40dvh, 300px); }
-.starting-roll-canvas[data-dice-count="7"], .starting-roll-canvas[data-dice-count="8"] { height: clamp(170px, 31dvh, 230px); }
+.starting-roll-canvas { position: relative; width: 100%; aspect-ratio: 3 / 2; max-height: 260px; overflow: hidden; border: 1px solid var(--brass-dark); border-radius: 5px; background: radial-gradient(ellipse at center, rgb(94 66 28 / .72), rgb(18 15 10 / .96) 72%); box-shadow: inset 0 0 36px rgb(0 0 0 / .55); }
+.starting-roll-canvas[data-dice-count="3"], .starting-roll-canvas[data-dice-count="4"] { aspect-ratio: 16 / 9; }
+.starting-roll-canvas[data-dice-count="7"], .starting-roll-canvas[data-dice-count="8"] { aspect-ratio: 2 / 1; max-height: 210px; }
 .starting-roll-canvas canvas { display: block; width: 100% !important; height: 100% !important; pointer-events: none; }
 .starting-roll-overlays { position: absolute; z-index: 2; inset: 8px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; align-items: center; gap: 4px 10px; pointer-events: none; }
 .dice-result-chip { display: flex; align-items: center; justify-content: space-between; justify-self: start; width: min(100%, 112px); min-height: 28px; gap: 6px; padding: 4px 7px; border: 1px solid var(--dice-color); border-left: 4px solid var(--dice-color); border-radius: 4px; background: linear-gradient(90deg, rgb(9 8 8 / .92), rgb(9 8 8 / .64)); box-shadow: 0 3px 10px rgb(0 0 0 / .35); color: var(--paper); font-size: .68rem; font-weight: 850; letter-spacing: .03em; }
@@ -215,7 +214,13 @@ dialog p { color: var(--muted); line-height: 1.5; }
 .dice-result-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dice-result-chip strong { color: #fff8df; font-family: Georgia, serif; font-size: 1.18rem; line-height: 1; text-shadow: 0 1px 3px #000; }
 .dice-result-chip.landed { background: linear-gradient(90deg, color-mix(in srgb, var(--dice-color) 30%, #090808), rgb(9 8 8 / .82)); }
-@media (max-width: 359px) { .starting-roll-canvas, .starting-roll-canvas[data-dice-count="2"], .starting-roll-canvas[data-dice-count="3"], .starting-roll-canvas[data-dice-count="4"], .starting-roll-canvas[data-dice-count="7"], .starting-roll-canvas[data-dice-count="8"] { height: 170px; } }
+@media (max-width: 359px) {
+  #startingRollDialog { width: calc(100% - 12px); padding: 12px; }
+  #startingRollDialog h2 { font-size: 1.5rem; line-height: 1.05; }
+  #startingRollDialog .dialog-actions { grid-template-columns: 1fr; margin-top: 14px; }
+  .starting-roll-canvas { aspect-ratio: 3 / 2; max-height: 190px; }
+  .starting-roll-canvas[data-dice-count="7"], .starting-roll-canvas[data-dice-count="8"] { max-height: 154px; }
+}
 .commander-tax-list { display: grid; gap: 12px; margin-top: 18px; }
 .commander-tax-row { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--line); background: var(--surface-2); }
 .commander-tax-summary { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }

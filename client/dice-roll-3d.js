@@ -42,8 +42,11 @@ export async function rollPhysicalD20s({ container, dice = [], onDieSettled = ()
     if (sequence !== activeRoll) return { animated: false, results: [] };
     box.canvas?.setAttribute('aria-hidden', 'true');
     container.dataset.diceCount = String(count);
-    const externalThemes = Object.fromEntries(dice.map(({ theme }) => [theme, `/dice-skins/${theme.replace('fivefold-', '')}`]));
-    await box.updateConfig({ scale: scaleForDiceCount(count), externalThemes });
+    // Dice Box's default material is the reliable, high-contrast d20 texture.
+    // Commander identity colors still tint each physical die; custom texture
+    // loading is intentionally kept out of the live roll path so a skin can
+    // never make the animation disappear.
+    await box.updateConfig({ scale: scaleForDiceCount(count) });
     let settled = 0;
     let complete = false;
     const safetyTimer = setTimeout(() => { if (!complete && sequence === activeRoll) { complete = true; onRollSettled(false); } }, 14_000);
@@ -54,7 +57,7 @@ export async function rollPhysicalD20s({ container, dice = [], onDieSettled = ()
       if (settled >= count && !complete) { complete = true; clearTimeout(safetyTimer); }
     };
     box.clear();
-    dice.forEach(({ theme, themeColor }, index) => box.add({ sides: 20, qty: 1, theme, themeColor }, { newStartPoint: index === 0 }));
+    dice.forEach(({ themeColor }, index) => box.add({ sides: 20, qty: 1, theme: 'default', themeColor }, { newStartPoint: index === 0 }));
     return sequence === activeRoll ? { animated: true, results: [] } : { animated: false, results: [] };
   } catch (error) {
     console.warn('3D dice unavailable; showing the locked table result instead.', error);
