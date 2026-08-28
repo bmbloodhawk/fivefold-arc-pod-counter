@@ -103,6 +103,7 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .disconnect-banner > span { display: grid; place-items: center; flex: 0 0 28px; height: 28px; border: 2px solid var(--warning); border-radius: 50%; font-weight: 900; }
 .disconnect-banner p { margin: 0; color: var(--muted); font-size: .77rem; line-height: 1.35; }
 .disconnect-banner strong { color: var(--ink); }
+.sync-banner { margin: 8px 0; padding: 9px 11px; border: 1px solid var(--safe); background: rgb(45 103 93 / .28); color: var(--ink); font-size: .78rem; font-weight: 800; }
 .inspection-notice { margin: 0 0 8px; padding: 8px 10px; border: 1px solid var(--brass-dark); border-left: 3px solid var(--brass); background: rgb(216 174 97 / .08); color: var(--brass); font-size: .68rem; font-weight: 900; letter-spacing: .08em; text-align: center; }
 .pod-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin: 7px 0 10px; }
 .pod-seat { position: relative; overflow: hidden; min-width: 0; min-height: 72px; padding: 8px 5px 11px; border: 1px solid #62583f; border-radius: 7px; background: linear-gradient(145deg, #2a2823, #151515 68%); box-shadow: inset 0 1px 0 rgb(255 255 255 / .06), 0 3px 0 #090909; text-align: center; }
@@ -185,6 +186,40 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .mode-nav button > span { font-size: 1.1rem; }
 .mode-nav small { max-width: 100%; overflow: hidden; font-size: clamp(.48rem, 2.4vw, .65rem); text-overflow: ellipsis; }
 .mode-nav button.active { border-top-color: var(--brass); color: var(--brass); }
+
+/* Gameplay content always clears the persistent navigation, including tax. */
+:root { --mode-nav-height: 102px; }
+.game-shell { padding-bottom: calc(var(--mode-nav-height) + 26px + env(safe-area-inset-bottom)); }
+.mode-nav { min-height: var(--mode-nav-height); }
+.setup-fast-path { margin: 0; padding: 10px 12px; border-left: 3px solid var(--brass); background: rgb(216 174 97 / .08); }
+.setup-options { margin-top: 14px; }
+.setup-options > summary { min-height: 44px; padding: 12px; border: 1px solid var(--line); color: var(--brass); cursor: pointer; font-weight: 800; }
+.setup-options[open] > summary { margin-bottom: 12px; }
+.source-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.source-panel-prompt { grid-column: 1 / -1; margin: 0; color: var(--ink); font-size: .82rem; font-weight: 800; }
+.source-button { min-height: 76px; }
+.source-button.selected { outline: 3px solid var(--brass); outline-offset: 2px; }
+.source-button small { display: block; margin-top: 4px; color: var(--muted); font-size: .72rem; }
+.pod-strip[data-player-count="8"] { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.pod-strip[data-player-count="8"] .pod-seat { min-height: 76px; }
+.pod-strip[data-player-count="8"] .seat-life { font-size: clamp(1.55rem, 7.5vw, 2.2rem); }
+.pod-strip[data-player-count="8"] .seat-state { width: auto; height: auto; padding: 2px 4px; border-radius: 3px; font-size: .5rem; }
+.pod-strip[data-player-count="8"] .seat-state::before { content: attr(title); }
+.pod-strip[data-player-count="8"] .seat-state { font-size: 0; }
+.pod-strip[data-player-count="8"] .seat-state::before { font-size: .48rem; }
+
+@media (max-width: 599px) {
+  :root { --mode-nav-height: 78px; }
+  .game-shell { padding-bottom: calc(var(--mode-nav-height) + 18px + env(safe-area-inset-bottom)); }
+  .source-button { min-height: 70px; }
+  .source-panel-prompt { font-size: .72rem; }
+}
+
+@media (max-width: 359px), (max-height: 740px) {
+  :root { --mode-nav-height: 66px; }
+  .game-shell { padding-bottom: calc(var(--mode-nav-height) + 16px + env(safe-area-inset-bottom)); }
+  .source-button { min-height: 60px; }
+}
 .active-seat-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 14px 0; padding: 8px 10px; border: 1px dashed var(--line); }
 .active-seat-bar label { color: var(--muted); font-size: .72rem; }
 .active-seat-bar select { width: auto; min-width: 92px; }
@@ -420,3 +455,16 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
 .pod-seat.active { border-color: #e2c17d; box-shadow: inset 0 0 0 2px #16130d, inset 0 0 0 4px #d4b16c; }
 .pod-seat.active .seat-name, .pod-seat.active .seat-life { text-shadow: 0 3px 8px rgb(0 0 0 / .7); }
 .pod-seat.turn-active { outline: 3px solid #55c9c2; outline-offset: 2px; box-shadow: 0 0 16px rgb(85 201 194 / .28); }
+
+/* Final phone overrides: the fixed navigation must never cover the tax action. */
+:root { --mode-nav-height: 102px; }
+.game-shell { padding-bottom: calc(var(--mode-nav-height) + 26px + env(safe-area-inset-bottom)); }
+.mode-nav { min-height: var(--mode-nav-height); }
+@media (max-width: 599px) {
+  :root { --mode-nav-height: 78px; }
+  .game-shell { padding-bottom: calc(var(--mode-nav-height) + 18px + env(safe-area-inset-bottom)); }
+}
+@media (max-width: 359px), (max-height: 740px) {
+  :root { --mode-nav-height: 66px; }
+  .game-shell { padding-bottom: calc(var(--mode-nav-height) + 16px + env(safe-area-inset-bottom)); }
+}
