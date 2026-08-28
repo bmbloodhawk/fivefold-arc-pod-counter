@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@3d-dice/dice-box": "1.1.4",
+    "@dimforge/rapier3d-compat": "0.19.3",
     "three": "0.180.0"
   }
 }
