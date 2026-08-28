@@ -204,9 +204,11 @@ dialog p { color: var(--muted); line-height: 1.5; }
 .coin-toss-result { margin: 16px 0 0; color: var(--brass); font-family: Georgia, serif; font-size: clamp(2rem, 12vw, 3.2rem); font-weight: 700; letter-spacing: .08em; text-align: center; text-transform: uppercase; }
 .coin-toss-result.spinning { color: var(--muted); letter-spacing: .16em; text-shadow: 0 0 16px rgb(216 174 97 / .45); }
 .starting-roll-status { margin: 14px 0 12px; color: var(--brass); font-size: .8rem; font-weight: 900; letter-spacing: .1em; text-align: center; }
-.starting-roll-canvas { position: relative; width: 100%; aspect-ratio: 3 / 2; max-height: 260px; overflow: hidden; border: 1px solid var(--brass-dark); border-radius: 5px; background: radial-gradient(ellipse at center, rgb(94 66 28 / .72), rgb(18 15 10 / .96) 72%); box-shadow: inset 0 0 36px rgb(0 0 0 / .55); }
-.starting-roll-canvas[data-dice-count="3"], .starting-roll-canvas[data-dice-count="4"] { aspect-ratio: 16 / 9; }
-.starting-roll-canvas[data-dice-count="7"], .starting-roll-canvas[data-dice-count="8"] { aspect-ratio: 2 / 1; max-height: 210px; }
+.starting-roll-canvas { position: relative; width: 100%; height: min(46dvh, 450px); overflow: hidden; border: 1px solid var(--brass-dark); border-radius: 5px; background: radial-gradient(ellipse at center, rgb(94 66 28 / .72), rgb(18 15 10 / .96) 72%); box-shadow: inset 0 0 36px rgb(0 0 0 / .55); }
+.starting-roll-canvas[data-dice-count="2"] { height: min(52dvh, 460px); }
+.starting-roll-canvas[data-dice-count="3"], .starting-roll-canvas[data-dice-count="4"] { height: min(44dvh, 410px); }
+.starting-roll-canvas[data-dice-count="5"], .starting-roll-canvas[data-dice-count="6"] { height: min(40dvh, 370px); }
+.starting-roll-canvas[data-dice-count="7"], .starting-roll-canvas[data-dice-count="8"] { height: min(34dvh, 315px); }
 .starting-roll-canvas canvas { display: block; width: 100% !important; height: 100% !important; pointer-events: none; }
 .starting-roll-overlays { position: absolute; z-index: 2; inset: 8px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; align-items: center; gap: 4px 10px; pointer-events: none; }
 .dice-result-chip { display: flex; align-items: center; justify-content: space-between; justify-self: start; width: min(100%, 112px); min-height: 28px; gap: 6px; padding: 4px 7px; border: 1px solid var(--dice-color); border-left: 4px solid var(--dice-color); border-radius: 4px; background: linear-gradient(90deg, rgb(9 8 8 / .92), rgb(9 8 8 / .64)); box-shadow: 0 3px 10px rgb(0 0 0 / .35); color: var(--paper); font-size: .68rem; font-weight: 850; letter-spacing: .03em; }
@@ -218,8 +220,11 @@ dialog p { color: var(--muted); line-height: 1.5; }
   #startingRollDialog { width: calc(100% - 12px); padding: 12px; }
   #startingRollDialog h2 { font-size: 1.5rem; line-height: 1.05; }
   #startingRollDialog .dialog-actions { grid-template-columns: 1fr; margin-top: 14px; }
-  .starting-roll-canvas { aspect-ratio: 3 / 2; max-height: 190px; }
-  .starting-roll-canvas[data-dice-count="7"], .starting-roll-canvas[data-dice-count="8"] { max-height: 154px; }
+  .starting-roll-canvas { height: 46dvh; }
+  .starting-roll-canvas[data-dice-count="2"] { height: 52dvh; }
+  .starting-roll-canvas[data-dice-count="3"], .starting-roll-canvas[data-dice-count="4"] { height: 44dvh; }
+  .starting-roll-canvas[data-dice-count="5"], .starting-roll-canvas[data-dice-count="6"] { height: 40dvh; }
+  .starting-roll-canvas[data-dice-count="7"], .starting-roll-canvas[data-dice-count="8"] { height: 34dvh; }
 }
 .commander-tax-list { display: grid; gap: 12px; margin-top: 18px; }
 .commander-tax-row { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--line); background: var(--surface-2); }
