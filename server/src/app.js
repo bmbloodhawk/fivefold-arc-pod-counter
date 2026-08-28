@@ -256,31 +256,9 @@ function seatIsEliminated(seat) {
     || Object.values(seat.commanderDamageReceived).some((damage) => damage >= 21);
 }
 
-function rollD20() {
-  // Reject the final 16 byte values so every d20 face has exactly the same
-  // number of possible source values.
-  let value = randomBytes(1)[0];
-  while (value >= 240) value = randomBytes(1)[0];
-  return (value % 20) + 1;
-}
-
-// The full sequence is created before it is broadcast. Clients may animate it,
-// but never select or reroll an outcome themselves.
 function createStartingPlayerRoll(claimedSeats, selectedAt) {
-  let contenders = claimedSeats;
-  const rounds = [];
-  // This is visual-only: every client follows the same tumble, while the
-  // already-selected d20 values above remain the sole source of truth.
-  const visualSeed = randomBytes(4).readUInt32BE(0);
-  for (let attempt = 0; attempt < 100; attempt += 1) {
-    const rolls = contenders.map((seat) => ({ seatId: seat.seatId, value: rollD20() }));
-    const highRoll = Math.max(...rolls.map((roll) => roll.value));
-    const tiedSeatIds = rolls.filter((roll) => roll.value === highRoll).map((roll) => roll.seatId);
-    rounds.push({ rolls, tiedSeatIds });
-    if (tiedSeatIds.length === 1) return { rounds, winnerSeatId: tiedSeatIds[0], selectedAt, visualSeed };
-    contenders = claimedSeats.filter((seat) => tiedSeatIds.includes(seat.seatId));
-  }
-  throw Object.assign(new Error("Could not complete the d20 roll-off"), { status: 503, code: "ROLL_FAILED" });
+  const contenderSeatIds = claimedSeats.map((seat) => seat.seatId);
+  return { startedAt: selectedAt, status: "rolling", winnerSeatId: null, rounds: [{ contenderSeatIds, rolls: [] }] };
 }
 
 function recordLastPlayerStanding(room, now) {
@@ -427,7 +405,8 @@ export class RoomService {
           ...room.turn.startingPlayerRoll,
           rounds: room.turn.startingPlayerRoll.rounds.map((round) => ({
             rolls: round.rolls.map((roll) => ({ ...roll })),
-            tiedSeatIds: [...round.tiedSeatIds],
+            contenderSeatIds: [...round.contenderSeatIds],
+            ...(round.tiedSeatIds ? { tiedSeatIds: [...round.tiedSeatIds] } : {}),
           })),
         } : null,
         lastHandoff: room.turn.lastHandoff ? { ...room.turn.lastHandoff } : null,
@@ -787,13 +766,13 @@ export class RoomService {
     if (claimedSeats.length < 2) throw Object.assign(new Error("At least two claimed players are needed to choose who goes first"), { status: 409, code: "NOT_ENOUGH_PLAYERS", snapshot: this.snapshot(room) });
     const requestedSeatId = input.startingSeatId;
     const roll = requestedSeatId === undefined ? createStartingPlayerRoll(claimedSeats, this.now()) : null;
-    const chosen = roll
-      ? room.seats[roll.winnerSeatId]
-      : room.seats[asInteger(requestedSeatId, "startingSeatId", 0, room.config.playerCount - 1)];
-    if (!chosen?.claimed) throw Object.assign(new Error("The starting player must be a claimed seat"), { status: 400, code: "INVALID_INPUT" });
-    room.turn = { ...room.turn, activeSeatId: chosen.seatId, startingPlayerSeatId: chosen.seatId, startingPlayerRoll: roll, lastHandoff: null };
+    const chosen = roll ? null : room.seats[asInteger(requestedSeatId, "startingSeatId", 0, room.config.playerCount - 1)];
+    if (!roll && !chosen?.claimed) throw Object.assign(new Error("The starting player must be a claimed seat"), { status: 400, code: "INVALID_INPUT" });
+    room.turn = roll
+      ? { ...room.turn, startingPlayerRoll: roll, lastHandoff: null }
+      : { ...room.turn, activeSeatId: chosen.seatId, startingPlayerSeatId: chosen.seatId, startingPlayerRoll: null, lastHandoff: null };
     room.version += 1;
-    this.recordLedger(room, "first_player_selected", seatId, { startingSeatId: chosen.seatId, method: roll ? "d20" : "host" });
+    this.recordLedger(room, roll ? "first_player_roll_started" : "first_player_selected", seatId, roll ? { method: "local_d20" } : { startingSeatId: chosen.seatId, method: "host" });
     this.broadcast(room);
     return { snapshot: this.snapshot(room) };
   }
@@ -805,6 +784,7 @@ export class RoomService {
     if (room.turn.gameStarted) throw Object.assign(new Error("The game has already started"), { status: 409, code: "GAME_ALREADY_STARTED", snapshot: this.snapshot(room) });
     if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
     if (room.seats.filter((seat) => seat.claimed).length < 2) throw Object.assign(new Error("At least two claimed players are needed to start the game"), { status: 409, code: "NOT_ENOUGH_PLAYERS", snapshot: this.snapshot(room) });
+    if (room.turn.startingPlayerRoll?.status === "rolling") throw Object.assign(new Error("Wait for every local d20 roll to report before starting the game"), { status: 409, code: "ROLL_IN_PROGRESS", snapshot: this.snapshot(room) });
     const startedAt = this.now();
     room.turn = {
       ...room.turn,
@@ -898,6 +878,21 @@ export class RoomService {
     this.recordLedger(room, "turn_tracking_changed", seatId, { enabled: input.enabled });
     this.broadcast(room);
     return { snapshot: this.snapshot(room) };
+  }
+
+  reportStartingPlayerRoll(code, connectionId, input = {}) {
+    const room = this.room(code); const { seatId } = this.requireOwner(room, connectionId);
+    if (room.turn.gameStarted) throw Object.assign(new Error("The game has already started"), { status: 409, code: "GAME_ALREADY_STARTED", snapshot: this.snapshot(room) });
+    const roll = room.turn.startingPlayerRoll; if (!roll || roll.status !== "rolling") throw Object.assign(new Error("There is no active d20 roll-off"), { status: 409, code: "NO_ACTIVE_ROLL", snapshot: this.snapshot(room) });
+    const round = roll.rounds.at(-1); if (!round.contenderSeatIds.includes(seatId)) throw Object.assign(new Error("Only a current contender may report this roll"), { status: 403, code: "NOT_A_CONTENDER" });
+    if (round.rolls.some((item) => item.seatId === seatId)) throw Object.assign(new Error("This seat has already reported its roll"), { status: 409, code: "ROLL_ALREADY_REPORTED", snapshot: this.snapshot(room) });
+    const value = asInteger(input.value, "value", 1, 20); round.rolls.push({ seatId, value, reportedAt: this.now() });
+    if (round.rolls.length === round.contenderSeatIds.length) {
+      const high = Math.max(...round.rolls.map((item) => item.value)); const tiedSeatIds = round.rolls.filter((item) => item.value === high).map((item) => item.seatId); round.tiedSeatIds = tiedSeatIds;
+      if (tiedSeatIds.length === 1) { roll.status = "complete"; roll.winnerSeatId = tiedSeatIds[0]; room.turn = { ...room.turn, activeSeatId: tiedSeatIds[0], startingPlayerSeatId: tiedSeatIds[0], startingPlayerRoll: roll, lastHandoff: null }; this.recordLedger(room, "first_player_selected", seatId, { startingSeatId: tiedSeatIds[0], method: "local_d20" }); }
+      else roll.rounds.push({ contenderSeatIds: tiedSeatIds, rolls: [] });
+    }
+    room.version += 1; this.broadcast(room); return { snapshot: this.snapshot(room) };
   }
 
   setTurnPaused(code, connectionId, input = {}) {
@@ -1084,6 +1079,7 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "GET" && parts[3] === "saved-playtests") return json(res, 200, await service.hostArchive(code, connectionId));
         if (req.method === "POST" && parts[3] === "declare-winner") return json(res, 200, service.declareWinner(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "choose-starting-player") return json(res, 200, service.chooseStartingPlayer(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "report-starting-player-roll") return json(res, 200, service.reportStartingPlayerRoll(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "start-game") return json(res, 200, service.startGame(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "turn-handoff" && parts[4] === "undo") return json(res, 200, service.undoTurnHandoff(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "turn-tracking") return json(res, 200, service.setTurnTracking(code, connectionId, await readJson(req)));

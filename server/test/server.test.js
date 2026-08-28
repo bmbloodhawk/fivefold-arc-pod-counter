@@ -649,7 +649,7 @@ describe("authority and convergence", () => {
     assert.equal(typeof tossed.body.snapshot.lastCoinToss.tossedAt, "number");
   });
 
-  test("locks a shared d20 roll-off before choosing the first player", () => {
+  test("waits for every local d20 before choosing the first player and rerolls ties", () => {
     let now = 100_000;
     const service = new RoomService({ now: () => now });
     const host = service.createConnection();
@@ -659,13 +659,25 @@ describe("authority and convergence", () => {
     const selected = service.chooseStartingPlayer(created.snapshot.code, host.connectionId, { baseVersion: claimed.snapshot.version });
     const roll = selected.snapshot.turn.startingPlayerRoll;
     assert.ok(roll);
-    assert.equal(roll.selectedAt, now);
-    assert.equal(roll.winnerSeatId, selected.snapshot.turn.startingPlayerSeatId);
-    assert.equal(roll.rounds.at(-1).tiedSeatIds.length, 1);
-    assert.equal(roll.rounds.at(-1).tiedSeatIds[0], roll.winnerSeatId);
-    assert.ok(roll.rounds.every(round => round.rolls.every(item => Number.isInteger(item.value) && item.value >= 1 && item.value <= 20)));
+    assert.equal(roll.startedAt, now);
+    assert.equal(roll.status, "rolling");
+    assert.equal(roll.winnerSeatId, null);
+    assert.deepEqual(roll.rounds[0].contenderSeatIds, [0, 1]);
+    assert.equal(roll.rounds[0].rolls.length, 0);
+    assert.throws(() => service.startGame(created.snapshot.code, host.connectionId, { baseVersion: selected.snapshot.version }), { code: "ROLL_IN_PROGRESS" });
+    const hostRoll = service.reportStartingPlayerRoll(created.snapshot.code, host.connectionId, { value: 14 });
+    assert.equal(hostRoll.snapshot.turn.startingPlayerRoll.rounds[0].rolls.length, 1);
+    const tied = service.reportStartingPlayerRoll(created.snapshot.code, other.connectionId, { value: 14 });
+    assert.deepEqual(tied.snapshot.turn.startingPlayerRoll.rounds.at(-1).contenderSeatIds, [0, 1]);
+    assert.equal(tied.snapshot.turn.startingPlayerRoll.rounds.at(-1).rolls.length, 0);
+    const secondHostRoll = service.reportStartingPlayerRoll(created.snapshot.code, host.connectionId, { value: 8 });
+    const completed = service.reportStartingPlayerRoll(created.snapshot.code, other.connectionId, { value: 19 });
+    assert.equal(secondHostRoll.snapshot.turn.startingPlayerRoll.status, "rolling");
+    assert.equal(completed.snapshot.turn.startingPlayerRoll.status, "complete");
+    assert.equal(completed.snapshot.turn.startingPlayerRoll.winnerSeatId, 1);
+    assert.equal(completed.snapshot.turn.startingPlayerSeatId, 1);
     now += 1;
-    const manual = service.chooseStartingPlayer(created.snapshot.code, host.connectionId, { baseVersion: selected.snapshot.version, startingSeatId: 1 });
+    const manual = service.chooseStartingPlayer(created.snapshot.code, host.connectionId, { baseVersion: completed.snapshot.version, startingSeatId: 1 });
     assert.equal(manual.snapshot.turn.startingPlayerSeatId, 1);
     assert.equal(manual.snapshot.turn.startingPlayerRoll, null);
   });
