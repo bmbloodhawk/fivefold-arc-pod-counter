@@ -750,6 +750,23 @@ describe("authority and convergence", () => {
     assert.throws(() => service.handoffTurn(created.snapshot.code, third.connectionId, { baseVersion: snapshot.version }), { code: "TURN_TRACKING_OFF" });
   });
 
+  test("handoffs retain a disconnected living player's turn", () => {
+    const service = new RoomService();
+    const host = service.createConnection();
+    const created = service.createRoom(host.connectionId, { playerCount: 3, startingLife: 40 });
+    const second = service.createConnection();
+    const third = service.createConnection();
+    let snapshot = service.claimSeat(created.snapshot.code, second.connectionId, { seatId: 1, name: "Jace" }).snapshot;
+    snapshot = service.claimSeat(created.snapshot.code, third.connectionId, { seatId: 2, name: "Nissa" }).snapshot;
+    snapshot = service.startGame(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
+
+    service.expireConnection(service.getConnection(second.connectionId));
+    assert.equal(service.snapshot(service.room(created.snapshot.code)).seats[1].connected, false);
+
+    snapshot = service.handoffTurn(created.snapshot.code, host.connectionId, { baseVersion: service.snapshot(service.room(created.snapshot.code)).version }).snapshot;
+    assert.equal(snapshot.turn.activeSeatId, 1);
+  });
+
   test("applies concurrent live counter deltas without a stale-version re-entry error", async () => {
     const made = await room();
     const playerConnection = await connection();
