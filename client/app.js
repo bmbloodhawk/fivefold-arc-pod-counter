@@ -1,6 +1,6 @@
 import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=72';
 import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=72';
-import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=104';
+import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=107';
 import { connectionPresentation } from './connection-state.js?v=1';
 
 const MODES = ['life', 'commander', 'radiation', 'poison', 'energy', 'generic'];
