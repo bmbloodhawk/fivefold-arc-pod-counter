@@ -478,8 +478,11 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
   .game-shell[data-your-turn="true"] .pod-strip { margin-block: 2px 5px; }
   .game-shell[data-your-turn="true"] .pod-strip[data-player-count="2"] .pod-seat, .game-shell[data-your-turn="true"] .pod-strip[data-player-count="3"] .pod-seat, .game-shell[data-your-turn="true"] .pod-strip[data-player-count="4"] .pod-seat { min-height: 78px; padding-block: 8px 10px; }
   .game-shell[data-your-turn="true"] .pod-strip[data-player-count="2"] .seat-life, .game-shell[data-your-turn="true"] .pod-strip[data-player-count="3"] .seat-life, .game-shell[data-your-turn="true"] .pod-strip[data-player-count="4"] .seat-life { margin-top: 6px; font-size: 2.2rem; }
-  .game-shell[data-your-turn="true"] .turn-actions { position: relative; z-index: 4; margin-bottom: -32px; transform: translateY(28px); }
-  .game-shell[data-your-turn="true"] .counter-stage { min-height: 266px; margin-top: 20px; }
+  .game-shell[data-your-turn="true"] .turn-actions { position: relative; z-index: 4; margin-bottom: -20px; transform: translateY(10px); }
+  .game-shell[data-your-turn="true"] .counter-stage { min-height: 302px; margin-top: 20px; }
+  .game-shell[data-your-turn="true"] .counter-stage::after { width: min(84vw, 330px); }
+  .game-shell[data-your-turn="true"] .counter-stage::before { width: min(76vw, 300px); }
+  .game-shell[data-your-turn="true"] .counter-sigil { width: min(70vw, 275px); }
   .game-shell[data-your-turn="true"] .counter-mode { transform: translateY(20px); }
   .game-shell[data-your-turn="true"] .main-value { margin-top: 0; }
   .game-shell[data-your-turn="true"] .commander-tax-quick { margin-top: 4px; }
