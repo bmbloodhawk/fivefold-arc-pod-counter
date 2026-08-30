@@ -501,15 +501,17 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
 
 /* Life controls are neutral frosted glass: color comes only from artwork behind them. */
 .side-seats { --table-seat-width: calc((100vw - 40px) / 4); position: absolute; z-index: 2; top: 46px; right: 5px; left: 5px; display: grid; grid-template-columns: repeat(2, var(--table-seat-width)); justify-content: space-between; gap: 8px 0; pointer-events: none; }
-.pod-strip[data-player-count="4"] .pod-seat, .side-seats .pod-seat { min-height: 82px; padding: 9px 4px 12px; }
+.pod-strip[data-player-count="5"] .pod-seat, .pod-strip[data-player-count="6"] .pod-seat, .pod-strip[data-player-count="7"] .pod-seat, .pod-strip[data-player-count="8"] .pod-seat, .side-seats .pod-seat { min-height: 82px; padding: 9px 4px 12px; }
 .side-seats .pod-seat { pointer-events: auto; }
 .side-seats .seat-name { font-size: .6rem; }
-.pod-seat .seat-life { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; padding-top: 4px; text-align: center; }
+.pod-seat .seat-name { position: absolute; z-index: 2; top: 9px; right: 4px; left: 4px; }
+.pod-seat .seat-life { position: absolute; inset: 0; z-index: 1; display: grid; place-items: center; margin: 0; padding-top: 4px; text-align: center; }
 .side-seats .seat-life { font-size: 2.25rem; }
 .counter-stage.has-side-seats { min-height: 318px; }
 @media (max-width: 359px), (max-height: 740px) {
   .side-seats { top: 28px; }
-  .pod-strip[data-player-count="4"] .pod-seat, .side-seats .pod-seat { min-height: 62px; padding: 6px 3px 9px; }
+  .pod-strip[data-player-count="5"] .pod-seat, .pod-strip[data-player-count="6"] .pod-seat, .pod-strip[data-player-count="7"] .pod-seat, .pod-strip[data-player-count="8"] .pod-seat, .side-seats .pod-seat { min-height: 62px; padding: 6px 3px 9px; }
+  .pod-seat .seat-name { top: 6px; right: 3px; left: 3px; }
   .side-seats .seat-life { font-size: 1.72rem; }
   .counter-stage.has-side-seats { min-height: 258px; padding-top: 3px; }
   .counter-stage.has-side-seats .counter-mode { transform: translateY(8px); }

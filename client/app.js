@@ -407,7 +407,7 @@ function renderPodStrip() {
   // The strip is a table snapshot, not a second dashboard.  Let CSS use the
   // player count to compact large pods without hiding their name or life.
   const largePod = state.players.length > 4;
-  dom.podStrip.dataset.playerCount = String(largePod ? 4 : state.players.length);
+  dom.podStrip.dataset.playerCount = String(state.players.length);
   dom.game.querySelector('.counter-stage').classList.toggle('has-side-seats', largePod);
   const seatMarkup = (player) => {
     const isWaiting = player.connectionStatus === 'waiting';
