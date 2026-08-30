@@ -32,6 +32,10 @@ async function call(path, { method = "GET", connectionId, body } = {}) {
   return { status: response.status, body: await response.json() };
 }
 
+async function raw(path) {
+  return fetch(`${baseUrl}${path}`);
+}
+
 async function connection() {
   return (await call("/api/connections", { method: "POST" })).body.connectionId;
 }
@@ -119,6 +123,16 @@ describe("room configuration and claims", () => {
     assert.deepEqual(renamed.body.snapshot.commanderSources, [
       { id: "seat-0-commander-a", label: "Thrasios, Triton Hero", commanderName: "Thrasios, Triton Hero", ownerSeatId: 0 },
     ]);
+  });
+
+  test("provides a QR join link without placing a reclaim credential in it", async () => {
+    const made = await room();
+    const response = await raw(`/api/rooms/${made.snapshot.code}/join-qr.svg`);
+    const svg = await response.text();
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get("content-type"), /image\/svg\+xml/);
+    assert.match(svg, /<svg/);
+    assert.equal(svg.includes(made.reclaimToken), false);
   });
 
   test("shares commander color identity and rejects invalid color letters", async () => {

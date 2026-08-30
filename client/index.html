@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=121">
+  <link rel="stylesheet" href="styles.css?v=124">
 </head>
 <body>
   <header class="brand-bar">
@@ -33,6 +33,11 @@
         <button id="joinPodButton" class="secondary-action" type="button">Join a pod</button>
         <button id="quickTestButton" class="text-action" type="button">Try a 4-player local table</button>
       </div>
+      <section id="savedTables" class="saved-tables" hidden aria-labelledby="savedTablesTitle">
+        <h2 id="savedTablesTitle">Your tables</h2>
+        <p>Return to a table from this phone. Your seat still requires this phone’s saved reclaim credential.</p>
+        <div id="savedTablesList" class="saved-tables-list"></div>
+      </section>
       <p class="privacy-note"><span aria-hidden="true">◇</span> Test build · No account · Private playtest records</p>
     </section>
 
@@ -150,6 +155,7 @@
       <p id="victoryNotice" class="victory-notice" aria-live="polite" hidden></p>
       <section id="lobbyControls" class="lobby-controls" aria-live="polite">
         <p id="lobbyStatus">Waiting for players to join.</p>
+        <button id="showJoinQrButton" class="secondary-action" type="button">Show join QR</button>
         <label id="startingSeatField" class="select-field">First player
           <select id="startingSeat"></select>
         </label>
@@ -214,6 +220,7 @@
           <select id="activeSeat"></select>
         </div>
         <button id="coinTossButton" type="button">Flip a coin</button>
+        <button id="showJoinQrMenuButton" type="button">Show join QR</button>
         <button id="playtestNotesButton" type="button">Playtest notes</button>
         <button id="playtestRecapButton" type="button">Playtest recap</button>
         <button id="savedPlaytestsButton" type="button">Saved playtests</button>
@@ -349,6 +356,16 @@
     </form>
   </dialog>
 
+  <dialog id="joinQrDialog" aria-labelledby="joinQrTitle">
+    <form method="dialog">
+      <h2 id="joinQrTitle">Join this table</h2>
+      <p>Scan this with another phone’s camera. It opens this pod only; each player still claims or reclaims their own seat.</p>
+      <img id="joinQrImage" class="join-qr-image" alt="QR code for joining this table">
+      <p id="joinQrCode" class="join-qr-code"></p>
+      <div class="dialog-actions join-qr-actions"><button id="shareJoinLinkButton" type="button" class="primary-action">Share link</button><button id="copyJoinLinkButton" type="button" class="secondary-action">Copy link</button><button value="close" class="text-action">Done</button></div>
+    </form>
+  </dialog>
+
   <dialog id="playtestNotesDialog" aria-labelledby="playtestNotesTitle">
     <form id="playtestNotesForm" method="dialog">
       <h2 id="playtestNotesTitle">Playtest notes</h2>
@@ -369,6 +386,6 @@
     <form method="dialog"><h2 id="savedPlaytestsTitle">Saved playtests</h2><div id="savedPlaytestsContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
   </dialog>
 
-  <script type="module" src="app.js?v=114"></script>
+  <script type="module" src="app.js?v=115"></script>
 </body>
 </html>

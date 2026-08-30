@@ -2,6 +2,7 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
+import QRCode from "qrcode";
 import { NullPlaytestLedger, recapFromRoom } from "./playtest-ledger.js";
 
 const JOIN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -69,6 +70,18 @@ function json(res, status, body, extraHeaders = {}) {
     ...extraHeaders,
   });
   res.end(data);
+}
+
+async function serveJoinQr(res, code, origin) {
+  const joinUrl = new URL("/", origin);
+  joinUrl.searchParams.set("join", code);
+  const svg = await QRCode.toString(joinUrl.toString(), { type: "svg", errorCorrectionLevel: "M", margin: 1, width: 320 });
+  res.writeHead(200, {
+    "content-type": "image/svg+xml; charset=utf-8",
+    "cache-control": "no-store",
+    "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'",
+  });
+  res.end(svg);
 }
 
 function diceSkin(key) {
@@ -1076,6 +1089,12 @@ export function createRealtimeServer(options = {}) {
       if (req.method === "POST" && parts[0] === "api" && parts[1] === "recovery" && parts[2]) return json(res, 200, await service.restoreRoom(parts[2], (await readJson(req)).hostRecoveryKey));
       if (parts[0] === "api" && parts[1] === "rooms" && parts[2]) {
         const code = parts[2].toUpperCase();
+        if (req.method === "GET" && parts[3] === "join-qr.svg") {
+          service.room(code);
+          const protocol = String(req.headers["x-forwarded-proto"] || "http").split(",")[0].trim();
+          const host = String(req.headers["x-forwarded-host"] || req.headers.host || "localhost").split(",")[0].trim();
+          return serveJoinQr(res, code, `${protocol}://${host}`);
+        }
         if (req.method === "GET" && parts.length === 3) return json(res, 200, { snapshot: service.snapshot(service.room(code)) });
         if (req.method === "POST" && parts[3] === "claim") return json(res, 200, service.claimSeat(code, connectionId, await readJson(req)));
         if (req.method === "PATCH" && parts[3] === "me") return json(res, 200, service.mutateOwnSeat(code, connectionId, await readJson(req)));

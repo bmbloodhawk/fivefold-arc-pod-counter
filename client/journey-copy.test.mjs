@@ -23,6 +23,16 @@ test('the host lobby makes sharing the primary next setup action', () => {
   assert.match(app, /Share code \$\{state\.podCode\}/);
 });
 
+test('saved tables and QR links return players to a pod without sharing seat credentials', () => {
+  assert.match(html, /id="savedTables"/);
+  assert.match(html, /Show join QR/);
+  assert.match(html, /id="joinQrImage"/);
+  assert.match(app, /SAVED_TABLES_KEY/);
+  assert.match(app, /searchParams\.set\('join', state\.podCode\)/);
+  assert.match(app, /join-qr\.svg/);
+  assert.doesNotMatch(html, /reclaimToken/);
+});
+
 test('seat connection state remains a compact symbol at every pod size', () => {
   assert.doesNotMatch(styles, /seat-state::before \{ content: attr\(title\)/);
   assert.match(app, /stateSymbol = isWaiting \? '○' : isOffline \? '×'/);
