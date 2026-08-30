@@ -5,7 +5,7 @@ import { connectionPresentation } from './connection-state.js?v=1';
 
 const MODES = ['life', 'commander', 'radiation', 'poison', 'energy', 'generic'];
 const IDENTITY_ORDER = ['W', 'U', 'B', 'R', 'G'];
-const IDENTITY_COLORS = { W: '#d7c9a7', U: '#477ea7', B: '#78668b', R: '#a75a4b', G: '#527958' };
+const IDENTITY_COLORS = { W: '#efe4c7', U: '#67a6d5', B: '#a089bd', R: '#d57a68', G: '#70a97a' };
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const dom = {
