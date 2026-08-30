@@ -612,6 +612,29 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
   .custom-life-button, .commander-tax-quick { margin-top: 2px; }
 }
 
+/* A turn adds one action, not a different screen: preserve the calmer table composition. */
+@media (max-width: 599px) {
+  .game-shell[data-your-turn="true"] .game-topline { min-height: 82px; }
+  .game-shell[data-your-turn="true"] .pod-strip { margin: 3px 0 8px; }
+  .game-shell[data-your-turn="true"] .pod-strip[data-player-count="2"] .pod-seat,
+  .game-shell[data-your-turn="true"] .pod-strip[data-player-count="3"] .pod-seat,
+  .game-shell[data-your-turn="true"] .pod-strip[data-player-count="4"] .pod-seat { min-height: 82px; padding: 9px 4px 12px; }
+  .game-shell[data-your-turn="true"] .pod-strip[data-player-count="2"] .seat-life,
+  .game-shell[data-your-turn="true"] .pod-strip[data-player-count="3"] .seat-life,
+  .game-shell[data-your-turn="true"] .pod-strip[data-player-count="4"] .seat-life { margin-top: 7px; font-size: 2.25rem; }
+  .game-shell[data-your-turn="true"] .turn-actions { position: static; margin: 4px 0 5px; transform: none; }
+  .game-shell[data-your-turn="true"] .counter-stage { min-height: 318px; margin-top: 0; margin-bottom: 0; }
+  .game-shell[data-your-turn="true"] .counter-readout { min-height: 282px; }
+  .game-shell[data-your-turn="true"] .counter-mode { transform: none; }
+}
+@media (max-width: 359px), (max-height: 740px) {
+  .game-shell[data-your-turn="true"] .game-topline { min-height: 74px; }
+  .game-shell[data-your-turn="true"] .pod-seat { min-height: 62px; }
+  .game-shell[data-your-turn="true"] .pod-seat .seat-life { font-size: 1.72rem; }
+  .game-shell[data-your-turn="true"] .counter-stage { min-height: 258px; }
+  .game-shell[data-your-turn="true"] .counter-readout { min-height: 258px; padding-top: 4px; }
+}
+
 @media (max-width: 340px) and (max-height: 720px) {
   #quickTestButton { display: none; }
   .saved-tables { gap: 5px; margin-top: 10px; padding: 10px; }

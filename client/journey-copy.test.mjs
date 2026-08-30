@@ -52,6 +52,8 @@ test('the life readout stays together and the tax action cannot overlap custom l
   assert.match(styles, /\.counter-readout \.counter-context \{ margin: 24px 0 0; transform: translateY\(8px\); \}/);
   assert.match(styles, /\.counter-readout \.counter-context \{ margin-top: 18px; transform: translateY\(6px\); \}/);
   assert.match(styles, /\.custom-life-button, \.commander-tax-quick \{ margin-top: 2px; \}/);
-  assert.match(styles, /\.game-shell\[data-your-turn="true"\] \.counter-stage \{ min-height: 250px; margin-bottom: 18px; \}/);
+  assert.match(styles, /A turn adds one action, not a different screen/);
+  assert.match(styles, /\.game-shell\[data-your-turn="true"\] \.counter-stage \{ min-height: 318px; margin-top: 0; margin-bottom: 0; \}/);
+  assert.match(styles, /\.game-shell\[data-your-turn="true"\] \.counter-readout \{ min-height: 282px; \}/);
   assert.match(styles, /\.game-shell\[data-your-turn="true"\] \.commander-tax-quick \{ transform: none; margin-bottom: 0; \}/);
 });
