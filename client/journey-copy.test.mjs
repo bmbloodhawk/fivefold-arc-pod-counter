@@ -37,3 +37,9 @@ test('seat connection state remains a compact symbol at every pod size', () => {
   assert.doesNotMatch(styles, /seat-state::before \{ content: attr\(title\)/);
   assert.match(app, /stateSymbol = isWaiting \? '○' : isOffline \? '×'/);
 });
+
+test('the life readout stays together and the tax action cannot overlap custom life', () => {
+  assert.match(html, /class="counter-readout"[\s\S]*id="modeTitle"[\s\S]*id="mainValue"[\s\S]*id="counterContext"/);
+  assert.match(styles, /\.counter-readout \{[\s\S]*justify-items: center/);
+  assert.match(styles, /\.game-shell\[data-your-turn="true"\] \.commander-tax-quick \{ transform: none; margin-bottom: 0; \}/);
+});

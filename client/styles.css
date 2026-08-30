@@ -578,6 +578,35 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
   .game-shell[data-your-turn="true"] .commander-tax-quick { transform: translateY(-32px); margin-bottom: -32px; }
 }
 
+/* Keep the live-counter labels as one readout, centered inside the accent ring. */
+.counter-readout {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 100%;
+  min-height: 282px;
+  align-content: center;
+  justify-items: center;
+  padding-top: 12px;
+  text-align: center;
+}
+.counter-readout .counter-mode { width: min(100%, 300px); margin: 0 0 10px; transform: none; }
+.counter-readout .main-value { margin: 0; }
+.counter-readout .counter-context { margin: 9px 0 0; }
+
+/* These are separate routine actions: never pull tax over the custom-life button. */
+@media (max-width: 599px) {
+  .game-shell[data-your-turn="true"] .commander-tax-quick { transform: none; margin-bottom: 0; }
+  .game-shell[data-your-turn="true"] .counter-stage { min-height: 250px; }
+  .game-shell[data-your-turn="true"] .counter-readout { min-height: 250px; }
+}
+@media (max-width: 359px), (max-height: 740px) {
+  .game-shell[data-your-turn="true"] .counter-stage { min-height: 160px; }
+  .game-shell[data-your-turn="true"] .counter-readout { min-height: 160px; padding-top: 4px; }
+  .counter-readout .counter-mode { margin-bottom: 5px; }
+  .counter-readout .counter-context { margin-top: 5px; }
+}
+
 @media (max-width: 340px) and (max-height: 720px) {
   #quickTestButton { display: none; }
   .saved-tables { gap: 5px; margin-top: 10px; padding: 10px; }

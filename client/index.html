@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=126">
+  <link rel="stylesheet" href="styles.css?v=130">
 </head>
 <body>
   <header class="brand-bar">
@@ -177,7 +177,6 @@
       </section>
       <div class="counter-stage" aria-live="polite">
         <aside id="sideSeats" class="side-seats" aria-label="Additional table seats" hidden></aside>
-        <p id="modeTitle" class="counter-mode">LIFE</p>
         <div class="counter-sigil" aria-hidden="true">
           <svg viewBox="0 0 100 100" focusable="false">
             <circle cx="50" cy="50" r="45"></circle>
@@ -187,9 +186,12 @@
           </svg>
         </div>
         <div id="lethalMark" class="lethal-mark" hidden><span aria-hidden="true">☠</span><span class="sr-only">Eliminated</span></div>
-        <output id="mainValue" class="main-value">40</output>
+        <div class="counter-readout">
+          <p id="modeTitle" class="counter-mode">LIFE</p>
+          <output id="mainValue" class="main-value">40</output>
+          <p id="counterContext" class="counter-context">P1 · YOU</p>
+        </div>
         <output id="lifeChangeIndicator" class="life-change-indicator" aria-live="polite" hidden></output>
-        <p id="counterContext" class="counter-context">P1 · YOU</p>
         <p id="statusMessage" class="status-message" hidden></p>
       </div>
 
