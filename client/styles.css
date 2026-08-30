@@ -402,7 +402,8 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
 .counter-sigil svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 1px 0 rgb(220 196 150 / .16)) drop-shadow(0 -1px 0 #000); }
 .counter-sigil circle, .counter-sigil path { fill: none; stroke: #6f685b; stroke-width: .85; vector-effect: non-scaling-stroke; }
 .counter-sigil path { stroke-width: 1.15; }
-.counter-stage::before { background: repeating-conic-gradient(from -45deg, transparent 0 42deg, #090909 42deg 72deg), var(--identity-seal, transparent); -webkit-mask: radial-gradient(circle, transparent 0 54%, #000 55% 57%, transparent 58% 64%, #000 65% 66.5%, transparent 67%); mask: radial-gradient(circle, transparent 0 54%, #000 55% 57%, transparent 58% 64%, #000 65% 66.5%, transparent 67%); filter: drop-shadow(0 0 4px rgb(255 255 255 / .18)); }
+.counter-stage::before { background: repeating-conic-gradient(from -45deg, transparent 0 42deg, rgb(9 9 9 / .48) 42deg 72deg), var(--identity-seal, transparent); -webkit-mask: radial-gradient(circle, transparent 0 54%, #000 55% 57%, transparent 58% 64%, #000 65% 66.5%, transparent 67%); mask: radial-gradient(circle, transparent 0 54%, #000 55% 57%, transparent 58% 64%, #000 65% 66.5%, transparent 67%); filter: drop-shadow(0 0 5px rgb(255 255 255 / .3)); }
+.game-shell[data-has-identity="true"] .counter-stage::before { filter: brightness(1.42) saturate(1.55) drop-shadow(0 0 7px rgb(255 255 255 / .34)); }
 .counter-stage::after { background: repeating-conic-gradient(from 18deg, rgb(205 185 147 / .09) 0 .55deg, transparent .55deg 36deg), radial-gradient(circle, transparent 0 61%, rgb(205 185 147 / .1) 61.4% 61.8%, transparent 62.2%); }
 @media (max-width: 599px) { .counter-sigil { width: min(65vw, 255px); }.counter-stage::before { width: min(72vw, 282px); } }
 
@@ -499,16 +500,16 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
 }
 
 /* Life controls are neutral frosted glass: color comes only from artwork behind them. */
-.side-seats { position: absolute; z-index: 2; top: 46px; right: 5px; left: 5px; display: grid; grid-template-columns: repeat(2, minmax(58px, 76px)); justify-content: space-between; gap: 11px max(112px, 33vw); pointer-events: none; }
-.side-seats .pod-seat { min-height: 60px; padding: 6px 3px 8px; pointer-events: auto; }
-.side-seats .seat-name { font-size: .58rem; }
-.side-seats .seat-life { margin-top: 4px; font-size: 1.6rem; }
-.counter-stage.has-side-seats { min-height: 302px; }
+.side-seats { --table-seat-width: calc((100vw - 40px) / 4); position: absolute; z-index: 2; top: 46px; right: 5px; left: 5px; display: grid; grid-template-columns: repeat(2, var(--table-seat-width)); justify-content: space-between; gap: 8px 0; pointer-events: none; }
+.side-seats .pod-seat { min-height: 82px; padding: 9px 4px 12px; pointer-events: auto; }
+.side-seats .seat-name { font-size: .6rem; }
+.side-seats .seat-life { margin-top: 7px; font-size: 2.25rem; }
+.counter-stage.has-side-seats { min-height: 318px; }
 @media (max-width: 359px), (max-height: 740px) {
-  .side-seats { top: 28px; grid-template-columns: repeat(2, 56px); gap: 6px max(84px, 27vw); }
-  .side-seats .pod-seat { min-height: 51px; padding: 4px 2px 6px; }
-  .side-seats .seat-life { font-size: 1.28rem; }
-  .counter-stage.has-side-seats { min-height: 188px; padding-top: 3px; }
+  .side-seats { top: 28px; }
+  .side-seats .pod-seat { min-height: 62px; padding: 6px 3px 9px; }
+  .side-seats .seat-life { margin-top: 3px; font-size: 1.72rem; }
+  .counter-stage.has-side-seats { min-height: 258px; padding-top: 3px; }
   .counter-stage.has-side-seats .counter-mode { transform: translateY(8px); }
   .counter-stage.has-side-seats .main-value { margin-top: 24px; font-size: min(31vw, 6.25rem); }
   .counter-stage.has-side-seats .counter-context { margin-top: 3px; }
@@ -517,7 +518,7 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
 .adjust-controls button {
   overflow: hidden;
   border-color: rgb(221 191 132 / .58);
-  background-color: rgb(16 15 13 / .08);
+  background: linear-gradient(135deg, rgb(43 39 30 / .32), rgb(12 12 11 / .18));
   background-image: linear-gradient(145deg, rgb(255 255 255 / .09), rgb(8 8 7 / .07));
   background-position: center;
   background-size: cover;
@@ -538,3 +539,6 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
 }
 .custom-life-button { text-shadow: 0 2px 5px #000; }
 .commander-tax-quick button:active, .custom-life-button:active { background-color: rgb(89 72 43 / .32); }
+@media (min-height: 780px) {
+  .game-shell[data-your-turn="false"] .adjust-controls { margin-top: clamp(0px, calc(10dvh - 58px), 42px); }
+}
