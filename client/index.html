@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=136">
+  <link rel="stylesheet" href="styles.css?v=139">
 </head>
 <body>
   <header class="brand-bar">
@@ -173,11 +173,6 @@
         <span id="gameTimer">GAME TIME 0:00</span>
         <span id="lastTurnSummary" hidden>LAST TURN · —</span>
       </section>
-      <section id="turnActions" class="turn-actions" aria-label="Turn controls">
-        <button id="endTurnButton" class="end-turn-button" type="button">End turn → Next player</button>
-        <button id="undoTurnButton" class="undo-turn-button" type="button" hidden>Undo handoff</button>
-        <p id="turnActionDetail" class="turn-action-detail">Only the active player can end this turn.</p>
-      </section>
       <div class="counter-stage" aria-live="polite">
         <aside id="sideSeats" class="side-seats" aria-label="Additional table seats" hidden></aside>
         <div class="counter-sigil" aria-hidden="true">
@@ -200,6 +195,11 @@
 
       <section id="sourcePanel" class="source-panel" hidden aria-label="Commander damage sources"></section>
 
+      <section id="turnActions" class="turn-actions" aria-label="Turn controls">
+        <button id="endTurnButton" class="end-turn-button" type="button">End turn → Next player</button>
+        <button id="undoTurnButton" class="undo-turn-button" type="button" hidden>Undo handoff</button>
+        <p id="turnActionDetail" class="turn-action-detail">Only the active player can end this turn.</p>
+      </section>
       <div id="adjustControls" class="adjust-controls" aria-label="Adjust counter">
         <button type="button" data-delta="-5"><span>−5</span><small>decrease five</small></button>
         <button type="button" data-delta="-1"><span>−1</span><small>decrease one</small></button>

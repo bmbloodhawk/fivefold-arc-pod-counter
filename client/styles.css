@@ -613,6 +613,7 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
 }
 
 /* A turn adds one action, not a different screen: preserve the calmer table composition. */
+#turnActions { position: relative; z-index: 4; margin-bottom: 12px; }
 @media (max-width: 599px) {
   .game-shell[data-your-turn="true"] .game-topline { min-height: 82px; }
   .game-shell[data-your-turn="true"] .pod-strip { margin: 3px 0 8px; }
