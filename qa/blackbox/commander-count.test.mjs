@@ -56,7 +56,7 @@ live('commander source labels, stable IDs, ordering, and defender choices follow
   assert.ok(Object.values(seat(state, 0).commanderDamageReceived).every(value => value === 0));
 });
 
-live('a defender can edit only damage received by their own seat and cannot select an own source', async () => {
+live('a defender can edit only damage received by their own seat, including a commander another player controls', async () => {
   const f = await fixture([1, 1]);
   let state = await snapshot(f.podId);
   const p1 = sourceId(0);
@@ -82,9 +82,10 @@ live('a defender can edit only damage received by their own seat and cannot sele
     baseVersion: state.version,
     commanderDamageReceived: { [p1]: 21 },
   }, { raw: true });
-  assert.equal(ownSource.status, 400);
-  assert.equal(ownSource.body.error.code, 'INVALID_INPUT');
-  assert.deepEqual(await snapshot(f.podId), state);
+  assert.equal(ownSource.status, 200);
+  assert.equal(ownSource.body.snapshot.seats[0].commanderDamageReceived[p1], 21);
+  assert.equal(ownSource.body.snapshot.seats[1].commanderDamageReceived[p1], 9,
+    'the defender-owned write must not alter another seat');
 });
 
 live('changing one commander to partners preserves A damage and adds B at zero for every defender', async () => {

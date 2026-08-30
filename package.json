@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "npm --prefix server start",
-    "test": "npm --prefix server test"
+    "test": "npm --prefix server test && node --test client/*.test.mjs"
   },
   "engines": {
     "node": ">=24 <25"

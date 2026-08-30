@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=119">
+  <link rel="stylesheet" href="styles.css?v=121">
 </head>
 <body>
   <header class="brand-bar">
@@ -88,7 +88,7 @@
       <h1 id="joinTitle">Find your pod.</h1>
       <form id="joinCodeForm" class="setup-form">
         <label class="select-field">Pod code
-          <input id="podCode" type="text" inputmode="text" autocomplete="off" maxlength="6" placeholder="e.g. ARC7K2" required>
+          <input id="podCode" type="text" inputmode="text" autocapitalize="characters" autocomplete="off" maxlength="6" placeholder="e.g. ARC7K2" required>
           <small>Ask the pod host for the six-character code.</small>
         </label>
         <p id="joinCodeStatus" class="field-help" aria-live="polite"></p>
@@ -112,21 +112,24 @@
           </select>
           <small>Only currently open seats are shown after the pod code is checked.</small>
         </label>
+        <p id="joinSeatClaim" class="seat-claim-note" aria-live="polite">Choose an open seat to see what this phone will control.</p>
         <label class="select-field">Your name <small>(optional)</small>
           <input id="joinName" name="name" type="text" autocomplete="name" maxlength="24" placeholder="P1">
           <small>Leave blank to use your seat name. Up to 24 characters.</small>
         </label>
-        <fieldset class="choice-field">
-          <legend>My commanders</legend>
-          <div class="segmented commander-count-choice" role="radiogroup" aria-label="Number of commanders for your claimed seat">
-            <label><input type="radio" name="joinCommanderCount" value="1" checked><span>1 commander</span></label>
-            <label><input type="radio" name="joinCommanderCount" value="2"><span>2 commanders</span></label>
-          </div>
-          <small class="field-help">This updates the commander sources for everyone in the pod.</small>
-        </fieldset>
-        <div id="joinCommanderNames" class="commander-name-fields"></div>
-        <button class="primary-action" type="submit">Connect to pod</button>
-        <button id="joinDemoButton" class="secondary-action" type="button">Preview join locally</button>
+        <details class="setup-options">
+          <summary>Commander details (optional — set later)</summary>
+          <fieldset class="choice-field">
+            <legend>My commanders</legend>
+            <div class="segmented commander-count-choice" role="radiogroup" aria-label="Number of commanders for your claimed seat">
+              <label><input type="radio" name="joinCommanderCount" value="1" checked><span>1 commander</span></label>
+              <label><input type="radio" name="joinCommanderCount" value="2"><span>2 commanders</span></label>
+            </div>
+            <small class="field-help">You can update commander names and color identity after you claim your seat.</small>
+          </fieldset>
+          <div id="joinCommanderNames" class="commander-name-fields"></div>
+        </details>
+        <button class="primary-action" type="submit">Claim this seat</button>
       </form>
     </section>
 
