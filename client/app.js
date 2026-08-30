@@ -13,10 +13,10 @@ const dom = {
   connectionButton: $('#connectionButton'), connectionText: $('#connectionText'), connectionDialog: $('#connectionDialog'), connectionDetail: $('#connectionDetail'),
   playerCountChoices: $('#playerCountChoices'), createName: $('#createName'), joinSeat: $('#joinSeat'), joinName: $('#joinName'), activeSeat: $('#activeSeat'), localSimulation: $('#localSimulation'), roundLimitMinutes: $('#roundLimitMinutes'), createCommanderNames: $('#createCommanderNames'), joinCommanderNames: $('#joinCommanderNames'), gameCommanderNames: $('#gameCommanderNames'),
   podStrip: $('#podStrip'), podLabel: $('#podLabel'), ownerLabel: $('#ownerLabel'), commanderIdentityName: $('#commanderIdentityName'), identityHeaderRail: $('#identityHeaderRail'), modeTitle: $('#modeTitle'), mainValue: $('#mainValue'),
-  counterContext: $('#counterContext'), statusMessage: $('#statusMessage'), lethalMark: $('#lethalMark'), lifeChangeIndicator: $('#lifeChangeIndicator'), sourcePanel: $('#sourcePanel'), inspectionNotice: $('#inspectionNotice'),
+  counterContext: $('#counterContext'), statusMessage: $('#statusMessage'), lethalMark: $('#lethalMark'), lifeChangeIndicator: $('#lifeChangeIndicator'), sourcePanel: $('#sourcePanel'), inspectionNotice: $('#inspectionNotice'), sideSeats: $('#sideSeats'),
   activeSeatBar: $('#activeSeatBar'), gameMenu: $('#gameMenu'), moreButton: $('#moreButton'),
   disconnectBanner: $('#disconnectBanner'), syncBanner: $('#syncBanner'), coinTossNotice: $('#coinTossNotice'), victoryNotice: $('#victoryNotice'), coinTossButton: $('#coinTossButton'), coinTossDialog: $('#coinTossDialog'), coinTossResult: $('#coinTossResult'), tossAgainButton: $('#tossAgainButton'), resetDialog: $('#resetDialog'), commanderSetupButton: $('#commanderSetupButton'), backToSetupButton: $('#backToSetupButton'), declareWinnerButton: $('#declareWinnerButton'), declareWinnerDialog: $('#declareWinnerDialog'), declareWinnerForm: $('#declareWinnerForm'), winnerSeat: $('#winnerSeat'), victoryDialog: $('#victoryDialog'), victoryTitle: $('#victoryTitle'), victoryDetail: $('#victoryDetail'),
-  lobbyControls: $('#lobbyControls'), lobbyStatus: $('#lobbyStatus'), startingSeatField: $('#startingSeatField'), startingSeat: $('#startingSeat'), chooseFirstButton: $('#chooseFirstButton'), randomFirstButton: $('#randomFirstButton'), startGameButton: $('#startGameButton'), startingRollDialog: $('#startingRollDialog'), startingRollStatus: $('#startingRollStatus'), rollMyD20Button: $('#rollMyD20Button'), startingRollCanvas: $('#startingRollCanvas'), startingRollFinalDice: $('#startingRollFinalDice'), startingRollOverlays: $('#startingRollOverlays'), startingRollLive: $('#startingRollLive'), turnBanner: $('#turnBanner'), turnLabel: $('#turnLabel'), turnPlayer: $('#turnPlayer'), turnElapsed: $('#turnElapsed'), gameTimer: $('#gameTimer'), lastTurnSummary: $('#lastTurnSummary'), turnActions: $('#turnActions'), endTurnButton: $('#endTurnButton'), undoTurnButton: $('#undoTurnButton'), pauseTurnButton: $('#pauseTurnButton'), toggleTurnTrackingButton: $('#toggleTurnTrackingButton'), turnActionDetail: $('#turnActionDetail'),
+  lobbyControls: $('#lobbyControls'), lobbyStatus: $('#lobbyStatus'), startingSeatField: $('#startingSeatField'), startingSeat: $('#startingSeat'), chooseFirstButton: $('#chooseFirstButton'), randomFirstButton: $('#randomFirstButton'), startGameButton: $('#startGameButton'), startingRollDialog: $('#startingRollDialog'), startingRollStatus: $('#startingRollStatus'), rollMyD20Button: $('#rollMyD20Button'), startingRollCanvas: $('#startingRollCanvas'), startingRollFinalDice: $('#startingRollFinalDice'), startingRollOverlays: $('#startingRollOverlays'), startingRollLive: $('#startingRollLive'), turnBanner: $('#turnBanner'), turnLabel: $('#turnLabel'), turnPlayer: $('#turnPlayer'), turnElapsed: $('#turnElapsed'), gameTimer: $('#gameTimer'), lastTurnSummary: $('#lastTurnSummary'), turnActions: $('#turnActions'), endTurnButton: $('#endTurnButton'), undoTurnButton: $('#undoTurnButton'), pauseTurnButton: $('#pauseTurnButton'), toggleTurnTrackingButton: $('#toggleTurnTrackingButton'), toggleTurnCuesButton: $('#toggleTurnCuesButton'), toggleDeviceCuesButton: $('#toggleDeviceCuesButton'), turnActionDetail: $('#turnActionDetail'),
   commanderCountDialog: $('#commanderCountDialog'), commanderCountDetail: $('#commanderCountDetail'), commanderCountForm: $('#commanderCountForm'), saveCommanderCountButton: $('#saveCommanderCountButton'),
   commanderTaxQuickButton: $('#commanderTaxQuickButton'), commanderTaxDialog: $('#commanderTaxDialog'), commanderTaxDetail: $('#commanderTaxDetail'), commanderTaxList: $('#commanderTaxList'),
   customLifeButton: $('#customLifeButton'), customLifeDialog: $('#customLifeDialog'), customLifeForm: $('#customLifeForm'), customLifeAmount: $('#customLifeAmount'), cancelCustomLifeButton: $('#cancelCustomLifeButton'), playtestNotesButton: $('#playtestNotesButton'), playtestRecapButton: $('#playtestRecapButton'), savedPlaytestsButton: $('#savedPlaytestsButton'), refreshTableButton: $('#refreshTableButton'), playtestNotesDialog: $('#playtestNotesDialog'), playtestNotesForm: $('#playtestNotesForm'), playtestNotesList: $('#playtestNotesList'), playtestNoteText: $('#playtestNoteText'), playtestNoteStatus: $('#playtestNoteStatus'), playtestRecapDialog: $('#playtestRecapDialog'), playtestRecapContent: $('#playtestRecapContent'), savedPlaytestsDialog: $('#savedPlaytestsDialog'), savedPlaytestsContent: $('#savedPlaytestsContent')
@@ -34,6 +34,18 @@ let startingRollTimer = null;
 let startingRollTimers = [];
 let startingRollSequence = 0;
 let lastStartingRollKey = null;
+let turnCueAudio = null;
+function deviceTurnCuesEnabled() { try { return localStorage.getItem('fivefold-arc:turn-cues') !== 'off'; } catch { return true; } }
+function setDeviceTurnCues(enabled) { try { localStorage.setItem('fivefold-arc:turn-cues', enabled ? 'on' : 'off'); } catch { /* preference is optional */ } }
+function playTurnCue() {
+  if (!state?.turn?.cuesEnabled || !deviceTurnCuesEnabled()) return;
+  try { navigator.vibrate?.([45, 35, 70]); } catch { /* unsupported, including iPhone */ }
+  try {
+    turnCueAudio ||= new AudioContext(); const oscillator = turnCueAudio.createOscillator(); const gain = turnCueAudio.createGain();
+    oscillator.frequency.value = 660; gain.gain.setValueAtTime(.0001, turnCueAudio.currentTime); gain.gain.exponentialRampToValueAtTime(.13, turnCueAudio.currentTime + .01); gain.gain.exponentialRampToValueAtTime(.0001, turnCueAudio.currentTime + .16);
+    oscillator.connect(gain).connect(turnCueAudio.destination); oscillator.start(); oscillator.stop(turnCueAudio.currentTime + .17);
+  } catch { /* audio is best-effort on mobile browsers */ }
+}
 let localStartingRollKey = null;
 let pendingStartingRoll = null;
 let turnTicker = null;
@@ -66,7 +78,7 @@ function createState({ playerCount = 4, startingLife = 40, ownerPlayerId = 'P1',
   const commanderSources = sourcesFromPlayers(players);
   players.forEach(player => { player.commanderDamage = blankDamage(commanderSources); });
   const startedAt = Date.now();
-  return { playerCount, startingLife, roundLimitMinutes, ownerPlayerId, activePlayerId: ownerPlayerId, turnSeatId: ownerPlayerId, turn: { activeSeatId: 0, gameStarted: false, gameStartedAt: null, turnStartedAt: null, roundEndsAt: null, startingPlayerSeatId: null, startingPlayerRoll: null, lastHandoff: null, trackingEnabled: true, pausedAt: null }, localSimulation, podCode, gameResult: null, mode: 'life', selectedSourceId: null, commanderSources, commanderCastCounts: blankDamage(commanderSources), players };
+  return { playerCount, startingLife, roundLimitMinutes, ownerPlayerId, activePlayerId: ownerPlayerId, turnSeatId: ownerPlayerId, turn: { activeSeatId: 0, gameStarted: false, gameStartedAt: null, startingPlayerSeatId: null, startingPlayerRoll: null, lastHandoff: null, trackingEnabled: true, cuesEnabled: false, pausedAt: null }, localSimulation, podCode, gameResult: null, mode: 'life', selectedSourceId: null, commanderSources, commanderCastCounts: blankDamage(commanderSources), players };
 }
 function playerIdForSource(source, fallbackLabel = '') {
   if (source.ownerPlayerId) return source.ownerPlayerId;
@@ -106,14 +118,14 @@ function stateFromSnapshot(snapshot) {
   const commanderSources = normaliseSnapshotSources(snapshot); const previous = state;
   const ownerPlayerId = `P${transport.seatId + 1}`;
   const activePlayerId = previous?.localSimulation === false && previous.podCode === snapshot.code && snapshot.seats.some(seat => `P${seat.seatId + 1}` === previous.activePlayerId) ? previous.activePlayerId : ownerPlayerId;
-  const turn = snapshot.turn || { activeSeatId: 0, gameStarted: true, gameStartedAt: Date.now(), turnStartedAt: Date.now(), roundEndsAt: null, startingPlayerSeatId: 0, startingPlayerRoll: null, lastHandoff: null, trackingEnabled: true, pausedAt: null };
+  const turn = snapshot.turn || { activeSeatId: 0, gameStarted: true, gameStartedAt: Date.now(), turnStartedAt: Date.now(), roundEndsAt: null, startingPlayerSeatId: 0, startingPlayerRoll: null, lastHandoff: null, trackingEnabled: true, cuesEnabled: false, pausedAt: null };
   return {
     playerCount: snapshot.config.playerCount, startingLife: snapshot.config.startingLife, roundLimitMinutes: snapshot.config.roundLimitMinutes || null, commanderSources, commanderCastCounts: castCountsFromSnapshot(snapshot, commanderSources), ownerPlayerId, activePlayerId, turnSeatId: `P${turn.activeSeatId + 1}`, turn,
     localSimulation: false, podCode: snapshot.code, version: snapshot.version, hostSeatId: snapshot.hostSeatId, lastCoinToss: snapshot.lastCoinToss || null, gameResult: snapshot.gameResult || null, mode: previous?.mode || 'life', selectedSourceId: previous?.selectedSourceId || null,
     players: snapshot.seats.map(seat => ({ id: `P${seat.seatId + 1}`, name: seat.name, commanderCount: seat.commanderCount === 2 ? 2 : 1, commanderNames: seat.commanderNames || [], commanderColors: (seat.commanderColors || []).map(normaliseIdentity), life: seat.counters.life, poison: seat.counters.poison, commanderDamage: damageFromSnapshot(seat, commanderSources), radiation: seat.counters.radiation ?? 0, energy: seat.counters.energy, generic: seat.counters.generic, connectionStatus: seat.connected ? 'connected' : seat.claimed ? 'disconnected' : 'waiting', eliminated: false, lethalCause: null, warning: null }))
   };
 }
-function sourcesForDefender(playerId) { return state.commanderSources.filter(source => source.ownerPlayerId !== playerId); }
+function sourcesForDefender(_playerId) { return state.commanderSources; }
 function ownCommanderSources(playerId) { return state.commanderSources.filter(source => source.ownerPlayerId === playerId); }
 function displayName(player) { return String(player?.name || player?.id || 'Player').trim() || player.id; }
 function displayPlayer(player) { const name = displayName(player); return name === player.id ? name : `${name} · ${player.id}`; }
@@ -193,6 +205,10 @@ function renderTurnFlow() {
   dom.toggleTurnTrackingButton.hidden = !isHost;
   dom.toggleTurnTrackingButton.disabled = !isHost || !(state.localSimulation || transport.status === 'connected');
   dom.toggleTurnTrackingButton.textContent = `Turn tracking: ${trackingEnabled ? 'on' : 'off'}`;
+  dom.toggleTurnCuesButton.hidden = !isHost;
+  dom.toggleTurnCuesButton.disabled = !isHost || !(state.localSimulation || transport.status === 'connected');
+  dom.toggleTurnCuesButton.textContent = `Table turn cue: ${state.turn.cuesEnabled ? 'single ding' : 'off'}`;
+  dom.toggleDeviceCuesButton.textContent = `My turn cue: ${deviceTurnCuesEnabled() ? 'on' : 'off'}`;
   dom.pauseTurnButton.hidden = !isStarted || !isHost || !trackingEnabled;
   if (!isStarted) {
     const selected = Number.isInteger(state.turn.startingPlayerSeatId) ? state.players.find(player => player.id === `P${state.turn.startingPlayerSeatId + 1}`) : null;
@@ -390,8 +406,10 @@ function showCoinToss(toss, { dialog = false } = {}) {
 function renderPodStrip() {
   // The strip is a table snapshot, not a second dashboard.  Let CSS use the
   // player count to compact large pods without hiding their name or life.
-  dom.podStrip.dataset.playerCount = String(state.players.length);
-  dom.podStrip.innerHTML = state.players.map(player => {
+  const largePod = state.players.length > 4;
+  dom.podStrip.dataset.playerCount = String(largePod ? 4 : state.players.length);
+  dom.game.querySelector('.counter-stage').classList.toggle('has-side-seats', largePod);
+  const seatMarkup = (player) => {
     const isWaiting = player.connectionStatus === 'waiting';
     const isOffline = player.connectionStatus === 'disconnected';
     // A claimed but offline seat retains server-authoritative counters. Show the
@@ -405,7 +423,10 @@ function renderPodStrip() {
     const name = displayName(player); const tileName = `${name}${player.id === state.ownerPlayerId ? ' · YOU' : ''}`;
     const stateSymbol = isWaiting ? '○' : isOffline ? '×' : player.eliminated ? '☠' : player.warning ? '!' : '●';
     return `<button class="pod-seat ${player.id === state.activePlayerId ? 'active' : ''} ${player.id === state.turnSeatId ? 'turn-active' : ''} ${player.eliminated ? 'eliminated' : ''} ${isOffline ? 'disconnected' : ''}" data-seat="${player.id}" type="button" aria-label="${escapeHtml(`${displayPlayer(player)}, ${marker}, ${value}. ${identityLabel(player)}`)}"${identityStyle(player)}><span class="seat-name" title="${escapeHtml(displayPlayer(player))}">${escapeHtml(tileName)}</span><span class="seat-life">${value}</span><span class="seat-state ${stateClass}" title="${marker}">${stateSymbol}<span class="sr-only">${marker}</span></span><span class="identity-rail" aria-hidden="true"></span></button>`;
-  }).join('');
+  };
+  dom.podStrip.innerHTML = state.players.slice(0, largePod ? 4 : state.players.length).map(seatMarkup).join('');
+  dom.sideSeats.hidden = !largePod;
+  dom.sideSeats.innerHTML = largePod ? state.players.slice(4).map(seatMarkup).join('') : '';
   $$('[data-seat]').forEach(button => button.addEventListener('click', () => { state.activePlayerId = button.dataset.seat; state.selectedSourceId = null; render(); }));
 }
 function renderSources(player) {
@@ -446,15 +467,16 @@ async function refreshJoinSeats() {
   try {
     const { snapshot } = await transport.inspectRoom(code);
     if ($('#podCode').value.trim().toUpperCase() !== code) return;
-    const openSeats = snapshot.seats.filter(seat => !seat.claimed);
-    dom.joinSeat.innerHTML = openSeats.length
-      ? openSeats.map(seat => `<option value="P${seat.seatId + 1}">P${seat.seatId + 1}</option>`).join('')
+    const availableSeats = snapshot.seats.filter(seat => !seat.claimed || transport.hasStoredReclaimToken(code, seat.seatId));
+    const openSeatCount = snapshot.seats.filter(seat => !seat.claimed).length;
+    dom.joinSeat.innerHTML = availableSeats.length
+      ? availableSeats.map(seat => `<option value="P${seat.seatId + 1}">${seat.claimed ? `Reclaim P${seat.seatId + 1}` : `P${seat.seatId + 1}`}</option>`).join('')
       : '<option value="">No open seats</option>';
-    dom.joinSeat.disabled = openSeats.length === 0;
+    dom.joinSeat.disabled = availableSeats.length === 0;
     dom.joinName.placeholder = dom.joinSeat.value || 'No open seat';
-    dom.joinCodeStatus.textContent = openSeats.length ? `${openSeats.length} open seat${openSeats.length === 1 ? '' : 's'} available.` : 'This pod has no open seats.';
-    if (openSeats.length) showView(dom.joinSeatView);
-    return openSeats.length > 0;
+    dom.joinCodeStatus.textContent = availableSeats.length ? `${openSeatCount ? `${openSeatCount} open seat${openSeatCount === 1 ? '' : 's'} available.` : 'This pod is full.'}${availableSeats.some(seat => seat.claimed) ? ' Your saved seat can be reclaimed on this device.' : ''}` : 'This pod has no open seats.';
+    if (availableSeats.length) showView(dom.joinSeatView);
+    return availableSeats.length > 0;
   } catch {
     if ($('#podCode').value.trim().toUpperCase() === code) {
       dom.joinSeat.innerHTML = '<option value="">Pod not available</option>';
@@ -579,6 +601,12 @@ async function toggleTurnTracking() {
   if (transport.status === 'local') { state.turn = { ...state.turn, trackingEnabled: enabled, pausedAt: null, turnStartedAt: enabled && state.turn.gameStarted ? Date.now() : state.turn.turnStartedAt, lastHandoff: null }; render(); return; }
   try { const result = await transport.setTurnTracking(enabled); if (result.conflict) showError(new Error('The table changed first. The latest turn settings are shown.')); } catch (error) { showError(error); }
 }
+async function toggleTurnCues() {
+  if (!state || (!state.localSimulation && transport.seatId !== state.hostSeatId)) return;
+  const enabled = !state.turn.cuesEnabled;
+  if (transport.status === 'local') { state.turn = { ...state.turn, cuesEnabled: enabled }; render(); return; }
+  try { const result = await transport.setTurnCues(enabled); if (result.conflict) showError(new Error('The table changed first. The latest turn settings are shown.')); } catch (error) { showError(error); }
+}
 async function toggleTurnPause() {
   if (!state || state.turn.trackingEnabled === false || (!state.localSimulation && transport.seatId !== state.hostSeatId)) return;
   dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false');
@@ -601,6 +629,7 @@ async function declareWinner() {
 }
 function showTurnHandoff() {
   dom.turnBanner.classList.remove('handoff'); void dom.turnBanner.offsetWidth; dom.turnBanner.classList.add('handoff');
+  if (state.localSimulation || state.turnSeatId === state.ownerPlayerId) playTurnCue();
 }
 async function tossCoin({ dialog = true } = {}) {
   if (!(transport.status === 'local' || transport.status === 'connected')) return;
@@ -642,13 +671,13 @@ fillSetupControls(); refreshSetupCommanderNames(); renderConnection();
 $('#createPodButton').addEventListener('click', () => showView(dom.create)); $('#joinPodButton').addEventListener('click', () => { showView(dom.join); dom.joinCodeStatus.textContent = ''; }); $('#changePodButton').addEventListener('click', () => showView(dom.join)); $$('[data-back]').forEach(button => button.addEventListener('click', () => showView(dom.landing))); $('#joinSeat').addEventListener('change', () => { dom.joinName.placeholder = dom.joinSeat.value; }); dom.joinCodeForm.addEventListener('submit', async event => { event.preventDefault(); await refreshJoinSeats(); }); $$('input[name="commanderCount"], input[name="joinCommanderCount"]').forEach(input => input.addEventListener('change', refreshSetupCommanderNames));
 $('#quickTestButton').addEventListener('click', () => { const saved = loadLocal(); if (saved) { transport.useLocal(); state = saved; showView(dom.game); render(); } else beginLocalGame({}); });
 $('#createForm').addEventListener('submit', async event => { event.preventDefault(); const form = new FormData(event.currentTarget); const playerCount = Number(form.get('playerCount')); const ownerCommanderCount = Number(form.get('commanderCount')); const ownerCommanderNames = commanderNamesFromForm(form, ownerCommanderCount); const ownerCommanderColors = commanderColorsFromFields(dom.createCommanderNames, ownerCommanderCount); const ownerPlayerId = 'P1'; const ownerName = String(form.get('name') || '').trim() || ownerPlayerId; const enteredRoundLimit = String(form.get('roundLimitMinutes') || '').trim(); const roundLimitMinutes = enteredRoundLimit ? Number(enteredRoundLimit) : null; if (roundLimitMinutes !== null && (!Number.isInteger(roundLimitMinutes) || roundLimitMinutes < 1 || roundLimitMinutes > 999)) { dom.roundLimitMinutes.focus(); return; } const config = { playerCount, startingLife: Number(form.get('startingLife')), ownerPlayerId, ownerName, ownerCommanderCount, ownerCommanderNames, ownerCommanderColors, roundLimitMinutes }; if (dom.localSimulation.checked) return beginLocalGame({ ...config, localSimulation: true, podCode: 'LOCAL' }); try { const result = await transport.createRoom({ playerCount, startingLife: config.startingLife, commanderCount: ownerCommanderCount, commanderNames: ownerCommanderNames, commanderColors: ownerCommanderColors, name: ownerName, roundLimitMinutes }); showSharedGame(result.snapshot); } catch (error) { showError(error); } });
-$('#joinForm').addEventListener('submit', async event => { event.preventDefault(); const form = new FormData(event.currentTarget); const code = $('#podCode').value.trim().toUpperCase(); const ownerPlayerId = $('#joinSeat').value; if (!/^P[1-8]$/.test(ownerPlayerId)) return showError(new Error('Wait for this pod’s open seats to load, then choose one.')); const seatId = Number(ownerPlayerId.slice(1)) - 1; const commanderCount = Number(form.get('joinCommanderCount')); const commanderNames = commanderNamesFromForm(form, commanderCount); const commanderColors = commanderColorsFromFields(dom.joinCommanderNames, commanderCount); const ownerName = String(form.get('name') || '').trim() || ownerPlayerId; try { const room = await transport.inspectRoom(code); if (!room.snapshot.seats[seatId] || room.snapshot.seats[seatId].claimed) throw new Error('That seat is no longer open. Choose one of the available seats.'); const result = await transport.claimRoom({ code, seatId, name: ownerName, commanderCount, commanderNames, commanderColors }); showSharedGame(result.snapshot); } catch (error) { showError(error); } });
+$('#joinForm').addEventListener('submit', async event => { event.preventDefault(); const form = new FormData(event.currentTarget); const code = $('#podCode').value.trim().toUpperCase(); const ownerPlayerId = $('#joinSeat').value; if (!/^P[1-8]$/.test(ownerPlayerId)) return showError(new Error('Wait for this pod’s open seats to load, then choose one.')); const seatId = Number(ownerPlayerId.slice(1)) - 1; const commanderCount = Number(form.get('joinCommanderCount')); const commanderNames = commanderNamesFromForm(form, commanderCount); const commanderColors = commanderColorsFromFields(dom.joinCommanderNames, commanderCount); const ownerName = String(form.get('name') || '').trim() || ownerPlayerId; try { const room = await transport.inspectRoom(code); if (!room.snapshot.seats[seatId] || (room.snapshot.seats[seatId].claimed && !transport.hasStoredReclaimToken(code, seatId))) throw new Error('That seat is no longer open. Choose one of the available seats.'); const result = await transport.claimRoom({ code, seatId, name: ownerName, commanderCount, commanderNames, commanderColors }); showSharedGame(result.snapshot); } catch (error) { showError(error); } });
 $('#recoverPodButton').addEventListener('click', async () => { const code = $('#podCode').value.trim().toUpperCase(); if (code.length !== 6) return showError(new Error('Enter the six-character pod code first.')); try { const { snapshot } = await transport.restoreRoom(code); const host = snapshot.seats[snapshot.hostSeatId]; const result = await transport.claimRoom({ code, seatId: snapshot.hostSeatId, name: host.name, commanderCount: host.commanderCount, commanderNames: host.commanderNames, commanderColors: host.commanderColors }); showSharedGame(result.snapshot); } catch (error) { showError(error); } });
 $('#joinDemoButton').addEventListener('click', () => { const ownerPlayerId = $('#joinSeat').value; const ownerName = dom.joinName.value.trim() || ownerPlayerId; beginLocalGame({ ownerPlayerId, ownerName, ownerCommanderCount: Number(new FormData($('#joinForm')).get('joinCommanderCount')), localSimulation: true, podCode: 'DEMO' }); });
 dom.activeSeat.addEventListener('change', () => { state.activePlayerId = dom.activeSeat.value; render(); }); $$('[data-mode]').forEach(button => button.addEventListener('click', () => { state.mode = button.dataset.mode; render(); })); $$('[data-delta]').forEach(button => button.addEventListener('click', () => adjust(Number(button.dataset.delta))));
 dom.customLifeButton.addEventListener('click', () => { dom.customLifeAmount.value = ''; dom.customLifeDialog.showModal(); dom.customLifeAmount.focus(); }); dom.cancelCustomLifeButton.addEventListener('click', () => dom.customLifeDialog.close('cancel'));
 dom.customLifeForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; const form = new FormData(dom.customLifeForm); const amount = Number(form.get('amount')); if (!Number.isInteger(amount) || amount < 1 || amount > 999) { event.preventDefault(); dom.customLifeAmount.focus(); return; } const delta = form.get('direction') === 'subtract' ? -amount : amount; adjust(delta); });
-dom.endTurnButton.addEventListener('click', handoffTurn); dom.undoTurnButton.addEventListener('click', undoTurnHandoff); dom.pauseTurnButton.addEventListener('click', toggleTurnPause); dom.toggleTurnTrackingButton.addEventListener('click', toggleTurnTracking);
+dom.endTurnButton.addEventListener('click', handoffTurn); dom.undoTurnButton.addEventListener('click', undoTurnHandoff); dom.pauseTurnButton.addEventListener('click', toggleTurnPause); dom.toggleTurnTrackingButton.addEventListener('click', toggleTurnTracking); dom.toggleTurnCuesButton.addEventListener('click', toggleTurnCues); dom.toggleDeviceCuesButton.addEventListener('click', () => { setDeviceTurnCues(!deviceTurnCuesEnabled()); render(); });
 dom.chooseFirstButton.addEventListener('click', () => chooseStartingPlayer(Number(dom.startingSeat.value))); dom.randomFirstButton.addEventListener('click', () => chooseStartingPlayer()); dom.startGameButton.addEventListener('click', startGame);
 dom.moreButton.addEventListener('click', () => { dom.gameMenu.hidden = !dom.gameMenu.hidden; dom.moreButton.setAttribute('aria-expanded', String(!dom.gameMenu.hidden)); }); dom.coinTossButton.addEventListener('click', () => { dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); tossCoin(); }); dom.declareWinnerButton.addEventListener('click', openDeclareWinner); dom.tossAgainButton.addEventListener('click', () => tossCoin()); $('#resetButton').addEventListener('click', () => { dom.gameMenu.hidden = true; dom.resetDialog.showModal(); }); $('#confirmResetButton').addEventListener('click', resetGame);
 dom.playtestNotesButton.addEventListener('click', openPlaytestNotes); dom.playtestRecapButton.addEventListener('click', openPlaytestRecap); dom.savedPlaytestsButton.addEventListener('click', openSavedPlaytests); dom.refreshTableButton.addEventListener('click', async () => { try { const { snapshot } = await transport.refreshRoom(); if (snapshot) showSharedGame(snapshot); dom.gameMenu.hidden = true; } catch (error) { showError(error); } }); dom.playtestNotesForm.addEventListener('submit', async event => { if (event.submitter?.id !== 'savePlaytestNoteButton') return; event.preventDefault(); const text = dom.playtestNoteText.value; try { dom.playtestNoteStatus.textContent = 'Saving…'; await transport.addPlaytestNote(text); dom.playtestNoteText.value = ''; dom.playtestNoteStatus.textContent = 'Saved.'; await openPlaytestNotes(); } catch (error) { dom.playtestNoteStatus.textContent = `Not saved: ${error.message}`; } });

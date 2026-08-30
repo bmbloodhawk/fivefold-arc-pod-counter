@@ -237,7 +237,7 @@ function synchronizeCommanderState(room) {
     const previous = seat.commanderDamageReceived;
     seat.commanderDamageReceived = Object.fromEntries(
       sources
-        .filter((source) => source.ownerSeatId !== seat.seatId)
+        .filter((source) => source.ownerSeatId !== seat.seatId || (previous[source.id] || 0) > 0)
         .map((source) => [source.id, Object.hasOwn(previous, source.id) ? previous[source.id] : 0]),
     );
     const previousCastCounts = seat.commanderCastCounts;
@@ -360,6 +360,7 @@ export class RoomService {
         startingPlayerRoll: null,
         lastHandoff: null,
         trackingEnabled: true,
+        cuesEnabled: false,
         pausedAt: null,
         pausedDurationMs: 0,
       },
@@ -411,6 +412,7 @@ export class RoomService {
         } : null,
         lastHandoff: room.turn.lastHandoff ? { ...room.turn.lastHandoff } : null,
         trackingEnabled: room.turn.trackingEnabled !== false,
+        cuesEnabled: room.turn.cuesEnabled === true,
         pausedAt: room.turn.pausedAt ?? null,
         pausedDurationMs: room.turn.pausedDurationMs ?? 0,
       },
@@ -576,11 +578,7 @@ export class RoomService {
     if (!commander || typeof commander !== "object" || Array.isArray(commander)) {
       throw Object.assign(new Error("commanderDamageReceived must be an object"), { status: 400, code: "INVALID_INPUT" });
     }
-    const allowedCommanderSources = new Set(
-      commanderSources(room)
-        .filter((source) => source.ownerSeatId !== seat.seatId)
-        .map((source) => source.id),
-    );
+    const allowedCommanderSources = new Set(commanderSources(room).map((source) => source.id));
     for (const [source, value] of Object.entries(commander)) {
       if (!allowedCommanderSources.has(source)) {
         throw Object.assign(new Error("Commander damage may reference only another claimed seat's active commander source"), {
@@ -657,9 +655,9 @@ export class RoomService {
     let applied = delta;
     if (counter === "commanderDamage") {
       const sourceId = input.commanderSourceId;
-      const allowed = new Set(commanderSources(room).filter((source) => source.ownerSeatId !== seat.seatId).map((source) => source.id));
+      const allowed = new Set(commanderSources(room).map((source) => source.id));
       if (!allowed.has(sourceId)) {
-        throw Object.assign(new Error("Commander damage may reference only another claimed seat's active commander source"), { status: 400, code: "INVALID_INPUT" });
+        throw Object.assign(new Error("Commander damage may reference only a claimed seat's active commander source"), { status: 400, code: "INVALID_INPUT" });
       }
       applied = Math.max(-seat.commanderDamageReceived[sourceId], delta);
       seat.commanderDamageReceived[sourceId] += applied;
@@ -882,6 +880,15 @@ export class RoomService {
     return { snapshot: this.snapshot(room) };
   }
 
+  setTurnCues(code, connectionId, input = {}) {
+    const room = this.room(code); const { seatId } = this.requireOwner(room, connectionId);
+    if (seatId !== room.hostSeatId) throw Object.assign(new Error("Only the host seat may change table turn cues"), { status: 403, code: "HOST_ONLY" });
+    if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
+    if (typeof input.enabled !== "boolean") throw Object.assign(new Error("Turn cues must be on or off"), { status: 400, code: "INVALID_INPUT" });
+    room.turn = { ...room.turn, cuesEnabled: input.enabled }; room.version += 1;
+    this.recordLedger(room, "turn_cues_changed", seatId, { enabled: input.enabled }); this.broadcast(room); return { snapshot: this.snapshot(room) };
+  }
+
   reportStartingPlayerRoll(code, connectionId, input = {}) {
     const room = this.room(code); const { seatId } = this.requireOwner(room, connectionId);
     if (room.turn.gameStarted) throw Object.assign(new Error("The game has already started"), { status: 409, code: "GAME_ALREADY_STARTED", snapshot: this.snapshot(room) });
@@ -1085,6 +1092,7 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "POST" && parts[3] === "start-game") return json(res, 200, service.startGame(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "turn-handoff" && parts[4] === "undo") return json(res, 200, service.undoTurnHandoff(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "turn-tracking") return json(res, 200, service.setTurnTracking(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "turn-cues") return json(res, 200, service.setTurnCues(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "turn-pause") return json(res, 200, service.setTurnPaused(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "turn-handoff") return json(res, 200, service.handoffTurn(code, connectionId, await readJson(req)));
         if (req.method === "GET" && parts[3] === "events") {

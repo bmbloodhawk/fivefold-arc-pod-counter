@@ -22,6 +22,7 @@ export class RealtimeAdapter extends EventTarget {
   }
 
   inspectRoom(code) { return this.#request(`/api/rooms/${encodeURIComponent(code)}`); }
+  hasStoredReclaimToken(code, seatId) { return Boolean(this.#storedToken(String(code).toUpperCase(), seatId)); }
   async refreshRoom() {
     if (this.localMode || !this.roomCode) return { snapshot: this.snapshot, local: true };
     const result = await this.inspectRoom(this.roomCode);
@@ -136,6 +137,7 @@ export class RealtimeAdapter extends EventTarget {
 
   async undoTurnHandoff() { return this.#turnRequest('/turn-handoff/undo'); }
   async setTurnTracking(enabled) { return this.#hostGameRequest('/turn-tracking', { enabled }); }
+  async setTurnCues(enabled) { return this.#hostGameRequest('/turn-cues', { enabled }); }
   async setTurnPaused(paused) { return this.#hostGameRequest('/turn-pause', { paused }); }
 
   async declareWinner(winnerSeatId) {

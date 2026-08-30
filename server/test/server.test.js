@@ -508,13 +508,19 @@ describe("authority and convergence", () => {
     });
   });
 
-  test("rejects self, inactive, and legacy positional commander source keys", async () => {
+  test("allows a defender to record damage from their own commander when another player controls it", async () => {
     const made = await room();
-    for (const source of ["seat-0-commander-a", "seat-1-commander-a", "0"]) {
+    const allowed = await call(`/api/rooms/${made.snapshot.code}/me`, {
+      method: "PATCH", connectionId: made.connectionId,
+      body: { baseVersion: made.snapshot.version, commanderDamageReceived: { "seat-0-commander-a": 1 } },
+    });
+    assert.equal(allowed.status, 200);
+    assert.equal(allowed.body.snapshot.seats[0].commanderDamageReceived["seat-0-commander-a"], 1);
+    for (const source of ["seat-1-commander-a", "0"]) {
       const denied = await call(`/api/rooms/${made.snapshot.code}/me`, {
         method: "PATCH",
         connectionId: made.connectionId,
-        body: { baseVersion: made.snapshot.version, commanderDamageReceived: { [source]: 1 } },
+        body: { baseVersion: allowed.body.snapshot.version, commanderDamageReceived: { [source]: 1 } },
       });
       assert.equal(denied.status, 400);
       assert.equal(denied.body.error.code, "INVALID_INPUT");
@@ -733,6 +739,9 @@ describe("authority and convergence", () => {
     assert.equal(snapshot.turn.gameStarted, false);
     assert.equal(snapshot.turn.trackingEnabled, false);
     snapshot = service.setTurnTracking(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version, enabled: true }).snapshot;
+    snapshot = service.setTurnCues(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version, enabled: true }).snapshot;
+    assert.equal(snapshot.turn.cuesEnabled, true);
+    assert.throws(() => service.setTurnCues(created.snapshot.code, second.connectionId, { baseVersion: snapshot.version, enabled: false }), { code: "HOST_ONLY" });
     snapshot = service.startGame(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
     now += 3_000;
     snapshot = service.setTurnPaused(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version, paused: true }).snapshot;
@@ -927,8 +936,9 @@ test("restores a private recovery record with disconnected seats and token-scope
   const playerConnection = restarted.createConnection();
   const reclaimed = restarted.claimSeat(made.snapshot.code, playerConnection.connectionId, { seatId: 1, reclaimToken: claimed.reclaimToken });
   assert.equal(reclaimed.snapshot.seats[1].connected, true);
-  assert.throws(() => restarted.mutateOwnSeat(made.snapshot.code, hostConnection.connectionId, { baseVersion: reclaimed.snapshot.version, commanderDamageReceived: { "seat-0-commander-a": 8 } }), { code: "INVALID_INPUT" });
-  assert.throws(() => restarted.mutateOwnSeat(made.snapshot.code, hostConnection.connectionId, { baseVersion: reclaimed.snapshot.version, commanderCastCounts: { "seat-1-commander-a": 3 } }), { code: "INVALID_INPUT" });
+  const selfCommanderDamage = restarted.mutateOwnSeat(made.snapshot.code, hostConnection.connectionId, { baseVersion: reclaimed.snapshot.version, commanderDamageReceived: { "seat-0-commander-a": 8 } });
+  assert.equal(selfCommanderDamage.snapshot.seats[0].commanderDamageReceived["seat-0-commander-a"], 8);
+  assert.throws(() => restarted.mutateOwnSeat(made.snapshot.code, hostConnection.connectionId, { baseVersion: selfCommanderDamage.snapshot.version, commanderCastCounts: { "seat-1-commander-a": 3 } }), { code: "INVALID_INPUT" });
 });
 
 test("batches rapid life taps into one fresh client operation", async () => {

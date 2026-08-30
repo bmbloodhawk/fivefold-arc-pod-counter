@@ -499,6 +499,20 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
 }
 
 /* Life controls are neutral frosted glass: color comes only from artwork behind them. */
+.side-seats { position: absolute; z-index: 2; top: 46px; right: 5px; left: 5px; display: grid; grid-template-columns: repeat(2, minmax(58px, 76px)); justify-content: space-between; gap: 11px max(112px, 33vw); pointer-events: none; }
+.side-seats .pod-seat { min-height: 60px; padding: 6px 3px 8px; pointer-events: auto; }
+.side-seats .seat-name { font-size: .58rem; }
+.side-seats .seat-life { margin-top: 4px; font-size: 1.6rem; }
+.counter-stage.has-side-seats { min-height: 302px; }
+@media (max-width: 359px), (max-height: 740px) {
+  .side-seats { top: 28px; grid-template-columns: repeat(2, 56px); gap: 6px max(84px, 27vw); }
+  .side-seats .pod-seat { min-height: 51px; padding: 4px 2px 6px; }
+  .side-seats .seat-life { font-size: 1.28rem; }
+  .counter-stage.has-side-seats { min-height: 188px; padding-top: 3px; }
+  .counter-stage.has-side-seats .counter-mode { transform: translateY(8px); }
+  .counter-stage.has-side-seats .main-value { margin-top: 24px; font-size: min(31vw, 6.25rem); }
+  .counter-stage.has-side-seats .counter-context { margin-top: 3px; }
+}
 .adjust-controls { margin-top: -10px; }
 .adjust-controls button {
   overflow: hidden;
