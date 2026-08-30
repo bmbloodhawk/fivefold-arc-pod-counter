@@ -48,7 +48,7 @@ test('seat connection state remains a compact symbol at every pod size', () => {
 test('the life readout stays together and the tax action cannot overlap custom life', () => {
   assert.match(html, /class="counter-readout"[\s\S]*id="modeTitle"[\s\S]*id="mainValue"[\s\S]*id="counterContext"/);
   assert.match(html, /class="counter-stage"[\s\S]*id="turnActions"[\s\S]*id="adjustControls"/);
-  assert.match(styles, /#turnActions \{ position: relative; z-index: 4; margin-bottom: 12px; \}/);
+  assert.match(styles, /#turnActions \{ position: relative; z-index: 4; margin-top: -32px; margin-bottom: 20px; \}/);
   assert.match(styles, /\.counter-readout \{[\s\S]*justify-items: center/);
   assert.match(styles, /\.counter-readout \.main-value \{ margin: 0; transform: translateY\(-10px\); \}/);
   assert.match(styles, /\.counter-readout \.counter-context \{ margin: 24px 0 0; transform: translateY\(8px\); \}/);
