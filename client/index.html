@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=130">
+  <link rel="stylesheet" href="styles.css?v=135">
 </head>
 <body>
   <header class="brand-bar">
@@ -156,12 +156,15 @@
       <section id="lobbyControls" class="lobby-controls" aria-live="polite">
         <p id="lobbyStatus">Waiting for players to join.</p>
         <button id="showJoinQrButton" class="secondary-action" type="button">Show join QR</button>
-        <label id="startingSeatField" class="select-field">First player
-          <select id="startingSeat"></select>
-        </label>
-        <button id="chooseFirstButton" class="secondary-action" type="button">Set first player</button>
-        <button id="randomFirstButton" class="secondary-action" type="button">Roll d20 for first player</button>
-        <button id="startGameButton" class="primary-action" type="button">Start game</button>
+        <button id="startGameButton" class="primary-action" type="button">Start game · P1 goes first</button>
+        <details id="firstPlayerOptions" class="lobby-options">
+          <summary>Choose a different first player</summary>
+          <label id="startingSeatField" class="select-field">First player
+            <select id="startingSeat"></select>
+          </label>
+          <button id="chooseFirstButton" class="secondary-action" type="button">Use selected first player</button>
+          <button id="randomFirstButton" class="secondary-action" type="button">Roll d20 for first player</button>
+        </details>
       </section>
       <section id="turnBanner" class="turn-banner" aria-live="polite">
         <p id="turnLabel">P1'S TURN</p>
@@ -388,6 +391,6 @@
     <form method="dialog"><h2 id="savedPlaytestsTitle">Saved playtests</h2><div id="savedPlaytestsContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
   </dialog>
 
-  <script type="module" src="app.js?v=116"></script>
+  <script type="module" src="app.js?v=117"></script>
 </body>
 </html>

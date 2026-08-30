@@ -23,6 +23,13 @@ test('the host lobby makes sharing the primary next setup action', () => {
   assert.match(app, /Share code \$\{state\.podCode\}/);
 });
 
+test('the host lobby has one default start action and keeps alternate first-player choices secondary', () => {
+  assert.match(html, /id="startGameButton"[^>]*>Start game · P1 goes first/);
+  assert.match(html, /<details id="firstPlayerOptions" class="lobby-options">/);
+  assert.match(html, /<summary>Choose a different first player<\/summary>/);
+  assert.match(app, /Start game · \$\{displayName\(firstPlayer\)\} goes first/);
+});
+
 test('saved tables and QR links return players to a pod without sharing seat credentials', () => {
   assert.match(html, /id="savedTables"/);
   assert.match(html, /Show join QR/);
@@ -41,5 +48,10 @@ test('seat connection state remains a compact symbol at every pod size', () => {
 test('the life readout stays together and the tax action cannot overlap custom life', () => {
   assert.match(html, /class="counter-readout"[\s\S]*id="modeTitle"[\s\S]*id="mainValue"[\s\S]*id="counterContext"/);
   assert.match(styles, /\.counter-readout \{[\s\S]*justify-items: center/);
+  assert.match(styles, /\.counter-readout \.main-value \{ margin: 0; transform: translateY\(-10px\); \}/);
+  assert.match(styles, /\.counter-readout \.counter-context \{ margin: 24px 0 0; transform: translateY\(8px\); \}/);
+  assert.match(styles, /\.counter-readout \.counter-context \{ margin-top: 18px; transform: translateY\(6px\); \}/);
+  assert.match(styles, /\.custom-life-button, \.commander-tax-quick \{ margin-top: 2px; \}/);
+  assert.match(styles, /\.game-shell\[data-your-turn="true"\] \.counter-stage \{ min-height: 250px; margin-bottom: 18px; \}/);
   assert.match(styles, /\.game-shell\[data-your-turn="true"\] \.commander-tax-quick \{ transform: none; margin-bottom: 0; \}/);
 });
