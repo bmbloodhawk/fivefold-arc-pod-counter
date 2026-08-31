@@ -679,22 +679,6 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
 .pod-strip[data-player-count="7"] .seat-life,
 .pod-strip[data-player-count="8"] .seat-life { font-size: clamp(1.42rem, 6.4vw, 2rem); }
 .pod-seat.is-owner { border: 2px solid var(--brass); background: linear-gradient(145deg, rgb(216 174 97 / .20), rgb(18 16 12 / .54)); }
-.seat-owner, .seat-status-text {
-  position: absolute;
-  z-index: 3;
-  bottom: 7px;
-  left: 7px;
-  padding: 2px 4px;
-  border: 1px solid currentColor;
-  background: #11100e;
-  color: var(--brass);
-  font-size: .48rem;
-  font-weight: 900;
-  letter-spacing: .08em;
-  line-height: 1;
-}
-.seat-status-text { left: auto; right: 7px; color: var(--warning); }
-.pod-seat.eliminated .seat-status-text { color: var(--danger); }
 .pod-seat.disconnected { opacity: .76; }
 .pod-seat.turn-active { outline-width: 2px; outline-offset: 1px; }
 .counter-stage.has-side-seats { min-height: 270px; }
@@ -727,8 +711,6 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
   .pod-strip[data-player-count] .seat-life { margin-top: 4px; font-size: 1.45rem; }
   .pod-strip[data-player-count="7"] .seat-life,
   .pod-strip[data-player-count="8"] .seat-life { font-size: 1.28rem; }
-  .seat-owner, .seat-status-text { bottom: 4px; left: 4px; font-size: .4rem; }
-  .seat-status-text { right: 4px; left: auto; }
   .pod-strip[data-player-count="5"] .pod-seat,
   .pod-strip[data-player-count="6"] .pod-seat,
   .pod-strip[data-player-count="7"] .pod-seat,
@@ -736,6 +718,50 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
   .side-seats .pod-seat { min-height: 62px; }
   .side-seats .pod-seat .seat-name { top: 6px; right: 3px; left: 3px; padding-inline: 0; font-size: .54rem; }
   .side-seats .pod-seat .seat-life { margin: 0; padding-top: 3px; font-size: 1.28rem; }
+}
+
+/* Turn state changes availability, not the screen's geometry. Reserve the
+   turn-action slot and apply the same compact composition on either turn. */
+#turnActions { min-height: 70px; }
+.game-shell[data-your-turn="true"] .adjust-controls,
+.game-shell[data-your-turn="false"] .adjust-controls { margin-top: -10px; }
+@media (max-width: 599px) {
+  .game-shell[data-your-turn="true"] .game-topline,
+  .game-shell[data-your-turn="false"] .game-topline { min-height: 82px; }
+  .game-shell[data-your-turn="true"] .pod-strip,
+  .game-shell[data-your-turn="false"] .pod-strip { margin: 3px 0 8px; }
+  .game-shell[data-your-turn="true"] .pod-strip[data-player-count="2"] .pod-seat,
+  .game-shell[data-your-turn="true"] .pod-strip[data-player-count="3"] .pod-seat,
+  .game-shell[data-your-turn="true"] .pod-strip[data-player-count="4"] .pod-seat,
+  .game-shell[data-your-turn="false"] .pod-strip[data-player-count="2"] .pod-seat,
+  .game-shell[data-your-turn="false"] .pod-strip[data-player-count="3"] .pod-seat,
+  .game-shell[data-your-turn="false"] .pod-strip[data-player-count="4"] .pod-seat { min-height: 82px; padding: 9px 4px 12px; }
+  .game-shell[data-your-turn="true"] .pod-strip[data-player-count="2"] .seat-life,
+  .game-shell[data-your-turn="true"] .pod-strip[data-player-count="3"] .seat-life,
+  .game-shell[data-your-turn="true"] .pod-strip[data-player-count="4"] .seat-life,
+  .game-shell[data-your-turn="false"] .pod-strip[data-player-count="2"] .seat-life,
+  .game-shell[data-your-turn="false"] .pod-strip[data-player-count="3"] .seat-life,
+  .game-shell[data-your-turn="false"] .pod-strip[data-player-count="4"] .seat-life { margin-top: 7px; font-size: 2.25rem; }
+  .game-shell[data-your-turn="true"] .turn-actions,
+  .game-shell[data-your-turn="false"] .turn-actions { position: static; margin: 4px 0 5px; transform: none; }
+  .game-shell[data-your-turn="true"] .counter-stage,
+  .game-shell[data-your-turn="false"] .counter-stage { min-height: 318px; margin-top: 0; margin-bottom: 0; }
+  .game-shell[data-your-turn="true"] .counter-readout,
+  .game-shell[data-your-turn="false"] .counter-readout { min-height: 282px; }
+  .game-shell[data-your-turn="true"] .counter-mode,
+  .game-shell[data-your-turn="false"] .counter-mode { transform: none; }
+}
+@media (max-width: 359px), (max-height: 740px) {
+  .game-shell[data-your-turn="true"] .game-topline,
+  .game-shell[data-your-turn="false"] .game-topline { min-height: 74px; }
+  .game-shell[data-your-turn="true"] .pod-seat,
+  .game-shell[data-your-turn="false"] .pod-seat { min-height: 62px; }
+  .game-shell[data-your-turn="true"] .pod-seat .seat-life,
+  .game-shell[data-your-turn="false"] .pod-seat .seat-life { font-size: 1.72rem; }
+  .game-shell[data-your-turn="true"] .counter-stage,
+  .game-shell[data-your-turn="false"] .counter-stage { min-height: 258px; }
+  .game-shell[data-your-turn="true"] .counter-readout,
+  .game-shell[data-your-turn="false"] .counter-readout { min-height: 258px; padding-top: 4px; }
 }
 
 /* A turn adds one action, not a different screen: preserve the calmer table composition. */
