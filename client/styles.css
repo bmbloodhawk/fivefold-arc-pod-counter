@@ -598,7 +598,7 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
 .counter-readout .counter-context { margin: 24px 0 0; transform: translateY(8px); }
 
 .card-camera-dialog { display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto auto; gap: 12px; height: 100%; }
-#cardCameraDialog { box-sizing: border-box; width: 100%; max-width: none; height: 100dvh; max-height: 100dvh; margin: 0; padding: calc(14px + env(safe-area-inset-top)) 16px calc(14px + env(safe-area-inset-bottom)); border: 0; border-radius: 0; overflow: hidden; }
+#cardCameraDialog { box-sizing: border-box; width: 100%; max-width: none; height: 100dvh; max-height: 100dvh; margin: 0; padding: calc(14px + env(safe-area-inset-top)) 16px calc(14px + env(safe-area-inset-bottom)); border: 0; border-radius: 0; overflow-x: hidden; overflow-y: auto; }
 #cardCameraDialog h2 { margin: 0; }
 .card-camera-frame { position: relative; min-height: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: #070706; }
 .card-camera-frame video, .card-camera-frame img { display: block; width: 100%; height: 100%; object-fit: cover; }
@@ -617,6 +617,7 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
 #cardCameraDialog[data-scan-state="results"] .card-camera-dialog { grid-template-rows: auto auto minmax(0, 1fr) auto; }
 .card-advisor-dialog { display: grid; gap: 12px; }
 .card-advisor-dialog > p { margin: 0; }
+.card-advisor-dialog { min-height: 100%; align-content: start; }
 .card-rulings { margin: 8px 0; padding-left: 20px; }
 .card-rulings li { margin: 0 0 10px; }
 .card-rulings p { margin: 0 0 3px; }

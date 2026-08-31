@@ -52,7 +52,9 @@ test('card advisor is title-first and keeps rules advice distinct from a judge r
   assert.match(html, /this is not a judge ruling/);
   assert.match(app, /createInteractionAdvice/);
   assert.match(app, /lookupCardTitles/);
+  assert.match(app, /event\.submitter\?\.value === 'close'/);
   assert.match(styles, /\.card-advisor-dialog/);
+  assert.match(styles, /#cardCameraDialog \{[\s\S]*overflow-y: auto/);
 });
 
 test('the life readout stays together and the tax action cannot overlap custom life', () => {
