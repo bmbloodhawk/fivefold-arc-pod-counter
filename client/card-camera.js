@@ -13,6 +13,11 @@ export class CardCameraSession {
     });
     video.srcObject = this.stream;
     await video.play?.();
+    const track = this.stream.getVideoTracks?.()[0];
+    const capabilities = track?.getCapabilities?.();
+    if (capabilities?.focusMode?.includes?.('continuous')) {
+      await track.applyConstraints?.({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {});
+    }
   }
 
   capture(video, canvas) {

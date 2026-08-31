@@ -14,6 +14,14 @@ test('card camera requests the rear camera and releases it when closed', async (
   assert.equal(video.srcObject, null);
 });
 
+test('card camera asks a supporting phone for continuous autofocus', async () => {
+  let applied = null;
+  const focusTrack = { getCapabilities: () => ({ focusMode: ['continuous'] }), applyConstraints: async value => { applied = value; }, stop() {} };
+  const mediaDevices = { getUserMedia: async () => ({ getTracks: () => [focusTrack], getVideoTracks: () => [focusTrack] }) };
+  await new CardCameraSession(mediaDevices).start({ play: async () => {} });
+  assert.deepEqual(applied, { advanced: [{ focusMode: 'continuous' }] });
+});
+
 test('card camera captures only an in-memory frame', () => {
   const camera = new CardCameraSession();
   const canvas = { width: 0, height: 0, getContext: () => ({ drawImage: (...args) => assert.equal(args.length, 9) }), toDataURL: () => 'data:image/jpeg;base64,local-only' };

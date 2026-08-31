@@ -47,7 +47,7 @@ test('seat connection state remains a compact symbol at every pod size', () => {
 
 test('camera scan keeps capture fixed and requires a confirmed image match', () => {
   assert.match(html, /id="cardCameraDialog"/);
-  assert.match(html, /directly to TCGTracking/);
+  assert.match(html, /checks a few focused card crops automatically/);
   assert.match(html, /You choose a result before Oracle text is shown/);
   assert.match(app, /new CardCameraSession/);
   assert.match(app, /findCardsFromImage/);
