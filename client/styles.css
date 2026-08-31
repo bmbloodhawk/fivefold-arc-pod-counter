@@ -15,10 +15,12 @@
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 * { box-sizing: border-box; }
-html { background: var(--bg); }
+html { overflow-x: hidden; background: var(--bg); }
 body {
+  width: 100%;
   margin: 0;
-  min-width: 320px;
+  min-width: 0;
+  overflow-x: hidden;
   min-height: 100dvh;
   color: var(--ink);
   background:
@@ -439,7 +441,7 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
   .brand-bar { min-height: 52px; padding-block: max(5px, env(safe-area-inset-top)) 5px; }.game-shell { padding-top: 2px; }.game-topline { min-height: 74px; }.game-identity { padding-top: 4px; }.owner-label { font-size: 1.38rem; }
   .pod-strip[data-player-count] .pod-seat { min-height: 62px; padding: 6px 3px 9px; }.pod-seat .seat-life, .pod-strip[data-player-count] .seat-life { margin-top: 3px; font-size: 1.72rem; }.identity-rail { bottom: 4px; height: 4px; }
   .counter-stage { min-height: 258px; }.counter-stage::after { width: min(76vw, 252px); }.counter-stage::before { width: min(69vw, 228px); }.counter-sigil { width: min(61vw, 204px); }.counter-mode { font-size: .94rem; }.main-value { margin-top: 49px; font-size: min(35vw, 7rem); }.life-change-indicator { margin-top: 13px; padding-block: 4px; }.counter-context { margin-top: 8px; font-size: .76rem; }
-  .adjust-controls button { min-height: 54px; }.adjust-controls span { font-size: 1.72rem; }.custom-life-button { min-height: 38px; margin-top: 6px; }.commander-tax-quick { margin-top: 6px; }.commander-tax-quick button { min-height: 54px; padding-block: 4px; }.commander-tax-quick-value { min-height: 44px; }.commander-tax-quick-name { font-size: .9rem; }
+  .adjust-controls button { min-height: 54px; }.adjust-controls span { font-size: 1.72rem; }.custom-life-button { min-height: 44px; margin-top: 6px; }.commander-tax-quick { margin-top: 6px; }.commander-tax-quick button { min-height: 54px; padding-block: 4px; }.commander-tax-quick-value { min-height: 44px; }.commander-tax-quick-name { font-size: .9rem; }
   .mode-nav button { min-height: 58px; }.mode-nav svg { width: 18px; height: 18px; }
 }
 
@@ -636,6 +638,104 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
   .counter-readout .main-value { transform: translateY(-14px); }
   .counter-readout .counter-context { margin-top: 18px; transform: translateY(6px); }
   .custom-life-button, .commander-tax-quick { margin-top: 2px; }
+}
+
+/* Table-summary system: the grid changes at the density breakpoints rather
+   than placing a second set of seats over the focused counter. */
+.pod-strip {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 8px 0 10px;
+}
+.pod-strip[data-player-count="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pod-strip[data-player-count="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pod-strip[data-player-count="5"],
+.pod-strip[data-player-count="6"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pod-strip[data-player-count="7"],
+.pod-strip[data-player-count="8"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.pod-strip .pod-seat,
+.pod-strip[data-player-count] .pod-seat {
+  min-height: 78px;
+  padding: 8px 5px 12px;
+}
+.pod-strip[data-player-count="2"] .pod-seat,
+.pod-strip[data-player-count="3"] .pod-seat,
+.pod-strip[data-player-count="4"] .pod-seat { min-height: 88px; }
+.pod-strip .pod-seat .seat-name {
+  position: static;
+  padding-inline: 14px;
+  font-size: clamp(.62rem, 2.8vw, .78rem);
+}
+.pod-strip .pod-seat .seat-life {
+  position: static;
+  display: block;
+  margin-top: 7px;
+  padding: 0;
+  font-size: clamp(1.62rem, 7.4vw, 2.45rem);
+  line-height: .86;
+}
+.pod-strip[data-player-count="5"] .seat-life,
+.pod-strip[data-player-count="6"] .seat-life { font-size: clamp(1.55rem, 7vw, 2.18rem); }
+.pod-strip[data-player-count="7"] .seat-life,
+.pod-strip[data-player-count="8"] .seat-life { font-size: clamp(1.42rem, 6.4vw, 2rem); }
+.pod-seat.is-owner { border: 2px solid var(--brass); background: linear-gradient(145deg, rgb(216 174 97 / .20), rgb(18 16 12 / .54)); }
+.seat-owner, .seat-status-text {
+  position: absolute;
+  z-index: 3;
+  bottom: 7px;
+  left: 7px;
+  padding: 2px 4px;
+  border: 1px solid currentColor;
+  background: #11100e;
+  color: var(--brass);
+  font-size: .48rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+  line-height: 1;
+}
+.seat-status-text { left: auto; right: 7px; color: var(--warning); }
+.pod-seat.eliminated .seat-status-text { color: var(--danger); }
+.pod-seat.disconnected { opacity: .76; }
+.pod-seat.turn-active { outline-width: 2px; outline-offset: 1px; }
+.counter-stage.has-side-seats { min-height: 270px; }
+
+/* Large pods use the original 4-top / 4-side composition. The side seats are
+   a compact table summary; the centered counter remains the active phone's
+   primary interaction surface. */
+.pod-strip[data-player-count="5"],
+.pod-strip[data-player-count="6"],
+.pod-strip[data-player-count="7"],
+.pod-strip[data-player-count="8"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.pod-strip[data-player-count="5"] .pod-seat,
+.pod-strip[data-player-count="6"] .pod-seat,
+.pod-strip[data-player-count="7"] .pod-seat,
+.pod-strip[data-player-count="8"] .pod-seat,
+.side-seats .pod-seat { min-height: 82px; }
+.side-seats .pod-seat .seat-name { position: absolute; top: 9px; right: 4px; left: 4px; padding-inline: 0; }
+.side-seats .pod-seat .seat-life { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; padding-top: 4px; font-size: clamp(1.42rem, 6.4vw, 2rem); }
+#commanderTaxQuickButton, #customLifeButton { scroll-margin-bottom: calc(var(--mode-nav-height) + 16px); }
+
+@media (max-width: 359px), (max-height: 740px) {
+  .pod-strip { gap: 5px; margin-block: 5px 7px; }
+  .pod-strip .pod-seat,
+  .pod-strip[data-player-count] .pod-seat { min-height: 58px; padding: 5px 3px 9px; }
+  .pod-strip[data-player-count="2"] .pod-seat,
+  .pod-strip[data-player-count="3"] .pod-seat,
+  .pod-strip[data-player-count="4"] .pod-seat { min-height: 64px; }
+  .pod-strip .pod-seat .seat-name { padding-inline: 10px; font-size: .54rem; }
+  .pod-strip .pod-seat .seat-life,
+  .pod-strip[data-player-count] .seat-life { margin-top: 4px; font-size: 1.45rem; }
+  .pod-strip[data-player-count="7"] .seat-life,
+  .pod-strip[data-player-count="8"] .seat-life { font-size: 1.28rem; }
+  .seat-owner, .seat-status-text { bottom: 4px; left: 4px; font-size: .4rem; }
+  .seat-status-text { right: 4px; left: auto; }
+  .pod-strip[data-player-count="5"] .pod-seat,
+  .pod-strip[data-player-count="6"] .pod-seat,
+  .pod-strip[data-player-count="7"] .pod-seat,
+  .pod-strip[data-player-count="8"] .pod-seat,
+  .side-seats .pod-seat { min-height: 62px; }
+  .side-seats .pod-seat .seat-name { top: 6px; right: 3px; left: 3px; padding-inline: 0; font-size: .54rem; }
+  .side-seats .pod-seat .seat-life { margin: 0; padding-top: 3px; font-size: 1.28rem; }
 }
 
 /* A turn adds one action, not a different screen: preserve the calmer table composition. */

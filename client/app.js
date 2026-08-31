@@ -454,8 +454,8 @@ function showCoinToss(toss, { dialog = false } = {}) {
   coinFlipTimer = setTimeout(() => advance(0), 400);
 }
 function renderPodStrip() {
-  // The strip is a table snapshot, not a second dashboard.  Let CSS use the
-  // player count to compact large pods without hiding their name or life.
+  // Larger pods keep four matched seats in the top rail and place the remaining
+  // seats beside the focused counter. This keeps routine controls in reach.
   const largePod = state.players.length > 4;
   dom.podStrip.dataset.playerCount = String(state.players.length);
   dom.game.querySelector('.counter-stage').classList.toggle('has-side-seats', largePod);
@@ -472,7 +472,9 @@ function renderPodStrip() {
     const stateClass = isWaiting ? 'waiting' : isOffline ? 'offline' : player.eliminated ? 'eliminated-state' : player.warning ? 'warning' : 'connected';
     const name = displayName(player); const tileName = `${name}${player.id === state.ownerPlayerId ? ' · YOU' : ''}`;
     const stateSymbol = isWaiting ? '○' : isOffline ? '×' : player.eliminated ? '☠' : player.warning ? '!' : '●';
-    return `<button class="pod-seat ${player.id === state.activePlayerId ? 'active' : ''} ${player.id === state.turnSeatId ? 'turn-active' : ''} ${player.eliminated ? 'eliminated' : ''} ${isOffline ? 'disconnected' : ''}" data-seat="${player.id}" type="button" aria-label="${escapeHtml(`${displayPlayer(player)}, ${marker}, ${value}. ${identityLabel(player)}`)}"${identityStyle(player)}><span class="seat-name" title="${escapeHtml(displayPlayer(player))}">${escapeHtml(tileName)}</span><span class="seat-life">${value}</span><span class="seat-state ${stateClass}" title="${marker}">${stateSymbol}<span class="sr-only">${marker}</span></span><span class="identity-rail" aria-hidden="true"></span></button>`;
+    const ownership = player.id === state.ownerPlayerId ? '<span class="seat-owner">YOU</span>' : '';
+    const stateText = isOffline ? '<span class="seat-status-text">OFFLINE</span>' : player.eliminated ? '<span class="seat-status-text">OUT</span>' : '';
+    return `<button class="pod-seat ${player.id === state.ownerPlayerId ? 'is-owner' : ''} ${player.id === state.activePlayerId ? 'active' : ''} ${player.id === state.turnSeatId ? 'turn-active' : ''} ${player.eliminated ? 'eliminated' : ''} ${isOffline ? 'disconnected' : ''}" data-seat="${player.id}" type="button" aria-label="${escapeHtml(`${displayPlayer(player)}, ${marker}, ${value}. ${identityLabel(player)}`)}"${identityStyle(player)}><span class="seat-name" title="${escapeHtml(displayPlayer(player))}">${escapeHtml(tileName)}</span>${ownership}<span class="seat-life">${value}</span>${stateText}<span class="seat-state ${stateClass}" title="${marker}">${stateSymbol}<span class="sr-only">${marker}</span></span><span class="identity-rail" aria-hidden="true"></span></button>`;
   };
   dom.podStrip.innerHTML = state.players.slice(0, largePod ? 4 : state.players.length).map(seatMarkup).join('');
   dom.sideSeats.hidden = !largePod;
