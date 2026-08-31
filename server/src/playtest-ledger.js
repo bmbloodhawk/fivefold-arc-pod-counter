@@ -7,6 +7,7 @@ export class NullPlaytestLedger {
   complete() {}
   recovery() {}
   note() {}
+  fieldTest() {}
   async readRecovery() { return null; }
   async listArchive() { return []; }
   async listFeedback() { return []; }
@@ -32,6 +33,7 @@ export class MemoryPlaytestLedger {
   }
   recovery(record) { this.records.push({ kind: "recovery", record }); }
   note(record) { this.records.push({ kind: "note", record }); }
+  fieldTest(record) { this.records.push({ kind: "field_test", record }); }
   async readRecovery(roomCode) { return this.records.filter((item) => item.kind === "recovery" && item.record.roomCode === roomCode).at(-1)?.record ?? null; }
   async listArchive() { return this.records.filter((item) => item.kind === "complete").map((item) => item.record); }
   async listFeedback() {
@@ -67,6 +69,7 @@ export class FirebasePlaytestLedger {
   complete(recap) { this.enqueue(`playtests/${encodeURIComponent(recap.gameId)}/recap.json`, recap); }
   recovery(record) { this.enqueue(`recovery/${encodeURIComponent(record.roomCode)}.json`, record); }
   note(note) { this.enqueue(`playtests/${encodeURIComponent(note.gameId)}/notes/${encodeURIComponent(note.noteId)}.json`, note); }
+  fieldTest(record) { this.enqueue(`field-tests/${encodeURIComponent(record.gameId)}.json`, record); }
   async readRecovery(roomCode) { return this.read(`recovery/${encodeURIComponent(roomCode)}.json`); }
   async listArchive() {
     const playtests = await this.read("playtests.json") || {};

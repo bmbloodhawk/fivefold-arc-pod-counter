@@ -144,6 +144,13 @@ function normalizeName(value, fallback) {
   return name;
 }
 
+function normalizeCardName(value) {
+  if (typeof value !== "string") throw Object.assign(new Error("Card name must be text"), { status: 400, code: "INVALID_INPUT" });
+  const name = value.normalize("NFC").trim().replace(/\s+/gu, " ");
+  if (!name || Array.from(name).length > 120 || /[\p{Cc}\p{Cf}]/u.test(name)) throw Object.assign(new Error("Enter a card name of up to 120 printable characters"), { status: 400, code: "INVALID_INPUT" });
+  return name;
+}
+
 function normalizeCommanderCount(value, fallback = 1) {
   if (value === undefined) return fallback;
   return asInteger(value, "commanderCount", 1, 2);
@@ -272,6 +279,26 @@ function seatIsEliminated(seat) {
 function createStartingPlayerRoll(claimedSeats, selectedAt) {
   const contenderSeatIds = claimedSeats.map((seat) => seat.seatId);
   return { startedAt: selectedAt, status: "rolling", winnerSeatId: null, rounds: [{ contenderSeatIds, rolls: [] }] };
+}
+
+// Card titles are requested only after player confirmation. This layer keeps no
+// search cache or persistence and is intentionally separate from rules advice.
+export function createCardLookup(fetchImpl = fetch, { timeoutMs = COMMANDER_LOOKUP_TIMEOUT_MS } = {}) {
+  return async (rawName) => {
+    const name = normalizeCardName(rawName);
+    const abort = new AbortController();
+    const timeout = setTimeout(() => abort.abort(), timeoutMs);
+    let response;
+    try {
+      response = await fetchImpl(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`, { signal: abort.signal, headers: { accept: "application/json", "user-agent": "Fivefold Arc Pod Counter/0.1 (player-confirmed card lookup)" } });
+    } catch {
+      throw Object.assign(new Error("Card lookup is temporarily unavailable. Check the card in Gatherer instead."), { status: 503, code: "CARD_LOOKUP_UNAVAILABLE" });
+    } finally { clearTimeout(timeout); }
+    if (response.status === 404) throw Object.assign(new Error("No exact card name was found. Check or edit the title, then try again."), { status: 404, code: "CARD_NOT_FOUND" });
+    if (!response.ok) throw Object.assign(new Error("Card lookup is temporarily unavailable. Check the card in Gatherer instead."), { status: 503, code: "CARD_LOOKUP_UNAVAILABLE" });
+    const card = await response.json();
+    return { name: String(card.name || name), oracleId: typeof card.oracle_id === "string" ? card.oracle_id : null, typeLine: typeof card.type_line === "string" ? card.type_line : "", manaCost: typeof card.mana_cost === "string" ? card.mana_cost : "", oracleText: typeof card.oracle_text === "string" ? card.oracle_text : "", scryfallUrl: typeof card.scryfall_uri === "string" ? card.scryfall_uri : null, gathererUrl: typeof card.related_uris?.gatherer === "string" ? card.related_uris.gatherer : null, retrievedAt: new Date().toISOString() };
+  };
 }
 
 function recordLastPlayerStanding(room, now) {
@@ -879,6 +906,25 @@ export class RoomService {
     return { room, connection };
   }
 
+  recordFieldTest(code, connectionId, input = {}) {
+    const room = this.room(code); const { seatId } = this.requireOwner(room, connectionId);
+    if (seatId !== room.hostSeatId) throw Object.assign(new Error("Only the host may record a field test"), { status: 403, code: "HOST_ONLY" });
+    if (!room.turn.gameStarted) throw Object.assign(new Error("Start the game before recording a field test"), { status: 409, code: "GAME_NOT_STARTED" });
+    if (room.fieldTestRecordedAt) throw Object.assign(new Error("This game already has a field-test record"), { status: 409, code: "FIELD_TEST_ALREADY_RECORDED" });
+    const deviceMix = ["mixed", "ios", "android", "unknown"].includes(input.deviceMix) ? input.deviceMix : null;
+    const repeatUse = ["yes", "no", "unknown"].includes(input.repeatUse) ? input.repeatUse : null;
+    const dispute = ["none", "app", "other", "unknown"].includes(input.dispute) ? input.dispute : null;
+    const allowedIssues = new Set(["setup", "reclaim", "reconnect", "authority", "readability", "turn-flow", "other"]);
+    const issues = Array.isArray(input.issues) ? [...new Set(input.issues)] : [];
+    if (!input.realTable || !deviceMix || !repeatUse || !dispute || issues.length > 3 || issues.some((issue) => !allowedIssues.has(issue))) throw Object.assign(new Error("Complete the bounded field-test record"), { status: 400, code: "INVALID_FIELD_TEST" });
+    const note = typeof input.note === "string" ? input.note.normalize("NFC").trim().replace(/\s+/gu, " ") : "";
+    if (Array.from(note).length > 500 || /[\p{Cc}\p{Cf}]/u.test(note)) throw Object.assign(new Error("Field-test notes must contain at most 500 printable characters"), { status: 400, code: "INVALID_FIELD_TEST" });
+    const now = this.now();
+    const record = { schemaVersion: 1, gameId: room.gameId, roomCode: room.code, recordedAt: now, realTable: true, playerCount: room.seats.filter((seat) => seat.claimed).length, setupMs: Math.max(0, room.turn.gameStartedAt - room.createdAt), elapsedMs: Math.max(0, now - room.turn.gameStartedAt), deviceMix, repeatUse, dispute, issues, note };
+    room.fieldTestRecordedAt = now; this.ledger.fieldTest(record);
+    return { record };
+  }
+
   setTurnTracking(code, connectionId, input = {}) {
     const room = this.room(code);
     const { seatId } = this.requireOwner(room, connectionId);
@@ -1044,6 +1090,7 @@ export class RoomService {
 export function createRealtimeServer(options = {}) {
   const service = options.service ?? new RoomService(options);
   const lookupCommanderIdentity = options.lookupCommanderIdentity ?? createCommanderIdentityLookup(options.fetchImpl);
+  const lookupCard = options.lookupCard ?? createCardLookup(options.fetchImpl);
   const allowedOrigin = options.allowedOrigin ?? process.env.ALLOWED_ORIGIN ?? "*";
   const staticDir = options.staticDir ?? null;
   const sseClients = new Map();
@@ -1083,6 +1130,7 @@ export function createRealtimeServer(options = {}) {
         return json(res, 200, { review });
       }
       if (req.method === "GET" && url.pathname === "/api/commander-identity") return json(res, 200, await lookupCommanderIdentity(url.searchParams.get("name") || ""));
+      if (req.method === "GET" && url.pathname === "/api/cards/lookup") return json(res, 200, await lookupCard(url.searchParams.get("name") || ""));
       if (req.method === "POST" && url.pathname === "/api/connections") return json(res, 201, service.createConnection());
       if (req.method === "POST" && url.pathname === "/api/connections/heartbeat") return json(res, 200, service.heartbeat(connectionId));
       if (req.method === "POST" && url.pathname === "/api/rooms") return json(res, 201, service.createRoom(connectionId, await readJson(req)));
@@ -1104,6 +1152,7 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "GET" && parts[3] === "playtest-notes") return json(res, 200, service.listPlaytestNotes(code, connectionId));
         if (req.method === "POST" && parts[3] === "playtest-notes") return json(res, 201, service.addPlaytestNote(code, connectionId, await readJson(req)));
         if (req.method === "GET" && parts[3] === "playtest-recap") return json(res, 200, service.playtestRecap(code, connectionId));
+        if (req.method === "POST" && parts[3] === "field-test") return json(res, 201, service.recordFieldTest(code, connectionId, await readJson(req)));
         if (req.method === "GET" && parts[3] === "saved-playtests") return json(res, 200, await service.hostArchive(code, connectionId));
         if (req.method === "POST" && parts[3] === "declare-winner") return json(res, 200, service.declareWinner(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "choose-starting-player") return json(res, 200, service.chooseStartingPlayer(code, connectionId, await readJson(req)));

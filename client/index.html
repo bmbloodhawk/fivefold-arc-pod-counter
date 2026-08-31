@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -229,6 +229,7 @@
         <button id="cardCameraButton" type="button">Scan a card</button>
         <button id="playtestNotesButton" type="button">Playtest notes</button>
         <button id="playtestRecapButton" type="button">Playtest recap</button>
+        <button id="fieldTestButton" type="button">Record field test</button>
         <button id="savedPlaytestsButton" type="button">Saved playtests</button>
         <button id="refreshTableButton" type="button">Refresh table</button>
         <button id="declareWinnerButton" type="button">Declare winner</button>
@@ -372,7 +373,6 @@
     </form>
   </dialog>
 
-
   <dialog id="cardCameraDialog" aria-labelledby="cardCameraTitle">
     <form method="dialog" class="card-camera-dialog">
       <h2 id="cardCameraTitle">Scan a card</h2>
@@ -383,10 +383,16 @@
         <p id="cardCameraStatus" class="field-help" aria-live="polite">Opening your camera…</p>
       </div>
       <canvas id="cardCameraCanvas" hidden></canvas>
-      <p class="field-help">Card-name reading is not connected yet. Use this to check framing; a verified lookup will ask you to confirm the name.</p>
-      <div class="dialog-actions card-camera-actions"><button id="captureCardButton" type="button" class="primary-action" disabled>Capture frame</button><button value="close" class="secondary-action">Close camera</button></div>
+      <p class="field-help">The photo stays on your phone. When you choose a lookup, only the title you confirm is sent to Scryfall; it is not saved by Fivefold Arc.</p>
+      <label class="select-field" for="cardLookupName">Card title
+        <input id="cardLookupName" type="text" maxlength="120" autocomplete="off" autocapitalize="words" placeholder="Capture, then type or read the title">
+      </label>
+      <p id="cardLookupStatus" class="field-help" aria-live="polite"></p>
+      <section id="cardLookupResult" class="card-lookup-result" hidden aria-live="polite"></section>
+      <div class="dialog-actions card-camera-actions"><button id="captureCardButton" type="button" class="primary-action" disabled>Capture frame</button><button id="readCardTitleButton" type="button" class="secondary-action" disabled>Read title on phone</button><button id="lookupCardButton" type="button" class="primary-action">Look up confirmed title</button><button value="close" class="secondary-action">Close camera</button></div>
     </form>
   </dialog>
+
   <dialog id="playtestNotesDialog" aria-labelledby="playtestNotesTitle">
     <form id="playtestNotesForm" method="dialog">
       <h2 id="playtestNotesTitle">Playtest notes</h2>
@@ -403,10 +409,24 @@
   <dialog id="playtestRecapDialog" aria-labelledby="playtestRecapTitle">
     <form method="dialog"><h2 id="playtestRecapTitle">Playtest recap</h2><div id="playtestRecapContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
   </dialog>
+  <dialog id="fieldTestDialog" aria-labelledby="fieldTestTitle">
+    <form id="fieldTestForm" method="dialog">
+      <h2 id="fieldTestTitle">Record field test</h2>
+      <p>This saves one bounded record for this real shared-phone game. It does not record developer checks or player identities.</p>
+      <label class="select-field"><input name="realTable" type="checkbox" required> This was a real in-person table test</label>
+      <label class="select-field">Phone mix<select name="deviceMix" required><option value="">Choose one</option><option value="mixed">iPhone and Android</option><option value="ios">iPhone only</option><option value="android">Android only</option><option value="unknown">Not recorded</option></select></label>
+      <label class="select-field">Would this pod use Fivefold Arc again?<select name="repeatUse" required><option value="">Choose one</option><option value="yes">Yes</option><option value="no">No</option><option value="unknown">Not asked</option></select></label>
+      <label class="select-field">Table-state dispute<select name="dispute" required><option value="">Choose one</option><option value="none">None</option><option value="app">App-caused</option><option value="other">Not app-caused</option><option value="unknown">Not known</option></select></label>
+      <fieldset><legend>Observed friction (up to three)</legend><label><input type="checkbox" name="issues" value="setup"> Setup</label><label><input type="checkbox" name="issues" value="reclaim"> Reclaim</label><label><input type="checkbox" name="issues" value="reconnect"> Reconnect</label><label><input type="checkbox" name="issues" value="authority"> Who can change what</label><label><input type="checkbox" name="issues" value="readability"> Readability</label><label><input type="checkbox" name="issues" value="turn-flow"> Turn flow</label><label><input type="checkbox" name="issues" value="other"> Other</label></fieldset>
+      <label class="select-field">One concise observation (optional)<textarea name="note" maxlength="500" placeholder="What mattered most?"></textarea></label>
+      <p id="fieldTestStatus" class="field-help" aria-live="polite"></p>
+      <div class="dialog-actions"><button value="close" class="secondary-action" formnovalidate>Cancel</button><button id="saveFieldTestButton" class="primary-action" type="submit">Save field test</button></div>
+    </form>
+  </dialog>
   <dialog id="savedPlaytestsDialog" aria-labelledby="savedPlaytestsTitle">
     <form method="dialog"><h2 id="savedPlaytestsTitle">Saved playtests</h2><div id="savedPlaytestsContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
   </dialog>
 
-  <script type="module" src="app.js?v=119"></script>
+  <script type="module" src="app.js?v=120"></script>
 </body>
 </html>

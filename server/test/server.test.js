@@ -11,6 +11,9 @@ before(async () => {
   ({ server } = createRealtimeServer({ connectionTtlMs: 60_000, lookupCommanderIdentity: async (name) => {
     if (name === "Unknown Commander") throw Object.assign(new Error("Commander not found. Check the spelling and try again."), { status: 404, code: "COMMANDER_NOT_FOUND" });
     return { name: "Atraxa, Praetors' Voice", colors: ["W", "U", "B", "G"] };
+  }, lookupCard: async (name) => {
+    if (name === "Unknown Card") throw Object.assign(new Error("No exact card name was found. Check or edit the title, then try again."), { status: 404, code: "CARD_NOT_FOUND" });
+    return { name: "Lightning Bolt", oracleId: "id", typeLine: "Instant", manaCost: "{R}", oracleText: "Lightning Bolt deals 3 damage to any target.", scryfallUrl: "https://scryfall.com/card/m10/146/lightning-bolt", gathererUrl: "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=191245", retrievedAt: "2026-08-31T00:00:00.000Z" };
   } }));
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   baseUrl = `http://127.0.0.1:${server.address().port}`;
@@ -59,6 +62,16 @@ describe("room configuration and claims", () => {
     const missing = await call("/api/commander-identity?name=Unknown%20Commander");
     assert.equal(missing.status, 404);
     assert.equal(missing.body.error.code, "COMMANDER_NOT_FOUND");
+  });
+
+  test("returns current card data only for a player-confirmed exact name", async () => {
+    const found = await call("/api/cards/lookup?name=Lightning%20Bolt");
+    assert.equal(found.status, 200);
+    assert.equal(found.body.name, "Lightning Bolt");
+    assert.equal(found.body.oracleText, "Lightning Bolt deals 3 damage to any target.");
+    const missing = await call("/api/cards/lookup?name=Unknown%20Card");
+    assert.equal(missing.status, 404);
+    assert.equal(missing.body.error.code, "CARD_NOT_FOUND");
   });
 
   test("creates a 2-8 player room with an opaque code and private reclaim token", async () => {
@@ -902,6 +915,25 @@ test("archives a reset playtest with its notes and hands turns only to claimed s
   assert.equal(completed.record.incomplete, true);
   assert.equal(completed.record.notes[0].text, "The table stayed readable.");
   assert.equal(completed.record.players[1].name, "Nissa");
+});
+
+test("records only an explicit, bounded host field-test summary", () => {
+  let clock = 10_000;
+  const ledger = new MemoryPlaytestLedger();
+  const service = new RoomService({ now: () => clock, ledger });
+  const host = service.createConnection();
+  const made = service.createRoom(host.connectionId, { playerCount: 2, startingLife: 40 });
+  const guest = service.createConnection();
+  service.claimSeat(made.snapshot.code, guest.connectionId, { seatId: 1 });
+  service.chooseStartingPlayer(made.snapshot.code, host.connectionId, { baseVersion: service.snapshot(service.room(made.snapshot.code)).version, startingSeatId: 0 });
+  service.startGame(made.snapshot.code, host.connectionId, { baseVersion: service.snapshot(service.room(made.snapshot.code)).version });
+  clock += 50_000;
+  const result = service.recordFieldTest(made.snapshot.code, host.connectionId, { realTable: true, deviceMix: "mixed", repeatUse: "yes", dispute: "none", issues: ["setup", "reconnect"], note: "Everyone found life changes." });
+  assert.equal(result.record.playerCount, 2);
+  assert.equal(result.record.setupMs, 0);
+  assert.equal(result.record.elapsedMs, 50_000);
+  assert.equal(ledger.records.filter((entry) => entry.kind === "field_test").length, 1);
+  assert.throws(() => service.recordFieldTest(made.snapshot.code, host.connectionId, { realTable: true, deviceMix: "mixed", repeatUse: "yes", dispute: "none", issues: [] }), { code: "FIELD_TEST_ALREADY_RECORDED" });
 });
 
 test("treats repeated life operation IDs as one adjustment", async () => {

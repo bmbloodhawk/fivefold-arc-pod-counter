@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
@@ -45,14 +45,15 @@ test('seat connection state remains a compact symbol at every pod size', () => {
   assert.match(app, /stateSymbol = isWaiting \? '○' : isOffline \? '×'/);
 });
 
-
-test('camera setup remains local-only and does not claim to identify a card', () => {
+test('camera lookup keeps the photo local and requires a confirmed title', () => {
   assert.match(html, /id="cardCameraDialog"/);
   assert.match(html, /not uploaded or saved/);
-  assert.match(html, /Card-name reading is not connected yet/);
+  assert.match(html, /only the title you confirm is sent to Scryfall/);
+  assert.match(html, /Look up confirmed title/);
   assert.match(app, /new CardCameraSession/);
   assert.match(app, /cardCamera\.stop/);
 });
+
 test('the life readout stays together and the tax action cannot overlap custom life', () => {
   assert.match(html, /class="counter-readout"[\s\S]*id="modeTitle"[\s\S]*id="mainValue"[\s\S]*id="counterContext"/);
   assert.match(html, /class="counter-stage"[\s\S]*id="turnActions"[\s\S]*id="adjustControls"/);

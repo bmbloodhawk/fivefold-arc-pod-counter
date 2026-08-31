@@ -1,4 +1,4 @@
-﻿export class CardCameraSession {
+export class CardCameraSession {
   constructor(mediaDevices = globalThis.navigator?.mediaDevices) {
     this.mediaDevices = mediaDevices;
     this.stream = null;
@@ -24,6 +24,14 @@
     const context = canvas.getContext('2d');
     context.drawImage(video, 0, 0, width, height);
     return canvas.toDataURL('image/jpeg', 0.86);
+  }
+
+  async readText(canvas) {
+    if (typeof globalThis.TextDetector !== 'function') {
+      throw new Error('This browser cannot read card text locally. Type the title below instead.');
+    }
+    const blocks = await new globalThis.TextDetector().detect(canvas);
+    return blocks.map(block => String(block.rawValue || '').trim()).filter(Boolean);
   }
 
   stop(video) {
