@@ -3,7 +3,7 @@ import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=72';
 import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=113';
 import { connectionPresentation } from './connection-state.js?v=1';
 import { CardCameraSession } from './card-camera.js?v=3';
-import { findCardsFromImage } from './card-image-scan.js?v=1';
+import { findCardsFromImage } from './card-image-scan.js?v=2';
 
 const MODES = ['life', 'commander', 'radiation', 'poison', 'energy', 'generic'];
 const IDENTITY_ORDER = ['W', 'U', 'B', 'R', 'G'];
