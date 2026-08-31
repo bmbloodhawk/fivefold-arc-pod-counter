@@ -250,7 +250,7 @@
       <h2>Reset this game?</h2>
       <p>Life returns to the starting total. All other counters and elimination markers return to zero. Pod setup stays the same.</p>
       <div class="dialog-actions">
-        <button id="cancelCustomLifeButton" type="button" class="secondary-action" onclick="this.closest('dialog').close('cancel')">Cancel</button>
+        <button type="button" class="secondary-action" onclick="this.closest('dialog').close('cancel')">Cancel</button>
         <button id="confirmResetButton" value="confirm" class="danger-action">Reset game</button>
       </div>
     </form>
@@ -301,7 +301,7 @@
         </div>
       </fieldset>
       <div class="dialog-actions">
-        <button value="cancel" class="secondary-action">Cancel</button>
+        <button id="cancelCustomLifeButton" type="button" class="secondary-action">Cancel</button>
         <button value="confirm" class="primary-action">Apply life change</button>
       </div>
     </form>
@@ -420,6 +420,6 @@
     <form method="dialog"><h2 id="savedPlaytestsTitle">Saved playtests</h2><div id="savedPlaytestsContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
   </dialog>
 
-  <script type="module" src="app.js?v=124"></script>
+  <script type="module" src="app.js?v=125"></script>
 </body>
 </html>

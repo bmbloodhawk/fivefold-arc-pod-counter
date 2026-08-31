@@ -57,6 +57,11 @@ test('card advisor is title-first and keeps rules advice distinct from a judge r
   assert.match(styles, /#cardCameraDialog \{[\s\S]*overflow-y: auto/);
 });
 
+test('custom-life cancellation bypasses an empty required amount', () => {
+  assert.match(html, /<button id="cancelCustomLifeButton" type="button" class="secondary-action">Cancel<\/button>/);
+  assert.equal((html.match(/id="cancelCustomLifeButton"/g) || []).length, 1);
+});
+
 test('the life readout stays together and the tax action cannot overlap custom life', () => {
   assert.match(html, /class="counter-readout"[\s\S]*id="modeTitle"[\s\S]*id="mainValue"[\s\S]*id="counterContext"/);
   assert.match(html, /class="counter-stage"[\s\S]*id="turnActions"[\s\S]*id="adjustControls"/);
