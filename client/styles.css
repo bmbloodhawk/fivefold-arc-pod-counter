@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   color-scheme: dark;
   --ink: #f4ecd9;
   --muted: #afa590;
@@ -597,6 +597,14 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
 .counter-readout .main-value { margin: 0; transform: translateY(-10px); }
 .counter-readout .counter-context { margin: 24px 0 0; transform: translateY(8px); }
 
+
+.card-camera-dialog { display: grid; gap: 14px; }
+.card-camera-dialog > p { margin: 0; }
+.card-camera-frame { position: relative; overflow: hidden; min-height: 250px; border: 1px solid var(--line); border-radius: 8px; background: #070706; }
+.card-camera-frame video, .card-camera-frame img { display: block; width: 100%; min-height: 250px; max-height: 52dvh; object-fit: cover; }
+.card-camera-frame img { position: absolute; inset: 0; }
+.card-camera-frame .field-help { position: absolute; right: 10px; bottom: 8px; left: 10px; margin: 0; padding: 7px 9px; border-radius: 4px; background: rgb(0 0 0 / .72); color: #f1eadb; }
+.card-camera-actions { margin-top: 0; }
 /* These are separate routine actions: never pull tax over the custom-life button. */
 @media (max-width: 599px) {
   .game-shell[data-your-turn="true"] .commander-tax-quick { transform: none; margin-bottom: 0; }
