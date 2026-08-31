@@ -615,6 +615,12 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
 .scan-candidates small { color: var(--muted); }
 #cardCameraDialog[data-scan-state="results"] .card-camera-frame, #cardCameraDialog[data-scan-state="results"] .card-camera-privacy { display: none; }
 #cardCameraDialog[data-scan-state="results"] .card-camera-dialog { grid-template-rows: auto auto minmax(0, 1fr) auto; }
+.card-advisor-dialog { display: grid; gap: 12px; }
+.card-advisor-dialog > p { margin: 0; }
+.card-rulings { margin: 8px 0; padding-left: 20px; }
+.card-rulings li { margin: 0 0 10px; }
+.card-rulings p { margin: 0 0 3px; }
+.interaction-advice { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 12px; }
 
 /* These are separate routine actions: never pull tax over the custom-life button. */
 @media (max-width: 599px) {

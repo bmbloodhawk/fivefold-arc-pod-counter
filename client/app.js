@@ -2,8 +2,7 @@ import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=72';
 import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=72';
 import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=113';
 import { connectionPresentation } from './connection-state.js?v=1';
-import { CardCameraSession } from './card-camera.js?v=4';
-import { findCardsFromImage } from './card-image-scan.js?v=2';
+import { createInteractionAdvice } from './card-interaction-advice.js?v=1';
 
 const MODES = ['life', 'commander', 'radiation', 'poison', 'energy', 'generic'];
 const IDENTITY_ORDER = ['W', 'U', 'B', 'R', 'G'];
@@ -21,14 +20,11 @@ const dom = {
   lobbyControls: $('#lobbyControls'), lobbyStatus: $('#lobbyStatus'), showJoinQrButton: $('#showJoinQrButton'), showJoinQrMenuButton: $('#showJoinQrMenuButton'), firstPlayerOptions: $('#firstPlayerOptions'), startingSeatField: $('#startingSeatField'), startingSeat: $('#startingSeat'), chooseFirstButton: $('#chooseFirstButton'), randomFirstButton: $('#randomFirstButton'), startGameButton: $('#startGameButton'), startingRollDialog: $('#startingRollDialog'), startingRollStatus: $('#startingRollStatus'), rollMyD20Button: $('#rollMyD20Button'), startingRollCanvas: $('#startingRollCanvas'), startingRollFinalDice: $('#startingRollFinalDice'), startingRollOverlays: $('#startingRollOverlays'), startingRollLive: $('#startingRollLive'), turnBanner: $('#turnBanner'), turnLabel: $('#turnLabel'), turnPlayer: $('#turnPlayer'), turnElapsed: $('#turnElapsed'), gameTimer: $('#gameTimer'), lastTurnSummary: $('#lastTurnSummary'), turnActions: $('#turnActions'), endTurnButton: $('#endTurnButton'), undoTurnButton: $('#undoTurnButton'), pauseTurnButton: $('#pauseTurnButton'), toggleTurnTrackingButton: $('#toggleTurnTrackingButton'), toggleTurnCuesButton: $('#toggleTurnCuesButton'), toggleDeviceCuesButton: $('#toggleDeviceCuesButton'), turnActionDetail: $('#turnActionDetail'),
   commanderCountDialog: $('#commanderCountDialog'), commanderCountDetail: $('#commanderCountDetail'), commanderCountForm: $('#commanderCountForm'), saveCommanderCountButton: $('#saveCommanderCountButton'), joinQrDialog: $('#joinQrDialog'), joinQrImage: $('#joinQrImage'), joinQrCode: $('#joinQrCode'), shareJoinLinkButton: $('#shareJoinLinkButton'), copyJoinLinkButton: $('#copyJoinLinkButton'),
   commanderTaxQuickButton: $('#commanderTaxQuickButton'), commanderTaxDialog: $('#commanderTaxDialog'), commanderTaxDetail: $('#commanderTaxDetail'), commanderTaxList: $('#commanderTaxList'),
-  cardCameraButton: $('#cardCameraButton'), cardCameraDialog: $('#cardCameraDialog'), cardCameraPreview: $('#cardCameraPreview'), cardCameraCapture: $('#cardCameraCapture'), cardCameraCanvas: $('#cardCameraCanvas'), cardCameraStatus: $('#cardCameraStatus'), captureCardButton: $('#captureCardButton'), cardLookupStatus: $('#cardLookupStatus'), cardLookupResult: $('#cardLookupResult'),
+  cardCameraButton: $('#cardCameraButton'), cardCameraDialog: $('#cardCameraDialog'), cardAdvisorForm: $('#cardAdvisorForm'), firstCardTitle: $('#firstCardTitle'), secondCardTitle: $('#secondCardTitle'), cardLookupStatus: $('#cardLookupStatus'), cardLookupResult: $('#cardLookupResult'),
   customLifeButton: $('#customLifeButton'), customLifeDialog: $('#customLifeDialog'), customLifeForm: $('#customLifeForm'), customLifeAmount: $('#customLifeAmount'), cancelCustomLifeButton: $('#cancelCustomLifeButton'), playtestNotesButton: $('#playtestNotesButton'), playtestRecapButton: $('#playtestRecapButton'), fieldTestButton: $('#fieldTestButton'), fieldTestDialog: $('#fieldTestDialog'), fieldTestForm: $('#fieldTestForm'), fieldTestStatus: $('#fieldTestStatus'), savedPlaytestsButton: $('#savedPlaytestsButton'), refreshTableButton: $('#refreshTableButton'), playtestNotesDialog: $('#playtestNotesDialog'), playtestNotesForm: $('#playtestNotesForm'), playtestNotesList: $('#playtestNotesList'), playtestNoteText: $('#playtestNoteText'), playtestNoteStatus: $('#playtestNoteStatus'), playtestRecapDialog: $('#playtestRecapDialog'), playtestRecapContent: $('#playtestRecapContent'), savedPlaytestsDialog: $('#savedPlaytestsDialog'), savedPlaytestsContent: $('#savedPlaytestsContent')
 };
 const transport = new RealtimeAdapter({ apiBase: apiBaseFromPage() });
-const cardCamera = new CardCameraSession();
 let state = null;
-let cardAutoScanTimer = null;
-let cardAutoScanAttempts = 0;
 const SAVED_TABLES_KEY = 'fivefold-arc:saved-tables';
 let lifeChange = null;
 let lifeChangeTimer = null;
@@ -712,54 +708,19 @@ function closeGameOverlays() { [dom.resetDialog, dom.connectionDialog, dom.coinT
 
 async function openCardCamera() {
   dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false');
-  clearCardAutoScan(); cardAutoScanAttempts = 0; dom.cardCameraDialog.dataset.scanState = 'capture'; dom.cardCameraCapture.hidden = true; dom.cardCameraCapture.removeAttribute('src'); dom.captureCardButton.hidden = true; dom.captureCardButton.disabled = false; dom.cardLookupStatus.textContent = ''; dom.cardLookupResult.hidden = true; dom.cardLookupResult.replaceChildren();
-  dom.cardCameraStatus.textContent = 'Opening your camera…'; dom.cardCameraDialog.showModal();
-  try { await cardCamera.start(dom.cardCameraPreview); dom.cardCameraStatus.textContent = 'Center one card in the outline and hold steady…'; cardAutoScanTimer = setTimeout(autoScanCard, 900); }
-  catch (error) { dom.cardCameraStatus.textContent = error.message; }
-}
-
-function clearCardAutoScan() { if (cardAutoScanTimer) clearTimeout(cardAutoScanTimer); cardAutoScanTimer = null; }
-async function scanCameraFrame() {
-  dom.cardCameraCapture.src = cardCamera.capture(dom.cardCameraPreview, dom.cardCameraCanvas); dom.cardCameraCapture.hidden = false;
-  dom.cardCameraStatus.textContent = 'Matching this card image…';
-  return findCardsFromImage(dom.cardCameraCapture.src);
-}
-function showScanCandidates(candidates) {
-  clearCardAutoScan(); cardCamera.stop(dom.cardCameraPreview); dom.cardCameraDialog.dataset.scanState = 'results';
-  renderScanCandidates(candidates); dom.cardLookupStatus.textContent = 'Choose the card that matches your photo.';
-}
-async function autoScanCard() {
-  if (!dom.cardCameraDialog.open) return;
-  cardAutoScanAttempts += 1;
-  try {
-    const candidates = await scanCameraFrame();
-    if (candidates[0]?.score >= 85 || cardAutoScanAttempts >= 3) return showScanCandidates(candidates);
-    dom.cardCameraStatus.textContent = 'Still focusing—hold the card steady in the outline…';
-    cardAutoScanTimer = setTimeout(autoScanCard, 1100);
-  } catch (error) {
-    if (cardAutoScanAttempts < 3) { dom.cardCameraStatus.textContent = 'Trying another focused frame…'; cardAutoScanTimer = setTimeout(autoScanCard, 1100); return; }
-    dom.cardCameraStatus.textContent = error.message; dom.captureCardButton.hidden = false;
-  }
-}
-async function captureCardFrame() {
-  clearCardAutoScan(); dom.captureCardButton.hidden = true;
-  try { showScanCandidates(await scanCameraFrame()); }
-  catch (error) { dom.cardCameraStatus.textContent = error.message; dom.captureCardButton.hidden = false; }
-}
-function renderScanCandidates(candidates) {
-  dom.cardLookupResult.innerHTML = `<h3>Possible matches</h3><div class="scan-candidates">${candidates.map((card, index) => `<button type="button" class="secondary-action" data-scan-candidate="${index}"><strong>${escapeHtml(card.name)}</strong><small>${escapeHtml([card.setName, card.number ? `#${card.number}` : '', `${card.score}% match`].filter(Boolean).join(' · '))}</small></button>`).join('')}</div>`;
-  dom.cardLookupResult.hidden = false;
-  dom.cardLookupResult.querySelectorAll('[data-scan-candidate]').forEach(button => button.addEventListener('click', () => lookupScannedCard(candidates[Number(button.dataset.scanCandidate)])));
+  dom.cardLookupStatus.textContent = ''; dom.cardLookupResult.hidden = true; dom.cardLookupResult.replaceChildren(); dom.cardCameraDialog.showModal(); dom.firstCardTitle.focus();
 }
 function renderCardLookup(card) {
   const retrieved = new Date(card.retrievedAt).toLocaleString();
-  dom.cardLookupResult.innerHTML = `<h3>${escapeHtml(card.name)}</h3><p>${escapeHtml([card.manaCost, card.typeLine].filter(Boolean).join(' · '))}</p>${card.oracleText ? `<p class="card-oracle-text">${escapeHtml(card.oracleText).replace(/\n/g, '<br>')}</p>` : '<p>No Oracle rules text is listed for this card.</p>'}<p class="field-help">Card data from ${card.scryfallUrl ? `<a href="${escapeHtml(card.scryfallUrl)}" target="_blank" rel="noreferrer">Scryfall</a>` : 'Scryfall'}; retrieved ${escapeHtml(retrieved)}. ${card.gathererUrl ? `<a href="${escapeHtml(card.gathererUrl)}" target="_blank" rel="noreferrer">Check Gatherer</a>` : 'Use official Gatherer for rules confirmation.'} This is a card lookup, not a judge ruling.</p>`;
-  dom.cardLookupResult.hidden = false;
+  const faces = card.faces?.length ? `<details><summary>Show card faces</summary>${card.faces.map(face => `<p><strong>${escapeHtml(face.name)}</strong>${face.typeLine ? ` · ${escapeHtml(face.typeLine)}` : ''}<br>${escapeHtml(face.oracleText || 'No Oracle rules text is listed for this face.').replace(/\n/g, '<br>')}</p>`).join('')}</details>` : '';
+  return `<article><h3>${escapeHtml(card.name)}</h3><p>${escapeHtml([card.manaCost, card.typeLine].filter(Boolean).join(' · '))}</p>${card.oracleText ? `<p class="card-oracle-text">${escapeHtml(card.oracleText).replace(/\n/g, '<br>')}</p>` : '<p>No Oracle rules text is listed for this card.</p>'}${faces}${card.rulings?.length ? `<details><summary>Show published rulings (${card.rulings.length})</summary><ul class="card-rulings">${card.rulings.map(ruling => `<li><p>${escapeHtml(ruling.comment)}</p><small>${escapeHtml(ruling.source)} · ${escapeHtml(ruling.publishedAt)}</small></li>`).join('')}</ul></details>` : '<p class="field-help">No published rulings were returned for this card.</p>'}<p class="field-help">Card data from ${card.scryfallUrl ? `<a href="${escapeHtml(card.scryfallUrl)}" target="_blank" rel="noreferrer">Scryfall</a>` : 'Scryfall'}; retrieved ${escapeHtml(retrieved)}. ${card.gathererUrl ? `<a href="${escapeHtml(card.gathererUrl)}" target="_blank" rel="noreferrer">Check official Gatherer</a>` : 'Use official Gatherer for rules confirmation.'} <a href="https://magic.wizards.com/en/rules" target="_blank" rel="noreferrer">Comprehensive Rules</a></p></article>`;
 }
-async function lookupScannedCard(candidate) {
-  if (!candidate) return;
+function renderInteractionAdvice(advice) { return `<section class="interaction-advice"><h3>Interaction</h3><p><strong>${escapeHtml(advice.conclusion)}</strong></p><p>${escapeHtml(advice.sequence)}</p><p class="field-help">${escapeHtml(advice.limitations)}</p><p class="field-help">To clarify: ${escapeHtml(advice.questions.join(' '))}</p></section>`; }
+async function lookupCardTitles() {
+  const firstName = dom.firstCardTitle.value.trim(); const secondName = dom.secondCardTitle.value.trim();
+  if (!firstName) { dom.firstCardTitle.focus(); return; }
   dom.cardLookupStatus.textContent = 'Loading current Oracle text…';
-  try { const card = await lookupCard(candidate.name); renderCardLookup(card); dom.cardLookupStatus.textContent = `Selected ${card.name}.`; }
+  try { const [first, second] = await Promise.all([lookupCard(firstName), secondName ? lookupCard(secondName) : null]); dom.firstCardTitle.value = first.name; if (second) dom.secondCardTitle.value = second.name; dom.cardLookupResult.innerHTML = `${renderCardLookup(first)}${second ? renderCardLookup(second) + renderInteractionAdvice(createInteractionAdvice(first, second)) : ''}`; dom.cardLookupResult.hidden = false; dom.cardLookupStatus.textContent = second ? 'Current Oracle text, published rulings, and a cautious interaction check are shown.' : 'Current Oracle text and published rulings are shown.'; }
   catch (error) { dom.cardLookupStatus.textContent = error.message; }
 }
 function returnToSetup() {
@@ -791,7 +752,7 @@ dom.customLifeForm.addEventListener('submit', event => { if (event.submitter?.va
 dom.endTurnButton.addEventListener('click', handoffTurn); dom.undoTurnButton.addEventListener('click', undoTurnHandoff); dom.pauseTurnButton.addEventListener('click', toggleTurnPause); dom.toggleTurnTrackingButton.addEventListener('click', toggleTurnTracking); dom.toggleTurnCuesButton.addEventListener('click', toggleTurnCues); dom.toggleDeviceCuesButton.addEventListener('click', () => { setDeviceTurnCues(!deviceTurnCuesEnabled()); render(); });
 dom.chooseFirstButton.addEventListener('click', () => chooseStartingPlayer(Number(dom.startingSeat.value))); dom.randomFirstButton.addEventListener('click', () => chooseStartingPlayer()); dom.startGameButton.addEventListener('click', startGame);
 dom.moreButton.addEventListener('click', () => { dom.gameMenu.hidden = !dom.gameMenu.hidden; dom.moreButton.setAttribute('aria-expanded', String(!dom.gameMenu.hidden)); }); dom.coinTossButton.addEventListener('click', () => { dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); tossCoin(); }); dom.declareWinnerButton.addEventListener('click', openDeclareWinner); dom.tossAgainButton.addEventListener('click', () => tossCoin()); $('#resetButton').addEventListener('click', () => { dom.gameMenu.hidden = true; dom.resetDialog.showModal(); }); $('#confirmResetButton').addEventListener('click', resetGame);
-dom.cardCameraButton.addEventListener('click', openCardCamera); dom.captureCardButton.addEventListener('click', captureCardFrame); dom.cardCameraDialog.addEventListener('close', () => { clearCardAutoScan(); cardCamera.stop(dom.cardCameraPreview); dom.cardCameraCapture.hidden = true; dom.cardCameraCapture.removeAttribute('src'); dom.captureCardButton.hidden = true; });
+dom.cardCameraButton.addEventListener('click', openCardCamera); dom.cardAdvisorForm.addEventListener('submit', event => { event.preventDefault(); lookupCardTitles(); });
 dom.playtestNotesButton.addEventListener('click', openPlaytestNotes); dom.playtestRecapButton.addEventListener('click', openPlaytestRecap); dom.fieldTestButton.addEventListener('click', () => { dom.gameMenu.hidden = true; dom.fieldTestStatus.textContent = ''; dom.fieldTestDialog.showModal(); }); dom.fieldTestForm.addEventListener('submit', async event => { if (event.submitter?.id !== 'saveFieldTestButton') return; event.preventDefault(); const form = new FormData(dom.fieldTestForm); const issues = form.getAll('issues'); if (issues.length > 3) { dom.fieldTestStatus.textContent = 'Choose no more than three friction areas.'; return; } try { dom.fieldTestStatus.textContent = 'Saving…'; await transport.recordFieldTest({ realTable: form.get('realTable') === 'on', deviceMix: form.get('deviceMix'), repeatUse: form.get('repeatUse'), dispute: form.get('dispute'), issues, note: form.get('note') }); dom.fieldTestStatus.textContent = 'Field test saved.'; setTimeout(() => dom.fieldTestDialog.close(), 650); } catch (error) { dom.fieldTestStatus.textContent = `Not saved: ${error.message}`; } }); dom.savedPlaytestsButton.addEventListener('click', openSavedPlaytests); dom.refreshTableButton.addEventListener('click', async () => { try { const { snapshot } = await transport.refreshRoom(); if (snapshot) showSharedGame(snapshot); dom.gameMenu.hidden = true; } catch (error) { showError(error); } }); dom.playtestNotesForm.addEventListener('submit', async event => { if (event.submitter?.id !== 'savePlaytestNoteButton') return; event.preventDefault(); const text = dom.playtestNoteText.value; try { dom.playtestNoteStatus.textContent = 'Saving…'; await transport.addPlaytestNote(text); dom.playtestNoteText.value = ''; dom.playtestNoteStatus.textContent = 'Saved.'; await openPlaytestNotes(); } catch (error) { dom.playtestNoteStatus.textContent = `Not saved: ${error.message}`; } });
 dom.startingRollDialog.addEventListener('close', () => { startingRollSequence += 1; clearStartingRollTimers(); });
 dom.rollMyD20Button.addEventListener('click', rollMyStartingD20);

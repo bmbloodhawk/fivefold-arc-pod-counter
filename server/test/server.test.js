@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
-import { createCommanderIdentityLookup, createRealtimeServer, RoomService } from "../src/app.js";
+import { createCardLookup, createCommanderIdentityLookup, createRealtimeServer, RoomService } from "../src/app.js";
 import { compatibleOperationId, LifeAdjustmentBatcher } from "../../client/life-adjustment-batcher.js";
 import { MemoryPlaytestLedger } from "../src/playtest-ledger.js";
 
@@ -55,6 +55,17 @@ async function room(config = {}) {
 }
 
 describe("room configuration and claims", () => {
+  test("keeps Oracle lookup available when supporting rulings are absent", async () => {
+    const lookup = createCardLookup(async (url) => ({
+      ok: true,
+      status: 200,
+      json: async () => String(url).includes("rulings") ? { data: [{ source: "wotc", published_at: "2025-01-01", comment: "A published ruling." }] } : { name: "Test Card", oracle_text: "Test text.", rulings_uri: "https://example.test/rulings" },
+    }));
+    const card = await lookup("Test Card");
+    assert.equal(card.oracleText, "Test text.");
+    assert.deepEqual(card.rulings, [{ source: "wotc", publishedAt: "2025-01-01", comment: "A published ruling." }]);
+  });
+
   test("looks up a commander identity through the pod server", async () => {
     const found = await call("/api/commander-identity?name=Atraxa%2C%20Praetors%27%20Voice");
     assert.equal(found.status, 200);

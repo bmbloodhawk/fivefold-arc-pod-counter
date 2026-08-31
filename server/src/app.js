@@ -297,7 +297,24 @@ export function createCardLookup(fetchImpl = fetch, { timeoutMs = COMMANDER_LOOK
     if (response.status === 404) throw Object.assign(new Error("No exact card name was found. Check or edit the title, then try again."), { status: 404, code: "CARD_NOT_FOUND" });
     if (!response.ok) throw Object.assign(new Error("Card lookup is temporarily unavailable. Check the card in Gatherer instead."), { status: 503, code: "CARD_LOOKUP_UNAVAILABLE" });
     const card = await response.json();
-    return { name: String(card.name || name), oracleId: typeof card.oracle_id === "string" ? card.oracle_id : null, typeLine: typeof card.type_line === "string" ? card.type_line : "", manaCost: typeof card.mana_cost === "string" ? card.mana_cost : "", oracleText: typeof card.oracle_text === "string" ? card.oracle_text : "", scryfallUrl: typeof card.scryfall_uri === "string" ? card.scryfall_uri : null, gathererUrl: typeof card.related_uris?.gatherer === "string" ? card.related_uris.gatherer : null, retrievedAt: new Date().toISOString() };
+    // Rulings are supporting material, not a substitute for Oracle text. A
+    // failed rulings request must never turn a valid card lookup into an error.
+    let rulings = [];
+    if (typeof card.rulings_uri === "string") {
+      const rulingsAbort = new AbortController();
+      const rulingsTimeout = setTimeout(() => rulingsAbort.abort(), timeoutMs);
+      try {
+        const rulingsResponse = await fetchImpl(card.rulings_uri, { signal: rulingsAbort.signal, headers: { accept: "application/json", "user-agent": "Fivefold Arc Pod Counter/0.1 (player-confirmed card rulings)" } });
+        if (rulingsResponse.ok) {
+          const payload = await rulingsResponse.json();
+          rulings = Array.isArray(payload.data) ? payload.data.slice(-20).map((ruling) => ({ source: String(ruling.source || "Unknown source"), publishedAt: String(ruling.published_at || "Unknown date"), comment: String(ruling.comment || "") })).filter((ruling) => ruling.comment) : [];
+        }
+      } catch { /* Oracle data remains usable when rulings are unavailable. */ }
+      finally { clearTimeout(rulingsTimeout); }
+    }
+    const faces = Array.isArray(card.card_faces) ? card.card_faces.map((face) => ({ name: String(face.name || ""), typeLine: String(face.type_line || ""), manaCost: String(face.mana_cost || ""), oracleText: String(face.oracle_text || "") })).filter((face) => face.name) : [];
+    const oracleText = typeof card.oracle_text === "string" ? card.oracle_text : faces.map((face) => `${face.name}${face.oracleText ? ` — ${face.oracleText}` : ""}`).join("\n");
+    return { name: String(card.name || name), oracleId: typeof card.oracle_id === "string" ? card.oracle_id : null, layout: typeof card.layout === "string" ? card.layout : "normal", typeLine: typeof card.type_line === "string" ? card.type_line : "", manaCost: typeof card.mana_cost === "string" ? card.mana_cost : "", oracleText, faces, rulings, scryfallUrl: typeof card.scryfall_uri === "string" ? card.scryfall_uri : null, gathererUrl: typeof card.related_uris?.gatherer === "string" ? card.related_uris.gatherer : null, retrievedAt: new Date().toISOString() };
   };
 }
 

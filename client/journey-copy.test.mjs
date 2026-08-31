@@ -45,13 +45,14 @@ test('seat connection state remains a compact symbol at every pod size', () => {
   assert.match(app, /stateSymbol = isWaiting \? '○' : isOffline \? '×'/);
 });
 
-test('camera scan keeps capture fixed and requires a confirmed image match', () => {
+test('card advisor is title-first and keeps rules advice distinct from a judge ruling', () => {
   assert.match(html, /id="cardCameraDialog"/);
-  assert.match(html, /checks a few focused card crops automatically/);
-  assert.match(html, /You choose a result before Oracle text is shown/);
-  assert.match(app, /new CardCameraSession/);
-  assert.match(app, /findCardsFromImage/);
-  assert.match(styles, /#cardCameraDialog \{[\s\S]*height: 100dvh[\s\S]*overflow: hidden/);
+  assert.match(html, /Card rules & interaction/);
+  assert.match(html, /id="firstCardTitle"/);
+  assert.match(html, /this is not a judge ruling/);
+  assert.match(app, /createInteractionAdvice/);
+  assert.match(app, /lookupCardTitles/);
+  assert.match(styles, /\.card-advisor-dialog/);
 });
 
 test('the life readout stays together and the tax action cannot overlap custom life', () => {

@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=140">
+  <link rel="stylesheet" href="styles.css?v=141">
 </head>
 <body>
   <header class="brand-bar">
@@ -226,7 +226,7 @@
         </div>
         <button id="coinTossButton" type="button">Flip a coin</button>
         <button id="showJoinQrMenuButton" type="button">Show join QR</button>
-        <button id="cardCameraButton" type="button">Scan a card</button>
+        <button id="cardCameraButton" type="button">Card rules & interaction</button>
         <button id="playtestNotesButton" type="button">Playtest notes</button>
         <button id="playtestRecapButton" type="button">Playtest recap</button>
         <button id="fieldTestButton" type="button">Record field test</button>
@@ -374,19 +374,15 @@
   </dialog>
 
   <dialog id="cardCameraDialog" aria-labelledby="cardCameraTitle">
-    <form method="dialog" class="card-camera-dialog">
-      <h2 id="cardCameraTitle">Scan a card</h2>
-      <div class="card-camera-frame">
-        <video id="cardCameraPreview" autoplay muted playsinline aria-label="Rear camera preview for card lookup"></video>
-        <img id="cardCameraCapture" hidden alt="Captured card photo for local review">
-        <div class="card-camera-guide" aria-hidden="true"></div>
-        <p id="cardCameraStatus" class="field-help" aria-live="polite">Opening your camera…</p>
-      </div>
-      <canvas id="cardCameraCanvas" hidden></canvas>
+    <form id="cardAdvisorForm" method="dialog" class="card-advisor-dialog">
+      <h2 id="cardCameraTitle">Card rules & interaction</h2>
+      <p>Enter a card title for current Oracle text and published rulings. Add a second card to check for a clearly stated interaction.</p>
+      <label class="select-field">First card title<input id="firstCardTitle" name="firstCardTitle" type="text" maxlength="120" autocomplete="off" placeholder="e.g. Lightning Bolt" required></label>
+      <label class="select-field">Second card title <small>(optional)</small><input id="secondCardTitle" name="secondCardTitle" type="text" maxlength="120" autocomplete="off" placeholder="e.g. Spellskite"></label>
       <p id="cardLookupStatus" class="field-help" aria-live="polite"></p>
       <section id="cardLookupResult" class="card-lookup-result" hidden aria-live="polite"></section>
-      <p class="card-camera-privacy">The camera checks a few focused card crops automatically. Each crop is sent directly to TCGTracking for a match; Fivefold Arc does not receive or save it. You choose a result before Oracle text is shown.</p>
-      <div class="dialog-actions card-camera-actions"><button id="captureCardButton" type="button" class="primary-action" hidden>Try again</button><button value="close" class="secondary-action">Close camera</button></div>
+      <p class="card-camera-privacy">Names are sent only when you select Look up. They are used for this lookup and are not saved by Fivefold Arc. Based on current Oracle text and published rulings—this is not a judge ruling.</p>
+      <div class="dialog-actions card-camera-actions"><button class="primary-action" type="submit">Look up</button><button value="close" class="secondary-action">Close</button></div>
     </form>
   </dialog>
 
@@ -424,6 +420,6 @@
     <form method="dialog"><h2 id="savedPlaytestsTitle">Saved playtests</h2><div id="savedPlaytestsContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
   </dialog>
 
-  <script type="module" src="app.js?v=123"></script>
+  <script type="module" src="app.js?v=124"></script>
 </body>
 </html>
