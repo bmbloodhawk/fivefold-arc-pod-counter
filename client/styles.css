@@ -788,6 +788,47 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
   .game-shell[data-your-turn="true"] .counter-readout { min-height: 258px; padding-top: 4px; }
 }
 
+/* The pod label is enough orientation on the play surface; seat ownership is
+   already explicit in the selected table card and counter context. */
+.owner-label { display: none; }
+.game-topline { min-height: 54px; }
+.game-identity { gap: 2px; padding-top: 8px; }
+
+/* One compact, fixed turn-action slot. Undo replaces End Turn during its
+   grace period, so neither action reflows the counter or routine controls. */
+#turnActions { min-height: 42px; margin: 2px 0; }
+.end-turn-button,
+.undo-turn-button {
+  width: 100%;
+  min-height: 40px;
+  margin: 0;
+  padding: 7px 12px;
+  border-radius: 5px;
+  font-size: .82rem;
+  font-weight: 900;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.undo-turn-button {
+  border: 1px solid #f09a89;
+  background: #a9473b;
+  color: #fff8f5;
+  box-shadow: 0 3px 0 #612b25;
+}
+.undo-turn-button:active { background: #80352c; transform: translateY(1px); box-shadow: 0 2px 0 #612b25; }
+
+@media (max-width: 599px) {
+  .game-shell[data-your-turn="true"] .game-topline,
+  .game-shell[data-your-turn="false"] .game-topline { min-height: 54px; }
+}
+@media (max-width: 359px), (max-height: 740px) {
+  .game-shell[data-your-turn="true"] .game-topline,
+  .game-shell[data-your-turn="false"] .game-topline { min-height: 48px; }
+  .game-identity { padding-top: 5px; }
+  #turnActions { min-height: 40px; margin: 1px 0; }
+  .end-turn-button, .undo-turn-button { min-height: 38px; padding-block: 5px; font-size: .72rem; }
+}
+
 @media (max-width: 340px) and (max-height: 720px) {
   #quickTestButton { display: none; }
   .saved-tables { gap: 5px; margin-top: 10px; padding: 10px; }
