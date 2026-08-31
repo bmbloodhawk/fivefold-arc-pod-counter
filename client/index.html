@@ -376,20 +376,17 @@
   <dialog id="cardCameraDialog" aria-labelledby="cardCameraTitle">
     <form method="dialog" class="card-camera-dialog">
       <h2 id="cardCameraTitle">Scan a card</h2>
-      <p>Use the rear camera to frame the card title. The preview and captured photo stay on this phone and are not uploaded or saved.</p>
       <div class="card-camera-frame">
         <video id="cardCameraPreview" autoplay muted playsinline aria-label="Rear camera preview for card lookup"></video>
         <img id="cardCameraCapture" hidden alt="Captured card photo for local review">
+        <div class="card-camera-guide" aria-hidden="true"></div>
         <p id="cardCameraStatus" class="field-help" aria-live="polite">Opening your camera…</p>
       </div>
       <canvas id="cardCameraCanvas" hidden></canvas>
-      <p class="field-help">The photo stays on your phone. When you choose a lookup, only the title you confirm is sent to Scryfall; it is not saved by Fivefold Arc.</p>
-      <label class="select-field" for="cardLookupName">Card title
-        <input id="cardLookupName" type="text" maxlength="120" autocomplete="off" autocapitalize="words" placeholder="Capture, then type or read the title">
-      </label>
       <p id="cardLookupStatus" class="field-help" aria-live="polite"></p>
       <section id="cardLookupResult" class="card-lookup-result" hidden aria-live="polite"></section>
-      <div class="dialog-actions card-camera-actions"><button id="captureCardButton" type="button" class="primary-action" disabled>Capture frame</button><button id="readCardTitleButton" type="button" class="secondary-action" disabled>Read title on phone</button><button id="lookupCardButton" type="button" class="primary-action">Look up confirmed title</button><button value="close" class="secondary-action">Close camera</button></div>
+      <p class="card-camera-privacy">Scan sends one compressed card crop directly to TCGTracking for a match. Fivefold Arc does not receive or save the photo. You choose a result before Oracle text is shown.</p>
+      <div class="dialog-actions card-camera-actions"><button id="captureCardButton" type="button" class="primary-action" disabled>Scan card</button><button value="close" class="secondary-action">Close camera</button></div>
     </form>
   </dialog>
 
@@ -427,6 +424,6 @@
     <form method="dialog"><h2 id="savedPlaytestsTitle">Saved playtests</h2><div id="savedPlaytestsContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
   </dialog>
 
-  <script type="module" src="app.js?v=120"></script>
+  <script type="module" src="app.js?v=121"></script>
 </body>
 </html>

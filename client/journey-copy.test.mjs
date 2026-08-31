@@ -45,13 +45,13 @@ test('seat connection state remains a compact symbol at every pod size', () => {
   assert.match(app, /stateSymbol = isWaiting \? '○' : isOffline \? '×'/);
 });
 
-test('camera lookup keeps the photo local and requires a confirmed title', () => {
+test('camera scan keeps capture fixed and requires a confirmed image match', () => {
   assert.match(html, /id="cardCameraDialog"/);
-  assert.match(html, /not uploaded or saved/);
-  assert.match(html, /only the title you confirm is sent to Scryfall/);
-  assert.match(html, /Look up confirmed title/);
+  assert.match(html, /directly to TCGTracking/);
+  assert.match(html, /You choose a result before Oracle text is shown/);
   assert.match(app, /new CardCameraSession/);
-  assert.match(app, /cardCamera\.stop/);
+  assert.match(app, /findCardsFromImage/);
+  assert.match(styles, /#cardCameraDialog \{[\s\S]*height: 100dvh[\s\S]*overflow: hidden/);
 });
 
 test('the life readout stays together and the tax action cannot overlap custom life', () => {

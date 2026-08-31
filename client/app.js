@@ -2,7 +2,8 @@ import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=72';
 import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=72';
 import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=113';
 import { connectionPresentation } from './connection-state.js?v=1';
-import { CardCameraSession } from './card-camera.js?v=2';
+import { CardCameraSession } from './card-camera.js?v=3';
+import { findCardsFromImage } from './card-image-scan.js?v=1';
 
 const MODES = ['life', 'commander', 'radiation', 'poison', 'energy', 'generic'];
 const IDENTITY_ORDER = ['W', 'U', 'B', 'R', 'G'];
@@ -20,7 +21,7 @@ const dom = {
   lobbyControls: $('#lobbyControls'), lobbyStatus: $('#lobbyStatus'), showJoinQrButton: $('#showJoinQrButton'), showJoinQrMenuButton: $('#showJoinQrMenuButton'), firstPlayerOptions: $('#firstPlayerOptions'), startingSeatField: $('#startingSeatField'), startingSeat: $('#startingSeat'), chooseFirstButton: $('#chooseFirstButton'), randomFirstButton: $('#randomFirstButton'), startGameButton: $('#startGameButton'), startingRollDialog: $('#startingRollDialog'), startingRollStatus: $('#startingRollStatus'), rollMyD20Button: $('#rollMyD20Button'), startingRollCanvas: $('#startingRollCanvas'), startingRollFinalDice: $('#startingRollFinalDice'), startingRollOverlays: $('#startingRollOverlays'), startingRollLive: $('#startingRollLive'), turnBanner: $('#turnBanner'), turnLabel: $('#turnLabel'), turnPlayer: $('#turnPlayer'), turnElapsed: $('#turnElapsed'), gameTimer: $('#gameTimer'), lastTurnSummary: $('#lastTurnSummary'), turnActions: $('#turnActions'), endTurnButton: $('#endTurnButton'), undoTurnButton: $('#undoTurnButton'), pauseTurnButton: $('#pauseTurnButton'), toggleTurnTrackingButton: $('#toggleTurnTrackingButton'), toggleTurnCuesButton: $('#toggleTurnCuesButton'), toggleDeviceCuesButton: $('#toggleDeviceCuesButton'), turnActionDetail: $('#turnActionDetail'),
   commanderCountDialog: $('#commanderCountDialog'), commanderCountDetail: $('#commanderCountDetail'), commanderCountForm: $('#commanderCountForm'), saveCommanderCountButton: $('#saveCommanderCountButton'), joinQrDialog: $('#joinQrDialog'), joinQrImage: $('#joinQrImage'), joinQrCode: $('#joinQrCode'), shareJoinLinkButton: $('#shareJoinLinkButton'), copyJoinLinkButton: $('#copyJoinLinkButton'),
   commanderTaxQuickButton: $('#commanderTaxQuickButton'), commanderTaxDialog: $('#commanderTaxDialog'), commanderTaxDetail: $('#commanderTaxDetail'), commanderTaxList: $('#commanderTaxList'),
-  cardCameraButton: $('#cardCameraButton'), cardCameraDialog: $('#cardCameraDialog'), cardCameraPreview: $('#cardCameraPreview'), cardCameraCapture: $('#cardCameraCapture'), cardCameraCanvas: $('#cardCameraCanvas'), cardCameraStatus: $('#cardCameraStatus'), captureCardButton: $('#captureCardButton'), readCardTitleButton: $('#readCardTitleButton'), cardLookupName: $('#cardLookupName'), lookupCardButton: $('#lookupCardButton'), cardLookupStatus: $('#cardLookupStatus'), cardLookupResult: $('#cardLookupResult'),
+  cardCameraButton: $('#cardCameraButton'), cardCameraDialog: $('#cardCameraDialog'), cardCameraPreview: $('#cardCameraPreview'), cardCameraCapture: $('#cardCameraCapture'), cardCameraCanvas: $('#cardCameraCanvas'), cardCameraStatus: $('#cardCameraStatus'), captureCardButton: $('#captureCardButton'), cardLookupStatus: $('#cardLookupStatus'), cardLookupResult: $('#cardLookupResult'),
   customLifeButton: $('#customLifeButton'), customLifeDialog: $('#customLifeDialog'), customLifeForm: $('#customLifeForm'), customLifeAmount: $('#customLifeAmount'), cancelCustomLifeButton: $('#cancelCustomLifeButton'), playtestNotesButton: $('#playtestNotesButton'), playtestRecapButton: $('#playtestRecapButton'), fieldTestButton: $('#fieldTestButton'), fieldTestDialog: $('#fieldTestDialog'), fieldTestForm: $('#fieldTestForm'), fieldTestStatus: $('#fieldTestStatus'), savedPlaytestsButton: $('#savedPlaytestsButton'), refreshTableButton: $('#refreshTableButton'), playtestNotesDialog: $('#playtestNotesDialog'), playtestNotesForm: $('#playtestNotesForm'), playtestNotesList: $('#playtestNotesList'), playtestNoteText: $('#playtestNoteText'), playtestNoteStatus: $('#playtestNoteStatus'), playtestRecapDialog: $('#playtestRecapDialog'), playtestRecapContent: $('#playtestRecapContent'), savedPlaytestsDialog: $('#savedPlaytestsDialog'), savedPlaytestsContent: $('#savedPlaytestsContent')
 };
 const transport = new RealtimeAdapter({ apiBase: apiBaseFromPage() });
@@ -709,38 +710,37 @@ function closeGameOverlays() { [dom.resetDialog, dom.connectionDialog, dom.coinT
 
 async function openCardCamera() {
   dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false');
-  dom.cardCameraCapture.hidden = true; dom.cardCameraCapture.removeAttribute('src'); dom.captureCardButton.disabled = true; dom.readCardTitleButton.disabled = true; dom.cardLookupName.value = ''; dom.cardLookupStatus.textContent = ''; dom.cardLookupResult.hidden = true; dom.cardLookupResult.replaceChildren();
+  dom.cardCameraDialog.dataset.scanState = 'capture'; dom.cardCameraCapture.hidden = true; dom.cardCameraCapture.removeAttribute('src'); dom.captureCardButton.disabled = true; dom.cardLookupStatus.textContent = ''; dom.cardLookupResult.hidden = true; dom.cardLookupResult.replaceChildren();
   dom.cardCameraStatus.textContent = 'Opening your camera…'; dom.cardCameraDialog.showModal();
   try { await cardCamera.start(dom.cardCameraPreview); dom.captureCardButton.disabled = false; dom.cardCameraStatus.textContent = 'Frame the card title, then capture a local preview.'; }
   catch (error) { dom.cardCameraStatus.textContent = error.message; }
 }
 
-function captureCardFrame() {
-  try { dom.cardCameraCapture.src = cardCamera.capture(dom.cardCameraPreview, dom.cardCameraCanvas); dom.cardCameraCapture.hidden = false; dom.readCardTitleButton.disabled = false; dom.cardCameraStatus.textContent = 'Captured locally. This image will be discarded when you close the camera.'; }
-  catch (error) { dom.cardCameraStatus.textContent = error.message; }
-}
-async function readCapturedCardTitle() {
-  dom.readCardTitleButton.disabled = true; dom.cardLookupStatus.textContent = 'Reading title on this phone…';
+async function captureCardFrame() {
+  dom.captureCardButton.disabled = true;
   try {
-    const lines = await cardCamera.readText(dom.cardCameraCanvas);
-    const title = lines.find(line => /[A-Za-z]/.test(line) && line.length <= 120) || '';
-    if (!title) throw new Error('No readable title was found. Type the card title below instead.');
-    dom.cardLookupName.value = title; dom.cardLookupStatus.textContent = 'Check the title, then choose Look up confirmed title.';
-  } catch (error) { dom.cardLookupStatus.textContent = error.message; }
-  finally { dom.readCardTitleButton.disabled = false; }
+    dom.cardCameraCapture.src = cardCamera.capture(dom.cardCameraPreview, dom.cardCameraCanvas); dom.cardCameraCapture.hidden = false;
+    dom.cardCameraStatus.textContent = 'Matching this card image…';
+    const candidates = await findCardsFromImage(dom.cardCameraCapture.src);
+    cardCamera.stop(dom.cardCameraPreview); dom.cardCameraDialog.dataset.scanState = 'results';
+    renderScanCandidates(candidates); dom.cardLookupStatus.textContent = 'Choose the card that matches your photo.';
+  } catch (error) { dom.cardCameraStatus.textContent = error.message; dom.captureCardButton.disabled = false; }
+}
+function renderScanCandidates(candidates) {
+  dom.cardLookupResult.innerHTML = `<h3>Possible matches</h3><div class="scan-candidates">${candidates.map((card, index) => `<button type="button" class="secondary-action" data-scan-candidate="${index}"><strong>${escapeHtml(card.name)}</strong><small>${escapeHtml([card.setName, card.number ? `#${card.number}` : '', `${card.score}% match`].filter(Boolean).join(' · '))}</small></button>`).join('')}</div>`;
+  dom.cardLookupResult.hidden = false;
+  dom.cardLookupResult.querySelectorAll('[data-scan-candidate]').forEach(button => button.addEventListener('click', () => lookupScannedCard(candidates[Number(button.dataset.scanCandidate)])));
 }
 function renderCardLookup(card) {
   const retrieved = new Date(card.retrievedAt).toLocaleString();
   dom.cardLookupResult.innerHTML = `<h3>${escapeHtml(card.name)}</h3><p>${escapeHtml([card.manaCost, card.typeLine].filter(Boolean).join(' · '))}</p>${card.oracleText ? `<p class="card-oracle-text">${escapeHtml(card.oracleText).replace(/\n/g, '<br>')}</p>` : '<p>No Oracle rules text is listed for this card.</p>'}<p class="field-help">Card data from ${card.scryfallUrl ? `<a href="${escapeHtml(card.scryfallUrl)}" target="_blank" rel="noreferrer">Scryfall</a>` : 'Scryfall'}; retrieved ${escapeHtml(retrieved)}. ${card.gathererUrl ? `<a href="${escapeHtml(card.gathererUrl)}" target="_blank" rel="noreferrer">Check Gatherer</a>` : 'Use official Gatherer for rules confirmation.'} This is a card lookup, not a judge ruling.</p>`;
   dom.cardLookupResult.hidden = false;
 }
-async function lookupConfirmedCard() {
-  const name = dom.cardLookupName.value.trim();
-  if (!name) { dom.cardLookupName.focus(); dom.cardLookupStatus.textContent = 'Type or read the card title first.'; return; }
-  dom.lookupCardButton.disabled = true; dom.cardLookupStatus.textContent = 'Looking up the confirmed title…'; dom.cardLookupResult.hidden = true;
-  try { const card = await lookupCard(name); dom.cardLookupName.value = card.name; renderCardLookup(card); dom.cardLookupStatus.textContent = 'Exact card name found.'; }
+async function lookupScannedCard(candidate) {
+  if (!candidate) return;
+  dom.cardLookupStatus.textContent = 'Loading current Oracle text…';
+  try { const card = await lookupCard(candidate.name); renderCardLookup(card); dom.cardLookupStatus.textContent = `Selected ${card.name}.`; }
   catch (error) { dom.cardLookupStatus.textContent = error.message; }
-  finally { dom.lookupCardButton.disabled = false; }
 }
 function returnToSetup() {
   if (!canReturnToSetup()) return;
@@ -771,7 +771,7 @@ dom.customLifeForm.addEventListener('submit', event => { if (event.submitter?.va
 dom.endTurnButton.addEventListener('click', handoffTurn); dom.undoTurnButton.addEventListener('click', undoTurnHandoff); dom.pauseTurnButton.addEventListener('click', toggleTurnPause); dom.toggleTurnTrackingButton.addEventListener('click', toggleTurnTracking); dom.toggleTurnCuesButton.addEventListener('click', toggleTurnCues); dom.toggleDeviceCuesButton.addEventListener('click', () => { setDeviceTurnCues(!deviceTurnCuesEnabled()); render(); });
 dom.chooseFirstButton.addEventListener('click', () => chooseStartingPlayer(Number(dom.startingSeat.value))); dom.randomFirstButton.addEventListener('click', () => chooseStartingPlayer()); dom.startGameButton.addEventListener('click', startGame);
 dom.moreButton.addEventListener('click', () => { dom.gameMenu.hidden = !dom.gameMenu.hidden; dom.moreButton.setAttribute('aria-expanded', String(!dom.gameMenu.hidden)); }); dom.coinTossButton.addEventListener('click', () => { dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); tossCoin(); }); dom.declareWinnerButton.addEventListener('click', openDeclareWinner); dom.tossAgainButton.addEventListener('click', () => tossCoin()); $('#resetButton').addEventListener('click', () => { dom.gameMenu.hidden = true; dom.resetDialog.showModal(); }); $('#confirmResetButton').addEventListener('click', resetGame);
-dom.cardCameraButton.addEventListener('click', openCardCamera); dom.captureCardButton.addEventListener('click', captureCardFrame); dom.readCardTitleButton.addEventListener('click', readCapturedCardTitle); dom.lookupCardButton.addEventListener('click', lookupConfirmedCard); dom.cardCameraDialog.addEventListener('close', () => { cardCamera.stop(dom.cardCameraPreview); dom.cardCameraCapture.hidden = true; dom.cardCameraCapture.removeAttribute('src'); dom.captureCardButton.disabled = true; dom.readCardTitleButton.disabled = true; });
+dom.cardCameraButton.addEventListener('click', openCardCamera); dom.captureCardButton.addEventListener('click', captureCardFrame); dom.cardCameraDialog.addEventListener('close', () => { cardCamera.stop(dom.cardCameraPreview); dom.cardCameraCapture.hidden = true; dom.cardCameraCapture.removeAttribute('src'); dom.captureCardButton.disabled = true; });
 dom.playtestNotesButton.addEventListener('click', openPlaytestNotes); dom.playtestRecapButton.addEventListener('click', openPlaytestRecap); dom.fieldTestButton.addEventListener('click', () => { dom.gameMenu.hidden = true; dom.fieldTestStatus.textContent = ''; dom.fieldTestDialog.showModal(); }); dom.fieldTestForm.addEventListener('submit', async event => { if (event.submitter?.id !== 'saveFieldTestButton') return; event.preventDefault(); const form = new FormData(dom.fieldTestForm); const issues = form.getAll('issues'); if (issues.length > 3) { dom.fieldTestStatus.textContent = 'Choose no more than three friction areas.'; return; } try { dom.fieldTestStatus.textContent = 'Saving…'; await transport.recordFieldTest({ realTable: form.get('realTable') === 'on', deviceMix: form.get('deviceMix'), repeatUse: form.get('repeatUse'), dispute: form.get('dispute'), issues, note: form.get('note') }); dom.fieldTestStatus.textContent = 'Field test saved.'; setTimeout(() => dom.fieldTestDialog.close(), 650); } catch (error) { dom.fieldTestStatus.textContent = `Not saved: ${error.message}`; } }); dom.savedPlaytestsButton.addEventListener('click', openSavedPlaytests); dom.refreshTableButton.addEventListener('click', async () => { try { const { snapshot } = await transport.refreshRoom(); if (snapshot) showSharedGame(snapshot); dom.gameMenu.hidden = true; } catch (error) { showError(error); } }); dom.playtestNotesForm.addEventListener('submit', async event => { if (event.submitter?.id !== 'savePlaytestNoteButton') return; event.preventDefault(); const text = dom.playtestNoteText.value; try { dom.playtestNoteStatus.textContent = 'Saving…'; await transport.addPlaytestNote(text); dom.playtestNoteText.value = ''; dom.playtestNoteStatus.textContent = 'Saved.'; await openPlaytestNotes(); } catch (error) { dom.playtestNoteStatus.textContent = `Not saved: ${error.message}`; } });
 dom.startingRollDialog.addEventListener('close', () => { startingRollSequence += 1; clearStartingRollTimers(); });
 dom.rollMyD20Button.addEventListener('click', rollMyStartingD20);

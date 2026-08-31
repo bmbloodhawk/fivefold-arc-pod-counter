@@ -16,14 +16,22 @@ export class CardCameraSession {
   }
 
   capture(video, canvas) {
-    const width = video.videoWidth;
-    const height = video.videoHeight;
-    if (!width || !height) throw new Error('The camera is still starting. Hold the card steady and try again.');
-    canvas.width = width;
-    canvas.height = height;
+    const sourceWidth = video.videoWidth;
+    const sourceHeight = video.videoHeight;
+    if (!sourceWidth || !sourceHeight) throw new Error('The camera is still starting. Hold the card steady and try again.');
+    const aspect = 5 / 7;
+    let cropWidth = sourceWidth;
+    let cropHeight = cropWidth / aspect;
+    if (cropHeight > sourceHeight) { cropHeight = sourceHeight; cropWidth = cropHeight * aspect; }
+    const sourceX = (sourceWidth - cropWidth) / 2;
+    const sourceY = (sourceHeight - cropHeight) / 2;
+    // TCGTracking accepts at most 100 KB decoded. This is deliberately above
+    // Scryfall's small-card resolution but leaves headroom for a detailed foil.
+    canvas.width = 240;
+    canvas.height = 336;
     const context = canvas.getContext('2d');
-    context.drawImage(video, 0, 0, width, height);
-    return canvas.toDataURL('image/jpeg', 0.86);
+    context.drawImage(video, sourceX, sourceY, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', 0.8);
   }
 
   async readText(canvas) {

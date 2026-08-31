@@ -16,10 +16,10 @@ test('card camera requests the rear camera and releases it when closed', async (
 
 test('card camera captures only an in-memory frame', () => {
   const camera = new CardCameraSession();
-  const canvas = { width: 0, height: 0, getContext: () => ({ drawImage: (...args) => assert.equal(args.length, 5) }), toDataURL: () => 'data:image/jpeg;base64,local-only' };
+  const canvas = { width: 0, height: 0, getContext: () => ({ drawImage: (...args) => assert.equal(args.length, 9) }), toDataURL: () => 'data:image/jpeg;base64,local-only' };
   assert.equal(camera.capture({ videoWidth: 320, videoHeight: 448 }, canvas), 'data:image/jpeg;base64,local-only');
-  assert.equal(canvas.width, 320);
-  assert.equal(canvas.height, 448);
+  assert.equal(canvas.width, 240);
+  assert.equal(canvas.height, 336);
 });
 
 test('card text reading stays on-device when the browser supports it', async () => {
