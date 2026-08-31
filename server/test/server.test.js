@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
-import { createCardLookup, createCommanderIdentityLookup, createRealtimeServer, RoomService } from "../src/app.js";
+import { createCardInteractionLookup, createCardLookup, createCommanderIdentityLookup, createRealtimeServer, RoomService } from "../src/app.js";
 import { compatibleOperationId, LifeAdjustmentBatcher } from "../../client/life-adjustment-batcher.js";
 import { MemoryPlaytestLedger } from "../src/playtest-ledger.js";
 
@@ -64,6 +64,14 @@ describe("room configuration and claims", () => {
     const card = await lookup("Test Card");
     assert.equal(card.oracleText, "Test text.");
     assert.deepEqual(card.rulings, [{ source: "wotc", publishedAt: "2025-01-01", comment: "A published ruling." }]);
+  });
+
+  test("returns documented community combos separately from card rulings", async () => {
+    const lookup = createCardInteractionLookup(async () => ({ ok: true, json: async () => ({ results: [{ id: "combo-id", description: "Step one.\nStep two.", produces: [{ feature: { name: "Infinite damage" } }], easyPrerequisites: "Both cards are on the battlefield.", uses: [{ battlefieldCardState: "attached to Test One" }] }] }) }));
+    const result = await lookup("Test One", "Test Two");
+    assert.equal(result.source, "Commander Spellbook");
+    assert.deepEqual(result.combos[0].result, ["Infinite damage"]);
+    assert.match(result.combos[0].prerequisites.join(" "), /attached to Test One/);
   });
 
   test("looks up a commander identity through the pod server", async () => {

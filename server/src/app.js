@@ -318,6 +318,33 @@ export function createCardLookup(fetchImpl = fetch, { timeoutMs = COMMANDER_LOOK
   };
 }
 
+// Commander Spellbook is a community-maintained combo catalogue. It is used
+// only as a separately labelled supplement to Oracle text and official rules.
+export function createCardInteractionLookup(fetchImpl = fetch, { timeoutMs = COMMANDER_LOOKUP_TIMEOUT_MS } = {}) {
+  return async (rawFirst, rawSecond) => {
+    const first = normalizeCardName(rawFirst);
+    const second = normalizeCardName(rawSecond);
+    const query = `card:"${first.replaceAll('"', '\\"')}" card:"${second.replaceAll('"', '\\"')}"`;
+    const abort = new AbortController();
+    const timeout = setTimeout(() => abort.abort(), timeoutMs);
+    try {
+      const response = await fetchImpl(`https://backend.commanderspellbook.com/variants/?q=${encodeURIComponent(query)}&limit=3`, { signal: abort.signal, headers: { accept: "application/json", "user-agent": "Fivefold Arc Pod Counter/0.1 (player-requested combo lookup)" } });
+      if (!response.ok) throw new Error("Combo lookup unavailable");
+      const payload = await response.json();
+      const combos = Array.isArray(payload.results) ? payload.results.slice(0, 3).map((variant) => ({
+        id: String(variant.id || ""),
+        description: String(variant.description || ""),
+        result: Array.isArray(variant.produces) ? variant.produces.map((item) => String(item.feature?.name || "")).filter(Boolean) : [],
+        prerequisites: [String(variant.easyPrerequisites || ""), String(variant.notablePrerequisites || ""), ...(Array.isArray(variant.requires) ? variant.requires.map((item) => String(item.template?.name || "")).filter(Boolean) : []), ...(Array.isArray(variant.uses) ? variant.uses.map((item) => String(item.battlefieldCardState || "")).filter(Boolean) : [])].filter(Boolean),
+        sourceUrl: variant.id ? `https://backend.commanderspellbook.com/variants/${encodeURIComponent(variant.id)}/` : "https://commanderspellbook.com/",
+      })).filter((combo) => combo.id && combo.description) : [];
+      return { source: "Commander Spellbook", sourceUrl: "https://commanderspellbook.com/", combos, retrievedAt: new Date().toISOString() };
+    } catch {
+      return { source: "Commander Spellbook", sourceUrl: "https://commanderspellbook.com/", combos: [], retrievedAt: new Date().toISOString(), unavailable: true };
+    } finally { clearTimeout(timeout); }
+  };
+}
+
 function recordLastPlayerStanding(room, now) {
   if (room.gameResult || !room.turn.gameStarted) return;
   const claimedSeats = room.seats.filter((seat) => seat.claimed);
@@ -1108,6 +1135,7 @@ export function createRealtimeServer(options = {}) {
   const service = options.service ?? new RoomService(options);
   const lookupCommanderIdentity = options.lookupCommanderIdentity ?? createCommanderIdentityLookup(options.fetchImpl);
   const lookupCard = options.lookupCard ?? createCardLookup(options.fetchImpl);
+  const lookupCardInteraction = options.lookupCardInteraction ?? createCardInteractionLookup(options.fetchImpl);
   const allowedOrigin = options.allowedOrigin ?? process.env.ALLOWED_ORIGIN ?? "*";
   const staticDir = options.staticDir ?? null;
   const sseClients = new Map();
@@ -1148,6 +1176,7 @@ export function createRealtimeServer(options = {}) {
       }
       if (req.method === "GET" && url.pathname === "/api/commander-identity") return json(res, 200, await lookupCommanderIdentity(url.searchParams.get("name") || ""));
       if (req.method === "GET" && url.pathname === "/api/cards/lookup") return json(res, 200, await lookupCard(url.searchParams.get("name") || ""));
+      if (req.method === "GET" && url.pathname === "/api/cards/interaction") return json(res, 200, await lookupCardInteraction(url.searchParams.get("first") || "", url.searchParams.get("second") || ""));
       if (req.method === "POST" && url.pathname === "/api/connections") return json(res, 201, service.createConnection());
       if (req.method === "POST" && url.pathname === "/api/connections/heartbeat") return json(res, 200, service.heartbeat(connectionId));
       if (req.method === "POST" && url.pathname === "/api/rooms") return json(res, 201, service.createRoom(connectionId, await readJson(req)));

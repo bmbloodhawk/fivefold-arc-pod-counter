@@ -209,6 +209,12 @@ async function lookupCard(name) {
   if (!response.ok) throw new Error(result?.error?.message || 'Card lookup failed.');
   return result;
 }
+async function lookupCardInteraction(first, second) {
+  const response = await fetch(`${apiBaseFromPage()}/api/cards/interaction?first=${encodeURIComponent(first)}&second=${encodeURIComponent(second)}`);
+  const result = await response.json();
+  if (!response.ok) throw new Error(result?.error?.message || 'Interaction lookup failed.');
+  return result;
+}
 function renderCommanderNameFields(container, count, names = [], identities = []) {
   if (!container) return;
   const current = [...container.querySelectorAll('input[name^="commanderName"]')].map(input => ({ name: input.value, colors: input.dataset.commanderColors || '' }));
@@ -716,11 +722,17 @@ function renderCardLookup(card) {
   return `<article><h3>${escapeHtml(card.name)}</h3><p>${escapeHtml([card.manaCost, card.typeLine].filter(Boolean).join(' · '))}</p>${card.oracleText ? `<p class="card-oracle-text">${escapeHtml(card.oracleText).replace(/\n/g, '<br>')}</p>` : '<p>No Oracle rules text is listed for this card.</p>'}${faces}${card.rulings?.length ? `<details><summary>Show published rulings (${card.rulings.length})</summary><ul class="card-rulings">${card.rulings.map(ruling => `<li><p>${escapeHtml(ruling.comment)}</p><small>${escapeHtml(ruling.source)} · ${escapeHtml(ruling.publishedAt)}</small></li>`).join('')}</ul></details>` : '<p class="field-help">No published rulings were returned for this card.</p>'}<p class="field-help">Card data from ${card.scryfallUrl ? `<a href="${escapeHtml(card.scryfallUrl)}" target="_blank" rel="noreferrer">Scryfall</a>` : 'Scryfall'}; retrieved ${escapeHtml(retrieved)}. ${card.gathererUrl ? `<a href="${escapeHtml(card.gathererUrl)}" target="_blank" rel="noreferrer">Check official Gatherer</a>` : 'Use official Gatherer for rules confirmation.'} <a href="https://magic.wizards.com/en/rules" target="_blank" rel="noreferrer">Comprehensive Rules</a></p></article>`;
 }
 function renderInteractionAdvice(advice) { return `<section class="interaction-advice"><h3>Interaction</h3><p><strong>${escapeHtml(advice.conclusion)}</strong></p><p>${escapeHtml(advice.sequence)}</p><p class="field-help">${escapeHtml(advice.limitations)}</p><p class="field-help">To clarify: ${escapeHtml(advice.questions.join(' '))}</p></section>`; }
+function renderCommunityCombos(result) {
+  const retrieved = new Date(result.retrievedAt).toLocaleString();
+  if (result.unavailable) return `<section class="interaction-advice"><h3>Known-combo check</h3><p class="field-help">The Commander Spellbook check is temporarily unavailable. The Oracle-text check is still shown below.</p></section>`;
+  if (!result.combos?.length) return `<section class="interaction-advice"><h3>Known-combo check</h3><p class="field-help">No matching Commander Spellbook entry was returned. That does not prove the cards have no interaction.</p><p class="field-help">Community catalogue checked ${escapeHtml(retrieved)}: <a href="${escapeHtml(result.sourceUrl)}" target="_blank" rel="noreferrer">Commander Spellbook</a>.</p></section>`;
+  return `<section class="interaction-advice"><h3>Known-combo check</h3>${result.combos.map(combo => `<article class="known-combo"><p><strong>Result: ${escapeHtml(combo.result.join(', ') || 'Documented interaction')}</strong></p><p>${escapeHtml(combo.description).replace(/\n/g, '<br>')}</p>${combo.prerequisites.length ? `<p class="field-help"><strong>Conditions:</strong> ${escapeHtml(combo.prerequisites.join(' '))}</p>` : ''}<p class="field-help">Community-maintained combo entry, not an official ruling: <a href="${escapeHtml(combo.sourceUrl)}" target="_blank" rel="noreferrer">View source</a>.</p></article>`).join('')}<p class="field-help">Checked ${escapeHtml(retrieved)} via <a href="${escapeHtml(result.sourceUrl)}" target="_blank" rel="noreferrer">Commander Spellbook</a>. Verify the listed conditions against the current game state.</p></section>`;
+}
 async function lookupCardTitles() {
   const firstName = dom.firstCardTitle.value.trim(); const secondName = dom.secondCardTitle.value.trim();
   if (!firstName) { dom.firstCardTitle.focus(); return; }
   dom.cardLookupStatus.textContent = 'Loading current Oracle text…';
-  try { const [first, second] = await Promise.all([lookupCard(firstName), secondName ? lookupCard(secondName) : null]); dom.firstCardTitle.value = first.name; if (second) dom.secondCardTitle.value = second.name; dom.cardLookupResult.innerHTML = `${renderCardLookup(first)}${second ? renderCardLookup(second) + renderInteractionAdvice(createInteractionAdvice(first, second)) : ''}`; dom.cardLookupResult.hidden = false; dom.cardLookupStatus.textContent = second ? 'Current Oracle text, published rulings, and a cautious interaction check are shown.' : 'Current Oracle text and published rulings are shown.'; }
+  try { const [first, second] = await Promise.all([lookupCard(firstName), secondName ? lookupCard(secondName) : null]); const comboResult = second ? await lookupCardInteraction(first.name, second.name).catch(() => ({ unavailable: true, combos: [], retrievedAt: new Date().toISOString() })) : null; dom.firstCardTitle.value = first.name; if (second) dom.secondCardTitle.value = second.name; dom.cardLookupResult.innerHTML = `${renderCardLookup(first)}${second ? renderCardLookup(second) + renderCommunityCombos(comboResult) + renderInteractionAdvice(createInteractionAdvice(first, second)) : ''}`; dom.cardLookupResult.hidden = false; dom.cardLookupStatus.textContent = second ? 'Current Oracle text, published rulings, known-combo results, and a cautious interaction check are shown.' : 'Current Oracle text and published rulings are shown.'; }
   catch (error) { dom.cardLookupStatus.textContent = error.message; }
 }
 function returnToSetup() {

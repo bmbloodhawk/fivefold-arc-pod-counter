@@ -52,6 +52,8 @@ test('card advisor is title-first and keeps rules advice distinct from a judge r
   assert.match(html, /this is not a judge ruling/);
   assert.match(app, /createInteractionAdvice/);
   assert.match(app, /lookupCardTitles/);
+  assert.match(app, /lookupCardInteraction/);
+  assert.match(app, /Commander Spellbook/);
   assert.match(app, /event\.submitter\?\.value === 'close'/);
   assert.match(styles, /\.card-advisor-dialog/);
   assert.match(styles, /#cardCameraDialog \{[\s\S]*overflow-y: auto/);
