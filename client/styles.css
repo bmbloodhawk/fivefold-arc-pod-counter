@@ -982,6 +982,13 @@ button:disabled { cursor: not-allowed; filter: saturate(.45); }
    numeric measure, and use one compact overlay slot between the player title
    and the fixed turn-action slot. */
 .main-value { display: block; min-width: 3ch; font-feature-settings: "tnum" 1; }
+
+/* Keep the counter title clear of wide or tall totals without reflowing the
+   centered number, player identity, or the fixed controls below. */
+.game-shell .counter-readout .counter-mode { transform: translateY(-18px); }
+@media (max-width: 359px), (max-height: 740px) {
+  .game-shell .counter-readout .counter-mode { transform: translateY(-12px); }
+}
 .life-change-indicator,
 .status-message {
   position: absolute;

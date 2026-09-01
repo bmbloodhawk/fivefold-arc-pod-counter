@@ -98,6 +98,10 @@ test('the elimination mark is an overlay, not a layout row', () => {
   assert.match(styles, /\.lethal-mark \{ position: absolute;[\s\S]*top: 12px; left: 50%;[\s\S]*width: 32px; height: 32px;[\s\S]*translateX\(-50%\)/);
 });
 
+test('counter titles clear the number without reflowing the fixed readout', () => {
+  assert.match(styles, /Keep the counter title clear of wide or tall totals[\s\S]*\.counter-mode \{ transform: translateY\(-18px\); \}/);
+});
+
 test('turn state keeps the Your Turn active-play geometry as its anchor', () => {
   assert.match(layoutInvariants, /Your Turn.*fixed geometry anchor/s);
   assert.match(layoutInvariants, /must not move the header, table summary, center emblem, mode[\s\S]*fixed navigation/);
