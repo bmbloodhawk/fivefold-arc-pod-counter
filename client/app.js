@@ -336,7 +336,9 @@ function render() {
 }
 function renderLifeChange(player) {
   if (!dom.lifeChangeIndicator) return;
-  const visible = lifeChange?.playerId === player?.id;
+  // The compact message slot also carries low-life/lethal status. Let that
+  // safety warning take priority so two messages never collide.
+  const visible = lifeChange?.playerId === player?.id && !player?.warning && !player?.lethalCause;
   dom.lifeChangeIndicator.hidden = !visible;
   if (!visible) return;
   const sign = lifeChange.delta > 0 ? '+' : '−';

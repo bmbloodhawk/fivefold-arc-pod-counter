@@ -86,8 +86,9 @@ test('the life readout stays together and the tax action cannot overlap custom l
 test('life changes and low-life warnings do not reflow the fixed play surface', () => {
   assert.match(styles, /A changing total must never reflow the play surface/);
   assert.match(styles, /\.main-value \{ display: block; min-width: 3ch; font-feature-settings: "tnum" 1; \}/);
-  assert.match(styles, /\.life-change-indicator,[\s\S]*\.status-message \{[\s\S]*position: absolute;[\s\S]*bottom: 14px;/);
-  assert.match(styles, /\.status-message \{ bottom: 52px; \}/);
+  assert.match(styles, /compact overlay slot between the player title[\s\S]*fixed turn-action slot/);
+  assert.match(styles, /\.life-change-indicator,[\s\S]*\.status-message \{[\s\S]*position: absolute;[\s\S]*bottom: 51px;/);
+  assert.match(app, /lifeChange\?\.playerId === player\?\.id && !player\?\.warning && !player\?\.lethalCause/);
 });
 
 test('turn state keeps the Your Turn active-play geometry as its anchor', () => {

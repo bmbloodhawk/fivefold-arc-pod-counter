@@ -976,26 +976,33 @@ button:disabled { cursor: not-allowed; filter: saturate(.45); }
 }
 
 /* A changing total must never reflow the play surface. Reserve a stable
-   numeric measure, and treat temporary change/warning copy as an overlay
-   inside the existing dial rather than a new layout row. */
+   numeric measure, and use one compact overlay slot between the player title
+   and the fixed turn-action slot. */
 .main-value { display: block; min-width: 3ch; font-feature-settings: "tnum" 1; }
 .life-change-indicator,
 .status-message {
   position: absolute;
   z-index: 2;
   right: 10px;
-  bottom: 14px;
+  bottom: 51px;
   left: 10px;
   width: auto;
   margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: .6rem;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.life-change-indicator { min-height: 30px; }
-.status-message { bottom: 52px; }
+.life-change-indicator { min-height: 0; }
+.status-message { bottom: 51px; }
 @media (max-width: 359px), (max-height: 740px) {
   .life-change-indicator,
-  .status-message { right: 6px; left: 6px; font-size: .62rem; }
-  .life-change-indicator { bottom: 8px; min-height: 24px; padding-block: 3px; }
-  .status-message { bottom: 38px; }
+  .status-message { right: 6px; bottom: 40px; left: 6px; font-size: .56rem; }
+  .life-change-indicator { min-height: 0; }
+  .status-message { bottom: 40px; }
 }
 
 /* The turn action overlaps the dial's unused lower edge, keeping it visually
