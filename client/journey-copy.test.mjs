@@ -89,7 +89,8 @@ test('life changes and low-life warnings do not reflow the fixed play surface', 
   assert.match(styles, /compact overlay slot between the player title[\s\S]*fixed turn-action slot/);
   assert.match(styles, /\.life-change-indicator,[\s\S]*\.status-message \{[\s\S]*position: absolute;[\s\S]*bottom: 51px;/);
   assert.match(styles, /font-size: 1\.2rem;[\s\S]*line-height: 1\.1;/);
-  assert.match(app, /lifeChange\?\.playerId === player\?\.id && !player\?\.warning && !player\?\.lethalCause/);
+  assert.match(app, /lifeChangeOwnsStatusSlot = lifeChange\?\.playerId === player\.id/);
+  assert.match(app, /\$\{safetyStatus\} · \$\{sign\}\$\{Math\.abs\(lifeChange\.delta\)\} LIFE/);
 });
 
 test('turn state keeps the Your Turn active-play geometry as its anchor', () => {
@@ -113,6 +114,8 @@ test('touch feedback is local, optional, and never part of game state', () => {
   assert.match(app, /navigator\.vibrate\?\.\(12\)/);
   assert.match(app, /document\.addEventListener\('pointerup'/);
   assert.match(styles, /Shared tactile visual response/);
+  assert.match(styles, /Routine game taps must not be interpreted as browser double-tap zooms/);
+  assert.match(styles, /button \{ touch-action: manipulation;/);
 });
 
 test('private feedback review includes a non-personal field-test insights tab', () => {

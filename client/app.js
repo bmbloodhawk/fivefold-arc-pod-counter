@@ -312,7 +312,7 @@ function render() {
   dom.counterContext.textContent = state.mode === 'commander' ? (source ? `${displayPlayer(player)} HAS RECEIVED DAMAGE FROM ${displaySource(source)}` : `NO OTHER COMMANDERS · ${displayPlayer(player)}`) : `${displayName(player)}${player.id === state.ownerPlayerId ? ' · YOU' : state.localSimulation ? ' · SIMULATED' : ' · READ ONLY'}`;
   dom.inspectionNotice.hidden = !inspectingSharedSeat;
   dom.inspectionNotice.textContent = inspectingSharedSeat ? `VIEWING ${displayPlayer(player)} · READ ONLY ON THIS PHONE` : '';
-  dom.lethalMark.hidden = !player.eliminated; const status = player.lethalCause || player.warning; dom.statusMessage.hidden = !status; dom.statusMessage.textContent = status || ''; dom.statusMessage.classList.toggle('lethal', Boolean(player.lethalCause));
+  dom.lethalMark.hidden = !player.eliminated; const status = player.lethalCause || player.warning; const lifeChangeOwnsStatusSlot = lifeChange?.playerId === player.id; dom.statusMessage.hidden = !status || lifeChangeOwnsStatusSlot; dom.statusMessage.textContent = status || ''; dom.statusMessage.classList.toggle('lethal', Boolean(player.lethalCause));
   renderPodStrip(); renderSources(player); renderModeNav(); renderSeatPicker();
   renderTurnFlow();
   renderCoinTossNotice();
@@ -336,13 +336,16 @@ function render() {
 }
 function renderLifeChange(player) {
   if (!dom.lifeChangeIndicator) return;
-  // The compact message slot also carries low-life/lethal status. Let that
-  // safety warning take priority so two messages never collide.
-  const visible = lifeChange?.playerId === player?.id && !player?.warning && !player?.lethalCause;
+  // A fresh life change combines with low-life/lethal state into one line,
+  // then returns to the standalone warning without competing text.
+  const visible = lifeChange?.playerId === player?.id;
   dom.lifeChangeIndicator.hidden = !visible;
   if (!visible) return;
   const sign = lifeChange.delta > 0 ? '+' : '−';
-  dom.lifeChangeIndicator.textContent = `${sign}${Math.abs(lifeChange.delta)} LIFE · ${lifeChange.from} → ${lifeChange.to}${lifeChange.confirmed ? ' · SYNCED JUST NOW' : ''}`;
+  const safetyStatus = player?.lethalCause || player?.warning;
+  dom.lifeChangeIndicator.textContent = safetyStatus
+    ? `${safetyStatus} · ${sign}${Math.abs(lifeChange.delta)} LIFE`
+    : `${sign}${Math.abs(lifeChange.delta)} LIFE · ${lifeChange.from} → ${lifeChange.to}${lifeChange.confirmed ? ' · SYNCED JUST NOW' : ''}`;
   dom.lifeChangeIndicator.classList.toggle('negative', lifeChange.delta < 0);
 }
 function showLifeChange(playerId, delta, from, to, { confirmed = false } = {}) {

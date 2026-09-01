@@ -869,7 +869,9 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
 
 /* Shared tactile visual response. It mirrors the brief device haptic where
    available and remains useful on browsers without vibration support. */
-button { transition: transform .12s ease, border-color .12s ease, background-color .12s ease, box-shadow .12s ease; }
+/* Routine game taps must not be interpreted as browser double-tap zooms.
+   `manipulation` still permits normal panning and pinch-to-zoom elsewhere. */
+button { touch-action: manipulation; transition: transform .12s ease, border-color .12s ease, background-color .12s ease, box-shadow .12s ease; }
 button:focus-visible { outline: 3px solid rgb(241 234 219 / .92); outline-offset: 2px; }
 button:disabled { cursor: not-allowed; filter: saturate(.45); }
 @media (prefers-reduced-motion: no-preference) {
