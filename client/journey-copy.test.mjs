@@ -113,6 +113,10 @@ test('counter titles clear the number without reflowing the fixed readout', () =
   assert.match(styles, /Keep the counter title clear of wide or tall totals[\s\S]*\.counter-mode \{ transform: translateY\(-18px\); \}/);
 });
 
+test('large-pod side seats keep their visible card as the tap target', () => {
+  assert.match(styles, /focused readout is display-only[\s\S]*\.counter-readout \{ pointer-events: none; \}/);
+});
+
 test('turn state keeps the Your Turn active-play geometry as its anchor', () => {
   assert.match(layoutInvariants, /Your Turn.*fixed geometry anchor/s);
   assert.match(layoutInvariants, /must not move the header, table summary, center emblem, mode[\s\S]*fixed navigation/);

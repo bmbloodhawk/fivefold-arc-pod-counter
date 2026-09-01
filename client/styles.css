@@ -598,6 +598,9 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
   padding-top: 12px;
   text-align: center;
 }
+/* The focused readout is display-only. In large pods it overlaps the edge
+   summary cards, so it must never steal their direct tap target. */
+.counter-readout { pointer-events: none; }
 .counter-readout .counter-mode { width: min(100%, 300px); margin: 0 0 10px; transform: none; }
 .counter-readout .main-value { margin: 0; transform: translateY(-10px); }
 .counter-readout .counter-context { margin: 24px 0 0; transform: translateY(8px); }
