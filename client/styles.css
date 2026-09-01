@@ -169,6 +169,7 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
    the seal's center but stays behind the readout and every active control. */
 .lethal-mark { position: absolute; z-index: 1; top: 47%; left: 50%; width: min(70vw, 275px); aspect-ratio: 1; pointer-events: none; transform: translate(-50%, -43%); }
 .lethal-mark img { display: block; width: 100%; height: 100%; object-fit: contain; opacity: .46; }
+.lethal-mark::after { content: ""; position: absolute; inset: 0; background: var(--skull-identity, transparent); -webkit-mask: url("assets/elimination-skull-v1.png") center / contain no-repeat; mask: url("assets/elimination-skull-v1.png") center / contain no-repeat; mix-blend-mode: color; opacity: .42; }
 .source-panel { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin: -3px 0 13px; }
 .source-panel.source-panel-dense { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .source-button { min-height: 54px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
@@ -601,6 +602,10 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
 .counter-readout .counter-mode { width: min(100%, 300px); margin: 0 0 10px; transform: none; }
 .counter-readout .main-value { margin: 0; transform: translateY(-10px); }
 .counter-readout .counter-context { margin: 24px 0 0; transform: translateY(8px); }
+.main-value.elimination-placeholder { visibility: hidden; }
+.elimination-outcome { position: absolute; z-index: 3; top: 50%; left: 50%; display: grid; gap: 5px; width: min(78vw, 300px); transform: translate(-50%, -50%); color: #f3eee4; font-family: Georgia, "Times New Roman", serif; letter-spacing: .11em; line-height: 1.1; text-align: center; text-shadow: 0 3px 12px rgb(0 0 0 / .82); pointer-events: none; }
+.elimination-outcome strong { color: #f3eee4; font-size: clamp(1.25rem, 6vw, 1.85rem); }
+.elimination-outcome span { color: var(--brass); font-size: clamp(.68rem, 3.25vw, .92rem); font-weight: 800; }
 
 .card-camera-dialog { display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto auto; gap: 12px; height: 100%; }
 #cardCameraDialog { box-sizing: border-box; width: 100%; max-width: none; height: 100dvh; max-height: 100dvh; margin: 0; padding: calc(14px + env(safe-area-inset-top)) 16px calc(14px + env(safe-area-inset-bottom)); border: 0; border-radius: 0; overflow-x: hidden; overflow-y: auto; }

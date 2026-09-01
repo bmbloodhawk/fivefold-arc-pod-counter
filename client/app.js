@@ -14,7 +14,7 @@ const dom = {
   connectionButton: $('#connectionButton'), connectionText: $('#connectionText'), connectionDialog: $('#connectionDialog'), connectionDetail: $('#connectionDetail'),
   playerCountChoices: $('#playerCountChoices'), createName: $('#createName'), joinSeat: $('#joinSeat'), joinName: $('#joinName'), joinSeatClaim: $('#joinSeatClaim'), activeSeat: $('#activeSeat'), localSimulation: $('#localSimulation'), roundLimitMinutes: $('#roundLimitMinutes'), createCommanderNames: $('#createCommanderNames'), joinCommanderNames: $('#joinCommanderNames'), gameCommanderNames: $('#gameCommanderNames'),
   podStrip: $('#podStrip'), podLabel: $('#podLabel'), commanderIdentityName: $('#commanderIdentityName'), identityHeaderRail: $('#identityHeaderRail'), modeTitle: $('#modeTitle'), mainValue: $('#mainValue'),
-  counterContext: $('#counterContext'), statusMessage: $('#statusMessage'), lethalMark: $('#lethalMark'), lifeChangeIndicator: $('#lifeChangeIndicator'), sourcePanel: $('#sourcePanel'), inspectionNotice: $('#inspectionNotice'), sideSeats: $('#sideSeats'),
+  counterContext: $('#counterContext'), statusMessage: $('#statusMessage'), lethalMark: $('#lethalMark'), eliminationOutcome: $('#eliminationOutcome'), lifeChangeIndicator: $('#lifeChangeIndicator'), sourcePanel: $('#sourcePanel'), inspectionNotice: $('#inspectionNotice'), sideSeats: $('#sideSeats'),
   activeSeatBar: $('#activeSeatBar'), gameMenu: $('#gameMenu'), moreButton: $('#moreButton'),
   disconnectBanner: $('#disconnectBanner'), syncBanner: $('#syncBanner'), coinTossNotice: $('#coinTossNotice'), victoryNotice: $('#victoryNotice'), coinTossButton: $('#coinTossButton'), coinTossDialog: $('#coinTossDialog'), coinTossResult: $('#coinTossResult'), tossAgainButton: $('#tossAgainButton'), resetDialog: $('#resetDialog'), commanderSetupButton: $('#commanderSetupButton'), backToSetupButton: $('#backToSetupButton'), declareWinnerButton: $('#declareWinnerButton'), declareWinnerDialog: $('#declareWinnerDialog'), declareWinnerForm: $('#declareWinnerForm'), winnerSeat: $('#winnerSeat'), victoryDialog: $('#victoryDialog'), victoryTitle: $('#victoryTitle'), victoryDetail: $('#victoryDetail'),
   lobbyControls: $('#lobbyControls'), lobbyStatus: $('#lobbyStatus'), showJoinQrButton: $('#showJoinQrButton'), showJoinQrMenuButton: $('#showJoinQrMenuButton'), firstPlayerOptions: $('#firstPlayerOptions'), startingSeatField: $('#startingSeatField'), startingSeat: $('#startingSeat'), chooseFirstButton: $('#chooseFirstButton'), randomFirstButton: $('#randomFirstButton'), startGameButton: $('#startGameButton'), startingRollDialog: $('#startingRollDialog'), startingRollStatus: $('#startingRollStatus'), rollMyD20Button: $('#rollMyD20Button'), startingRollCanvas: $('#startingRollCanvas'), startingRollFinalDice: $('#startingRollFinalDice'), startingRollOverlays: $('#startingRollOverlays'), startingRollLive: $('#startingRollLive'), turnBanner: $('#turnBanner'), turnLabel: $('#turnLabel'), turnPlayer: $('#turnPlayer'), turnElapsed: $('#turnElapsed'), gameTimer: $('#gameTimer'), lastTurnSummary: $('#lastTurnSummary'), turnActions: $('#turnActions'), endTurnButton: $('#endTurnButton'), undoTurnButton: $('#undoTurnButton'), pauseTurnButton: $('#pauseTurnButton'), toggleTurnTrackingButton: $('#toggleTurnTrackingButton'), toggleTurnCuesButton: $('#toggleTurnCuesButton'), toggleDeviceCuesButton: $('#toggleDeviceCuesButton'), toggleTouchFeedbackButton: $('#toggleTouchFeedbackButton'), turnActionDetail: $('#turnActionDetail'),
@@ -143,10 +143,10 @@ function commanderValue(player, sourceId = state.selectedSourceId) { return play
 function evaluatePlayer(player) {
   const lethalSource = state.commanderSources.find(source => commanderValue(player, source.id) >= 21);
   const warningSource = state.commanderSources.find(source => { const value = commanderValue(player, source.id); return value >= 18 && value <= 20; });
-  if (lethalSource) { player.eliminated = true; player.lethalCause = `${displaySource(lethalSource)} ${commanderValue(player, lethalSource.id)}`; }
-  else if (player.poison >= 10) { player.eliminated = true; player.lethalCause = `POISON ${player.poison}`; }
-  else if (player.life <= 0) { player.eliminated = true; player.lethalCause = `LIFE ${player.life}`; }
-  else { player.eliminated = false; player.lethalCause = null; }
+  if (lethalSource) { player.eliminated = true; player.lethalCause = `${displaySource(lethalSource)} ${commanderValue(player, lethalSource.id)}`; player.eliminationOutcome = { title: 'ELIMINATED', detail: `COMMANDER DAMAGE · ${displaySource(lethalSource)}` }; }
+  else if (player.poison >= 10) { player.eliminated = true; player.lethalCause = `POISON ${player.poison}`; player.eliminationOutcome = { title: 'ELIMINATED', detail: 'POISON' }; }
+  else if (player.life <= 0) { player.eliminated = true; player.lethalCause = `LIFE ${player.life}`; player.eliminationOutcome = { title: 'ELIMINATED', detail: 'LIFE TOTAL 0' }; }
+  else { player.eliminated = false; player.lethalCause = null; player.eliminationOutcome = null; }
   player.warning = player.eliminated ? null : warningSource ? `${displaySource(warningSource)} NEAR LETHAL` : player.poison >= 8 ? 'HIGH POISON' : player.life <= 5 ? 'LOW LIFE' : null;
 }
 function localLastPlayerStanding() {
@@ -305,14 +305,15 @@ function render() {
   if (!state.commanderCastCounts) state.commanderCastCounts = blankDamage(state.commanderSources);
   state.players.forEach(evaluatePlayer); localLastPlayerStanding(); const player = activePlayer(); const source = state.mode === 'commander' ? selectedSourceFor(player) : null;
   dom.game.style.setProperty('--identity-seal', identityBackground(playerIdentity(player)) || 'none');
+  dom.game.style.setProperty('--skull-identity', identityBackground(playerIdentity(player)) || 'transparent');
   dom.game.dataset.hasIdentity = String(playerIdentity(player).length > 0);
   const identityNames = player.commanderNames.filter(Boolean).join(' · ');
-  dom.podLabel.textContent = state.podCode === 'LOCAL' ? 'LOCAL POD' : `POD ${state.podCode}`; dom.commanderIdentityName.hidden = !identityNames; dom.commanderIdentityName.textContent = identityNames; dom.identityHeaderRail.style.setProperty('--identity-rail', identityRail(playerIdentity(player)) || 'transparent'); dom.identityHeaderRail.hidden = !playerIdentity(player).length; dom.modeTitle.textContent = state.mode.toUpperCase(); dom.mainValue.value = currentValue(player);
+  dom.podLabel.textContent = state.podCode === 'LOCAL' ? 'LOCAL POD' : `POD ${state.podCode}`; dom.commanderIdentityName.hidden = !identityNames; dom.commanderIdentityName.textContent = identityNames; dom.identityHeaderRail.style.setProperty('--identity-rail', identityRail(playerIdentity(player)) || 'transparent'); dom.identityHeaderRail.hidden = !playerIdentity(player).length; dom.modeTitle.textContent = state.mode.toUpperCase(); dom.mainValue.value = currentValue(player); dom.mainValue.classList.toggle('elimination-placeholder', player.eliminated); dom.mainValue.setAttribute('aria-hidden', String(player.eliminated));
   const inspectingSharedSeat = !state.localSimulation && player.id !== state.ownerPlayerId;
   dom.counterContext.textContent = state.mode === 'commander' ? (source ? `${displayPlayer(player)} HAS RECEIVED DAMAGE FROM ${displaySource(source)}` : `NO OTHER COMMANDERS · ${displayPlayer(player)}`) : `${displayName(player)}${player.id === state.ownerPlayerId ? ' · YOU' : state.localSimulation ? ' · SIMULATED' : ' · READ ONLY'}`;
   dom.inspectionNotice.hidden = !inspectingSharedSeat;
   dom.inspectionNotice.textContent = inspectingSharedSeat ? `VIEWING ${displayPlayer(player)} · READ ONLY ON THIS PHONE` : '';
-  dom.lethalMark.hidden = !player.eliminated; const status = player.lethalCause || player.warning; const lifeChangeOwnsStatusSlot = lifeChange?.playerId === player.id; dom.statusMessage.hidden = !status || lifeChangeOwnsStatusSlot; dom.statusMessage.textContent = status || ''; dom.statusMessage.classList.toggle('lethal', Boolean(player.lethalCause));
+  dom.lethalMark.hidden = !player.eliminated; dom.eliminationOutcome.hidden = !player.eliminated; if (player.eliminationOutcome) { dom.eliminationOutcome.querySelector('strong').textContent = player.eliminationOutcome.title; dom.eliminationOutcome.querySelector('span').textContent = player.eliminationOutcome.detail; } const status = player.warning; const lifeChangeOwnsStatusSlot = lifeChange?.playerId === player.id; dom.statusMessage.hidden = !status || lifeChangeOwnsStatusSlot; dom.statusMessage.textContent = status || ''; dom.statusMessage.classList.toggle('lethal', false);
   renderPodStrip(); renderSources(player); renderModeNav(); renderSeatPicker();
   renderTurnFlow();
   renderCoinTossNotice();
@@ -342,7 +343,7 @@ function renderLifeChange(player) {
   dom.lifeChangeIndicator.hidden = !visible;
   if (!visible) return;
   const sign = lifeChange.delta > 0 ? '+' : '−';
-  const safetyStatus = player?.lethalCause || player?.warning;
+  const safetyStatus = player?.warning;
   dom.lifeChangeIndicator.textContent = safetyStatus
     ? `${safetyStatus} · ${sign}${Math.abs(lifeChange.delta)} LIFE`
     : `${sign}${Math.abs(lifeChange.delta)} LIFE · ${lifeChange.from} → ${lifeChange.to}${lifeChange.confirmed ? ' · SYNCED JUST NOW' : ''}`;
