@@ -94,8 +94,11 @@ test('life changes and low-life warnings do not reflow the fixed play surface', 
 });
 
 test('the elimination mark is an overlay, not a layout row', () => {
-  assert.match(styles, /Elimination is a visible state, never a new layout row/);
-  assert.match(styles, /\.lethal-mark \{ position: absolute;[\s\S]*top: 12px; left: 50%;[\s\S]*width: 32px; height: 32px;[\s\S]*translateX\(-50%\)/);
+  assert.match(html, /id="lethalMark" class="lethal-mark" hidden><img src="assets\/elimination-skull-v1\.png" alt="">/);
+  assert.match(styles, /Elimination is a visible state, never a new layout row[\s\S]*artwork shares[\s\S]*behind the readout/);
+  assert.match(styles, /\.lethal-mark \{ position: absolute; z-index: 1; top: 47%; left: 50%;[\s\S]*translate\(-50%, -43%\)/);
+  assert.match(styles, /\.lethal-mark img \{[\s\S]*opacity: \.46;/);
+  assert.match(styles, /\.counter-readout \{[\s\S]*z-index: 2;/);
 });
 
 test('counter titles clear the number without reflowing the fixed readout', () => {

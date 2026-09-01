@@ -165,8 +165,10 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .counter-context { margin: 16px 0 0; color: var(--brass); font-family: Georgia, serif; font-size: 1.1rem; letter-spacing: .13em; }
 .status-message { margin: 12px 0 0; padding: 7px 12px; border: 1px solid currentColor; color: var(--warning); font-size: .72rem; font-weight: 900; letter-spacing: .08em; }
 .status-message.lethal { color: var(--danger); }
-/* Elimination is a visible state, never a new layout row. */
-.lethal-mark { position: absolute; z-index: 2; top: 12px; left: 50%; display: grid; place-items: center; width: 32px; height: 32px; color: var(--danger); font-size: 2rem; line-height: 1; pointer-events: none; transform: translateX(-50%); }
+/* Elimination is a visible state, never a new layout row. The artwork shares
+   the seal's center but stays behind the readout and every active control. */
+.lethal-mark { position: absolute; z-index: 1; top: 47%; left: 50%; width: min(70vw, 275px); aspect-ratio: 1; pointer-events: none; transform: translate(-50%, -43%); }
+.lethal-mark img { display: block; width: 100%; height: 100%; object-fit: contain; opacity: .46; }
 .source-panel { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin: -3px 0 13px; }
 .source-panel.source-panel-dense { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .source-button { min-height: 54px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
@@ -587,7 +589,7 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
 /* Keep the live-counter labels as one readout, centered inside the accent ring. */
 .counter-readout {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   display: grid;
   width: 100%;
   min-height: 282px;
