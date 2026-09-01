@@ -955,6 +955,18 @@ test("records only an explicit, bounded host field-test summary", () => {
   assert.throws(() => service.recordFieldTest(made.snapshot.code, host.connectionId, { realTable: true, deviceMix: "mixed", repeatUse: "yes", dispute: "none", issues: [] }), { code: "FIELD_TEST_ALREADY_RECORDED" });
 });
 
+test("developer insights aggregate bounded field-test data without identities or observations", async () => {
+  const ledger = new MemoryPlaytestLedger();
+  ledger.fieldTest({ realTable: true, playerCount: 4, setupMs: 12_000, elapsedMs: 3_600_000, deviceMix: "mixed", repeatUse: "yes", dispute: "none", issues: ["readability", "turn-flow"], note: "Do not expose this." });
+  ledger.fieldTest({ realTable: true, playerCount: 2, setupMs: 8_000, elapsedMs: 2_400_000, deviceMix: "ios", repeatUse: "unknown", dispute: "app", issues: ["reconnect"], note: "Or this." });
+  const insights = await new RoomService({ ledger }).developerFieldTestInsights();
+  assert.equal(insights.fieldTestCount, 2);
+  assert.equal(insights.averageSetupMs, 10_000);
+  assert.equal(insights.playerCounts[4], 1);
+  assert.equal(insights.friction["turn-flow"], 1);
+  assert.equal(JSON.stringify(insights).includes("Do not expose this."), false);
+});
+
 test("treats repeated life operation IDs as one adjustment", async () => {
   const made = await room({ playerCount: 2, startingLife: 40 });
   const operationId = "a4a5b5ce-8e3b-4d62-a7c5-5b5d2e6a2b3c";

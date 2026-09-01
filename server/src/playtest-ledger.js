@@ -11,6 +11,7 @@ export class NullPlaytestLedger {
   async readRecovery() { return null; }
   async listArchive() { return []; }
   async listFeedback() { return []; }
+  async listFieldTests() { return []; }
   async updateFeedback() { throw new Error("Feedback storage is not configured"); }
   async flush() { return { ok: true }; }
 }
@@ -46,6 +47,7 @@ export class MemoryPlaytestLedger {
     }
     return [...notes.values()].map((note) => ({ ...note, ...(reviews.get(note.noteId) || {}) })).sort((a, b) => b.createdAt - a.createdAt);
   }
+  async listFieldTests() { return this.records.filter((item) => item.kind === "field_test").map((item) => ({ ...item.record })); }
   async updateFeedback(review) { this.records.push({ kind: "feedback_review", record: review }); }
   async flush() { return { ok: true }; }
 }
@@ -91,6 +93,10 @@ export class FirebasePlaytestLedger {
       }
     }
     return [...notes.values()].sort((a, b) => b.createdAt - a.createdAt);
+  }
+  async listFieldTests() {
+    const records = await this.read("field-tests.json") || {};
+    return Object.values(records).filter((record) => record && record.realTable === true);
   }
   async updateFeedback(review) { this.enqueue(`playtests/${encodeURIComponent(review.gameId)}/feedback/${encodeURIComponent(review.noteId)}.json`, review); await this.flush(); }
 

@@ -569,6 +569,23 @@ export class RoomService {
     return { recap: { ...recapFromRoom(room, this.now()), notes: room.playtestNotes.map((note) => ({ ...note })) } };
   }
 
+  async developerFieldTestInsights() {
+    const tests = await this.ledger.listFieldTests();
+    const countBy = (key) => tests.reduce((summary, test) => { const value = String(test[key] || "unknown"); summary[value] = (summary[value] || 0) + 1; return summary; }, {});
+    const issueCounts = tests.reduce((summary, test) => { for (const issue of test.issues || []) summary[issue] = (summary[issue] || 0) + 1; return summary; }, {});
+    const average = (key) => tests.length ? Math.round(tests.reduce((total, test) => total + Math.max(0, Number(test[key]) || 0), 0) / tests.length) : 0;
+    return {
+      fieldTestCount: tests.length,
+      averageSetupMs: average("setupMs"),
+      averageElapsedMs: average("elapsedMs"),
+      playerCounts: countBy("playerCount"),
+      deviceMix: countBy("deviceMix"),
+      repeatUse: countBy("repeatUse"),
+      disputes: countBy("dispute"),
+      friction: issueCounts,
+    };
+  }
+
   claimSeat(code, connectionId, input = {}) {
     const room = this.room(code);
     const connection = this.getConnection(connectionId);
@@ -1163,6 +1180,7 @@ export function createRealtimeServer(options = {}) {
       if (req.method === "GET" && url.pathname === "/health") return json(res, 200, { ok: true });
       if (req.method === "GET" && parts[0] === "dice-skins" && parts[1] && parts[2] && serveDiceSkin(res, parts[1], parts[2])) return;
       if (req.method === "GET" && url.pathname === "/api/feedback") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { notes: await service.ledger.listFeedback() }); }
+      if (req.method === "GET" && url.pathname === "/api/feedback/insights") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { insights: await service.developerFieldTestInsights() }); }
       if ((req.method === "PATCH" || req.method === "DELETE") && parts[0] === "api" && parts[1] === "feedback" && parts[2]) {
         feedbackKeyMatches(req.headers["x-feedback-portal-key"]);
         const input = req.method === "DELETE" ? await readJson(req) : await readJson(req);

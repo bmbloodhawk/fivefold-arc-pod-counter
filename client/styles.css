@@ -821,21 +821,65 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
    blocks over the table art. */
 .end-turn-button {
   border-color: rgb(240 207 143 / .9);
-  background: rgb(216 174 97 / .72);
+  background: rgb(216 174 97 / .50);
   backdrop-filter: blur(7px);
   box-shadow: 0 3px 0 rgb(119 87 30 / .72);
 }
 .undo-turn-button {
   border-color: rgb(240 154 137 / .9);
-  background: rgb(169 71 59 / .72);
+  background: rgb(169 71 59 / .50);
   backdrop-filter: blur(7px);
   box-shadow: 0 3px 0 rgb(97 43 37 / .72);
 }
-.end-turn-button:active { background: rgb(216 174 97 / .84); }
-.undo-turn-button:active { background: rgb(128 53 44 / .84); }
+.end-turn-button:active { background: rgb(216 174 97 / .62); }
+.undo-turn-button:active { background: rgb(128 53 44 / .62); }
 
-/* Shared center instrument: use the Your Turn composition for every counter
-   state and mode. Older state-specific rules above remain overridden here. */
+/* Three-dot menu: every selectable destination uses the same full-width,
+   tappable row. Close, the simulator selector, and destructive reset are the
+   only intentional visual exceptions because their purpose is different. */
+.game-menu {
+  gap: 6px;
+  border-color: rgb(211 185 132 / .42);
+  background: rgb(18 17 14 / .96);
+}
+.game-menu > button:not(.menu-close) {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 11px;
+  border: 1px solid rgb(211 185 132 / .28);
+  border-radius: 5px;
+  background: rgb(255 255 255 / .035);
+  color: var(--ink);
+  font-size: .82rem;
+  font-weight: 800;
+  letter-spacing: .025em;
+  text-align: left;
+}
+.game-menu > button:not(.menu-close):hover,
+.game-menu > button:not(.menu-close):focus-visible { border-color: var(--brass); background: rgb(216 174 97 / .12); color: var(--paper); }
+.game-menu > button:not(.menu-close):active { transform: translateY(1px); background: rgb(216 174 97 / .18); }
+.game-menu > button.danger-text { border-color: rgb(237 134 111 / .52); background: rgb(237 134 111 / .08); color: var(--danger); }
+.game-menu > button.danger-text:hover,
+.game-menu > button.danger-text:focus-visible { border-color: var(--danger); background: rgb(237 134 111 / .16); }
+.game-menu .active-seat-bar { margin: 0 0 2px; padding: 10px 11px; border: 1px solid rgb(211 185 132 / .28); border-radius: 5px; background: rgb(255 255 255 / .025); }
+.game-menu .active-seat-bar label { color: var(--muted); font-weight: 700; }
+.game-menu .active-seat-bar select { min-height: 42px; }
+
+/* Shared tactile visual response. It mirrors the brief device haptic where
+   available and remains useful on browsers without vibration support. */
+button { transition: transform .12s ease, border-color .12s ease, background-color .12s ease, box-shadow .12s ease; }
+button:focus-visible { outline: 3px solid rgb(241 234 219 / .92); outline-offset: 2px; }
+button:disabled { cursor: not-allowed; filter: saturate(.45); }
+@media (prefers-reduced-motion: no-preference) {
+  button:not(:disabled):active { transform: translateY(1px); }
+}
+
+/* HARD LAYOUT INVARIANT: Your Turn is the geometry anchor. A turn-state
+   change may alter content, emphasis, enabled state, or visibility only; it
+   must not reposition an existing active-play region without explicit user
+   approval. Older state-specific rules above remain overridden here. */
 @media (max-width: 599px) {
   .game-shell .counter-stage,
   .game-shell[data-your-turn="true"] .counter-stage,

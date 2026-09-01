@@ -34,7 +34,7 @@ Important free-tier behavior: the service can sleep after inactivity and take ro
 
 ## Private feedback inbox
 
-Players can leave notes from the in-game **Playtest notes** menu. To preserve and review them after a room ends, configure Firebase ledger credentials and a long random `FEEDBACK_PORTAL_KEY` server environment variable. Then open `/feedback`, enter that key, and review every saved note. The key is never included in the URL or stored after the inbox is locked. Without Firebase storage, notes remain available only while the active room exists.
+Players can leave notes from the in-game **Playtest notes** menu. To preserve and review them after a room ends, configure Firebase ledger credentials and a long random `FEEDBACK_PORTAL_KEY` server environment variable. Then open `/feedback`, enter that key, and review every saved note. The key is never included in the URL or stored after the inbox is locked. The **Test insights** tab on that same private page summarizes only real-table field-test metrics: table size, setup and game duration, device mix, repeat-use response, dispute category, and friction counts. It excludes player names, room codes, device identifiers, raw taps, and free-text observations. Without Firebase storage, notes and field-test history remain available only while the active room exists.
 
 Recommended deployment settings if entered manually:
 

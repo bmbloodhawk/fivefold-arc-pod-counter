@@ -10,8 +10,8 @@
     * { box-sizing:border-box; } body { margin:0; min-height:100dvh; color:var(--ink); background:radial-gradient(circle at 50% -15%,rgb(216 174 97 / .14),transparent 32rem),var(--bg); }
     main { width:min(100%,760px); margin:auto; padding:clamp(28px,7vw,64px) 20px; } .eyebrow { color:var(--brass); font-size:.72rem; font-weight:800; letter-spacing:.16em; } h1 { margin:8px 0; font-family:Georgia,serif; font-size:clamp(2rem,8vw,3.5rem); font-weight:500; } p { color:var(--muted); line-height:1.45; }
     form { display:grid; gap:12px; max-width:480px; margin-top:30px; } label { display:grid; gap:7px; font-weight:700; } input { min-height:48px; padding:10px 12px; border:1px solid var(--line); border-radius:6px; background:var(--surface); color:var(--ink); font:inherit; } button { min-height:48px; padding:10px 14px; border:1px solid #f0cf8f; border-radius:6px; background:var(--brass); color:#1a150c; font:inherit; font-weight:850; cursor:pointer; } button.secondary { border-color:var(--line); background:transparent; color:var(--brass); } #status { min-height:1.4em; } .toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin:30px 0 12px; } .toolbar button { min-height:38px; background:transparent; border-color:var(--line); color:var(--brass); }
-    .filters { display:flex; flex-wrap:wrap; gap:7px; margin:0 0 12px; } .filters button,.note button { min-height:34px; padding:6px 9px; border-color:var(--line); background:transparent; color:var(--brass); font-size:.75rem; } .filters button.active { border-color:var(--teal); color:var(--teal); }
-    .note { margin:10px 0; padding:16px; border:1px solid var(--line); border-left:3px solid var(--teal); background:linear-gradient(145deg,#1e1d1a,#111); } .note[data-status="addressed"] { border-left-color:var(--brass); } .note[data-status="dismissed"],.note[data-status="deleted"] { opacity:.66; border-left-color:#70695d; } .note header { display:flex; justify-content:space-between; gap:12px; color:var(--brass); font-size:.8rem; font-weight:800; } .note p { margin:10px 0 0; color:var(--ink); white-space:pre-wrap; } .review { display:grid; gap:8px; margin-top:14px; } .review textarea { width:100%; min-height:64px; padding:8px; border:1px solid var(--line); border-radius:4px; background:var(--surface); color:var(--ink); font:inherit; resize:vertical; } .actions { display:flex; flex-wrap:wrap; gap:7px; } .status-pill { color:var(--teal); font-size:.72rem; letter-spacing:.08em; } .empty { padding:22px; border:1px dashed var(--line); color:var(--muted); text-align:center; }
+    .tabs,.filters { display:flex; flex-wrap:wrap; gap:7px; margin:0 0 12px; } .tabs button,.filters button,.note button { min-height:34px; padding:6px 9px; border-color:var(--line); background:transparent; color:var(--brass); font-size:.75rem; } .tabs button.active,.filters button.active { border-color:var(--teal); color:var(--teal); background:rgb(85 201 194 / .08); }
+    .note { margin:10px 0; padding:16px; border:1px solid var(--line); border-left:3px solid var(--teal); background:linear-gradient(145deg,#1e1d1a,#111); } .note[data-status="addressed"] { border-left-color:var(--brass); } .note[data-status="dismissed"],.note[data-status="deleted"] { opacity:.66; border-left-color:#70695d; } .note header { display:flex; justify-content:space-between; gap:12px; color:var(--brass); font-size:.8rem; font-weight:800; } .note p { margin:10px 0 0; color:var(--ink); white-space:pre-wrap; } .review { display:grid; gap:8px; margin-top:14px; } .review textarea { width:100%; min-height:64px; padding:8px; border:1px solid var(--line); border-radius:4px; background:var(--surface); color:var(--ink); font:inherit; resize:vertical; } .actions { display:flex; flex-wrap:wrap; gap:7px; } .status-pill { color:var(--teal); font-size:.72rem; letter-spacing:.08em; } .empty { padding:22px; border:1px dashed var(--line); color:var(--muted); text-align:center; } .insight-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; } .insight { padding:14px; border:1px solid var(--line); background:linear-gradient(145deg,#1e1d1a,#111); } .insight strong { display:block; color:var(--brass); font-family:Georgia,serif; font-size:1.65rem; font-weight:500; } .insight span { color:var(--muted); font-size:.75rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; } .insight-list { margin:16px 0 0; padding:14px; border:1px solid var(--line); background:#111; } .insight-list h2 { margin:0 0 8px; color:var(--brass); font-size:.9rem; letter-spacing:.07em; text-transform:uppercase; } .insight-list p { margin:7px 0; color:var(--ink); font-size:.86rem; }
     [hidden] { display:none!important; } button:focus-visible,input:focus-visible { outline:3px solid white; outline-offset:3px; }
   </style>
 </head>
@@ -27,12 +27,13 @@
     </form>
     <section id="inbox" hidden aria-live="polite">
       <div class="toolbar"><strong id="count"></strong><button id="lockButton" class="secondary" type="button">Lock inbox</button></div>
-      <div id="filters" class="filters" aria-label="Feedback status filters"></div>
-      <div id="notes"></div>
+      <div id="tabs" class="tabs" aria-label="Developer review sections"><button type="button" data-tab="feedback" class="active">Player feedback</button><button type="button" data-tab="insights">Test insights</button></div>
+      <section id="feedbackPanel"><div id="filters" class="filters" aria-label="Feedback status filters"></div><div id="notes"></div></section>
+      <section id="insightsPanel" hidden><p>Aggregated, real-table field-test data only. It excludes names, room codes, device identifiers, raw taps, and free-text observations.</p><div id="insights"></div></section>
     </section>
   </main>
   <script>
-    const form = document.querySelector('#unlockForm'); const key = document.querySelector('#ownerKey'); const status = document.querySelector('#status'); const inbox = document.querySelector('#inbox'); const notes = document.querySelector('#notes'); const count = document.querySelector('#count'); const filters = document.querySelector('#filters'); let allNotes = []; let filter = 'open';
+    const form = document.querySelector('#unlockForm'); const key = document.querySelector('#ownerKey'); const status = document.querySelector('#status'); const inbox = document.querySelector('#inbox'); const notes = document.querySelector('#notes'); const count = document.querySelector('#count'); const filters = document.querySelector('#filters'); const tabs = document.querySelector('#tabs'); const feedbackPanel = document.querySelector('#feedbackPanel'); const insightsPanel = document.querySelector('#insightsPanel'); const insights = document.querySelector('#insights'); let allNotes = []; let fieldInsights = null; let filter = 'open';
     const escapeHtml = value => String(value).replace(/[&<>\"]/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' })[char]);
     const date = value => new Intl.DateTimeFormat(undefined, { dateStyle:'medium', timeStyle:'short' }).format(new Date(value));
     const statusLabel = value => ({ open:'Open', addressed:'Addressed', dismissed:'Dismissed', deleted:'Deleted' })[value] || 'Open';
@@ -43,6 +44,14 @@
       filters.querySelectorAll('[data-filter]').forEach(button => button.addEventListener('click', () => { filter = button.dataset.filter; renderFeedback(); }));
       notes.querySelectorAll('[data-action]').forEach(button => button.addEventListener('click', () => updateFeedback(button.closest('.note'), button.dataset.action)));
     }
+    const duration = value => !value ? '—' : value < 60000 ? `${Math.round(value / 1000)} sec` : `${Math.round(value / 60000)} min`;
+    const label = value => String(value).replace(/-/g, ' ');
+    function list(values) { const entries = Object.entries(values || {}).sort(([,a],[,b]) => b - a); return entries.length ? entries.map(([name,total]) => `<p><strong>${escapeHtml(label(name))}</strong> · ${total}</p>`).join('') : '<p>None recorded yet.</p>'; }
+    function renderInsights() {
+      if (!fieldInsights?.fieldTestCount) { insights.innerHTML = '<p class="empty">No real-table field tests have been recorded yet.</p>'; return; }
+      insights.innerHTML = `<div class="insight-grid"><article class="insight"><strong>${fieldInsights.fieldTestCount}</strong><span>Real-table tests</span></article><article class="insight"><strong>${duration(fieldInsights.averageSetupMs)}</strong><span>Average setup</span></article><article class="insight"><strong>${duration(fieldInsights.averageElapsedMs)}</strong><span>Average game length</span></article><article class="insight"><strong>${fieldInsights.repeatUse?.yes || 0}</strong><span>Would use again</span></article></div><section class="insight-list"><h2>Friction reported</h2>${list(fieldInsights.friction)}</section><section class="insight-list"><h2>Table size</h2>${list(fieldInsights.playerCounts)}</section><section class="insight-list"><h2>Device mix</h2>${list(fieldInsights.deviceMix)}</section><section class="insight-list"><h2>State disputes</h2>${list(fieldInsights.disputes)}</section>`;
+    }
+    function showTab(tab) { const feedback = tab === 'feedback'; feedbackPanel.hidden = !feedback; insightsPanel.hidden = feedback; tabs.querySelectorAll('[data-tab]').forEach(button => button.classList.toggle('active', button.dataset.tab === tab)); }
     async function updateFeedback(card, nextStatus) {
       const note = allNotes.find(item => item.noteId === card.dataset.note); const ownerNote = card.querySelector('textarea').value;
       const response = await fetch(`/api/feedback/${encodeURIComponent(note.noteId)}`, { method: nextStatus === 'deleted' ? 'DELETE' : 'PATCH', headers: { 'content-type':'application/json', 'x-feedback-portal-key':key.value }, body: JSON.stringify({ gameId:note.gameId, status:nextStatus, ownerNote }) });
@@ -51,13 +60,14 @@
     }
     async function loadFeedback() {
       status.textContent = 'Opening inbox…';
-      const response = await fetch('/api/feedback', { headers: { 'x-feedback-portal-key': key.value }, cache:'no-store' });
-      const payload = await response.json(); if (!response.ok) throw new Error(payload.error?.message || 'Could not open feedback inbox.');
-      allNotes = payload.notes || []; renderFeedback();
+      const headers = { 'x-feedback-portal-key': key.value }; const [response, insightResponse] = await Promise.all([fetch('/api/feedback', { headers, cache:'no-store' }), fetch('/api/feedback/insights', { headers, cache:'no-store' })]);
+      const payload = await response.json(); const insightPayload = await insightResponse.json(); if (!response.ok || !insightResponse.ok) throw new Error(payload.error?.message || insightPayload.error?.message || 'Could not open feedback inbox.');
+      allNotes = payload.notes || []; fieldInsights = insightPayload.insights || null; renderFeedback(); renderInsights(); showTab('feedback');
       form.hidden = true; inbox.hidden = false; status.textContent = '';
     }
     form.addEventListener('submit', async event => { event.preventDefault(); try { await loadFeedback(); } catch (error) { status.textContent = error.message; } });
-    document.querySelector('#lockButton').addEventListener('click', () => { key.value = ''; inbox.hidden = true; form.hidden = false; notes.textContent = ''; count.textContent = ''; key.focus(); });
+    tabs.addEventListener('click', event => { const button = event.target.closest('[data-tab]'); if (button) showTab(button.dataset.tab); });
+    document.querySelector('#lockButton').addEventListener('click', () => { key.value = ''; inbox.hidden = true; form.hidden = false; notes.textContent = ''; insights.textContent = ''; count.textContent = ''; fieldInsights = null; key.focus(); });
   </script>
 </body>
 </html>
