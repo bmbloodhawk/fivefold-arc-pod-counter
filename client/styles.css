@@ -834,6 +834,47 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
 .end-turn-button:active { background: rgb(216 174 97 / .84); }
 .undo-turn-button:active { background: rgb(128 53 44 / .84); }
 
+/* Shared center instrument: use the Your Turn composition for every counter
+   state and mode. Older state-specific rules above remain overridden here. */
+@media (max-width: 599px) {
+  .game-shell .counter-stage,
+  .game-shell[data-your-turn="true"] .counter-stage,
+  .game-shell[data-your-turn="false"] .counter-stage {
+    min-height: 282px;
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+  .game-shell .counter-readout,
+  .game-shell[data-your-turn="true"] .counter-readout,
+  .game-shell[data-your-turn="false"] .counter-readout {
+    min-height: 246px;
+    padding-top: 12px;
+    transform: translateY(-22px);
+  }
+  .game-shell .counter-stage::before,
+  .game-shell .counter-stage::after { top: 46%; }
+  .game-shell .counter-sigil { top: 47%; }
+  .game-shell .counter-readout .counter-mode { margin-bottom: 10px; transform: none; }
+  .game-shell .counter-readout .main-value { margin: 0; transform: translateY(-10px); }
+  .game-shell .counter-readout .counter-context { margin-top: 24px; transform: translateY(8px); }
+}
+@media (max-width: 359px), (max-height: 740px) {
+  .game-shell .counter-stage,
+  .game-shell[data-your-turn="true"] .counter-stage,
+  .game-shell[data-your-turn="false"] .counter-stage { min-height: 242px; }
+  .game-shell .counter-readout,
+  .game-shell[data-your-turn="true"] .counter-readout,
+  .game-shell[data-your-turn="false"] .counter-readout {
+    min-height: 222px;
+    padding-top: 4px;
+    transform: translateY(-16px);
+  }
+  .game-shell .counter-sigil { top: 45%; }
+  .game-shell .counter-readout .counter-mode { margin-bottom: 5px; }
+  .game-shell .counter-readout .main-value { transform: translateY(-14px); }
+  .game-shell .counter-readout .counter-context { margin-top: 18px; transform: translateY(6px); }
+}
+
 @media (max-width: 599px) {
   .game-shell[data-your-turn="true"] .game-topline,
   .game-shell[data-your-turn="false"] .game-topline { min-height: 54px; }
