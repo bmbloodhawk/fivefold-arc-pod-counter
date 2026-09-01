@@ -93,6 +93,11 @@ test('life changes and low-life warnings do not reflow the fixed play surface', 
   assert.match(app, /\$\{safetyStatus\} · \$\{sign\}\$\{Math\.abs\(lifeChange\.delta\)\} LIFE/);
 });
 
+test('the elimination mark is an overlay, not a layout row', () => {
+  assert.match(styles, /Elimination is a visible state, never a new layout row/);
+  assert.match(styles, /\.lethal-mark \{ position: absolute;[\s\S]*width: 32px; height: 32px;/);
+});
+
 test('turn state keeps the Your Turn active-play geometry as its anchor', () => {
   assert.match(layoutInvariants, /Your Turn.*fixed geometry anchor/s);
   assert.match(layoutInvariants, /must not move the header, table summary, center emblem, mode[\s\S]*fixed navigation/);

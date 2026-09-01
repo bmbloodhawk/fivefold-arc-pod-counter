@@ -165,7 +165,8 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .counter-context { margin: 16px 0 0; color: var(--brass); font-family: Georgia, serif; font-size: 1.1rem; letter-spacing: .13em; }
 .status-message { margin: 12px 0 0; padding: 7px 12px; border: 1px solid currentColor; color: var(--warning); font-size: .72rem; font-weight: 900; letter-spacing: .08em; }
 .status-message.lethal { color: var(--danger); }
-.lethal-mark { height: 32px; color: var(--danger); font-size: 2rem; }
+/* Elimination is a visible state, never a new layout row. */
+.lethal-mark { position: absolute; z-index: 2; top: 12px; right: 12px; display: grid; place-items: center; width: 32px; height: 32px; color: var(--danger); font-size: 2rem; line-height: 1; pointer-events: none; }
 .source-panel { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin: -3px 0 13px; }
 .source-panel.source-panel-dense { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .source-button { min-height: 54px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
