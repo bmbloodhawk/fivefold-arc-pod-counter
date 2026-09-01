@@ -99,12 +99,13 @@ test('the elimination mark is an overlay, not a layout row', () => {
   assert.match(styles, /Elimination is a visible state, never a new layout row[\s\S]*artwork shares[\s\S]*behind the readout/);
   assert.match(styles, /\.lethal-mark \{ position: absolute; z-index: 1; top: 47%; left: 50%;[\s\S]*translate\(-50%, -43%\)/);
   assert.match(styles, /\.lethal-mark img \{[\s\S]*opacity: \.46;/);
-  assert.match(styles, /--skull-identity[\s\S]*mask: url\("assets\/elimination-skull-v1\.png"\)/);
+  assert.match(styles, /--skull-identity[\s\S]*mask: url\("assets\/elimination-skull-v1\.png"\)[\s\S]*filter: blur\(12px\) saturate\(1\.25\)/);
   assert.match(styles, /\.main-value\.elimination-placeholder \{ visibility: hidden; \}[\s\S]*\.elimination-outcome \{ position: absolute; z-index: 3;/);
   assert.match(styles, /\.counter-readout \{[\s\S]*z-index: 2;/);
   assert.match(app, /detail: `COMMANDER DAMAGE · \$\{displaySource\(lethalSource\)\}`/);
   assert.match(app, /detail: 'POISON'/);
   assert.match(app, /detail: 'LIFE TOTAL 0'/);
+  assert.match(app, /state\.players\.forEach\(evaluatePlayer\)[\s\S]*!player\.eliminated/);
 });
 
 test('counter titles clear the number without reflowing the fixed readout', () => {

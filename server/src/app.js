@@ -916,7 +916,7 @@ export class RoomService {
     const previousTurnStartedAt = room.turn.turnStartedAt;
     // Connection status is deliberately not part of turn order: a disconnected
     // player keeps their turn until they reconnect. Only eliminated seats are skipped.
-    const livingClaimedSeats = room.seats.filter((seat) => seat.claimed && seat.counters.life > 0);
+    const livingClaimedSeats = room.seats.filter((seat) => seat.claimed && !seatIsEliminated(seat));
     const eligibleSeats = livingClaimedSeats.length ? livingClaimedSeats : room.seats.filter((seat) => seat.claimed);
     const currentIndex = eligibleSeats.findIndex((seat) => seat.seatId === seatId);
     const toSeatId = eligibleSeats[(currentIndex + 1) % eligibleSeats.length].seatId;

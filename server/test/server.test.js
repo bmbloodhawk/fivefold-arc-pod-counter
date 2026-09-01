@@ -822,6 +822,24 @@ describe("authority and convergence", () => {
     assert.equal(snapshot.turn.activeSeatId, 1);
   });
 
+  test("handoffs skip poison and commander-damage eliminations", () => {
+    const service = new RoomService();
+    const host = service.createConnection();
+    const created = service.createRoom(host.connectionId, { playerCount: 4, startingLife: 40 });
+    const second = service.createConnection();
+    const third = service.createConnection();
+    const fourth = service.createConnection();
+    let snapshot = service.claimSeat(created.snapshot.code, second.connectionId, { seatId: 1, name: "Jace" }).snapshot;
+    snapshot = service.claimSeat(created.snapshot.code, third.connectionId, { seatId: 2, name: "Nissa" }).snapshot;
+    snapshot = service.claimSeat(created.snapshot.code, fourth.connectionId, { seatId: 3, name: "Kaya" }).snapshot;
+    snapshot = service.startGame(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
+    snapshot = service.adjustOwnSeat(created.snapshot.code, second.connectionId, { counter: "poison", delta: 10 }).snapshot;
+    snapshot = service.adjustOwnSeat(created.snapshot.code, third.connectionId, { counter: "commanderDamage", commanderSourceId: "seat-0-commander-a", delta: 21 }).snapshot;
+
+    snapshot = service.handoffTurn(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
+    assert.equal(snapshot.turn.activeSeatId, 3);
+  });
+
   test("applies concurrent live counter deltas without a stale-version re-entry error", async () => {
     const made = await room();
     const playerConnection = await connection();
