@@ -991,7 +991,7 @@ button:disabled { cursor: not-allowed; filter: saturate(.45); }
   padding: 0;
   border: 0;
   background: transparent;
-  font-size: .6rem;
+  font-size: .72rem;
   line-height: 1.1;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1000,7 +1000,7 @@ button:disabled { cursor: not-allowed; filter: saturate(.45); }
 .status-message { bottom: 51px; }
 @media (max-width: 359px), (max-height: 740px) {
   .life-change-indicator,
-  .status-message { right: 6px; bottom: 40px; left: 6px; font-size: .56rem; }
+  .status-message { right: 6px; bottom: 40px; left: 6px; font-size: .7rem; }
   .life-change-indicator { min-height: 0; }
   .status-message { bottom: 40px; }
 }
