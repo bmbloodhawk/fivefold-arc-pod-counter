@@ -821,18 +821,18 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
    blocks over the table art. */
 .end-turn-button {
   border-color: rgb(240 207 143 / .9);
-  background: rgb(216 174 97 / .50);
+  background: rgb(216 174 97 / .35);
   backdrop-filter: blur(7px);
   box-shadow: 0 3px 0 rgb(119 87 30 / .72);
 }
 .undo-turn-button {
   border-color: rgb(240 154 137 / .9);
-  background: rgb(169 71 59 / .50);
+  background: rgb(169 71 59 / .35);
   backdrop-filter: blur(7px);
   box-shadow: 0 3px 0 rgb(97 43 37 / .72);
 }
-.end-turn-button:active { background: rgb(216 174 97 / .62); }
-.undo-turn-button:active { background: rgb(128 53 44 / .62); }
+.end-turn-button:active { background: rgb(216 174 97 / .47); }
+.undo-turn-button:active { background: rgb(128 53 44 / .47); }
 
 /* Three-dot menu: every selectable destination uses the same full-width,
    tappable row. Close, the simulator selector, and destructive reset are the
