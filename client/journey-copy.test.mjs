@@ -63,6 +63,11 @@ test('card advisor is title-first and keeps rules advice distinct from a judge r
   assert.match(styles, /#cardCameraDialog \{[\s\S]*overflow-y: auto/);
 });
 
+test('card advisor Close always dismisses without requiring a lookup input', () => {
+  assert.match(html, /<button value="close" class="secondary-action" formnovalidate>Close<\/button>/);
+  assert.match(app, /dom\.cardAdvisorForm\.addEventListener\('submit', event => \{ if \(event\.submitter\?\.value === 'close'\) return;/);
+});
+
 test('custom-life cancellation bypasses an empty required amount', () => {
   assert.match(html, /<button id="cancelCustomLifeButton" type="button" class="secondary-action">Cancel<\/button>/);
   assert.equal((html.match(/id="cancelCustomLifeButton"/g) || []).length, 1);

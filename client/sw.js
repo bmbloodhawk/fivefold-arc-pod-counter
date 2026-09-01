@@ -1,4 +1,4 @@
-const CACHE = 'fivefold-arc-v183';
+const CACHE = 'fivefold-arc-v184';
 const APP_SHELL = ['./', './index.html', './styles.css?v=171', './app.js?v=133', './card-interaction-advice.js?v=1', './connection-state.js?v=1', './realtime.js?v=72', './life-adjustment-batcher.js?v=72', './vendor/three/three.module.js', './vendor/dice-box/dice-box.es.js', './vendor/dice-box/Dice.js', './vendor/dice-box/assets/ammo/ammo.wasm.wasm', './vendor/dice-box/assets/themes/default/default.json', './vendor/dice-box/assets/themes/default/diffuse-dark.png', './vendor/dice-box/assets/themes/default/normal.png', './vendor/dice-box/assets/themes/default/specular.jpg', './vendor/dice-box/assets/themes/default/theme.config.json', './manifest.webmanifest', './icons/arc-mark.svg', './assets/elimination-skull-v1.png', './assets/elimination-skull-poison-v1.png', './assets/elimination-skull-commander-v1.png'];
 
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(APP_SHELL))));
