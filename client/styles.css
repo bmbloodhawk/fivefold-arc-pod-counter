@@ -817,6 +817,23 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
 }
 .undo-turn-button:active { background: #80352c; transform: translateY(1px); box-shadow: 0 2px 0 #612b25; }
 
+/* Turn actions retain their yellow/red state cues without becoming opaque
+   blocks over the table art. */
+.end-turn-button {
+  border-color: rgb(240 207 143 / .9);
+  background: rgb(216 174 97 / .72);
+  backdrop-filter: blur(7px);
+  box-shadow: 0 3px 0 rgb(119 87 30 / .72);
+}
+.undo-turn-button {
+  border-color: rgb(240 154 137 / .9);
+  background: rgb(169 71 59 / .72);
+  backdrop-filter: blur(7px);
+  box-shadow: 0 3px 0 rgb(97 43 37 / .72);
+}
+.end-turn-button:active { background: rgb(216 174 97 / .84); }
+.undo-turn-button:active { background: rgb(128 53 44 / .84); }
+
 @media (max-width: 599px) {
   .game-shell[data-your-turn="true"] .game-topline,
   .game-shell[data-your-turn="false"] .game-topline { min-height: 54px; }
@@ -882,6 +899,21 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
 @media (max-width: 359px), (max-height: 740px) {
   .game-shell[data-your-turn="true"] #turnActions,
   .game-shell[data-your-turn="false"] #turnActions { margin-top: -16px; margin-bottom: 1px; }
+}
+
+/* Apply the lift to the shared slot itself. End Turn and Rescind/Undo occupy
+   this same slot, so neither can be left behind by a state-specific rule. */
+@media (max-width: 599px) {
+  #turnActions {
+    position: relative;
+    z-index: 4;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    transform: translateY(-28px);
+  }
+}
+@media (max-width: 359px), (max-height: 740px) {
+  #turnActions { margin-top: 1px; margin-bottom: 1px; transform: translateY(-20px); }
 }
 
 @media (max-width: 340px) and (max-height: 720px) {

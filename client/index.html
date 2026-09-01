@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=151">
+  <link rel="stylesheet" href="styles.css?v=154">
 </head>
 <body>
   <header class="brand-bar">
@@ -376,9 +376,10 @@
   <dialog id="cardCameraDialog" aria-labelledby="cardCameraTitle">
     <form id="cardAdvisorForm" method="dialog" class="card-advisor-dialog">
       <h2 id="cardCameraTitle">Card rules & interaction</h2>
-      <p>Enter a card title for current Oracle text and published rulings. Add a second card to check for a clearly stated interaction.</p>
+      <p>Enter card titles for current Oracle text, published rulings, and an established-interaction lookup. If no database match is found, Fivefold Arc offers a clearly labeled best-effort explanation from the current card text.</p>
       <label class="select-field">First card title<input id="firstCardTitle" name="firstCardTitle" type="text" maxlength="120" autocomplete="off" placeholder="e.g. Lightning Bolt" required></label>
       <label class="select-field">Second card title <small>(optional)</small><input id="secondCardTitle" name="secondCardTitle" type="text" maxlength="120" autocomplete="off" placeholder="e.g. Spellskite"></label>
+      <label class="select-field">Game situation <small>(optional, helps the fallback)</small><textarea id="interactionSituation" name="interactionSituation" rows="3" maxlength="600" placeholder="e.g. Both are on the battlefield; I cast the first card during my main phase."></textarea></label>
       <p id="cardLookupStatus" class="field-help" aria-live="polite"></p>
       <section id="cardLookupResult" class="card-lookup-result" hidden aria-live="polite"></section>
       <p class="card-camera-privacy">Names are sent only when you select Look up. They are used for this lookup and are not saved by Fivefold Arc. Based on current Oracle text and published rulings—this is not a judge ruling.</p>
