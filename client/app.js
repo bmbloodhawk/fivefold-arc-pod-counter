@@ -283,9 +283,8 @@ function renderTurnFlow() {
   dom.turnPlayer.textContent = turnPlayerValue ? displayName(turnPlayerValue) : state.turnSeatId;
   dom.turnElapsed.textContent = `TURN ${formatDuration(timerNow - state.turn.turnStartedAt)}`;
   dom.gameTimer.textContent = state.turn.roundEndsAt ? `ROUND ENDS IN ${formatDuration(state.turn.roundEndsAt - timerNow)}` : `GAME TIME ${formatDuration(timerNow - state.turn.gameStartedAt)}`;
-  const completedTurn = handoff ? state.players.find(player => player.id === `P${handoff.fromSeatId + 1}`) : null;
   dom.lastTurnSummary.hidden = !handoff || !Number.isFinite(handoff.turnLengthMs) || now - handoff.handedOffAt > 15_000;
-  if (!dom.lastTurnSummary.hidden) dom.lastTurnSummary.textContent = `LAST TURN · ${displayName(completedTurn || { id: `P${handoff.fromSeatId + 1}` })} · ${formatDuration(handoff.turnLengthMs)}`;
+  if (!dom.lastTurnSummary.hidden) dom.lastTurnSummary.textContent = `LAST TURN · ${formatDuration(handoff.turnLengthMs)}`;
   const canAct = (state.localSimulation || transport.status === 'connected') && isOwnerActive && trackingEnabled && !paused;
   dom.endTurnButton.disabled = !canAct;
   dom.pauseTurnButton.disabled = !isHost || !(state.localSimulation || transport.status === 'connected');

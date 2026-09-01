@@ -873,6 +873,17 @@ body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), t
   .counter-sigil { top: 45%; }
 }
 
+/* The turn action overlaps the dial's unused lower edge, keeping it visually
+   attached to the focused life readout in either turn state. */
+@media (max-width: 599px) {
+  .game-shell[data-your-turn="true"] #turnActions,
+  .game-shell[data-your-turn="false"] #turnActions { margin-top: -22px; margin-bottom: 2px; }
+}
+@media (max-width: 359px), (max-height: 740px) {
+  .game-shell[data-your-turn="true"] #turnActions,
+  .game-shell[data-your-turn="false"] #turnActions { margin-top: -16px; margin-bottom: 1px; }
+}
+
 @media (max-width: 340px) and (max-height: 720px) {
   #quickTestButton { display: none; }
   .saved-tables { gap: 5px; margin-top: 10px; padding: 10px; }
