@@ -1206,6 +1206,10 @@ export function createRealtimeServer(options = {}) {
         if (!/^[A-Za-z0-9-]{4,64}$/.test(query)) throw Object.assign(new Error("Enter a room code or game reference"), { status: 400, code: "INVALID_INPUT" });
         return json(res, 200, { matches: await service.ledger.findDiagnostics(query) });
       }
+      if (req.method === "GET" && url.pathname === "/api/feedback/diagnostics/recent") {
+        feedbackKeyMatches(req.headers["x-feedback-portal-key"]);
+        return json(res, 200, { games: await service.ledger.listRecentDiagnostics() });
+      }
       if (req.method === "GET" && parts[0] === "api" && parts[1] === "feedback" && parts[2] === "diagnostics" && parts[3]) {
         feedbackKeyMatches(req.headers["x-feedback-portal-key"]);
         const gameId = String(parts[3] || "");

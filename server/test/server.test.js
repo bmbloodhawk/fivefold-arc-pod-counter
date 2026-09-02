@@ -993,6 +993,8 @@ test("developer diagnostics find a room and return only its retained game histor
   ledger.record({ gameId: "game-other", roomCode: "OTHER9", sequence: 1, at: 3_000, type: "room_created", actorSeatId: 0 });
   const matches = await ledger.findDiagnostics("arc123");
   assert.deepEqual(matches.map((match) => match.gameId), ["game-apple"]);
+  const recent = await ledger.listRecentDiagnostics();
+  assert.deepEqual(recent.map((match) => match.gameId), ["game-other", "game-apple"]);
   const diagnostic = await ledger.readDiagnostics("game-apple");
   assert.equal(diagnostic.events.length, 2);
   assert.equal(diagnostic.events[1].delta, -5);
