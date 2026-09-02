@@ -1224,6 +1224,10 @@ export function createRealtimeServer(options = {}) {
         feedbackKeyMatches(req.headers["x-feedback-portal-key"]);
         return json(res, 200, { games: await service.ledger.listRecentDiagnostics() });
       }
+      if (req.method === "POST" && url.pathname === "/api/feedback/diagnostics/mark-review-development") {
+        feedbackKeyMatches(req.headers["x-feedback-portal-key"]);
+        return json(res, 200, { marked: await service.ledger.markReviewGamesDevelopment() });
+      }
       if (req.method === "GET" && parts[0] === "api" && parts[1] === "feedback" && parts[2] === "diagnostics" && parts[3]) {
         feedbackKeyMatches(req.headers["x-feedback-portal-key"]);
         const gameId = String(parts[3] || "");

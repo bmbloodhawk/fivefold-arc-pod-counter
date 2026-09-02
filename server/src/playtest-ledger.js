@@ -16,6 +16,7 @@ export class NullPlaytestLedger {
   async findDiagnostics() { return []; }
   async listRecentDiagnostics() { return []; }
   async readDiagnostics() { return null; }
+  async markReviewGamesDevelopment() { return 0; }
   async updateFeedback() { throw new Error("Feedback storage is not configured"); }
   async flush() { return { ok: true }; }
 }
@@ -66,7 +67,13 @@ export class MemoryPlaytestLedger {
     const checkpoints = this.records.filter((item) => item.kind === "checkpoint" && item.record.gameId === gameId).map((item) => ({ ...item.record })).sort((a, b) => b.sequence - a.sequence).slice(0, 12);
     const recap = this.records.filter((item) => item.kind === "complete" && item.record.gameId === gameId).at(-1)?.record;
     if (!events.length && !checkpoints.length && !recap) return null;
-    return diagnosticMetadata({ gameId, roomCode: recap?.roomCode || events.at(-1)?.roomCode || checkpoints[0]?.roomCode, recap: recap ? { ...recap } : null, events, checkpoints });
+    const review = this.records.filter((item) => item.kind === "diagnostic_review" && item.record.gameId === gameId).at(-1)?.record || null;
+    return diagnosticMetadata({ gameId, roomCode: recap?.roomCode || events.at(-1)?.roomCode || checkpoints[0]?.roomCode, recap: recap ? { ...recap } : null, events, checkpoints, review });
+  }
+  async markReviewGamesDevelopment() {
+    const games = await this.listRecentDiagnostics(); const targets = games.filter((game) => game.sessionKind !== "development" && (game.flags.length || game.outcome === "Reset early"));
+    for (const game of targets) this.records.push({ kind: "diagnostic_review", record: { gameId: game.gameId, sessionKind: "development", reason: "one_time_pre_playtest_cleanup" } });
+    return targets.length;
   }
   async updateFeedback(review) { this.records.push({ kind: "feedback_review", record: review }); }
   async flush() { return { ok: true }; }
@@ -121,13 +128,18 @@ export class FirebasePlaytestLedger {
   async findDiagnostics(query) {
     const needle = String(query || "").trim().toUpperCase();
     const playtests = await this.read("playtests.json") || {};
-    return Object.entries(playtests).map(([gameId, playtest]) => diagnosticSummary(gameId, playtest)).filter((game) => game && (game.gameId.toUpperCase().includes(needle) || String(game.roomCode || "").toUpperCase() === needle)).sort((a, b) => b.lastEventAt - a.lastEventAt).slice(0, 24);
+    return Object.entries(playtests).map(([gameId, playtest]) => diagnosticSummary(gameId, playtest)).filter((game) => game && (game.gameId.toUpperCase().includes(needle) || String(game.roomCode || "").toUpperCase() === needle)).sort((a, b) => b.lastEventAt - a.lastEventAt).slice(0, 200);
   }
   async listRecentDiagnostics() { return this.findDiagnostics(""); }
   async readDiagnostics(gameId) {
     const playtest = await this.read(`playtests/${encodeURIComponent(gameId)}.json`);
     if (!playtest) return null;
     return diagnosticDetail(gameId, playtest);
+  }
+  async markReviewGamesDevelopment() {
+    const playtests = await this.read("playtests.json") || {}; const targets = Object.entries(playtests).map(([gameId, playtest]) => [gameId, diagnosticSummary(gameId, playtest)]).filter(([, game]) => game && game.sessionKind !== "development" && (game.flags.length || game.outcome === "Reset early"));
+    for (const [gameId] of targets) this.enqueue(`playtests/${encodeURIComponent(gameId)}/review.json`, { sessionKind: "development", reason: "one_time_pre_playtest_cleanup", classifiedAt: this.now() });
+    await this.flush(); return targets.length;
   }
   async updateFeedback(review) { this.enqueue(`playtests/${encodeURIComponent(review.gameId)}/feedback/${encodeURIComponent(review.noteId)}.json`, review); await this.flush(); }
 
@@ -191,21 +203,21 @@ function diagnosticSummary(gameId, playtest = {}) {
   const checkpoints = Object.values(playtest.checkpoints || {}).filter(Boolean).sort((a, b) => b.sequence - a.sequence);
   const recap = playtest.recap || null;
   const roomCode = recap?.roomCode || events.at(-1)?.roomCode || checkpoints[0]?.roomCode || Object.values(playtest.notes || {}).find(Boolean)?.roomCode;
-  return diagnosticMetadata({ gameId, roomCode, recap, events, checkpoints });
+  return diagnosticMetadata({ gameId, roomCode, recap, events, checkpoints, review: playtest.review || null });
 }
 
 function diagnosticDetail(gameId, playtest = {}) {
   const summary = diagnosticSummary(gameId, playtest);
   if (!summary) return null;
-  return diagnosticMetadata({ ...summary, recap: playtest.recap || null, events: Object.values(playtest.events || {}).filter(Boolean).sort((a, b) => a.sequence - b.sequence).slice(-200), checkpoints: Object.values(playtest.checkpoints || {}).filter(Boolean).sort((a, b) => b.sequence - a.sequence).slice(0, 12) });
+  return diagnosticMetadata({ ...summary, recap: playtest.recap || null, events: Object.values(playtest.events || {}).filter(Boolean).sort((a, b) => a.sequence - b.sequence).slice(-200), checkpoints: Object.values(playtest.checkpoints || {}).filter(Boolean).sort((a, b) => b.sequence - a.sequence).slice(0, 12), review: playtest.review || null });
 }
 
-function diagnosticMetadata({ gameId, roomCode, recap = null, events = [], checkpoints = [] }) {
+function diagnosticMetadata({ gameId, roomCode, recap = null, events = [], checkpoints = [], review = null }) {
   if (!roomCode && !events.length && !checkpoints.length && !recap) return null;
   const snapshots = checkpoints.map((checkpoint) => checkpoint.snapshot).filter(Boolean);
   const counterChanges = Object.fromEntries([...new Set(events.filter((event) => event.type === "counter_adjusted").map((event) => event.counter))].map((counter) => [counter, events.filter((event) => event.type === "counter_adjusted" && event.counter === counter).length]));
   const roomCreated = events.find((event) => event.type === "room_created");
-  const sessionKind = [...events].reverse().find((event) => event.type === "session_kind_changed")?.sessionKind || "standard";
+  const sessionKind = review?.sessionKind || [...events].reverse().find((event) => event.type === "session_kind_changed")?.sessionKind || "standard";
   const startedAt = events.find((event) => event.type === "game_started")?.at || null;
   const observedDurationMs = recap?.durationMs ?? (startedAt ? Math.max(0, Math.max(recap?.completedAt || 0, events.at(-1)?.at || 0, checkpoints[0]?.at || 0) - startedAt) : null);
   const handoffs = events.filter((event) => event.type === "turn_handed_off");
