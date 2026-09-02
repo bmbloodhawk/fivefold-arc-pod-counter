@@ -245,6 +245,23 @@ dialog::backdrop { background: rgb(0 0 0 / .72); backdrop-filter: blur(3px); }
 #startingRollDialog h2 { margin-top: 0; }
 dialog h2 { margin: 18px 0 8px; font-family: Georgia, serif; font-size: 1.8rem; }
 dialog p { color: var(--muted); line-height: 1.5; }
+.victory-dialog-content { position: relative; min-height: 420px; overflow: hidden; margin: -24px; isolation: isolate; background: #121411; text-align: center; cursor: pointer; }
+.victory-art { position: absolute; z-index: -2; top: -110px; left: 50%; width: min(520px, 125%); max-width: none; transform: translateX(-50%); opacity: .72; mix-blend-mode: screen; pointer-events: none; }
+.victory-dialog-content::before { content: ""; position: absolute; z-index: -1; inset: 0; background: linear-gradient(180deg, rgb(8 10 13 / .18), rgb(8 10 13 / .6) 57%, #121411 100%); pointer-events: none; }
+.victory-dialog-copy { display: grid; align-content: end; min-height: 420px; padding: 32px 28px 25px; }
+.victory-dialog-copy .eyebrow { margin: 0; color: #f0d182; font-weight: 900; letter-spacing: .14em; }
+.victory-dialog-copy h2 { margin: 13px 0 7px; color: #fff6dc; font-size: clamp(2.1rem, 11vw, 3.05rem); line-height: 1; text-shadow: 0 2px 17px rgb(0 0 0 / .68); }
+.victory-dialog-copy #victoryDetail { max-width: 23ch; margin: 0 auto; color: #eee7d9; text-shadow: 0 1px 10px rgb(0 0 0 / .75); }
+.personal-match-moment { position: relative; display: grid; gap: 5px; margin: 18px 0 0; padding: 15px 12px 8px; overflow: hidden; border-top: 1px solid rgb(240 209 130 / .28); isolation: isolate; }
+.personal-match-art { position: absolute; z-index: -1; inset: 0; opacity: .34; background-image: linear-gradient(rgb(12 14 17 / .44), rgb(12 14 17 / .84)), url('assets/accolade-variants-sheet-v1.png'); background-size: 300% 1100%; background-position: 0 0; }
+.personal-match-art[data-variant="1"] { background-position-x: 50%; }.personal-match-art[data-variant="2"] { background-position-x: 100%; }
+.personal-match-art[data-category="Refused to Die"] { background-position-y: 10%; }.personal-match-art[data-category="Comeback Kid"] { background-position-y: 20%; }.personal-match-art[data-category="Hanging By a Thread"] { background-position-y: 30%; }.personal-match-art[data-category="Commander Magnet"] { background-position-y: 40%; }.personal-match-art[data-category="Poison Snack"] { background-position-y: 50%; }.personal-match-art[data-category="Health Potion Hoarder"] { background-position-y: 60%; }.personal-match-art[data-category="Reactor Core"] { background-position-y: 70%; }.personal-match-art[data-category="Glowing Problem"] { background-position-y: 80%; }.personal-match-art[data-category="Speedrunner"] { background-position-y: 90%; }.personal-match-art[data-category="Arc Complete"] { background-position-y: 100%; }
+.personal-match-moment .eyebrow { margin: 0; color: #f0d182; font-size: .67rem; font-weight: 900; letter-spacing: .13em; }
+.personal-match-moment strong { color: #fff6dc; font-family: Georgia, serif; font-size: 1.34rem; }
+.personal-match-moment span { color: #eee7d9; font-size: .84rem; }
+.personal-match-moment small { color: #d9b475; font-size: .74rem; }
+.victory-tap-hint { margin: 20px 0 12px !important; color: #d9b475 !important; font-size: .78rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.victory-dialog-copy .primary-action { cursor: pointer; }
 .dialog-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 22px; }
 .playtest-notes-list { display: grid; gap: 10px; max-height: 34dvh; margin: 16px 0; padding: 0; overflow-y: auto; list-style: none; }
 .playtest-notes-list li { padding: 10px; border: 1px solid var(--line); background: var(--surface-2); }

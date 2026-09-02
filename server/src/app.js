@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
 import QRCode from "qrcode";
 import { NullPlaytestLedger, recapFromRoom } from "./playtest-ledger.js";
+import { blankMatchMoment, personalMatchMoment, recordMatchMoment, recordTurnMoment } from "./match-moments.js";
 
 const JOIN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const MUTABLE_COUNTERS = new Set(["life", "radiation", "poison", "energy", "generic", "commanderDamage"]);
@@ -424,6 +425,7 @@ export class RoomService {
       counters: { life: startingLife, radiation: 0, poison: 0, energy: 0, generic: 0 },
       commanderDamageReceived: {},
       commanderCastCounts: {},
+      matchMoment: blankMatchMoment(startingLife),
     }));
     const room = {
       code,
@@ -540,6 +542,9 @@ export class RoomService {
       notes: room.playtestNotes.map((note) => ({ ...note })),
       incomplete,
     };
+    if (room.gameResult) {
+      recap.accoladeCounts = room.seats.filter((seat) => seat.claimed).map((seat) => personalMatchMoment({ seat, seats: room.seats, winnerSeatId: room.gameResult.winnerSeatId, seed: room.gameId })).reduce((counts, moment) => ({ ...counts, [moment.category]: (counts[moment.category] || 0) + 1 }), {});
+    }
     this.ledger.complete(recap);
   }
 
@@ -569,8 +574,15 @@ export class RoomService {
     return { recap: { ...recapFromRoom(room, this.now()), notes: room.playtestNotes.map((note) => ({ ...note })) } };
   }
 
+  personalMatchMoment(code, connectionId) {
+    const room = this.room(code); const { seat } = this.requireOwner(room, connectionId);
+    if (!room.gameResult) throw Object.assign(new Error("A match moment is available after the game ends"), { status: 409, code: "GAME_NOT_COMPLETE" });
+    return { moment: personalMatchMoment({ seat, seats: room.seats, winnerSeatId: room.gameResult.winnerSeatId, seed: room.gameId }) };
+  }
+
   async developerFieldTestInsights() {
     const tests = await this.ledger.listFieldTests();
+    const recaps = await this.ledger.listArchive();
     const countBy = (key) => tests.reduce((summary, test) => { const value = String(test[key] || "unknown"); summary[value] = (summary[value] || 0) + 1; return summary; }, {});
     const issueCounts = tests.reduce((summary, test) => { for (const issue of test.issues || []) summary[issue] = (summary[issue] || 0) + 1; return summary; }, {});
     const average = (key) => tests.length ? Math.round(tests.reduce((total, test) => total + Math.max(0, Number(test[key]) || 0), 0) / tests.length) : 0;
@@ -582,6 +594,7 @@ export class RoomService {
       deviceMix: countBy("deviceMix"),
       repeatUse: countBy("repeatUse"),
       disputes: countBy("dispute"),
+      accoladeCounts: recaps.reduce((counts, recap) => Object.entries(recap.accoladeCounts || {}).reduce((next, [category, count]) => ({ ...next, [category]: (next[category] || 0) + Number(count || 0) }), counts), {}),
       friction: issueCounts,
     };
   }
@@ -767,6 +780,7 @@ export class RoomService {
       const minimum = counter === "life" ? -999 : 0;
       seat.counters[counter] = Math.max(minimum, Math.min(999, (seat.counters[counter] ?? 0) + delta));
     }
+    recordMatchMoment(seat, { counter, delta: applied, commanderSourceId: input.commanderSourceId, lifeAfter: seat.counters.life, gameStarted: room.turn.gameStarted });
     recordLastPlayerStanding(room, this.now());
     room.version += 1;
     this.recordLedger(room, "counter_adjusted", seat.seatId, { counter, delta: applied, ...(counter === "commanderDamage" ? { commanderSourceId: input.commanderSourceId } : {}) });
@@ -790,6 +804,7 @@ export class RoomService {
     this.completePlaytest(room, this.now(), { incomplete: !room.gameResult });
     for (const seat of room.seats) {
       seat.counters = { life: room.config.startingLife, radiation: 0, poison: 0, energy: 0, generic: 0 };
+      seat.matchMoment = blankMatchMoment(room.config.startingLife);
       seat.commanderDamageReceived = Object.fromEntries(
         Object.keys(seat.commanderDamageReceived).map((sourceId) => [sourceId, 0]),
       );
@@ -926,6 +941,7 @@ export class RoomService {
       turnStartedAt: handedOffAt,
       lastHandoff: { fromSeatId: seatId, toSeatId, handedOffAt, turnLengthMs: Math.max(0, handedOffAt - (previousTurnStartedAt ?? handedOffAt)) },
     };
+    recordTurnMoment(room.seats[seatId], room.turn.lastHandoff.turnLengthMs);
     room.version += 1;
     this.recordLedger(room, "turn_handed_off", seatId, { toSeatId, turnLengthMs: Math.max(0, handedOffAt - (previousTurnStartedAt ?? handedOffAt)) });
     this.broadcast(room);
@@ -1216,6 +1232,7 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "GET" && parts[3] === "playtest-notes") return json(res, 200, service.listPlaytestNotes(code, connectionId));
         if (req.method === "POST" && parts[3] === "playtest-notes") return json(res, 201, service.addPlaytestNote(code, connectionId, await readJson(req)));
         if (req.method === "GET" && parts[3] === "playtest-recap") return json(res, 200, service.playtestRecap(code, connectionId));
+        if (req.method === "GET" && parts[3] === "match-moment") return json(res, 200, service.personalMatchMoment(code, connectionId));
         if (req.method === "POST" && parts[3] === "field-test") return json(res, 201, service.recordFieldTest(code, connectionId, await readJson(req)));
         if (req.method === "GET" && parts[3] === "saved-playtests") return json(res, 200, await service.hostArchive(code, connectionId));
         if (req.method === "POST" && parts[3] === "declare-winner") return json(res, 200, service.declareWinner(code, connectionId, await readJson(req)));

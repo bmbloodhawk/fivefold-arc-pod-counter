@@ -16,8 +16,8 @@ const dom = {
   playerCountChoices: $('#playerCountChoices'), createName: $('#createName'), joinSeat: $('#joinSeat'), joinName: $('#joinName'), joinSeatClaim: $('#joinSeatClaim'), activeSeat: $('#activeSeat'), localSimulation: $('#localSimulation'), roundLimitMinutes: $('#roundLimitMinutes'), createCommanderNames: $('#createCommanderNames'), joinCommanderNames: $('#joinCommanderNames'), gameCommanderNames: $('#gameCommanderNames'),
   podStrip: $('#podStrip'), podLabel: $('#podLabel'), commanderIdentityName: $('#commanderIdentityName'), identityHeaderRail: $('#identityHeaderRail'), modeTitle: $('#modeTitle'), mainValue: $('#mainValue'),
   counterContext: $('#counterContext'), statusMessage: $('#statusMessage'), lethalMark: $('#lethalMark'), lethalImage: $('#lethalMark img'), eliminationOutcome: $('#eliminationOutcome'), lifeChangeIndicator: $('#lifeChangeIndicator'), sourcePanel: $('#sourcePanel'), inspectionNotice: $('#inspectionNotice'), sideSeats: $('#sideSeats'),
-  activeSeatBar: $('#activeSeatBar'), gameMenu: $('#gameMenu'), moreButton: $('#moreButton'),
-  disconnectBanner: $('#disconnectBanner'), syncBanner: $('#syncBanner'), coinTossNotice: $('#coinTossNotice'), victoryNotice: $('#victoryNotice'), coinTossButton: $('#coinTossButton'), coinTossDialog: $('#coinTossDialog'), coinTossResult: $('#coinTossResult'), tossAgainButton: $('#tossAgainButton'), resetDialog: $('#resetDialog'), commanderSetupButton: $('#commanderSetupButton'), backToSetupButton: $('#backToSetupButton'), declareWinnerButton: $('#declareWinnerButton'), declareWinnerDialog: $('#declareWinnerDialog'), declareWinnerForm: $('#declareWinnerForm'), winnerSeat: $('#winnerSeat'), victoryDialog: $('#victoryDialog'), victoryTitle: $('#victoryTitle'), victoryDetail: $('#victoryDetail'),
+  activeSeatBar: $('#activeSeatBar'), gameMenu: $('#gameMenu'), moreButton: $('#moreButton'), viewCelebrationButton: $('#viewCelebrationButton'),
+  disconnectBanner: $('#disconnectBanner'), syncBanner: $('#syncBanner'), coinTossNotice: $('#coinTossNotice'), victoryNotice: $('#victoryNotice'), coinTossButton: $('#coinTossButton'), coinTossDialog: $('#coinTossDialog'), coinTossResult: $('#coinTossResult'), tossAgainButton: $('#tossAgainButton'), resetDialog: $('#resetDialog'), commanderSetupButton: $('#commanderSetupButton'), backToSetupButton: $('#backToSetupButton'), declareWinnerButton: $('#declareWinnerButton'), declareWinnerDialog: $('#declareWinnerDialog'), declareWinnerForm: $('#declareWinnerForm'), winnerSeat: $('#winnerSeat'), victoryDialog: $('#victoryDialog'), victoryEyebrow: $('#victoryEyebrow'), victoryTitle: $('#victoryTitle'), victoryDetail: $('#victoryDetail'), personalMatchMoment: $('#personalMatchMoment'), personalMatchArt: $('#personalMatchArt'), personalMatchMomentTitle: $('#personalMatchMomentTitle'), personalMatchMomentLine: $('#personalMatchMomentLine'), personalMatchMomentFact: $('#personalMatchMomentFact'),
   lobbyControls: $('#lobbyControls'), lobbyStatus: $('#lobbyStatus'), showJoinQrButton: $('#showJoinQrButton'), showJoinQrMenuButton: $('#showJoinQrMenuButton'), firstPlayerOptions: $('#firstPlayerOptions'), startingSeatField: $('#startingSeatField'), startingSeat: $('#startingSeat'), chooseFirstButton: $('#chooseFirstButton'), randomFirstButton: $('#randomFirstButton'), startGameButton: $('#startGameButton'), startingRollDialog: $('#startingRollDialog'), startingRollStatus: $('#startingRollStatus'), rollMyD20Button: $('#rollMyD20Button'), startingRollCanvas: $('#startingRollCanvas'), startingRollFinalDice: $('#startingRollFinalDice'), startingRollOverlays: $('#startingRollOverlays'), startingRollLive: $('#startingRollLive'), turnBanner: $('#turnBanner'), turnLabel: $('#turnLabel'), turnPlayer: $('#turnPlayer'), turnElapsed: $('#turnElapsed'), gameTimer: $('#gameTimer'), lastTurnSummary: $('#lastTurnSummary'), turnActions: $('#turnActions'), endTurnButton: $('#endTurnButton'), undoTurnButton: $('#undoTurnButton'), pauseTurnButton: $('#pauseTurnButton'), toggleTurnTrackingButton: $('#toggleTurnTrackingButton'), toggleTurnCuesButton: $('#toggleTurnCuesButton'), toggleDeviceCuesButton: $('#toggleDeviceCuesButton'), toggleTouchFeedbackButton: $('#toggleTouchFeedbackButton'), turnActionDetail: $('#turnActionDetail'),
   commanderCountDialog: $('#commanderCountDialog'), commanderCountDetail: $('#commanderCountDetail'), commanderCountForm: $('#commanderCountForm'), saveCommanderCountButton: $('#saveCommanderCountButton'), joinQrDialog: $('#joinQrDialog'), joinQrImage: $('#joinQrImage'), joinQrCode: $('#joinQrCode'), shareJoinLinkButton: $('#shareJoinLinkButton'), copyJoinLinkButton: $('#copyJoinLinkButton'),
   commanderTaxQuickButton: $('#commanderTaxQuickButton'), commanderTaxDialog: $('#commanderTaxDialog'), commanderTaxDetail: $('#commanderTaxDetail'), commanderTaxList: $('#commanderTaxList'),
@@ -160,15 +160,30 @@ function winnerFromResult() { return state?.gameResult ? state.players.find(play
 function renderVictory() {
   const result = state?.gameResult; const winner = winnerFromResult();
   dom.victoryNotice.hidden = !result || !winner;
+  dom.viewCelebrationButton.hidden = !result || !winner;
   if (!result || !winner) return;
   const declared = result.reason === 'declared_winner';
   dom.victoryNotice.textContent = `${declared ? 'WINNER' : 'LAST PLAYER STANDING'} · ${displayName(winner)}`;
   const actingSeatId = state.localSimulation ? state.activePlayerId : state.ownerPlayerId;
   const key = victoryKey(result);
-  if (winner.id === actingSeatId && key !== shownVictoryKey) {
+  if (key !== shownVictoryKey) {
     shownVictoryKey = key;
-    dom.victoryTitle.textContent = declared ? 'Victory declared' : 'Victory';
-    dom.victoryDetail.textContent = `${displayName(winner)}, ${declared ? 'the table declared you the winner.' : 'you are the last player standing.'}`;
+    const youWon = winner.id === actingSeatId;
+    dom.victoryEyebrow.textContent = declared ? 'THE TABLE HAS SPOKEN' : 'LAST PLAYER STANDING';
+    dom.victoryTitle.textContent = youWon ? 'You win' : `${displayName(winner)} wins`;
+    dom.victoryDetail.textContent = youWon
+      ? (declared ? 'The table declared you the winner.' : 'You are the last player standing.')
+      : (declared ? `${displayName(winner)} was declared the winner.` : `${displayName(winner)} is the last player standing.`);
+    dom.personalMatchMoment.hidden = true;
+    if (!state.localSimulation) transport.getPersonalMatchMoment().then(({ moment }) => {
+      if (victoryKey(state?.gameResult) !== key || !moment) return;
+      dom.personalMatchMomentTitle.textContent = moment.title;
+      dom.personalMatchArt.dataset.category = moment.category;
+      dom.personalMatchArt.dataset.variant = String(moment.variant || 0);
+      dom.personalMatchMomentLine.textContent = moment.line;
+      dom.personalMatchMomentFact.textContent = moment.fact;
+      dom.personalMatchMoment.hidden = false;
+    }).catch(() => {});
     if (!dom.victoryDialog.open) dom.victoryDialog.showModal();
   }
 }
@@ -784,6 +799,8 @@ dom.commanderTaxQuickButton?.addEventListener('click', () => { renderCommanderTa
 dom.backToSetupButton?.addEventListener('click', returnToSetup);
 $$('input[name="gameCommanderCount"]').forEach(input => input.addEventListener('change', () => renderCommanderNameFields(dom.gameCommanderNames, selectedCommanderCount('gameCommanderCount'))));
 dom.commanderCountForm.addEventListener('submit', event => { if (event.submitter?.value === 'confirm') { const form = new FormData(dom.commanderCountForm); const count = Number(form.get('gameCommanderCount')); const names = commanderNamesFromForm(form, count); updateCommanderSetup(count, names, commanderColorsFromFields(dom.gameCommanderNames, count)); } }); dom.declareWinnerForm.addEventListener('submit', event => { if (event.submitter?.value === 'confirm') declareWinner(); }); dom.connectionButton.addEventListener('click', () => dom.connectionDialog.showModal());
+dom.victoryDialog.addEventListener('click', () => { if (dom.victoryDialog.open) dom.victoryDialog.close('tap'); });
+dom.viewCelebrationButton.addEventListener('click', () => { shownVictoryKey = null; dom.gameMenu.hidden = true; renderVictory(); });
 transport.addEventListener('status', event => renderConnection(event.detail)); transport.addEventListener('state', event => { if (event.detail?.seats?.length) { const previousTossKey = coinTossKey(state?.lastCoinToss); const previousRollKey = startingPlayerRollKey(state?.turn?.startingPlayerRoll); const previousTurnKey = state?.turn?.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; state = stateFromSnapshot(event.detail); if (awaitingConfirmedResync && transport.status === 'connected') { awaitingConfirmedResync = false; const presentation = connectionPresentation({ status: 'connected', resynced: true }); dom.syncBanner.textContent = presentation.syncMessage; dom.syncBanner.hidden = false; clearTimeout(syncBannerTimer); syncBannerTimer = setTimeout(() => { dom.syncBanner.hidden = true; }, 5000); } const nextRollKey = startingPlayerRollKey(state.turn.startingPlayerRoll); const nextTurnKey = state.turn.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; if (dom.game.hidden) showView(dom.game); if (nextTurnKey && nextTurnKey !== previousTurnKey && nextTurnKey !== lastTurnHandoffKey) { lastTurnHandoffKey = nextTurnKey; showTurnHandoff(); } if (nextRollKey && nextRollKey !== previousRollKey && nextRollKey !== lastStartingRollKey) { lastStartingRollKey = nextRollKey; showStartingPlayerRoll(state.turn.startingPlayerRoll); } else if (coinTossKey(state.lastCoinToss) && coinTossKey(state.lastCoinToss) !== previousTossKey) { const dialog = coinTossDialogRequested; coinTossDialogRequested = false; showCoinToss(state.lastCoinToss, { dialog }); } else render(); } });
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js').catch(() => {});
 const deepJoinCode = new URLSearchParams(location.search).get('join');

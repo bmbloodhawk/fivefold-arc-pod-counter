@@ -147,9 +147,22 @@ test('touch feedback is local, optional, and never part of game state', () => {
   assert.match(styles, /button \{ touch-action: manipulation;/);
 });
 
-test('private feedback review includes a non-personal field-test insights tab', () => {
+test('the confirmed winner is celebrated on every phone with artwork and a tap-to-exit screen', () => {
+  assert.match(html, /id="victoryDialog"[\s\S]*assets\/victory-seal-v1\.png[\s\S]*id="victoryEyebrow"[\s\S]*Tap anywhere to continue/);
+  assert.match(app, /if \(key !== shownVictoryKey\)/);
+  assert.match(app, /const youWon = winner\.id === actingSeatId/);
+  assert.match(app, /dom\.victoryDialog\.addEventListener\('click', \(\) => \{ if \(dom\.victoryDialog\.open\) dom\.victoryDialog\.close\('tap'\); \}\)/);
+  assert.match(styles, /\.victory-art \{[\s\S]*opacity: \.72/);
+});
+
+test('private feedback review includes a non-personal insights tab', () => {
   assert.match(feedbackPage, /data-tab="insights">Test insights/);
-  assert.match(feedbackPage, /Aggregated, real-table field-test data only/);
+  assert.match(feedbackPage, /Aggregated field-test metrics and completed-table accolade selections/);
   assert.match(feedbackPage, /excludes names, room codes, device identifiers, raw taps, and free-text observations/);
   assert.match(feedbackPage, /\/api\/feedback\/insights/);
+});
+
+test('developer insights accurately distinguish bounded field tests from completed-table accolades', () => {
+  assert.match(feedbackPage, /Aggregated field-test metrics and completed-table accolade selections/);
+  assert.match(feedbackPage, /No table insights have been recorded yet/);
 });

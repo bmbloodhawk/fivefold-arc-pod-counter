@@ -230,6 +230,7 @@
         <button id="cardCameraButton" type="button">Card rules & interaction</button>
         <button id="playtestNotesButton" type="button">Playtest notes</button>
         <button id="playtestRecapButton" type="button">Playtest recap</button>
+        <button id="viewCelebrationButton" type="button" hidden>View celebration</button>
         <button id="fieldTestButton" type="button">Record field test</button>
         <button id="savedPlaytestsButton" type="button">Saved playtests</button>
         <button id="refreshTableButton" type="button">Refresh table</button>
@@ -342,12 +343,22 @@
   </dialog>
 
   <dialog id="victoryDialog" aria-labelledby="victoryTitle">
-    <form method="dialog">
-      <div class="dialog-mark victory-mark" aria-hidden="true">✦</div>
-      <p class="eyebrow">LAST PLAYER STANDING</p>
-      <h2 id="victoryTitle">Victory</h2>
-      <p id="victoryDetail">You are the last player standing.</p>
-      <button value="close" class="primary-action">Continue tracking</button>
+    <form method="dialog" class="victory-dialog-content">
+      <img class="victory-art" src="assets/victory-seal-v1.png" alt="" aria-hidden="true">
+      <div class="victory-dialog-copy">
+        <p id="victoryEyebrow" class="eyebrow">LAST PLAYER STANDING</p>
+        <h2 id="victoryTitle">Victory</h2>
+        <p id="victoryDetail">You are the last player standing.</p>
+        <section id="personalMatchMoment" class="personal-match-moment" hidden aria-live="polite">
+          <div id="personalMatchArt" class="personal-match-art" aria-hidden="true"></div>
+          <p class="eyebrow">YOUR MATCH MOMENT</p>
+          <strong id="personalMatchMomentTitle"></strong>
+          <span id="personalMatchMomentLine"></span>
+          <small id="personalMatchMomentFact"></small>
+        </section>
+        <p class="victory-tap-hint">Tap anywhere to continue</p>
+        <button value="close" class="primary-action">Close celebration</button>
+      </div>
     </form>
   </dialog>
 
