@@ -164,12 +164,15 @@ test('the confirmed winner is celebrated on every phone with artwork and a tap-t
   assert.match(app, /if \(key !== shownVictoryKey\)/);
   assert.match(app, /const youWon = winner\.id === actingSeatId/);
   assert.match(app, /dom\.victoryDialog\.addEventListener\('click', \(\) => \{ if \(dom\.victoryDialog\.open\) dom\.victoryDialog\.close\('tap'\); \}\)/);
-  assert.match(styles, /\.victory-art \{[\s\S]*opacity: \.72/);
+  assert.match(styles, /\.victory-art \{[\s\S]*object-position: center 31%/);
+  assert.doesNotMatch(styles, /\.victory-art \{[^}]*opacity:/);
+  assert.doesNotMatch(styles, /\.victory-art \{[^}]*mix-blend-mode:/);
   assert.match(styles, /\.victory-dialog-content \{[\s\S]*grid-template-rows: 1fr 1fr/);
   assert.match(app, /function accoladeArtUrl\(title\).*assets\/accolades/s);
   assert.match(app, /function winnerArtUrl\(winner\).*last-one-standing.*table-monarch.*arc-victor/s);
   assert.match(app, /dom\.personalMatchArt\.style\.backgroundImage/);
-  assert.match(styles, /\.personal-match-art \{[\s\S]*opacity: \.66[\s\S]*background-size: cover/);
+  assert.match(styles, /\.personal-match-art \{[\s\S]*background-size: cover/);
+  assert.doesNotMatch(styles, /\.personal-match-art \{[^}]*opacity:/);
 });
 
 test('private feedback review includes a non-personal insights tab', () => {

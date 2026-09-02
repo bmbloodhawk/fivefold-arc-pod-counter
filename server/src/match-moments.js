@@ -53,29 +53,42 @@ function royalThreshold(seat, seats) {
   return 10 + (2 * Math.max(0, playerCount - 2));
 }
 
-export function personalMatchMoment({ seat, seats, winnerSeatId, seed }) {
+function earnedMatchMoments({ seat, seats, winnerSeatId }) {
   const m = seat.matchMoment || blankMatchMoment(seat.counters.life);
-  if (seat.seatId === winnerSeatId) return named(seed, ['Last One Standing', 'Table Monarch', 'Arc Victor'], 'The table ran out of answers.', 'Winner');
-  if (m.lowestLife === 1) return named(seed, ['Refused to Die', 'One Is Plenty', 'Barely Breathing'], 'You hit 1 life and kept the game going.', 'Lowest recorded life: 1');
-  if (m.lowestLife >= 2 && m.lowestLife <= 5 && m.lifeGained >= 10) return named(seed, ['Comeback Kid', 'Second Wind', 'Not Today'], 'You climbed back after a close call.', `Lowest life: ${m.lowestLife} · +${m.lifeGained} life gained`);
-  if (m.lowestLife >= 2 && m.lowestLife <= 5) return named(seed, ['Hanging By a Thread', 'Too Close for Comfort', 'Five Alarm Fire'], 'You got dangerously close to the edge.', `Lowest recorded life: ${m.lowestLife}`);
+  const earned = []; const add = (titles, line, fact) => earned.push({ titles, line, fact });
+  if (seat.seatId === winnerSeatId) add(['Last One Standing', 'Table Monarch', 'Arc Victor'], 'The table ran out of answers.', 'Winner');
+  if (m.lowestLife === 1) add(['Refused to Die', 'One Is Plenty', 'Barely Breathing'], 'You hit 1 life and kept the game going.', 'Lowest recorded life: 1');
+  if (m.lowestLife >= 2 && m.lowestLife <= 5 && m.lifeGained >= 10) add(['Comeback Kid', 'Second Wind', 'Not Today'], 'You climbed back after a close call.', `Lowest life: ${m.lowestLife} · +${m.lifeGained} life gained`);
+  if (m.lowestLife >= 2 && m.lowestLife <= 5) add(['Hanging By a Thread', 'Too Close for Comfort', 'Five Alarm Fire'], 'You got dangerously close to the edge.', `Lowest recorded life: ${m.lowestLife}`);
   const [largestCommanderSource, largestCommanderDamage = 0] = Object.entries(m.commanderDamageBySource || {}).reduce((largest, entry) => entry[1] > largest[1] ? entry : largest, ['', 0]);
-  if (largestCommanderDamage >= 10) return named(seed, ['Commander Magnet', 'Marked by Legends', 'A Familiar Foe'], 'One commander kept finding you.', `${largestCommanderDamage} from ${commanderName(largestCommanderSource, seats)}`);
+  if (largestCommanderDamage >= 10) add(['Commander Magnet', 'Marked by Legends', 'A Familiar Foe'], 'One commander kept finding you.', `${largestCommanderDamage} from ${commanderName(largestCommanderSource, seats)}`);
   const distinctCommanders = distinctCommanderCount(seat);
-  if (distinctCommanders >= 3 && uniqueLeader(seat, seats, distinctCommanderCount)) return named(seed, ['Legend Collector', 'Gathered Legends', 'An Expanding Collection'], 'More opposing commanders found you than anyone else.', `${distinctCommanders} different commanders dealt damage`);
+  if (distinctCommanders >= 3 && uniqueLeader(seat, seats, distinctCommanderCount)) add(['Legend Collector', 'Gathered Legends', 'An Expanding Collection'], 'More opposing commanders found you than anyone else.', `${distinctCommanders} different commanders dealt damage`);
   const totalCommanderDamage = m.commanderDamageReceived;
   const threshold = royalThreshold(seat, seats);
-  if (totalCommanderDamage >= threshold && uniqueLeader(seat, seats, (item) => item.matchMoment?.commanderDamageReceived || 0)) return named(seed, ['Royal Reception', 'Grand Audience', 'All Eyes on You'], 'You took the table\'s heaviest commander attention.', `${totalCommanderDamage} commander damage · ${threshold} needed`);
-  if (m.lifeLostOnOwnTurn >= 8 && uniqueLeader(seat, seats, (item) => item.matchMoment?.lifeLostOnOwnTurn || 0)) return named(seed, ['Paid in Blood', 'Life Is a Resource', 'High Stakes'], 'You recorded the most life lost during your own turns.', `${m.lifeLostOnOwnTurn} life lost on your turns`);
-  if (m.poisonGained >= 5) return named(seed, ['Poison Snack', 'Toxic Relationship', 'Venom Sommelier'], 'You collected a concerning amount of poison.', `${m.poisonGained} poison received`);
-  if (m.lifeGained >= 10) return named(seed, ['Health Potion Hoarder', 'Second Breakfast', 'Life Insurance'], 'You found your way back up.', `+${m.lifeGained} life gained`);
-  if (m.energyGained >= 5) return named(seed, ['Reactor Core', 'Battery Included', 'Fully Charged'], 'You kept the energy flowing.', `+${m.energyGained} energy gained`);
-  if (m.radiationGained >= 5) return named(seed, ['Glowing Problem', 'Nuclear Option', 'Radiant Citizen'], 'You left the game a little brighter.', `+${m.radiationGained} radiation received`);
+  if (totalCommanderDamage >= threshold && uniqueLeader(seat, seats, (item) => item.matchMoment?.commanderDamageReceived || 0)) add(['Royal Reception', 'Grand Audience', 'All Eyes on You'], 'You took the table\'s heaviest commander attention.', `${totalCommanderDamage} commander damage · ${threshold} needed`);
+  if (m.lifeLostOnOwnTurn >= 8 && uniqueLeader(seat, seats, (item) => item.matchMoment?.lifeLostOnOwnTurn || 0)) add(['Paid in Blood', 'Life Is a Resource', 'High Stakes'], 'You recorded the most life lost during your own turns.', `${m.lifeLostOnOwnTurn} life lost on your turns`);
+  if (m.poisonGained >= 5) add(['Poison Snack', 'Toxic Relationship', 'Venom Sommelier'], 'You collected a concerning amount of poison.', `${m.poisonGained} poison received`);
+  if (m.lifeGained >= 10) add(['Health Potion Hoarder', 'Second Breakfast', 'Life Insurance'], 'You found your way back up.', `+${m.lifeGained} life gained`);
+  if (m.energyGained >= 5) add(['Reactor Core', 'Battery Included', 'Fully Charged'], 'You kept the energy flowing.', `+${m.energyGained} energy gained`);
+  if (m.radiationGained >= 5) add(['Glowing Problem', 'Nuclear Option', 'Radiant Citizen'], 'You left the game a little brighter.', `+${m.radiationGained} radiation received`);
   const eligible = seats.filter(item => item.matchMoment?.turnCount >= 2);
   const average = m.turnCount ? m.totalTurnMs / m.turnCount : Infinity;
   const fastest = eligible.length ? Math.min(...eligible.map(item => item.matchMoment.totalTurnMs / item.matchMoment.turnCount)) : Infinity;
   if (eligible.length >= 2 && average === fastest && eligible.filter(item => item.matchMoment.totalTurnMs / item.matchMoment.turnCount === fastest).length === 1) {
-    return named(seed, ['Speedrunner', 'Lightning Round', 'No Notes'], 'You had the fastest average recorded turn.', `Average turn: ${Math.round(average / 1000)} sec`);
+    add(['Speedrunner', 'Lightning Round', 'No Notes'], 'You had the fastest average recorded turn.', `Average turn: ${Math.round(average / 1000)} sec`);
   }
-  return named(seed, ['Arc Complete', 'Table Tale', 'Pod Veteran'], 'Another table, another tale.', 'Match complete');
+  return earned.length ? earned : [{ titles: ['Arc Complete', 'Table Tale', 'Pod Veteran'], line: 'Another table, another tale.', fact: 'Match complete' }];
 }
+
+export function tableMatchMoments({ seats, winnerSeatId, seed }) {
+  const candidates = seats.filter((seat) => seat.claimed !== false).map((seat) => ({ seat, moments: earnedMatchMoments({ seat, seats, winnerSeatId }) }));
+  const used = new Set(); const selected = new Map();
+  for (const item of [...candidates].sort((a, b) => a.moments.length - b.moments.length || a.seat.seatId - b.seat.seatId)) {
+    const moment = item.moments.find((option) => !used.has(option.titles[0])) || item.moments[0];
+    used.add(moment.titles[0]); selected.set(item.seat.seatId, named(`${seed}:${item.seat.seatId}:${moment.titles[0]}`, moment.titles, moment.line, moment.fact));
+  }
+  return selected;
+}
+
+export function personalMatchMoment({ seat, seats, winnerSeatId, seed }) { return tableMatchMoments({ seats, winnerSeatId, seed }).get(seat.seatId); }

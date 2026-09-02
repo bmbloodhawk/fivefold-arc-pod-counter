@@ -595,6 +595,7 @@ export class RoomService {
       repeatUse: countBy("repeatUse"),
       disputes: countBy("dispute"),
       accoladeCounts: recaps.reduce((counts, recap) => Object.entries(recap.accoladeCounts || {}).reduce((next, [category, count]) => ({ ...next, [category]: (next[category] || 0) + Number(count || 0) }), counts), {}),
+      accoladeReuse: recaps.reduce((counts, recap) => Object.entries(recap.accoladeCounts || {}).reduce((next, [category, count]) => Number(count) > 1 ? ({ ...next, [category]: (next[category] || 0) + Number(count) - 1 }) : next, counts), {}),
       friction: issueCounts,
     };
   }

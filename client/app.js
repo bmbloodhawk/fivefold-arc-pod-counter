@@ -183,7 +183,7 @@ function renderVictory() {
       dom.personalMatchMomentTitle.textContent = moment.title;
       dom.personalMatchArt.dataset.category = moment.category;
       dom.personalMatchArt.dataset.variant = String(moment.variant || 0);
-      dom.personalMatchArt.style.backgroundImage = `linear-gradient(rgb(12 14 17 / .22), rgb(12 14 17 / .76)), url("${accoladeArtUrl(moment.title)}")`;
+      dom.personalMatchArt.style.backgroundImage = `url("${accoladeArtUrl(moment.title)}")`;
       dom.personalMatchMomentLine.textContent = moment.line;
       dom.personalMatchMomentFact.textContent = moment.fact;
       dom.personalMatchMoment.hidden = false;
