@@ -81,14 +81,17 @@ function earnedMatchMoments({ seat, seats, winnerSeatId }) {
   return earned.length ? earned : [{ titles: ['Arc Complete', 'Table Tale', 'Pod Veteran'], line: 'Another table, another tale.', fact: 'Match complete' }];
 }
 
-export function tableMatchMoments({ seats, winnerSeatId, seed }) {
+export function tableMatchMomentDecisions({ seats, winnerSeatId, seed }) {
   const candidates = seats.filter((seat) => seat.claimed !== false).map((seat) => ({ seat, moments: earnedMatchMoments({ seat, seats, winnerSeatId }) }));
   const used = new Set(); const selected = new Map();
   for (const item of [...candidates].sort((a, b) => a.moments.length - b.moments.length || a.seat.seatId - b.seat.seatId)) {
-    const moment = item.moments.find((option) => !used.has(option.titles[0])) || item.moments[0];
-    used.add(moment.titles[0]); selected.set(item.seat.seatId, named(`${seed}:${item.seat.seatId}:${moment.titles[0]}`, moment.titles, moment.line, moment.fact));
+    const firstEligible = item.moments[0]; const selectedOption = item.moments.find((option) => !used.has(option.titles[0])) || firstEligible;
+    used.add(selectedOption.titles[0]);
+    selected.set(item.seat.seatId, { moment: named(`${seed}:${item.seat.seatId}:${selectedOption.titles[0]}`, selectedOption.titles, selectedOption.line, selectedOption.fact), eligibleCategories: item.moments.map((option) => option.titles[0]), selectionReason: selectedOption === firstEligible ? "Highest-priority eligible accolade" : "Next eligible accolade chosen to avoid duplicating a table category" });
   }
   return selected;
 }
+
+export function tableMatchMoments(input) { return new Map([...tableMatchMomentDecisions(input)].map(([seatId, decision]) => [seatId, decision.moment])); }
 
 export function personalMatchMoment({ seat, seats, winnerSeatId, seed }) { return tableMatchMoments({ seats, winnerSeatId, seed }).get(seat.seatId); }

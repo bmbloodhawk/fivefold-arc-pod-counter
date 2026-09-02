@@ -53,22 +53,19 @@ export class MemoryPlaytestLedger {
   async listFieldTests() { return this.records.filter((item) => item.kind === "field_test").map((item) => ({ ...item.record })); }
   async findDiagnostics(query) {
     const needle = String(query || "").trim().toUpperCase();
-    const games = new Map();
-    for (const item of this.records) {
-      const record = item.record;
-      if (!record?.gameId || !["event", "checkpoint", "complete", "note"].includes(item.kind)) continue;
-      if (!games.has(record.gameId)) games.set(record.gameId, { gameId: record.gameId, roomCode: record.roomCode, startedAt: record.createdAt || record.at || 0, lastEventAt: record.completedAt || record.createdAt || record.at || 0, eventCount: 0 });
-      const game = games.get(record.gameId); game.roomCode ||= record.roomCode; game.startedAt = Math.min(game.startedAt || Infinity, record.createdAt || record.at || Infinity); game.lastEventAt = Math.max(game.lastEventAt || 0, record.completedAt || record.createdAt || record.at || 0); if (item.kind === "event") game.eventCount += 1;
-    }
-    return [...games.values()].filter((game) => game.gameId.toUpperCase().includes(needle) || String(game.roomCode || "").toUpperCase() === needle).sort((a, b) => b.lastEventAt - a.lastEventAt).slice(0, 24);
+    return (await this.listRecentDiagnostics()).filter((game) => game.gameId.toUpperCase().includes(needle) || String(game.roomCode || "").toUpperCase() === needle);
   }
-  async listRecentDiagnostics() { return this.findDiagnostics(""); }
+  async listRecentDiagnostics() {
+    const gameIds = [...new Set(this.records.filter((item) => ["event", "checkpoint", "complete"].includes(item.kind) && item.record?.gameId).map((item) => item.record.gameId))];
+    const games = (await Promise.all(gameIds.map((gameId) => this.readDiagnostics(gameId)))).filter(Boolean);
+    return games.sort((a, b) => b.lastEventAt - a.lastEventAt).slice(0, 24);
+  }
   async readDiagnostics(gameId) {
     const events = this.records.filter((item) => item.kind === "event" && item.record.gameId === gameId).map((item) => ({ ...item.record })).sort((a, b) => a.sequence - b.sequence).slice(-200);
     const checkpoints = this.records.filter((item) => item.kind === "checkpoint" && item.record.gameId === gameId).map((item) => ({ ...item.record })).sort((a, b) => b.sequence - a.sequence).slice(0, 12);
     const recap = this.records.filter((item) => item.kind === "complete" && item.record.gameId === gameId).at(-1)?.record;
     if (!events.length && !checkpoints.length && !recap) return null;
-    return { gameId, roomCode: recap?.roomCode || events.at(-1)?.roomCode || checkpoints[0]?.roomCode, eventCount: events.length, recap: recap ? { ...recap } : null, events, checkpoints };
+    return diagnosticMetadata({ gameId, roomCode: recap?.roomCode || events.at(-1)?.roomCode || checkpoints[0]?.roomCode, recap: recap ? { ...recap } : null, events, checkpoints });
   }
   async updateFeedback(review) { this.records.push({ kind: "feedback_review", record: review }); }
   async flush() { return { ok: true }; }
@@ -193,25 +190,28 @@ function diagnosticSummary(gameId, playtest = {}) {
   const checkpoints = Object.values(playtest.checkpoints || {}).filter(Boolean).sort((a, b) => b.sequence - a.sequence);
   const recap = playtest.recap || null;
   const roomCode = recap?.roomCode || events.at(-1)?.roomCode || checkpoints[0]?.roomCode || Object.values(playtest.notes || {}).find(Boolean)?.roomCode;
-  const lastEventAt = Math.max(recap?.completedAt || 0, events.at(-1)?.at || 0, checkpoints[0]?.at || 0);
-  if (!roomCode && !events.length && !checkpoints.length && !recap) return null;
-  const snapshots = checkpoints.map((checkpoint) => checkpoint.snapshot).filter(Boolean);
-  const flags = [
-    ...(recap?.incomplete ? ["Incomplete game"] : []),
-    ...(snapshots.some((snapshot) => snapshot.seats?.some((seat) => Number(seat.counters?.life) < 0)) ? ["Life below zero"] : []),
-  ];
-  return { gameId, roomCode, startedAt: recap?.createdAt || events[0]?.at || checkpoints.at(-1)?.at || 0, lastEventAt, eventCount: events.length, flags };
+  return diagnosticMetadata({ gameId, roomCode, recap, events, checkpoints });
 }
 
 function diagnosticDetail(gameId, playtest = {}) {
   const summary = diagnosticSummary(gameId, playtest);
   if (!summary) return null;
-  return {
-    ...summary,
-    recap: playtest.recap || null,
-    events: Object.values(playtest.events || {}).filter(Boolean).sort((a, b) => a.sequence - b.sequence).slice(-200),
-    checkpoints: Object.values(playtest.checkpoints || {}).filter(Boolean).sort((a, b) => b.sequence - a.sequence).slice(0, 12),
-  };
+  return diagnosticMetadata({ ...summary, recap: playtest.recap || null, events: Object.values(playtest.events || {}).filter(Boolean).sort((a, b) => a.sequence - b.sequence).slice(-200), checkpoints: Object.values(playtest.checkpoints || {}).filter(Boolean).sort((a, b) => b.sequence - a.sequence).slice(0, 12) });
+}
+
+function diagnosticMetadata({ gameId, roomCode, recap = null, events = [], checkpoints = [] }) {
+  if (!roomCode && !events.length && !checkpoints.length && !recap) return null;
+  const snapshots = checkpoints.map((checkpoint) => checkpoint.snapshot).filter(Boolean);
+  const counterChanges = Object.fromEntries([...new Set(events.filter((event) => event.type === "counter_adjusted").map((event) => event.counter))].map((counter) => [counter, events.filter((event) => event.type === "counter_adjusted" && event.counter === counter).length]));
+  const roomCreated = events.find((event) => event.type === "room_created");
+  const playerCount = recap?.playerCount || roomCreated?.playerCount || snapshots[0]?.config?.playerCount || null;
+  const flags = [
+    ...(recap?.incomplete ? ["Incomplete game"] : []),
+    ...(recap && !recap.incomplete && !recap.winner ? ["Completed without winner"] : []),
+    ...(snapshots.some((snapshot) => snapshot.seats?.some((seat) => Number(seat.counters?.life) < 0)) ? ["Life below zero"] : []),
+    ...(events.length && !checkpoints.length ? ["No periodic snapshot"] : []),
+  ];
+  return { gameId, roomCode, startedAt: recap?.createdAt || events[0]?.at || checkpoints.at(-1)?.at || 0, lastEventAt: Math.max(recap?.completedAt || 0, events.at(-1)?.at || 0, checkpoints[0]?.at || 0), eventCount: events.length, snapshotCount: checkpoints.length, playerCount, durationMs: recap?.durationMs || null, outcome: recap ? (recap.incomplete ? "Reset early" : recap.winner ? "Winner recorded" : "Completed") : "Not archived", winnerSeatId: recap?.winner?.seatId ?? null, counterChanges, flags, recap, events, checkpoints };
 }
 
 export function createPlaytestLedgerFromEnv(env = process.env) {

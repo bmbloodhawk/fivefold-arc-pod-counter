@@ -195,6 +195,8 @@ test('developer diagnostics are protected and limited to retained confirmed tabl
   assert.match(feedbackPage, /\/api\/feedback\/diagnostics/);
   assert.match(feedbackPage, /Recent games/);
   assert.match(feedbackPage, /review opportunity, not a confirmed defect/);
+  assert.match(feedbackPage, /Accolade decisions/);
+  assert.match(feedbackPage, /selection\.selectionReason/);
 });
 
 test('developer insights accurately distinguish bounded field tests from completed-table accolades', () => {

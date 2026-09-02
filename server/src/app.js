@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
 import QRCode from "qrcode";
 import { NullPlaytestLedger, recapFromRoom } from "./playtest-ledger.js";
-import { blankMatchMoment, personalMatchMoment, recordMatchMoment, recordTurnMoment } from "./match-moments.js";
+import { blankMatchMoment, personalMatchMoment, recordMatchMoment, recordTurnMoment, tableMatchMomentDecisions } from "./match-moments.js";
 
 const JOIN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const MUTABLE_COUNTERS = new Set(["life", "radiation", "poison", "energy", "generic", "commanderDamage"]);
@@ -543,7 +543,9 @@ export class RoomService {
       incomplete,
     };
     if (room.gameResult) {
-      recap.accoladeCounts = room.seats.filter((seat) => seat.claimed).map((seat) => personalMatchMoment({ seat, seats: room.seats, winnerSeatId: room.gameResult.winnerSeatId, seed: room.gameId })).reduce((counts, moment) => ({ ...counts, [moment.category]: (counts[moment.category] || 0) + 1 }), {});
+      const decisions = tableMatchMomentDecisions({ seats: room.seats, winnerSeatId: room.gameResult.winnerSeatId, seed: room.gameId });
+      recap.accolades = room.seats.filter((seat) => seat.claimed).map((seat) => ({ seatId: seat.seatId, name: seat.name, ...decisions.get(seat.seatId) }));
+      recap.accoladeCounts = recap.accolades.reduce((counts, selection) => ({ ...counts, [selection.moment.category]: (counts[selection.moment.category] || 0) + 1 }), {});
     }
     this.ledger.complete(recap);
   }

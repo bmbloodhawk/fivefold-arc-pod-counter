@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { blankMatchMoment, personalMatchMoment, recordMatchMoment } from '../src/match-moments.js';
+import { blankMatchMoment, personalMatchMoment, recordMatchMoment, tableMatchMomentDecisions } from '../src/match-moments.js';
 
 function seat(seatId, name, commanderNames = []) {
   return { seatId, name, commanderNames, counters: { life: 40 }, matchMoment: blankMatchMoment(40) };
@@ -31,6 +31,15 @@ test('match moments ignore setup changes and preserve the low-life and comeback 
   recordMatchMoment(defender, { counter: 'life', delta: -36, lifeAfter: 4, gameStarted: true });
   recordMatchMoment(defender, { counter: 'life', delta: 10, lifeAfter: 14, gameStarted: true });
   assert.equal(personalMatchMoment({ seat: defender, seats, winnerSeatId: 99, seed: 'test' }).category, 'Comeback Kid');
+});
+
+test('accolade decisions retain eligible categories and the selection reason for review', () => {
+  const alex = seat(0, 'Alex'); const sam = seat(1, 'Sam');
+  const decisions = tableMatchMomentDecisions({ seats: [alex, sam], winnerSeatId: 0, seed: 'test' });
+  const decision = decisions.get(0);
+  assert.equal(decision.moment.category, 'Last One Standing');
+  assert.deepEqual(decision.eligibleCategories, ['Last One Standing']);
+  assert.equal(decision.selectionReason, 'Highest-priority eligible accolade');
 });
 
 test('Legend Collector goes only to the unique player hit by the most different commanders', () => {
