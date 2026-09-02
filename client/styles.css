@@ -250,17 +250,17 @@ dialog p { color: var(--muted); line-height: 1.5; }
 .victory-art { position: absolute; z-index: -2; top: 0; right: 0; left: 0; width: 100%; height: 50%; max-width: none; object-fit: cover; object-position: center 31%; pointer-events: none; }
 .victory-dialog-copy { display: contents; }
 .victory-winner-copy { position: relative; z-index: 1; display: grid; align-content: center; padding: 28px; }
-.victory-winner-copy::before { content: ""; position: absolute; z-index: -1; top: 50%; left: 50%; width: min(86%, 440px); height: min(72%, 230px); transform: translate(-50%, -50%); border: 1px solid rgb(240 209 130 / .22); border-radius: 28px; background: linear-gradient(135deg, rgb(8 10 13 / .72), rgb(20 18 28 / .48)); box-shadow: 0 12px 34px rgb(0 0 0 / .28); backdrop-filter: blur(5px); pointer-events: none; }
-.victory-winner-copy .eyebrow { margin: 0; color: #f0d182; font-weight: 900; letter-spacing: .14em; }
-.victory-winner-copy h2 { margin: 13px 0 7px; color: #fff6dc; font-size: clamp(2.1rem, 11vw, 3.05rem); line-height: 1; text-shadow: 0 2px 17px rgb(0 0 0 / .68); }
-.victory-winner-copy #victoryDetail { max-width: 23ch; margin: 0 auto; color: #eee7d9; text-shadow: 0 1px 10px rgb(0 0 0 / .75); }
+.victory-winner-copy::before { content: ""; position: absolute; z-index: -1; top: 50%; left: 0; width: 100%; height: 42%; transform: translateY(-50%); background: linear-gradient(90deg, transparent, rgb(8 10 13 / .24) 18%, rgb(8 10 13 / .32) 50%, rgb(8 10 13 / .24) 82%, transparent); pointer-events: none; }
+.victory-winner-copy .eyebrow { margin: 0; color: #ffdda0; font-weight: 900; letter-spacing: .14em; text-shadow: 0 2px 5px #000, 0 0 12px rgb(0 0 0 / .92); }
+.victory-winner-copy h2 { margin: 13px 0 7px; color: #fff6dc; font-size: clamp(2.1rem, 11vw, 3.05rem); line-height: 1; text-shadow: 0 2px 4px #000, 0 0 14px rgb(0 0 0 / .92); -webkit-text-stroke: .35px rgb(0 0 0 / .7); }
+.victory-winner-copy #victoryDetail { max-width: 23ch; margin: 0 auto; color: #fff8e8; text-shadow: 0 2px 4px #000, 0 0 11px rgb(0 0 0 / .92); }
 .personal-match-moment { position: relative; z-index: 1; display: grid; align-content: center; gap: 5px; min-height: 0; margin: 0; padding: 20px 20px 78px; overflow: hidden; border-top: 1px solid rgb(240 209 130 / .38); isolation: isolate; }
-.personal-match-moment::before { content: ""; position: absolute; z-index: -1; top: 50%; left: 50%; width: min(88%, 450px); height: min(66%, 190px); transform: translate(-50%, -50%); border: 1px solid rgb(240 209 130 / .18); border-radius: 22px; background: linear-gradient(135deg, rgb(8 10 13 / .66), rgb(20 18 28 / .42)); box-shadow: 0 10px 30px rgb(0 0 0 / .24); backdrop-filter: blur(5px); pointer-events: none; }
+.personal-match-moment::before { content: ""; position: absolute; z-index: -1; top: 50%; left: 0; width: 100%; height: 46%; transform: translateY(-50%); background: linear-gradient(90deg, transparent, rgb(8 10 13 / .2) 18%, rgb(8 10 13 / .28) 50%, rgb(8 10 13 / .2) 82%, transparent); pointer-events: none; }
 .personal-match-art { position: absolute; z-index: -2; inset: 0; background-size: cover; background-position: center; }
-.personal-match-moment .eyebrow { margin: 0; color: #f0d182; font-size: .67rem; font-weight: 900; letter-spacing: .13em; }
-.personal-match-moment strong { color: #fff6dc; font-family: Georgia, serif; font-size: 1.34rem; }
-.personal-match-moment span { color: #eee7d9; font-size: .84rem; }
-.personal-match-moment small { color: #d9b475; font-size: .74rem; }
+.personal-match-moment .eyebrow { margin: 0; color: #ffdda0; font-size: .67rem; font-weight: 900; letter-spacing: .13em; text-shadow: 0 2px 4px #000, 0 0 10px rgb(0 0 0 / .92); }
+.personal-match-moment strong { color: #fff6dc; font-family: Georgia, serif; font-size: 1.34rem; text-shadow: 0 2px 4px #000, 0 0 12px rgb(0 0 0 / .92); -webkit-text-stroke: .3px rgb(0 0 0 / .65); }
+.personal-match-moment span { color: #fff8e8; font-size: .84rem; text-shadow: 0 2px 4px #000, 0 0 10px rgb(0 0 0 / .92); }
+.personal-match-moment small { color: #f0d182; font-size: .74rem; text-shadow: 0 2px 4px #000, 0 0 9px rgb(0 0 0 / .92); }
 .victory-dismissal { position: absolute; z-index: 2; right: 16px; bottom: 14px; left: 16px; }.victory-tap-hint { margin: 0 0 8px !important; color: #d9b475 !important; font-size: .72rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }.victory-dismissal .primary-action { min-height: 42px; }
 .victory-dialog-copy .primary-action { cursor: pointer; }
 .dialog-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 22px; }
