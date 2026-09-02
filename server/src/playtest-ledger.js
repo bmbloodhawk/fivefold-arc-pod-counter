@@ -16,7 +16,6 @@ export class NullPlaytestLedger {
   async findDiagnostics() { return []; }
   async listRecentDiagnostics() { return []; }
   async readDiagnostics() { return null; }
-  async markReviewGamesDevelopment() { return 0; }
   async updateFeedback() { throw new Error("Feedback storage is not configured"); }
   async flush() { return { ok: true }; }
 }
@@ -69,11 +68,6 @@ export class MemoryPlaytestLedger {
     if (!events.length && !checkpoints.length && !recap) return null;
     const review = this.records.filter((item) => item.kind === "diagnostic_review" && item.record.gameId === gameId).at(-1)?.record || null;
     return diagnosticMetadata({ gameId, roomCode: recap?.roomCode || events.at(-1)?.roomCode || checkpoints[0]?.roomCode, recap: recap ? { ...recap } : null, events, checkpoints, review });
-  }
-  async markReviewGamesDevelopment() {
-    const games = await this.listRecentDiagnostics(); const targets = games.filter((game) => game.sessionKind !== "development" && (game.flags.length || game.outcome === "Reset early"));
-    for (const game of targets) this.records.push({ kind: "diagnostic_review", record: { gameId: game.gameId, sessionKind: "development", reason: "one_time_pre_playtest_cleanup" } });
-    return targets.length;
   }
   async updateFeedback(review) { this.records.push({ kind: "feedback_review", record: review }); }
   async flush() { return { ok: true }; }
@@ -135,11 +129,6 @@ export class FirebasePlaytestLedger {
     const playtest = await this.read(`playtests/${encodeURIComponent(gameId)}.json`);
     if (!playtest) return null;
     return diagnosticDetail(gameId, playtest);
-  }
-  async markReviewGamesDevelopment() {
-    const playtests = await this.read("playtests.json") || {}; const targets = Object.entries(playtests).map(([gameId, playtest]) => [gameId, diagnosticSummary(gameId, playtest)]).filter(([, game]) => game && game.sessionKind !== "development" && (game.flags.length || game.outcome === "Reset early"));
-    for (const [gameId] of targets) this.enqueue(`playtests/${encodeURIComponent(gameId)}/review.json`, { sessionKind: "development", reason: "one_time_pre_playtest_cleanup", classifiedAt: this.now() });
-    await this.flush(); return targets.length;
   }
   async updateFeedback(review) { this.enqueue(`playtests/${encodeURIComponent(review.gameId)}/feedback/${encodeURIComponent(review.noteId)}.json`, review); await this.flush(); }
 
