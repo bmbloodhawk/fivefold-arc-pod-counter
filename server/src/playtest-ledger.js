@@ -1,6 +1,7 @@
 // The ledger intentionally records only a compact, playtest-focused history.
 // It never receives reclaim tokens, connection identifiers, IP addresses, or
 // raw request bodies.
+const QUALIFICATION_POLICY = { version: "v2", minimumGameplayMs: 3 * 60_000, minimumMsPerHandoff: 25_000, minimumHandoffs: 3, minimumGameplaySeats: 2 };
 export class NullPlaytestLedger {
   record() {}
   checkpoint() {}
@@ -205,19 +206,23 @@ function diagnosticMetadata({ gameId, roomCode, recap = null, events = [], check
   const counterChanges = Object.fromEntries([...new Set(events.filter((event) => event.type === "counter_adjusted").map((event) => event.counter))].map((counter) => [counter, events.filter((event) => event.type === "counter_adjusted" && event.counter === counter).length]));
   const roomCreated = events.find((event) => event.type === "room_created");
   const sessionKind = [...events].reverse().find((event) => event.type === "session_kind_changed")?.sessionKind || "standard";
+  const startedAt = events.find((event) => event.type === "game_started")?.at || null;
+  const observedDurationMs = recap?.durationMs ?? (startedAt ? Math.max(0, Math.max(recap?.completedAt || 0, events.at(-1)?.at || 0, checkpoints[0]?.at || 0) - startedAt) : null);
   const handoffs = events.filter((event) => event.type === "turn_handed_off");
   const gameplayActors = new Set(events.filter((event) => event.type === "counter_adjusted" || event.type === "turn_handed_off").map((event) => event.actorSeatId));
-  const qualified = sessionKind !== "development" && Boolean(events.some((event) => event.type === "game_started")) && handoffs.length >= 3 && gameplayActors.size >= 2;
+  const requiredGameplayMs = Math.max(QUALIFICATION_POLICY.minimumGameplayMs, handoffs.length * QUALIFICATION_POLICY.minimumMsPerHandoff);
+  const qualified = sessionKind !== "development" && Boolean(startedAt) && observedDurationMs >= requiredGameplayMs && handoffs.length >= QUALIFICATION_POLICY.minimumHandoffs && gameplayActors.size >= QUALIFICATION_POLICY.minimumGameplaySeats;
   const playerCount = recap?.playerCount || roomCreated?.playerCount || snapshots[0]?.config?.playerCount || null;
   const flags = [
     ...(sessionKind === "development" ? ["Development run"] : []),
+    ...(sessionKind !== "development" && startedAt && observedDurationMs < requiredGameplayMs ? ["Rapid conclusion"] : []),
     ...(sessionKind !== "development" && !qualified ? ["Exploratory table"] : []),
     ...(recap?.incomplete ? ["Incomplete game"] : []),
     ...(recap && !recap.incomplete && !recap.winner ? ["Completed without winner"] : []),
     ...(snapshots.some((snapshot) => snapshot.seats?.some((seat) => Number(seat.counters?.life) < 0)) ? ["Life below zero"] : []),
     ...(events.length && !checkpoints.length ? ["No periodic snapshot"] : []),
   ];
-  return { gameId, roomCode, startedAt: recap?.createdAt || events[0]?.at || checkpoints.at(-1)?.at || 0, lastEventAt: Math.max(recap?.completedAt || 0, events.at(-1)?.at || 0, checkpoints[0]?.at || 0), eventCount: events.length, snapshotCount: checkpoints.length, playerCount, durationMs: recap?.durationMs || null, sessionKind, qualified, handoffCount: handoffs.length, gameplaySeatCount: gameplayActors.size, outcome: recap ? (recap.incomplete ? "Reset early" : recap.winner ? "Winner recorded" : "Completed") : "Not archived", winnerSeatId: recap?.winner?.seatId ?? null, counterChanges, flags, recap, events, checkpoints };
+  return { gameId, roomCode, startedAt: recap?.createdAt || events[0]?.at || checkpoints.at(-1)?.at || 0, lastEventAt: Math.max(recap?.completedAt || 0, events.at(-1)?.at || 0, checkpoints[0]?.at || 0), eventCount: events.length, snapshotCount: checkpoints.length, playerCount, durationMs: observedDurationMs, requiredGameplayMs, qualificationPolicyVersion: QUALIFICATION_POLICY.version, sessionKind, qualified, handoffCount: handoffs.length, gameplaySeatCount: gameplayActors.size, outcome: recap ? (recap.incomplete ? "Reset early" : recap.winner ? "Winner recorded" : "Completed") : "Not archived", winnerSeatId: recap?.winner?.seatId ?? null, counterChanges, flags, recap, events, checkpoints };
 }
 
 export function createPlaytestLedgerFromEnv(env = process.env) {

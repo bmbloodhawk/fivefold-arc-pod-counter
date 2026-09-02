@@ -203,6 +203,8 @@ test('standard tables remain the default while hosts can exclude development run
   assert.match(html, /id="markDevelopmentButton"/);
   assert.match(app, /Mark development run/);
   assert.match(app, /setSessionKind/);
+  assert.match(feedbackPage, /greater of 3 minutes or 25 seconds per recorded pass/);
+  assert.match(feedbackPage, /Review this definition after 12 qualified standard tables or 30 days/);
 });
 
 test('developer insights accurately distinguish bounded field tests from completed-table accolades', () => {
