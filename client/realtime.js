@@ -140,6 +140,7 @@ export class RealtimeAdapter extends EventTarget {
   async undoTurnHandoff() { return this.#turnRequest('/turn-handoff/undo'); }
   async setTurnTracking(enabled) { return this.#hostGameRequest('/turn-tracking', { enabled }); }
   async setTurnCues(enabled) { return this.#hostGameRequest('/turn-cues', { enabled }); }
+  async setSessionKind(sessionKind) { return this.#hostGameRequest('/session-kind', { sessionKind }); }
   async setTurnPaused(paused) { return this.#hostGameRequest('/turn-pause', { paused }); }
 
   async declareWinner(winnerSeatId) {

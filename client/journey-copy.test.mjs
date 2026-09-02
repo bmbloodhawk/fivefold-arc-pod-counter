@@ -199,6 +199,12 @@ test('developer diagnostics are protected and limited to retained confirmed tabl
   assert.match(feedbackPage, /selection\.selectionReason/);
 });
 
+test('standard tables remain the default while hosts can exclude development runs', () => {
+  assert.match(html, /id="markDevelopmentButton"/);
+  assert.match(app, /Mark development run/);
+  assert.match(app, /setSessionKind/);
+});
+
 test('developer insights accurately distinguish bounded field tests from completed-table accolades', () => {
   assert.match(feedbackPage, /Aggregated field-test metrics and completed-table accolade selections/);
   assert.match(feedbackPage, /No table insights have been recorded yet/);

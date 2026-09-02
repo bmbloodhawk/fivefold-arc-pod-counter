@@ -436,6 +436,7 @@ export class RoomService {
       config: { playerCount, startingLife, roundLimitMinutes },
       lastCoinToss: null,
       gameResult: null,
+      sessionKind: "standard",
       turn: {
         activeSeatId: 0,
         gameStarted: false,
@@ -481,6 +482,7 @@ export class RoomService {
       config: { ...room.config },
       lastCoinToss: room.lastCoinToss ? { ...room.lastCoinToss } : null,
       gameResult: room.gameResult ? { ...room.gameResult } : null,
+      sessionKind: room.sessionKind || "standard",
       turn: {
         activeSeatId: room.turn.activeSeatId,
         gameStarted: room.turn.gameStarted,
@@ -1002,9 +1004,19 @@ export class RoomService {
     const note = typeof input.note === "string" ? input.note.normalize("NFC").trim().replace(/\s+/gu, " ") : "";
     if (Array.from(note).length > 500 || /[\p{Cc}\p{Cf}]/u.test(note)) throw Object.assign(new Error("Field-test notes must contain at most 500 printable characters"), { status: 400, code: "INVALID_FIELD_TEST" });
     const now = this.now();
+    if (room.sessionKind === "development") throw Object.assign(new Error("Development runs cannot be recorded as field tests"), { status: 409, code: "DEVELOPMENT_RUN" });
     const record = { schemaVersion: 1, gameId: room.gameId, roomCode: room.code, recordedAt: now, realTable: true, playerCount: room.seats.filter((seat) => seat.claimed).length, setupMs: Math.max(0, room.turn.gameStartedAt - room.createdAt), elapsedMs: Math.max(0, now - room.turn.gameStartedAt), deviceMix, repeatUse, dispute, issues, note };
     room.fieldTestRecordedAt = now; this.ledger.fieldTest(record);
     return { record };
+  }
+
+  setSessionKind(code, connectionId, input = {}) {
+    const room = this.room(code); const { seatId } = this.requireOwner(room, connectionId);
+    if (seatId !== room.hostSeatId) throw Object.assign(new Error("Only the host may classify this run"), { status: 403, code: "HOST_ONLY" });
+    if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
+    if (!["standard", "development"].includes(input.sessionKind)) throw Object.assign(new Error("Choose a valid run type"), { status: 400, code: "INVALID_INPUT" });
+    room.sessionKind = input.sessionKind; room.version += 1; this.recordLedger(room, "session_kind_changed", seatId, { sessionKind: room.sessionKind }); this.broadcast(room);
+    return { snapshot: this.snapshot(room) };
   }
 
   setTurnTracking(code, connectionId, input = {}) {
@@ -1257,6 +1269,7 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "GET" && parts[3] === "playtest-recap") return json(res, 200, service.playtestRecap(code, connectionId));
         if (req.method === "GET" && parts[3] === "match-moment") return json(res, 200, service.personalMatchMoment(code, connectionId));
         if (req.method === "POST" && parts[3] === "field-test") return json(res, 201, service.recordFieldTest(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "session-kind") return json(res, 200, service.setSessionKind(code, connectionId, await readJson(req)));
         if (req.method === "GET" && parts[3] === "saved-playtests") return json(res, 200, await service.hostArchive(code, connectionId));
         if (req.method === "POST" && parts[3] === "declare-winner") return json(res, 200, service.declareWinner(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "choose-starting-player") return json(res, 200, service.chooseStartingPlayer(code, connectionId, await readJson(req)));
