@@ -12,6 +12,8 @@ export class NullPlaytestLedger {
   async listArchive() { return []; }
   async listFeedback() { return []; }
   async listFieldTests() { return []; }
+  async findDiagnostics() { return []; }
+  async readDiagnostics() { return null; }
   async updateFeedback() { throw new Error("Feedback storage is not configured"); }
   async flush() { return { ok: true }; }
 }
@@ -48,6 +50,24 @@ export class MemoryPlaytestLedger {
     return [...notes.values()].map((note) => ({ ...note, ...(reviews.get(note.noteId) || {}) })).sort((a, b) => b.createdAt - a.createdAt);
   }
   async listFieldTests() { return this.records.filter((item) => item.kind === "field_test").map((item) => ({ ...item.record })); }
+  async findDiagnostics(query) {
+    const needle = String(query || "").trim().toUpperCase();
+    const games = new Map();
+    for (const item of this.records) {
+      const record = item.record;
+      if (!record?.gameId || !["event", "checkpoint", "complete", "note"].includes(item.kind)) continue;
+      if (!games.has(record.gameId)) games.set(record.gameId, { gameId: record.gameId, roomCode: record.roomCode, startedAt: record.createdAt || record.at || 0, lastEventAt: record.completedAt || record.createdAt || record.at || 0, eventCount: 0 });
+      const game = games.get(record.gameId); game.roomCode ||= record.roomCode; game.startedAt = Math.min(game.startedAt || Infinity, record.createdAt || record.at || Infinity); game.lastEventAt = Math.max(game.lastEventAt || 0, record.completedAt || record.createdAt || record.at || 0); if (item.kind === "event") game.eventCount += 1;
+    }
+    return [...games.values()].filter((game) => game.gameId.toUpperCase().includes(needle) || String(game.roomCode || "").toUpperCase() === needle).sort((a, b) => b.lastEventAt - a.lastEventAt).slice(0, 12);
+  }
+  async readDiagnostics(gameId) {
+    const events = this.records.filter((item) => item.kind === "event" && item.record.gameId === gameId).map((item) => ({ ...item.record })).sort((a, b) => a.sequence - b.sequence).slice(-200);
+    const checkpoints = this.records.filter((item) => item.kind === "checkpoint" && item.record.gameId === gameId).map((item) => ({ ...item.record })).sort((a, b) => b.sequence - a.sequence).slice(0, 12);
+    const recap = this.records.filter((item) => item.kind === "complete" && item.record.gameId === gameId).at(-1)?.record;
+    if (!events.length && !checkpoints.length && !recap) return null;
+    return { gameId, roomCode: recap?.roomCode || events.at(-1)?.roomCode || checkpoints[0]?.roomCode, eventCount: events.length, recap: recap ? { ...recap } : null, events, checkpoints };
+  }
   async updateFeedback(review) { this.records.push({ kind: "feedback_review", record: review }); }
   async flush() { return { ok: true }; }
 }
@@ -97,6 +117,16 @@ export class FirebasePlaytestLedger {
   async listFieldTests() {
     const records = await this.read("field-tests.json") || {};
     return Object.values(records).filter((record) => record && record.realTable === true);
+  }
+  async findDiagnostics(query) {
+    const needle = String(query || "").trim().toUpperCase();
+    const playtests = await this.read("playtests.json") || {};
+    return Object.entries(playtests).map(([gameId, playtest]) => diagnosticSummary(gameId, playtest)).filter((game) => game && (game.gameId.toUpperCase().includes(needle) || String(game.roomCode || "").toUpperCase() === needle)).sort((a, b) => b.lastEventAt - a.lastEventAt).slice(0, 12);
+  }
+  async readDiagnostics(gameId) {
+    const playtest = await this.read(`playtests/${encodeURIComponent(gameId)}.json`);
+    if (!playtest) return null;
+    return diagnosticDetail(gameId, playtest);
   }
   async updateFeedback(review) { this.enqueue(`playtests/${encodeURIComponent(review.gameId)}/feedback/${encodeURIComponent(review.noteId)}.json`, review); await this.flush(); }
 
@@ -153,6 +183,27 @@ export class FirebasePlaytestLedger {
     this.token = { value: payload.access_token, expiresAt: this.now() + Number(payload.expires_in || 3600) * 1000 };
     return this.token.value;
   }
+}
+
+function diagnosticSummary(gameId, playtest = {}) {
+  const events = Object.values(playtest.events || {}).filter(Boolean).sort((a, b) => a.sequence - b.sequence);
+  const checkpoints = Object.values(playtest.checkpoints || {}).filter(Boolean).sort((a, b) => b.sequence - a.sequence);
+  const recap = playtest.recap || null;
+  const roomCode = recap?.roomCode || events.at(-1)?.roomCode || checkpoints[0]?.roomCode || Object.values(playtest.notes || {}).find(Boolean)?.roomCode;
+  const lastEventAt = Math.max(recap?.completedAt || 0, events.at(-1)?.at || 0, checkpoints[0]?.at || 0);
+  if (!roomCode && !events.length && !checkpoints.length && !recap) return null;
+  return { gameId, roomCode, startedAt: recap?.createdAt || events[0]?.at || checkpoints.at(-1)?.at || 0, lastEventAt, eventCount: events.length };
+}
+
+function diagnosticDetail(gameId, playtest = {}) {
+  const summary = diagnosticSummary(gameId, playtest);
+  if (!summary) return null;
+  return {
+    ...summary,
+    recap: playtest.recap || null,
+    events: Object.values(playtest.events || {}).filter(Boolean).sort((a, b) => a.sequence - b.sequence).slice(-200),
+    checkpoints: Object.values(playtest.checkpoints || {}).filter(Boolean).sort((a, b) => b.sequence - a.sequence).slice(0, 12),
+  };
 }
 
 export function createPlaytestLedgerFromEnv(env = process.env) {

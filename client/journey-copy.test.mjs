@@ -182,6 +182,19 @@ test('private feedback review includes a non-personal insights tab', () => {
   assert.match(feedbackPage, /\/api\/feedback\/insights/);
 });
 
+test('private feedback preserves room and game context for debugging', () => {
+  assert.match(feedbackPage, /Diagnostic context/);
+  assert.match(feedbackPage, /Room \$\{escapeHtml\(note\.roomCode \|\| 'unavailable'\)\}/);
+  assert.match(feedbackPage, /Game \$\{escapeHtml\(note\.gameId \|\| 'unavailable'\)\}/);
+});
+
+test('developer diagnostics are protected and limited to retained confirmed table history', () => {
+  assert.match(feedbackPage, /data-tab="diagnostics">Diagnostics/);
+  assert.match(feedbackPage, /server-confirmed changes and saved table snapshots/);
+  assert.match(feedbackPage, /never contains seat credentials, device identifiers, IP addresses, or raw tap data/);
+  assert.match(feedbackPage, /\/api\/feedback\/diagnostics/);
+});
+
 test('developer insights accurately distinguish bounded field tests from completed-table accolades', () => {
   assert.match(feedbackPage, /Aggregated field-test metrics and completed-table accolade selections/);
   assert.match(feedbackPage, /No table insights have been recorded yet/);

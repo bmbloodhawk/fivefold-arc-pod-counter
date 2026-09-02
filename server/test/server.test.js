@@ -985,6 +985,21 @@ test("developer insights aggregate bounded field-test data without identities or
   assert.equal(JSON.stringify(insights).includes("Do not expose this."), false);
 });
 
+test("developer diagnostics find a room and return only its retained game history", async () => {
+  const ledger = new MemoryPlaytestLedger();
+  ledger.record({ gameId: "game-apple", roomCode: "ARC123", sequence: 1, at: 1_000, type: "room_created", actorSeatId: 0 });
+  ledger.record({ gameId: "game-apple", roomCode: "ARC123", sequence: 2, at: 2_000, type: "counter_adjusted", actorSeatId: 1, counter: "life", delta: -5 });
+  ledger.checkpoint({ gameId: "game-apple", roomCode: "ARC123", sequence: 2, at: 2_000, snapshot: { seats: [{ seatId: 0, name: "Host", counters: { life: 40, poison: 0 } }] } });
+  ledger.record({ gameId: "game-other", roomCode: "OTHER9", sequence: 1, at: 3_000, type: "room_created", actorSeatId: 0 });
+  const matches = await ledger.findDiagnostics("arc123");
+  assert.deepEqual(matches.map((match) => match.gameId), ["game-apple"]);
+  const diagnostic = await ledger.readDiagnostics("game-apple");
+  assert.equal(diagnostic.events.length, 2);
+  assert.equal(diagnostic.events[1].delta, -5);
+  assert.equal(diagnostic.checkpoints[0].snapshot.seats[0].counters.life, 40);
+  assert.equal(JSON.stringify(diagnostic).includes("connectionId"), false);
+});
+
 test("treats repeated life operation IDs as one adjustment", async () => {
   const made = await room({ playerCount: 2, startingLife: 40 });
   const operationId = "a4a5b5ce-8e3b-4d62-a7c5-5b5d2e6a2b3c";

@@ -1200,6 +1200,20 @@ export function createRealtimeServer(options = {}) {
       if (req.method === "GET" && parts[0] === "dice-skins" && parts[1] && parts[2] && serveDiceSkin(res, parts[1], parts[2])) return;
       if (req.method === "GET" && url.pathname === "/api/feedback") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { notes: await service.ledger.listFeedback() }); }
       if (req.method === "GET" && url.pathname === "/api/feedback/insights") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { insights: await service.developerFieldTestInsights() }); }
+      if (req.method === "GET" && url.pathname === "/api/feedback/diagnostics") {
+        feedbackKeyMatches(req.headers["x-feedback-portal-key"]);
+        const query = String(url.searchParams.get("query") || "").trim();
+        if (!/^[A-Za-z0-9-]{4,64}$/.test(query)) throw Object.assign(new Error("Enter a room code or game reference"), { status: 400, code: "INVALID_INPUT" });
+        return json(res, 200, { matches: await service.ledger.findDiagnostics(query) });
+      }
+      if (req.method === "GET" && parts[0] === "api" && parts[1] === "feedback" && parts[2] === "diagnostics" && parts[3]) {
+        feedbackKeyMatches(req.headers["x-feedback-portal-key"]);
+        const gameId = String(parts[3] || "");
+        if (!/^[A-Za-z0-9-]{4,64}$/.test(gameId)) throw Object.assign(new Error("The game reference was invalid"), { status: 400, code: "INVALID_INPUT" });
+        const diagnostic = await service.ledger.readDiagnostics(gameId);
+        if (!diagnostic) throw Object.assign(new Error("No retained diagnostic record was found for that game"), { status: 404, code: "NOT_FOUND" });
+        return json(res, 200, { diagnostic });
+      }
       if ((req.method === "PATCH" || req.method === "DELETE") && parts[0] === "api" && parts[1] === "feedback" && parts[2]) {
         feedbackKeyMatches(req.headers["x-feedback-portal-key"]);
         const input = req.method === "DELETE" ? await readJson(req) : await readJson(req);
