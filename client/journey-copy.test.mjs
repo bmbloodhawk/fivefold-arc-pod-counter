@@ -137,6 +137,12 @@ test('three-dot menu uses one selectable row pattern except for intentional cont
   assert.match(styles, /\.game-menu > button\.danger-text \{/);
 });
 
+test('the three-dot menu captures its own scrolling instead of scrolling the game behind it', () => {
+  assert.match(styles, /\.game-menu \{[\s\S]*overscroll-behavior: contain[\s\S]*touch-action: pan-y/);
+  assert.match(styles, /html\.game-menu-open, body\.game-menu-open \{ overflow: hidden/);
+  assert.match(app, /new MutationObserver\(syncGameMenuScrollLock\)\.observe\(dom\.gameMenu/);
+});
+
 test('touch feedback is local, optional, and never part of game state', () => {
   assert.match(html, /id="toggleTouchFeedbackButton"/);
   assert.match(app, /fivefold-arc:touch-feedback/);
