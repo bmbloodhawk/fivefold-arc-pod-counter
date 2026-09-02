@@ -88,6 +88,11 @@ test('the life readout stays together and the tax action cannot overlap custom l
   assert.match(styles, /\.game-shell\[data-your-turn="true"\] \.commander-tax-quick \{ transform: none; margin-bottom: 0; \}/);
 });
 
+test('two-seat commander sources reserve clearance above the fixed turn-action slot', () => {
+  assert.match(app, /source-panel-turn-clearance', state\.playerCount === 2/);
+  assert.match(styles, /\.source-panel\.source-panel-turn-clearance \{ margin-bottom: 39px; \}/);
+});
+
 test('life changes and low-life warnings do not reflow the fixed play surface', () => {
   assert.match(styles, /A changing total must never reflow the play surface/);
   assert.match(styles, /\.main-value \{ display: block; min-width: 3ch; font-feature-settings: "tnum" 1; \}/);

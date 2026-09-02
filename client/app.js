@@ -506,6 +506,7 @@ function renderPodStrip() {
 function renderSources(player) {
   dom.sourcePanel.hidden = state.mode !== 'commander'; if (dom.sourcePanel.hidden) return; const sources = sourcesForDefender(player.id); selectedSourceFor(player);
   dom.sourcePanel.classList.toggle('source-panel-dense', sources.length > 4);
+  dom.sourcePanel.classList.toggle('source-panel-turn-clearance', state.playerCount === 2);
   dom.sourcePanel.innerHTML = sources.length ? `<p class="source-panel-prompt">Damage received by ${escapeHtml(displayPlayer(player))} from:</p>${sources.map(source => { const value = commanderValue(player, source.id); const severity = value >= 21 ? 'lethal' : value >= 18 ? 'near' : ''; const owner = source.commanderName ? `<strong>${escapeHtml(sourceOwnerLabel(source))} · ${escapeHtml(source.ownerPlayerId)}</strong><small>${escapeHtml(source.commanderName)}</small>` : `<strong>${escapeHtml(displaySource(source))} · ${escapeHtml(source.ownerPlayerId)}</strong><small>Commander source</small>`; return `<button class="source-button ${source.id === state.selectedSourceId ? 'selected' : ''} ${severity}" data-source="${source.id}" type="button" aria-pressed="${source.id === state.selectedSourceId}">${owner}<span>${value}</span></button>`; }).join('')}` : '<p class="field-help">There are no opposing commanders to track for this seat.</p>';
   $$('[data-source]').forEach(button => button.addEventListener('click', () => { state.selectedSourceId = button.dataset.source; render(); }));
 }

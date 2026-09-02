@@ -1,11 +1,11 @@
 export function blankMatchMoment(startingLife) {
-  return { lifeGained: 0, lowestLife: startingLife, playerCountAtStart: null, poisonGained: 0, commanderDamageReceived: 0, commanderDamageBySource: {}, energyGained: 0, radiationGained: 0, turnCount: 0, totalTurnMs: 0 };
+  return { lifeGained: 0, lifeLostOnOwnTurn: 0, lowestLife: startingLife, playerCountAtStart: null, poisonGained: 0, commanderDamageReceived: 0, commanderDamageBySource: {}, energyGained: 0, radiationGained: 0, turnCount: 0, totalTurnMs: 0 };
 }
 
-export function recordMatchMoment(seat, { counter, delta, commanderSourceId, lifeAfter, gameStarted }) {
+export function recordMatchMoment(seat, { counter, delta, commanderSourceId, lifeAfter, gameStarted, isOwnTurn = false }) {
   if (!gameStarted || !seat.matchMoment) return;
   const m = seat.matchMoment;
-  if (counter === 'life') { if (delta > 0) m.lifeGained += delta; m.lowestLife = Math.min(m.lowestLife, lifeAfter); }
+  if (counter === 'life') { if (delta > 0) m.lifeGained += delta; if (delta < 0 && isOwnTurn) m.lifeLostOnOwnTurn += -delta; m.lowestLife = Math.min(m.lowestLife, lifeAfter); }
   if (counter === 'commanderDamage') {
     if (delta > 0) {
       m.commanderDamageReceived += delta;
@@ -66,6 +66,7 @@ export function personalMatchMoment({ seat, seats, winnerSeatId, seed }) {
   const totalCommanderDamage = m.commanderDamageReceived;
   const threshold = royalThreshold(seat, seats);
   if (totalCommanderDamage >= threshold && uniqueLeader(seat, seats, (item) => item.matchMoment?.commanderDamageReceived || 0)) return named(seed, ['Royal Reception', 'Grand Audience', 'All Eyes on You'], 'You took the table\'s heaviest commander attention.', `${totalCommanderDamage} commander damage · ${threshold} needed`);
+  if (m.lifeLostOnOwnTurn >= 8 && uniqueLeader(seat, seats, (item) => item.matchMoment?.lifeLostOnOwnTurn || 0)) return named(seed, ['Paid in Blood', 'Life Is a Resource', 'High Stakes'], 'You recorded the most life lost during your own turns.', `${m.lifeLostOnOwnTurn} life lost on your turns`);
   if (m.poisonGained >= 5) return named(seed, ['Poison Snack', 'Toxic Relationship', 'Venom Sommelier'], 'You collected a concerning amount of poison.', `${m.poisonGained} poison received`);
   if (m.lifeGained >= 10) return named(seed, ['Health Potion Hoarder', 'Second Breakfast', 'Life Insurance'], 'You found your way back up.', `+${m.lifeGained} life gained`);
   if (m.energyGained >= 5) return named(seed, ['Reactor Core', 'Battery Included', 'Fully Charged'], 'You kept the energy flowing.', `+${m.energyGained} energy gained`);

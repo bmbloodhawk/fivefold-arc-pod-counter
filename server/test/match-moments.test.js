@@ -63,3 +63,15 @@ test('Royal Reception scales with the table size and requires a unique highest t
   recordMatchMoment(sam, { counter: 'commanderDamage', delta: 14, commanderSourceId: 'seat-0-commander-a', lifeAfter: 26, gameStarted: true });
   assert.notEqual(personalMatchMoment({ seat: alex, seats, winnerSeatId: 99, seed: 'test' }).category, 'Royal Reception');
 });
+
+test('Paid in Blood records only manual life lost on that player\'s own turn', () => {
+  const alex = seat(0, 'Alex');
+  const sam = seat(1, 'Sam');
+  const seats = [alex, sam];
+  recordMatchMoment(alex, { counter: 'life', delta: -9, lifeAfter: 31, gameStarted: true, isOwnTurn: false });
+  assert.equal(alex.matchMoment.lifeLostOnOwnTurn, 0);
+  recordMatchMoment(alex, { counter: 'commanderDamage', delta: 9, commanderSourceId: 'seat-1-commander-a', lifeAfter: 22, gameStarted: true, isOwnTurn: true });
+  assert.equal(alex.matchMoment.lifeLostOnOwnTurn, 0);
+  recordMatchMoment(alex, { counter: 'life', delta: -8, lifeAfter: 14, gameStarted: true, isOwnTurn: true });
+  assert.equal(personalMatchMoment({ seat: alex, seats, winnerSeatId: 99, seed: 'test' }).category, 'Paid in Blood');
+});

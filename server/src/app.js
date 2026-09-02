@@ -780,7 +780,7 @@ export class RoomService {
       const minimum = counter === "life" ? -999 : 0;
       seat.counters[counter] = Math.max(minimum, Math.min(999, (seat.counters[counter] ?? 0) + delta));
     }
-    recordMatchMoment(seat, { counter, delta: applied, commanderSourceId: input.commanderSourceId, lifeAfter: seat.counters.life, gameStarted: room.turn.gameStarted });
+    recordMatchMoment(seat, { counter, delta: applied, commanderSourceId: input.commanderSourceId, lifeAfter: seat.counters.life, gameStarted: room.turn.gameStarted, isOwnTurn: room.turn.activeSeatId === seat.seatId });
     recordLastPlayerStanding(room, this.now());
     room.version += 1;
     this.recordLedger(room, "counter_adjusted", seat.seatId, { counter, delta: applied, ...(counter === "commanderDamage" ? { commanderSourceId: input.commanderSourceId } : {}) });
