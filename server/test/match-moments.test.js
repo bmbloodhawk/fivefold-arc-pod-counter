@@ -32,3 +32,34 @@ test('match moments ignore setup changes and preserve the low-life and comeback 
   recordMatchMoment(defender, { counter: 'life', delta: 10, lifeAfter: 14, gameStarted: true });
   assert.equal(personalMatchMoment({ seat: defender, seats, winnerSeatId: 99, seed: 'test' }).category, 'Comeback Kid');
 });
+
+test('Legend Collector goes only to the unique player hit by the most different commanders', () => {
+  const alex = seat(0, 'Alex');
+  const sam = seat(1, 'Sam', ['Niv-Mizzet']);
+  const jo = seat(2, 'Jo', ['Atraxa']);
+  const kaya = seat(3, 'Kaya', ['Krenko']);
+  const seats = [alex, sam, jo, kaya];
+  for (const source of ['seat-1-commander-a', 'seat-2-commander-a', 'seat-3-commander-a']) recordMatchMoment(alex, { counter: 'commanderDamage', delta: 2, commanderSourceId: source, lifeAfter: 34, gameStarted: true });
+  recordMatchMoment(sam, { counter: 'commanderDamage', delta: 2, commanderSourceId: 'seat-0-commander-a', lifeAfter: 38, gameStarted: true });
+  assert.equal(personalMatchMoment({ seat: alex, seats, winnerSeatId: 99, seed: 'test' }).category, 'Legend Collector');
+
+  recordMatchMoment(sam, { counter: 'commanderDamage', delta: 2, commanderSourceId: 'seat-2-commander-a', lifeAfter: 36, gameStarted: true });
+  recordMatchMoment(sam, { counter: 'commanderDamage', delta: 2, commanderSourceId: 'seat-3-commander-a', lifeAfter: 34, gameStarted: true });
+  assert.notEqual(personalMatchMoment({ seat: alex, seats, winnerSeatId: 99, seed: 'test' }).category, 'Legend Collector');
+});
+
+test('Royal Reception scales with the table size and requires a unique highest total', () => {
+  const alex = seat(0, 'Alex');
+  const sam = seat(1, 'Sam');
+  const jo = seat(2, 'Jo');
+  const kaya = seat(3, 'Kaya');
+  const seats = [alex, sam, jo, kaya];
+  for (const item of seats) item.matchMoment.playerCountAtStart = 4;
+  recordMatchMoment(alex, { counter: 'commanderDamage', delta: 7, commanderSourceId: 'seat-1-commander-a', lifeAfter: 33, gameStarted: true });
+  recordMatchMoment(alex, { counter: 'commanderDamage', delta: 6, commanderSourceId: 'seat-2-commander-a', lifeAfter: 27, gameStarted: true });
+  assert.notEqual(personalMatchMoment({ seat: alex, seats, winnerSeatId: 99, seed: 'test' }).category, 'Royal Reception');
+  recordMatchMoment(alex, { counter: 'commanderDamage', delta: 1, commanderSourceId: 'seat-2-commander-a', lifeAfter: 26, gameStarted: true });
+  assert.equal(personalMatchMoment({ seat: alex, seats, winnerSeatId: 99, seed: 'test' }).category, 'Royal Reception');
+  recordMatchMoment(sam, { counter: 'commanderDamage', delta: 14, commanderSourceId: 'seat-0-commander-a', lifeAfter: 26, gameStarted: true });
+  assert.notEqual(personalMatchMoment({ seat: alex, seats, winnerSeatId: 99, seed: 'test' }).category, 'Royal Reception');
+});

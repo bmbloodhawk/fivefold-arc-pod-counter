@@ -1,5 +1,5 @@
 export function blankMatchMoment(startingLife) {
-  return { lifeGained: 0, lowestLife: startingLife, poisonGained: 0, commanderDamageReceived: 0, commanderDamageBySource: {}, energyGained: 0, radiationGained: 0, turnCount: 0, totalTurnMs: 0 };
+  return { lifeGained: 0, lowestLife: startingLife, playerCountAtStart: null, poisonGained: 0, commanderDamageReceived: 0, commanderDamageBySource: {}, energyGained: 0, radiationGained: 0, turnCount: 0, totalTurnMs: 0 };
 }
 
 export function recordMatchMoment(seat, { counter, delta, commanderSourceId, lifeAfter, gameStarted }) {
@@ -37,6 +37,22 @@ function commanderName(sourceId, seats) {
   return owner?.commanderNames?.[slot] || owner?.name || 'one commander';
 }
 
+function distinctCommanderCount(item) {
+  return Object.values(item.matchMoment?.commanderDamageBySource || {}).filter((damage) => damage > 0).length;
+}
+
+function uniqueLeader(seat, seats, valueFor) {
+  const values = seats.filter((item) => item.claimed !== false).map((item) => [item, valueFor(item)]);
+  const high = Math.max(...values.map(([, value]) => value));
+  return high > 0 && valueFor(seat) === high && values.filter(([, value]) => value === high).length === 1;
+}
+
+function royalThreshold(seat, seats) {
+  const claimedNow = seats.filter((item) => item.claimed !== false).length;
+  const playerCount = seat.matchMoment?.playerCountAtStart || claimedNow || seats.length;
+  return 10 + (2 * Math.max(0, playerCount - 2));
+}
+
 export function personalMatchMoment({ seat, seats, winnerSeatId, seed }) {
   const m = seat.matchMoment || blankMatchMoment(seat.counters.life);
   if (seat.seatId === winnerSeatId) return named(seed, ['Last One Standing', 'Table Monarch', 'Arc Victor'], 'The table ran out of answers.', 'Winner');
@@ -44,7 +60,12 @@ export function personalMatchMoment({ seat, seats, winnerSeatId, seed }) {
   if (m.lowestLife >= 2 && m.lowestLife <= 5 && m.lifeGained >= 10) return named(seed, ['Comeback Kid', 'Second Wind', 'Not Today'], 'You climbed back after a close call.', `Lowest life: ${m.lowestLife} · +${m.lifeGained} life gained`);
   if (m.lowestLife >= 2 && m.lowestLife <= 5) return named(seed, ['Hanging By a Thread', 'Too Close for Comfort', 'Five Alarm Fire'], 'You got dangerously close to the edge.', `Lowest recorded life: ${m.lowestLife}`);
   const [largestCommanderSource, largestCommanderDamage = 0] = Object.entries(m.commanderDamageBySource || {}).reduce((largest, entry) => entry[1] > largest[1] ? entry : largest, ['', 0]);
-  if (largestCommanderDamage >= 10) return named(seed, ['Commander Magnet', 'Legend Collector', 'Royal Reception'], 'One commander kept finding you.', `${largestCommanderDamage} from ${commanderName(largestCommanderSource, seats)}`);
+  if (largestCommanderDamage >= 10) return named(seed, ['Commander Magnet', 'Marked by Legends', 'A Familiar Foe'], 'One commander kept finding you.', `${largestCommanderDamage} from ${commanderName(largestCommanderSource, seats)}`);
+  const distinctCommanders = distinctCommanderCount(seat);
+  if (distinctCommanders >= 3 && uniqueLeader(seat, seats, distinctCommanderCount)) return named(seed, ['Legend Collector', 'Gathered Legends', 'An Expanding Collection'], 'More opposing commanders found you than anyone else.', `${distinctCommanders} different commanders dealt damage`);
+  const totalCommanderDamage = m.commanderDamageReceived;
+  const threshold = royalThreshold(seat, seats);
+  if (totalCommanderDamage >= threshold && uniqueLeader(seat, seats, (item) => item.matchMoment?.commanderDamageReceived || 0)) return named(seed, ['Royal Reception', 'Grand Audience', 'All Eyes on You'], 'You took the table\'s heaviest commander attention.', `${totalCommanderDamage} commander damage · ${threshold} needed`);
   if (m.poisonGained >= 5) return named(seed, ['Poison Snack', 'Toxic Relationship', 'Venom Sommelier'], 'You collected a concerning amount of poison.', `${m.poisonGained} poison received`);
   if (m.lifeGained >= 10) return named(seed, ['Health Potion Hoarder', 'Second Breakfast', 'Life Insurance'], 'You found your way back up.', `+${m.lifeGained} life gained`);
   if (m.energyGained >= 5) return named(seed, ['Reactor Core', 'Battery Included', 'Fully Charged'], 'You kept the energy flowing.', `+${m.energyGained} energy gained`);

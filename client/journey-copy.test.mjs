@@ -149,10 +149,14 @@ test('touch feedback is local, optional, and never part of game state', () => {
 
 test('the confirmed winner is celebrated on every phone with artwork and a tap-to-exit screen', () => {
   assert.match(html, /id="victoryDialog"[\s\S]*assets\/victory-seal-v1\.png[\s\S]*id="victoryEyebrow"[\s\S]*Tap anywhere to continue/);
+  assert.match(html, /class="victory-winner-copy"[\s\S]*id="personalMatchMoment"[\s\S]*class="victory-dismissal"/);
   assert.match(app, /if \(key !== shownVictoryKey\)/);
   assert.match(app, /const youWon = winner\.id === actingSeatId/);
   assert.match(app, /dom\.victoryDialog\.addEventListener\('click', \(\) => \{ if \(dom\.victoryDialog\.open\) dom\.victoryDialog\.close\('tap'\); \}\)/);
   assert.match(styles, /\.victory-art \{[\s\S]*opacity: \.72/);
+  assert.match(styles, /\.victory-dialog-content \{[\s\S]*grid-template-rows: 1fr 1fr/);
+  assert.match(styles, /data-category="Legend Collector"[\s\S]*accolade-legend-collector-v1\.png/);
+  assert.match(styles, /data-category="Royal Reception"[\s\S]*accolade-royal-reception-v1\.png/);
 });
 
 test('private feedback review includes a non-personal insights tab', () => {
