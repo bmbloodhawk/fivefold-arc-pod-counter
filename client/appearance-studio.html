@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="robots" content="noindex, nofollow">
   <title>Fivefold Arc — Appearance Studio</title>
-  <link rel="stylesheet" href="appearance-studio.css?v=1">
+  <link rel="stylesheet" href="appearance-studio.css?v=2">
 </head>
 <body>
   <header class="studio-bar"><a href="index.html" aria-label="Back to Fivefold Arc">Fivefold Arc <span>Developer tools</span></a><div class="skin-title"><strong id="skinNameLabel">Neutral Arc</strong><small id="saveState">Saved</small></div><div class="bar-actions"><button id="previewButton" class="quiet" type="button">Preview</button><button id="saveButton" type="button">Save draft</button><button id="duplicateButton" class="quiet" type="button">Duplicate</button><button id="publishButton" type="button">Publish</button></div></header>
@@ -18,7 +18,9 @@
         <div class="atmosphere-controls"><label>Ambient glow<input id="atmosphereColor" type="color" value="#70a97a"></label><label>Glow placement<select id="atmospherePosition"><option value="top">Top</option><option value="center">Center</option><option value="bottom">Bottom</option></select></label><label class="atmosphere-strength">Glow strength <output id="atmosphereStrengthValue">35%</output><input id="atmosphereStrength" type="range" min="0" max="80" step="5" value="35"></label></div>
         <label>Background treatment<select id="backgroundTreatment"><option value="plain">Plain color</option><option value="rays">Arc rays</option><option value="grain">Fine grain</option><option value="mist">Drifting mist</option><option value="stars">Star field</option></select></label>
         <label>Background art<select id="backgroundAsset"><option value="">No imported art</option></select></label>
+        <div class="background-art-controls"><label>Art scale <output id="backgroundScaleValue">100%</output><input id="backgroundScale" type="range" min="50" max="200" step="5" value="100"></label><label>Horizontal position <output id="backgroundPositionXValue">50%</output><input id="backgroundPositionX" type="range" min="0" max="100" step="5" value="50"></label><label>Vertical position <output id="backgroundPositionYValue">50%</output><input id="backgroundPositionY" type="range" min="0" max="100" step="5" value="50"></label></div>
         <label>Counter ring<select id="ring"><option value="arc">Arc seal</option><option value="orbit">Orbit rings</option><option value="none">No ring</option></select></label>
+        <label>Center seal<select id="sealAsset"><option value="">Built-in seal</option></select></label>
         <label>Button treatment<select id="buttonTreatment"><option value="glass">Frosted glass</option><option value="solid">Solid accent</option><option value="outline">Fine outline</option></select></label>
         <label>Seat card<select id="seatTreatment"><option value="raised">Raised card</option><option value="flat">Flat card</option><option value="glass">Glass card</option></select></label>
       </section>
@@ -31,6 +33,6 @@
     <aside class="studio-panel validation-panel"><section><p class="kicker">CONTINUOUS REVIEW</p><h2>Readability & safety</h2><p id="validationSummary" class="validation-summary"></p><ul id="validationList" class="validation-list"></ul></section><section><p class="kicker">ASSET LIBRARY</p><h2>Import original art</h2><p class="helper">Stored in the local server catalog. Use artwork and symbols you created or have permission to use; do not import Magic card art, official mana symbols, or logos.</p><label class="asset-input">Image file<input id="assetFile" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"></label><label class="asset-input">Asset name<input id="assetName" maxlength="40" placeholder="e.g. Ember sigil"></label><label class="asset-input">Rights/source note<input id="assetSource" maxlength="120" placeholder="Original art — my studio"></label><label class="asset-input">Use as<select id="assetPlacement"><option value="background">Background art</option><option value="symbol">Counter symbol</option></select></label><button id="importAssetButton" class="secondary-action" type="button">Import to server catalog</button><p id="assetStatus" class="helper" aria-live="polite"></p><div id="assetLibrary" class="asset-list"></div></section><section class="publish-note"><p class="kicker">PUBLISHING</p><p>Publishing makes this approved visual preset available to the bundled catalog on this device. It never changes counters, ownership, sync, or table data.</p></section></aside>
   </main>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-  <script type="module" src="appearance-studio.js?v=16"></script>
+  <script type="module" src="appearance-studio.js?v=19"></script>
 </body>
 </html>
