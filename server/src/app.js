@@ -1191,7 +1191,7 @@ export function createRealtimeServer(options = {}) {
   const sseClients = new Map();
   const maxStreamsPerIp = options.maxStreamsPerIp ?? 12;
   const feedbackPortalKey = options.feedbackPortalKey ?? process.env.FEEDBACK_PORTAL_KEY ?? "";
-  const appearanceCatalog = options.appearanceCatalog ?? { read: async () => ({ skins: [], assets: [], selected: "neutral" }), write: async value => value };
+  const appearanceCatalog = options.appearanceCatalog ?? { read: async () => ({ skins: [], assets: [], selected: "neutral" }), write: async value => value, readAsset: async () => null, writeAsset: async (_id, value) => value, deleteAsset: async () => {} };
   const feedbackKeyMatches = (provided) => {
     if (!feedbackPortalKey) throw Object.assign(new Error("The feedback inbox is not configured yet"), { status: 503, code: "FEEDBACK_NOT_CONFIGURED" });
     if (typeof provided !== "string" || provided.length !== feedbackPortalKey.length || !timingSafeEqual(Buffer.from(provided), Buffer.from(feedbackPortalKey))) throw Object.assign(new Error("That feedback key did not match"), { status: 403, code: "FEEDBACK_DENIED" });
@@ -1214,6 +1214,7 @@ export function createRealtimeServer(options = {}) {
       if (req.method === "GET" && url.pathname === "/health") return json(res, 200, { ok: true });
       if (req.method === "GET" && url.pathname === "/api/appearance-studio/catalog") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { catalog: await appearanceCatalog.read() }); }
       if (req.method === "PUT" && url.pathname === "/api/appearance-studio/catalog") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { catalog: await appearanceCatalog.write(await readJson(req, 8 * 1024 * 1024)) }); }
+      if (parts[0] === "api" && parts[1] === "appearance-studio" && parts[2] === "assets" && /^[A-Za-z0-9_-]{4,80}$/.test(parts[3] || "")) { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); if (req.method === "GET") return json(res, 200, { asset: await appearanceCatalog.readAsset(parts[3]) }); if (req.method === "PUT") return json(res, 200, { asset: await appearanceCatalog.writeAsset(parts[3], await readJson(req, 2 * 1024 * 1024)) }); if (req.method === "DELETE") { await appearanceCatalog.deleteAsset(parts[3]); return json(res, 204, {}); } }
       if (req.method === "GET" && parts[0] === "dice-skins" && parts[1] && parts[2] && serveDiceSkin(res, parts[1], parts[2])) return;
       if (req.method === "GET" && url.pathname === "/api/feedback") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { notes: await service.ledger.listFeedback() }); }
       if (req.method === "GET" && url.pathname === "/api/feedback/insights") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { insights: await service.developerFieldTestInsights() }); }
