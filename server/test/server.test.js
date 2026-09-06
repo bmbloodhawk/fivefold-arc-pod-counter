@@ -1073,3 +1073,21 @@ test("uses a compatible life operation ID when randomUUID is unavailable", () =>
     else delete globalThis.crypto;
   }
 });
+
+test("protects the Appearance Studio catalog with the developer portal key", async () => {
+  const catalog = { value: { skins: [{ id: "skin-a" }], assets: [], selected: "skin-a" }, async read() { return this.value; }, async write(value) { this.value = value; return this.value; } };
+  const protectedServer = createRealtimeServer({ feedbackPortalKey: "owner-key", appearanceCatalog: catalog }).server;
+  await new Promise((resolve) => protectedServer.listen(0, "127.0.0.1", resolve));
+  const url = `http://127.0.0.1:${protectedServer.address().port}/api/appearance-studio/catalog`;
+  try {
+    assert.equal((await fetch(url)).status, 403);
+    const allowed = await fetch(url, { headers: { "x-feedback-portal-key": "owner-key" } });
+    assert.equal(allowed.status, 200);
+    assert.deepEqual((await allowed.json()).catalog, catalog.value);
+    const updated = await fetch(url, { method: "PUT", headers: { "content-type": "application/json", "x-feedback-portal-key": "owner-key" }, body: JSON.stringify({ skins: [], assets: [{ id: "asset-a" }], selected: "neutral" }) });
+    assert.equal(updated.status, 200);
+    assert.deepEqual(catalog.value.assets, [{ id: "asset-a" }]);
+  } finally {
+    await new Promise((resolve) => protectedServer.close(resolve));
+  }
+});
