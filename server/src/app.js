@@ -1191,6 +1191,7 @@ export function createRealtimeServer(options = {}) {
   const sseClients = new Map();
   const maxStreamsPerIp = options.maxStreamsPerIp ?? 12;
   const feedbackPortalKey = options.feedbackPortalKey ?? process.env.FEEDBACK_PORTAL_KEY ?? "";
+  const appearanceCatalog = options.appearanceCatalog ?? { read: async () => ({ skins: [], assets: [], selected: "neutral" }), write: async value => value };
   const feedbackKeyMatches = (provided) => {
     if (!feedbackPortalKey) throw Object.assign(new Error("The feedback inbox is not configured yet"), { status: 503, code: "FEEDBACK_NOT_CONFIGURED" });
     if (typeof provided !== "string" || provided.length !== feedbackPortalKey.length || !timingSafeEqual(Buffer.from(provided), Buffer.from(feedbackPortalKey))) throw Object.assign(new Error("That feedback key did not match"), { status: 403, code: "FEEDBACK_DENIED" });
@@ -1211,6 +1212,8 @@ export function createRealtimeServer(options = {}) {
       const parts = url.pathname.split("/").filter(Boolean);
       const connectionId = req.headers["x-connection-id"];
       if (req.method === "GET" && url.pathname === "/health") return json(res, 200, { ok: true });
+      if (req.method === "GET" && url.pathname === "/api/appearance-studio/catalog") return json(res, 200, { catalog: await appearanceCatalog.read() });
+      if (req.method === "PUT" && url.pathname === "/api/appearance-studio/catalog") return json(res, 200, { catalog: await appearanceCatalog.write(await readJson(req, 8 * 1024 * 1024)) });
       if (req.method === "GET" && parts[0] === "dice-skins" && parts[1] && parts[2] && serveDiceSkin(res, parts[1], parts[2])) return;
       if (req.method === "GET" && url.pathname === "/api/feedback") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { notes: await service.ledger.listFeedback() }); }
       if (req.method === "GET" && url.pathname === "/api/feedback/insights") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { insights: await service.developerFieldTestInsights() }); }

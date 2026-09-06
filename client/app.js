@@ -4,6 +4,7 @@ import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=113';
 import { connectionPresentation } from './connection-state.js?v=1';
 import { createInteractionAdvice } from './card-interaction-advice.js?v=1';
 
+const appearancePreviewMode = new URLSearchParams(location.search).get('appearance-preview') === '1';
 const MODES = ['life', 'commander', 'radiation', 'poison', 'energy', 'generic'];
 const IDENTITY_ORDER = ['W', 'U', 'B', 'R', 'G'];
 const IDENTITY_COLORS = { W: '#efe4c7', U: '#67a6d5', B: '#a089bd', R: '#d57a68', G: '#70a97a' };
@@ -319,7 +320,7 @@ function renderTurnFlow() {
   dom.undoTurnButton.hidden = !undoAvailable;
   if (undoAvailable) dom.undoTurnButton.textContent = `Undo handoff · ${Math.max(0, Math.ceil((15_000 - (Date.now() - handoff.handedOffAt)) / 1000))}s`;
   clearInterval(turnTicker);
-  turnTicker = setInterval(() => { if (state && !dom.game.hidden) renderTurnFlow(); }, 1000);
+  if (!appearancePreviewMode) turnTicker = setInterval(() => { if (state && !dom.game.hidden) renderTurnFlow(); }, 1000);
 }
 function render() {
   if (!state.commanderCastCounts) state.commanderCastCounts = blankDamage(state.commanderSources);
@@ -776,7 +777,7 @@ function renderConnection(status = transport.status) {
   dom.connectionButton.dataset.state = status; dom.connectionText.textContent = presentation.label; dom.disconnectBanner.hidden = !presentation.showOffline;
   dom.connectionDetail.textContent = `${presentation.detail}${status === 'connected' && state?.podCode ? ` Pod ${state.podCode}; this phone controls ${state.ownerPlayerId || 'its assigned seat'}.` : ''}`; if (state && !dom.game.hidden) render();
 }
-function saveLocal() { if (!state || !state.localSimulation) return; try { localStorage.setItem('fivefold-arc-test-state', JSON.stringify(state)); } catch { /* storage is optional */ } }
+function saveLocal() { if (appearancePreviewMode || !state || !state.localSimulation) return; try { localStorage.setItem('fivefold-arc-test-state', JSON.stringify(state)); } catch { /* storage is optional */ } }
 function loadLocal() { try { const saved = JSON.parse(localStorage.getItem('fivefold-arc-test-state')); if (saved?.commanderSources && saved?.players?.length && saved.playerCount === saved.players.length) return saved; } catch { /* ignore malformed state */ } return null; }
 
 fillSetupControls(); refreshSetupCommanderNames(); renderConnection(); renderSavedTables();
@@ -813,4 +814,26 @@ dom.viewCelebrationButton.addEventListener('click', () => { shownVictoryKey = nu
 transport.addEventListener('status', event => renderConnection(event.detail)); transport.addEventListener('state', event => { if (event.detail?.seats?.length) { const previousTossKey = coinTossKey(state?.lastCoinToss); const previousRollKey = startingPlayerRollKey(state?.turn?.startingPlayerRoll); const previousTurnKey = state?.turn?.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; state = stateFromSnapshot(event.detail); if (awaitingConfirmedResync && transport.status === 'connected') { awaitingConfirmedResync = false; const presentation = connectionPresentation({ status: 'connected', resynced: true }); dom.syncBanner.textContent = presentation.syncMessage; dom.syncBanner.hidden = false; clearTimeout(syncBannerTimer); syncBannerTimer = setTimeout(() => { dom.syncBanner.hidden = true; }, 5000); } const nextRollKey = startingPlayerRollKey(state.turn.startingPlayerRoll); const nextTurnKey = state.turn.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; if (dom.game.hidden) showView(dom.game); if (nextTurnKey && nextTurnKey !== previousTurnKey && nextTurnKey !== lastTurnHandoffKey) { lastTurnHandoffKey = nextTurnKey; showTurnHandoff(); } if (nextRollKey && nextRollKey !== previousRollKey && nextRollKey !== lastStartingRollKey) { lastStartingRollKey = nextRollKey; showStartingPlayerRoll(state.turn.startingPlayerRoll); } else if (coinTossKey(state.lastCoinToss) && coinTossKey(state.lastCoinToss) !== previousTossKey) { const dialog = coinTossDialogRequested; coinTossDialogRequested = false; showCoinToss(state.lastCoinToss, { dialog }); } else render(); } });
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js').catch(() => {});
 const deepJoinCode = new URLSearchParams(location.search).get('join');
-if (/^[A-Z0-9]{6}$/i.test(deepJoinCode || '')) openJoinCode(deepJoinCode);
+if (!appearancePreviewMode && /^[A-Z0-9]{6}$/i.test(deepJoinCode || '')) openJoinCode(deepJoinCode);
+if (appearancePreviewMode) {
+  transport.useLocal();
+  state = createState({ playerCount: 4, ownerName: 'Mira', podCode: 'STUDIO' });
+  const startedAt = Date.now();
+  state.turn = { ...state.turn, gameStarted: true, gameStartedAt: startedAt, turnStartedAt: startedAt, startingPlayerSeatId: 0 };
+  showView(dom.game); render();
+  document.documentElement.classList.add('appearance-preview');
+  const appearancePreviewStyle = document.createElement('style'); appearancePreviewStyle.textContent = 'html.appearance-preview body{background:radial-gradient(circle at var(--appearance-position,50% 0%),color-mix(in srgb,var(--appearance-atmosphere,#000) calc(var(--appearance-strength,0) * 100%),transparent),transparent 58%),var(--bg);background-size:cover;background-position:center}html.appearance-preview .game-shell{pointer-events:none}html.appearance-preview .counter-stage::after{border-style:var(--appearance-ring-style,solid)}#gameView[data-appearance-ring="none"] .counter-stage::after,#gameView[data-appearance-ring="none"] .counter-sigil{display:none}#gameView[data-appearance-ring="orbit"] .counter-stage::after{border-style:dashed}#gameView[data-appearance-seat="flat"] .pod-seat{border-radius:0;box-shadow:none}#gameView[data-appearance-seat="glass"] .pod-seat{background:color-mix(in srgb,var(--surface) 72%,transparent);backdrop-filter:blur(7px)}#gameView[data-appearance-button="glass"] .end-turn-button{background:color-mix(in srgb,var(--brass) 36%,var(--surface));color:var(--ink);backdrop-filter:blur(8px)}#gameView[data-appearance-button="outline"] .end-turn-button{background:transparent;color:var(--brass)}.mode-nav img{width:22px;height:22px;object-fit:contain}.mode-nav button>span{font-size:1.4rem}'; document.head.append(appearancePreviewStyle);
+  window.addEventListener('message', event => {
+    if (event.origin !== location.origin || event.data?.type !== 'fivefold-arc:appearance-skin') return;
+    const skin = event.data.skin; if (!skin) return;
+    const root = document.documentElement, game = dom.game;
+    root.style.setProperty('--bg', skin.background); root.style.setProperty('--surface', skin.surface); root.style.setProperty('--surface-2', skin.surface); root.style.setProperty('--ink', skin.text); root.style.setProperty('--muted', skin.muted); root.style.setProperty('--brass', skin.accent); root.style.setProperty('--brass-dark', skin.secondary); root.style.setProperty('--appearance-atmosphere', skin.atmosphereColor); root.style.setProperty('--appearance-strength', String((Number(skin.atmosphereStrength) || 0) / 100)); root.style.setProperty('--appearance-position', skin.atmospherePosition === 'bottom' ? '50% 100%' : skin.atmospherePosition === 'center' ? '50% 50%' : '50% 0%');
+    const previewPlayers = [4, 6, 8].includes(Number(skin.previewPlayers)) ? Number(skin.previewPlayers) : 4;
+    if (state.playerCount !== previewPlayers) { state = createState({ playerCount: previewPlayers, ownerName: 'Mira', podCode: 'STUDIO' }); const startedAt = Date.now(); state.turn = { ...state.turn, gameStarted: true, gameStartedAt: startedAt, turnStartedAt: startedAt, startingPlayerSeatId: 0 }; }
+    state.mode = skin.previewState === 'damage' ? 'commander' : 'life'; state.activePlayerId = 'P1'; state.turnSeatId = skin.previewState === 'other' ? 'P2' : 'P1';
+    game.dataset.appearanceArt = skin.backgroundTreatment || 'plain'; game.dataset.appearanceRing = skin.ring || 'arc'; game.dataset.appearanceButton = skin.buttonTreatment || 'solid'; game.dataset.appearanceSeat = skin.seatTreatment || 'raised';
+    document.body.style.backgroundImage = skin.backgroundData ? `linear-gradient(rgb(0 0 0 / .32), rgb(0 0 0 / .32)), url("${skin.backgroundData}")` : '';
+    MODES.forEach(mode => { const button = document.querySelector(`[data-mode="${mode}"]`), asset = skin.symbolData?.[mode]; if (!button) return; button.innerHTML = asset ? `<img src="${asset}" alt=""><small>${mode === 'commander' ? 'Cmdr' : mode}</small>` : `<span>${skin.symbols?.[mode] || button.textContent.trim().slice(0, 1)}</span><small>${mode === 'commander' ? 'Cmdr' : mode}</small>`; });
+    renderConnection(skin.previewState === 'offline' ? 'disconnected' : 'local'); render();
+  });
+}
