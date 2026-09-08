@@ -6,6 +6,8 @@ import { createInteractionAdvice } from './card-interaction-advice.js?v=1';
 
 const appearancePreviewMode = new URLSearchParams(location.search).get('appearance-preview') === '1';
 const MODES = ['life', 'commander', 'radiation', 'poison', 'energy', 'generic'];
+const LOCAL_DEMO_IDLE_TIMEOUT_MS = 24 * 60 * 60 * 1000;
+const LOCAL_DEMO_STATE_KEY = 'fivefold-arc-test-state';
 const IDENTITY_ORDER = ['W', 'U', 'B', 'R', 'G'];
 const IDENTITY_COLORS = { W: '#efe4c7', U: '#67a6d5', B: '#a089bd', R: '#d57a68', G: '#70a97a' };
 const ELIMINATION_ART = { life: 'assets/elimination-skull-v1.png', poison: 'assets/elimination-skull-poison-v1.png', commander: 'assets/elimination-skull-commander-v1.png' };
@@ -248,7 +250,7 @@ function renderCommanderNameFields(container, count, names = [], identities = []
 }
 function selectedCommanderCount(formName) { return Number($(`input[name="${formName}"]:checked`)?.value || 1); }
 function refreshSetupCommanderNames() { renderCommanderNameFields(dom.createCommanderNames, selectedCommanderCount('commanderCount')); renderCommanderNameFields(dom.joinCommanderNames, selectedCommanderCount('joinCommanderCount')); }
-function beginLocalGame(config) { transport.useLocal(); state = createState(config); showView(dom.game); render(); }
+function beginLocalGame(config) { transport.useLocal(); state = { ...createState(config), localDemoLastInteractionAt: Date.now() }; showView(dom.game); render(); }
 function showSharedGame(snapshot) { state = stateFromSnapshot(snapshot); saveTable(); renderSavedTables(); showView(dom.game); render(); }
 function showError(error) { dom.connectionDetail.textContent = error?.message || 'The pod server could not complete that request.'; dom.connectionDialog.showModal(); }
 function activePlayer() { return state.players.find(player => player.id === state.activePlayerId); }
@@ -777,12 +779,29 @@ function renderConnection(status = transport.status) {
   dom.connectionButton.dataset.state = status; dom.connectionText.textContent = presentation.label; dom.disconnectBanner.hidden = !presentation.showOffline;
   dom.connectionDetail.textContent = `${presentation.detail}${status === 'connected' && state?.podCode ? ` Pod ${state.podCode}; this phone controls ${state.ownerPlayerId || 'its assigned seat'}.` : ''}`; if (state && !dom.game.hidden) render();
 }
-function saveLocal() { if (appearancePreviewMode || !state || !state.localSimulation) return; try { localStorage.setItem('fivefold-arc-test-state', JSON.stringify(state)); } catch { /* storage is optional */ } }
-function loadLocal() { try { const saved = JSON.parse(localStorage.getItem('fivefold-arc-test-state')); if (saved?.commanderSources && saved?.players?.length && saved.playerCount === saved.players.length) return saved; } catch { /* ignore malformed state */ } return null; }
+function saveLocal() { if (appearancePreviewMode || !state || !state.localSimulation) return; try { localStorage.setItem(LOCAL_DEMO_STATE_KEY, JSON.stringify(state)); } catch { /* storage is optional */ } }
+function loadLocal() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LOCAL_DEMO_STATE_KEY));
+    const lastInteractionAt = Number(saved?.localDemoLastInteractionAt);
+    const expired = !Number.isFinite(lastInteractionAt) || Date.now() - lastInteractionAt > LOCAL_DEMO_IDLE_TIMEOUT_MS;
+    if (expired) { localStorage.removeItem(LOCAL_DEMO_STATE_KEY); return null; }
+    if (saved?.commanderSources && saved?.players?.length && saved.playerCount === saved.players.length) return saved;
+  } catch { /* ignore malformed state */ }
+  return null;
+}
+function touchLocalDemo() {
+  if (!appearancePreviewMode && state?.localSimulation && !dom.game.hidden) {
+    state.localDemoLastInteractionAt = Date.now();
+    saveLocal();
+  }
+}
 
 fillSetupControls(); refreshSetupCommanderNames(); renderConnection(); renderSavedTables();
 $('#createPodButton').addEventListener('click', () => showView(dom.create)); $('#joinPodButton').addEventListener('click', () => { showView(dom.join); dom.joinCodeStatus.textContent = ''; }); $('#changePodButton').addEventListener('click', () => showView(dom.join)); $$('[data-back]').forEach(button => button.addEventListener('click', () => { renderSavedTables(); showView(dom.landing); })); $('#podCode').addEventListener('input', event => { event.currentTarget.value = event.currentTarget.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); }); $('#joinSeat').addEventListener('change', () => { dom.joinName.placeholder = dom.joinSeat.value; renderJoinSeatClaim(); }); dom.joinCodeForm.addEventListener('submit', async event => { event.preventDefault(); await refreshJoinSeats(); }); $$('input[name="commanderCount"], input[name="joinCommanderCount"]').forEach(input => input.addEventListener('change', refreshSetupCommanderNames));
 $('#quickTestButton').addEventListener('click', () => { const saved = loadLocal(); if (saved) { transport.useLocal(); state = saved; showView(dom.game); render(); } else beginLocalGame({}); });
+document.addEventListener('pointerdown', touchLocalDemo);
+document.addEventListener('keydown', touchLocalDemo);
 $('#createForm').addEventListener('submit', async event => { event.preventDefault(); const form = new FormData(event.currentTarget); const playerCount = Number(form.get('playerCount')); const ownerCommanderCount = Number(form.get('commanderCount')); const ownerCommanderNames = commanderNamesFromForm(form, ownerCommanderCount); const ownerCommanderColors = commanderColorsFromFields(dom.createCommanderNames, ownerCommanderCount); const ownerPlayerId = 'P1'; const ownerName = String(form.get('name') || '').trim() || ownerPlayerId; const enteredRoundLimit = String(form.get('roundLimitMinutes') || '').trim(); const roundLimitMinutes = enteredRoundLimit ? Number(enteredRoundLimit) : null; if (roundLimitMinutes !== null && (!Number.isInteger(roundLimitMinutes) || roundLimitMinutes < 1 || roundLimitMinutes > 999)) { dom.roundLimitMinutes.focus(); return; } const config = { playerCount, startingLife: Number(form.get('startingLife')), ownerPlayerId, ownerName, ownerCommanderCount, ownerCommanderNames, ownerCommanderColors, roundLimitMinutes }; if (dom.localSimulation.checked) return beginLocalGame({ ...config, localSimulation: true, podCode: 'LOCAL' }); try { const result = await transport.createRoom({ playerCount, startingLife: config.startingLife, commanderCount: ownerCommanderCount, commanderNames: ownerCommanderNames, commanderColors: ownerCommanderColors, name: ownerName, roundLimitMinutes }); showSharedGame(result.snapshot); } catch (error) { showError(error); } });
 $('#joinForm').addEventListener('submit', async event => { event.preventDefault(); const form = new FormData(event.currentTarget); const code = $('#podCode').value.trim().toUpperCase(); const ownerPlayerId = $('#joinSeat').value; if (!/^P[1-8]$/.test(ownerPlayerId)) return showError(new Error('Wait for this pod’s open seats to load, then choose one.')); const seatId = Number(ownerPlayerId.slice(1)) - 1; const commanderCount = Number(form.get('joinCommanderCount')); const commanderNames = commanderNamesFromForm(form, commanderCount); const commanderColors = commanderColorsFromFields(dom.joinCommanderNames, commanderCount); const ownerName = String(form.get('name') || '').trim() || ownerPlayerId; try { const room = await transport.inspectRoom(code); if (!room.snapshot.seats[seatId] || (room.snapshot.seats[seatId].claimed && !transport.hasStoredReclaimToken(code, seatId))) throw new Error('That seat is no longer open. Choose one of the available seats.'); const result = await transport.claimRoom({ code, seatId, name: ownerName, commanderCount, commanderNames, commanderColors }); showSharedGame(result.snapshot); } catch (error) { showError(error); } });
 $('#recoverPodButton').addEventListener('click', async () => { const code = $('#podCode').value.trim().toUpperCase(); if (code.length !== 6) return showError(new Error('Enter the six-character pod code first.')); try { const { snapshot } = await transport.restoreRoom(code); const host = snapshot.seats[snapshot.hostSeatId]; const result = await transport.claimRoom({ code, seatId: snapshot.hostSeatId, name: host.name, commanderCount: host.commanderCount, commanderNames: host.commanderNames, commanderColors: host.commanderColors }); showSharedGame(result.snapshot); } catch (error) { showError(error); } });
@@ -833,7 +852,8 @@ if (appearancePreviewMode) {
     root.style.setProperty('--bg', skin.background); root.style.setProperty('--surface', skin.surface); root.style.setProperty('--surface-2', skin.surface); root.style.setProperty('--ink', skin.text); root.style.setProperty('--muted', skin.muted); root.style.setProperty('--brass', skin.accent); root.style.setProperty('--brass-dark', skin.secondary); root.style.setProperty('--appearance-atmosphere', skin.atmosphereColor); root.style.setProperty('--appearance-strength', String((Number(skin.atmosphereStrength) || 0) / 100)); root.style.setProperty('--appearance-position', skin.atmospherePosition === 'bottom' ? '50% 100%' : skin.atmospherePosition === 'center' ? '50% 50%' : '50% 0%'); root.style.setProperty('--appearance-seat-opacity', String(Math.min(100, Math.max(35, Number(skin.seatOpacity) || 100)))); root.style.setProperty('--appearance-seat-blur', String(Math.min(16, Math.max(0, Number(skin.seatBlur) || 0)))); root.style.setProperty('--appearance-seat-border', String(Math.min(100, Math.max(0, Number.isFinite(Number(skin.seatBorder)) ? Number(skin.seatBorder) : 70))));
     const previewPlayers = [4, 6, 8].includes(Number(skin.previewPlayers)) ? Number(skin.previewPlayers) : 4;
     if (state.playerCount !== previewPlayers) { state = createState({ playerCount: previewPlayers, ownerName: 'Mira', podCode: 'STUDIO' }); const startedAt = Date.now(); state.turn = { ...state.turn, gameStarted: true, gameStartedAt: startedAt, turnStartedAt: startedAt, startingPlayerSeatId: 0 }; }
-    state.mode = skin.previewState === 'damage' ? 'commander' : 'life'; state.activePlayerId = 'P1'; state.turnSeatId = skin.previewState === 'other' ? 'P2' : 'P1';
+    const previewMode = MODES.includes(skin.previewMode) ? skin.previewMode : skin.previewState === 'damage' ? 'commander' : 'life';
+    state.mode = previewMode; state.activePlayerId = 'P1'; state.turnSeatId = skin.previewState === 'other' ? 'P2' : 'P1';
     game.dataset.appearanceArt = skin.backgroundTreatment || 'plain'; game.dataset.appearanceRing = skin.ring || 'arc'; game.dataset.appearanceButton = skin.buttonTreatment || 'solid'; game.dataset.appearanceSeat = skin.seatTreatment || 'raised';
     const seal = document.querySelector('.counter-sigil'); if (seal) seal.innerHTML = skin.sealData ? `<img src="${skin.sealData}" alt="">` : builtInSealMarkup;
     document.body.style.backgroundImage = skin.backgroundData ? `linear-gradient(rgb(0 0 0 / .32), rgb(0 0 0 / .32)), url("${skin.backgroundData}")` : '';
@@ -842,4 +862,5 @@ if (appearancePreviewMode) {
     MODES.forEach(mode => { const button = document.querySelector(`[data-mode="${mode}"]`), asset = skin.symbolData?.[mode], scale = Math.min(200, Math.max(60, Number(skin.symbolScale?.[mode]) || 100)) / 100; if (!button) return; button.innerHTML = asset ? `<img src="${asset}" alt=""><small>${mode === 'commander' ? 'Cmdr' : mode}</small>` : `<span>${skin.symbols?.[mode] || button.textContent.trim().slice(0, 1)}</span><small>${mode === 'commander' ? 'Cmdr' : mode}</small>`; const icon = button.querySelector('img, span'); if (icon) { icon.style.display = 'inline-block'; icon.style.transform = `scale(${scale})`; icon.style.transformOrigin = 'center'; } });
     renderConnection(skin.previewState === 'offline' ? 'disconnected' : 'local'); render();
   });
+  if (window.parent !== window) window.parent.postMessage({ type: 'fivefold-arc:appearance-preview-ready' }, location.origin);
 }

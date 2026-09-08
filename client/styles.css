@@ -394,8 +394,9 @@ dialog p { color: var(--muted); line-height: 1.5; }
 }
 
 /* Tabletop Instrument visual pass. Presentation only: controls and game state stay intact. */
-:root { --ink: #eee7d9; --muted: #b9afa0; --surface: #121212; --surface-2: #1b1b1a; --line: #423e36; --brass: #d5af70; --brass-dark: #806543; --bg: #0b0b0b; --paper: #eee7d9; }
-body { background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), transparent 40rem), radial-gradient(circle at 12% 28%, rgb(214 175 112 / .05), transparent 18rem), repeating-radial-gradient(ellipse at 52% 30%, rgb(255 255 255 / .018) 0 1px, transparent 1px 5px), #0b0b0b; }
+:root { --ink: #eee7d9; --muted: #b9afa0; --surface: #121212; --surface-2: #1b1b1a; --line: #423e36; --brass: #d5af70; --brass-dark: #806543; --bg: #0b0b0b; --paper: #eee7d9; --ambient-glow: rgb(112 169 122 / .12); }
+/* Built-in Neutral Arc ambience. Presentation only; remove this layer to restore the prior background. */
+body { background: radial-gradient(circle at 50% 0%, var(--ambient-glow), transparent 58%), radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / .035), transparent 40rem), radial-gradient(circle at 12% 28%, rgb(214 175 112 / .05), transparent 18rem), repeating-radial-gradient(ellipse at 52% 30%, rgb(255 255 255 / .018) 0 1px, transparent 1px 5px), #0b0b0b; }
 .brand-bar { min-height: 112px; padding: max(20px, env(safe-area-inset-top)) 35px 19px; border-color: #2e2d2a; background: rgb(14 14 14 / .96); box-shadow: inset 0 -1px rgb(255 255 255 / .025), 0 2px 18px rgb(0 0 0 / .26); }
 .brand { gap: 18px; }.brand strong { color: #d9b475; font-size: clamp(1.55rem, 7.5vw, 2.1rem); letter-spacing: .045em; }.brand small { color: #b8b1a7; font-size: clamp(.58rem, 2.7vw, .77rem); letter-spacing: .12em; }
 .connection-pill { min-height: 44px; padding: 8px 17px; border-color: #625743; background: linear-gradient(145deg, #1d1c1a, #101010); box-shadow: inset 0 1px rgb(255 255 255 / .05), 0 2px 5px rgb(0 0 0 / .42); color: #d9b475; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }

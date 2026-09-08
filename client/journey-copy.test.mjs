@@ -42,6 +42,13 @@ test('saved tables and QR links return players to a pod without sharing seat cre
   assert.doesNotMatch(html, /reclaimToken/);
 });
 
+test('the local four-player demo expires after a generous idle period instead of restoring stale timers', () => {
+  assert.match(app, /const LOCAL_DEMO_IDLE_TIMEOUT_MS = 24 \* 60 \* 60 \* 1000;/);
+  assert.match(app, /Date\.now\(\) - lastInteractionAt > LOCAL_DEMO_IDLE_TIMEOUT_MS/);
+  assert.match(app, /localStorage\.removeItem\(LOCAL_DEMO_STATE_KEY\); return null;/);
+  assert.match(app, /state\.localDemoLastInteractionAt = Date\.now\(\);/);
+});
+
 test('seat connection state remains a compact symbol at every pod size', () => {
   assert.doesNotMatch(styles, /seat-state::before \{ content: attr\(title\)/);
   assert.match(app, /stateSymbol = isWaiting \? '○' : isOffline \? '×'/);
