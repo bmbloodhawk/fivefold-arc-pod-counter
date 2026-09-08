@@ -188,6 +188,10 @@ test('the confirmed winner is celebrated on every phone with artwork and a tap-t
   assert.match(app, /function accoladeArtUrl\(title\).*assets\/accolades/s);
   assert.match(app, /function winnerArtUrl\(winner\).*last-one-standing.*table-monarch.*arc-victor/s);
   assert.match(app, /dom\.personalMatchArt\.style\.backgroundImage/);
+  assert.match(html, /id="nextGameButton"[^>]*>Start next game/);
+  assert.match(app, /dom\.nextGameButton\.hidden = !result \|\| !winner \|\| !\(state\?\.localSimulation \|\| transport\.seatId === state\?\.hostSeatId\)/);
+  assert.match(app, /openResetDialog\(\{ nextGame: true \}\)/);
+  assert.match(app, /dom\.confirmResetButton\.textContent = nextGame \? 'Start next game' : 'Reset game';/);
   assert.match(styles, /\.personal-match-art \{[\s\S]*background-size: cover/);
   assert.doesNotMatch(styles, /\.personal-match-art \{[^}]*opacity:/);
 });

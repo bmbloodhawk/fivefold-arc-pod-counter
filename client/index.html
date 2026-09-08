@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=173">
+  <link rel="stylesheet" href="styles.css?v=174">
 </head>
 <body>
   <header class="brand-bar">
@@ -251,8 +251,8 @@
   <dialog id="resetDialog">
     <form method="dialog">
       <div class="dialog-mark" aria-hidden="true">↺</div>
-      <h2>Reset this game?</h2>
-      <p>Life returns to the starting total. All other counters and elimination markers return to zero. Pod setup stays the same.</p>
+      <h2 id="resetTitle">Reset this game?</h2>
+      <p id="resetDetail">Life returns to the starting total. All other counters and elimination markers return to zero. Pod setup stays the same.</p>
       <div class="dialog-actions">
         <button type="button" class="secondary-action" onclick="this.closest('dialog').close('cancel')">Cancel</button>
         <button id="confirmResetButton" value="confirm" class="danger-action">Reset game</button>
@@ -361,6 +361,7 @@
         </section>
         <div class="victory-dismissal">
           <p class="victory-tap-hint">Tap anywhere to continue</p>
+          <button id="nextGameButton" type="button" class="primary-action" hidden>Start next game</button>
           <button value="close" class="primary-action">Close celebration</button>
         </div>
       </div>
@@ -439,6 +440,6 @@
     <form method="dialog"><h2 id="savedPlaytestsTitle">Saved playtests</h2><div id="savedPlaytestsContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
   </dialog>
 
-  <script type="module" src="app.js?v=143"></script>
+  <script type="module" src="app.js?v=144"></script>
 </body>
 </html>
