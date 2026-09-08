@@ -17,9 +17,11 @@ test('joining keeps optional commander setup out of the primary claim path', () 
 
 test('updating a pod confirms only entered commander names that have not already been checked', () => {
   assert.match(app, /async function confirmUnresolvedCommanderDetails\(container, count\)/);
-  assert.match(app, /if \(!name \|\| input\.dataset\.commanderColors !== undefined\) continue;/);
-  assert.match(app, /const colors = await confirmUnresolvedCommanderDetails\(dom\.gameCommanderNames, count\);/);
-  assert.match(app, /Color identity not confirmed\. You can update it later\./);
+  assert.match(app, /input\.dataset\.commanderLookupFailed === 'true'/);
+  assert.match(app, /input\.dataset\.commanderLookupFailed = 'true';/);
+  assert.match(app, /status\.textContent = error\.message \|\| 'Commander not found\. Check the spelling and try again\.'/);
+  assert.match(app, /dom\.saveCommanderCountButton\.textContent = 'Update without colors';/);
+  assert.match(app, /event\.preventDefault\(\);[\s\S]*await confirmUnresolvedCommanderDetails\(dom\.gameCommanderNames, count\)/);
 });
 
 test('joining explains the claimed-seat boundary and normalizes the join code', () => {

@@ -230,10 +230,11 @@ async function lookupCommanderIdentity(name) {
   return { name: String(result.name || name), colors: normaliseIdentity(result.colors) };
 }
 async function confirmUnresolvedCommanderDetails(container, count) {
+  const unresolved = [];
   for (let slot = 0; slot < count; slot += 1) {
     const input = container.querySelector(`input[name="commanderName${slot}"]`);
     const name = input?.value.trim();
-    if (!name || input.dataset.commanderColors !== undefined) continue;
+    if (!name || input.dataset.commanderColors !== undefined || input.dataset.commanderLookupFailed === 'true') continue;
     const status = input.closest('.commander-identity-field')?.querySelector('.commander-lookup-status');
     if (status) status.textContent = 'Confirming commander…';
     try {
@@ -241,11 +242,13 @@ async function confirmUnresolvedCommanderDetails(container, count) {
       input.value = card.name;
       input.dataset.commanderColors = card.colors.join(',');
       if (status) status.textContent = `✓ Confirmed: ${card.colors.join('') || 'Colorless'}`;
-    } catch {
-      if (status) status.textContent = 'Color identity not confirmed. You can update it later.';
+    } catch (error) {
+      input.dataset.commanderLookupFailed = 'true';
+      unresolved.push(name);
+      if (status) status.textContent = error.message || 'Commander not found. Check the spelling and try again.';
     }
   }
-  return commanderColorsFromFields(container, count);
+  return { colors: commanderColorsFromFields(container, count), unresolved };
 }
 async function lookupCard(name) {
   const response = await fetch(`${apiBaseFromPage()}/api/cards/lookup?name=${encodeURIComponent(name)}`);
@@ -845,7 +848,7 @@ dom.commanderSetupButton.addEventListener('click', () => { dom.gameMenu.hidden =
 dom.commanderTaxQuickButton?.addEventListener('click', () => { renderCommanderTaxDialog(); dom.commanderTaxDialog.showModal(); });
 dom.backToSetupButton?.addEventListener('click', returnToSetup);
 $$('input[name="gameCommanderCount"]').forEach(input => input.addEventListener('change', () => renderCommanderNameFields(dom.gameCommanderNames, selectedCommanderCount('gameCommanderCount'))));
-dom.commanderCountForm.addEventListener('submit', async event => { if (event.submitter?.value === 'confirm') { const form = new FormData(dom.commanderCountForm); const count = Number(form.get('gameCommanderCount')); const colors = await confirmUnresolvedCommanderDetails(dom.gameCommanderNames, count); const names = commanderNamesFromForm(new FormData(dom.commanderCountForm), count); updateCommanderSetup(count, names, colors); } }); dom.declareWinnerForm.addEventListener('submit', event => { if (event.submitter?.value === 'confirm') declareWinner(); }); dom.connectionButton.addEventListener('click', () => dom.connectionDialog.showModal());
+dom.commanderCountForm.addEventListener('submit', async event => { if (event.submitter?.value === 'confirm') { event.preventDefault(); const form = new FormData(dom.commanderCountForm); const count = Number(form.get('gameCommanderCount')); dom.saveCommanderCountButton.disabled = true; const { colors, unresolved } = await confirmUnresolvedCommanderDetails(dom.gameCommanderNames, count); if (unresolved.length) { dom.saveCommanderCountButton.textContent = 'Update without colors'; dom.saveCommanderCountButton.disabled = false; return; } const names = commanderNamesFromForm(new FormData(dom.commanderCountForm), count); await updateCommanderSetup(count, names, colors); dom.commanderCountDialog.close('confirm'); } }); dom.declareWinnerForm.addEventListener('submit', event => { if (event.submitter?.value === 'confirm') declareWinner(); }); dom.connectionButton.addEventListener('click', () => dom.connectionDialog.showModal());
 dom.victoryDialog.addEventListener('click', () => { if (dom.victoryDialog.open) dom.victoryDialog.close('tap'); });
 dom.viewCelebrationButton.addEventListener('click', () => { shownVictoryKey = null; dom.gameMenu.hidden = true; renderVictory(); });
 transport.addEventListener('status', event => renderConnection(event.detail)); transport.addEventListener('state', event => { if (event.detail?.seats?.length) { const previousTossKey = coinTossKey(state?.lastCoinToss); const previousRollKey = startingPlayerRollKey(state?.turn?.startingPlayerRoll); const previousTurnKey = state?.turn?.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; state = stateFromSnapshot(event.detail); if (awaitingConfirmedResync && transport.status === 'connected') { awaitingConfirmedResync = false; const presentation = connectionPresentation({ status: 'connected', resynced: true }); dom.syncBanner.textContent = presentation.syncMessage; dom.syncBanner.hidden = false; clearTimeout(syncBannerTimer); syncBannerTimer = setTimeout(() => { dom.syncBanner.hidden = true; }, 5000); } const nextRollKey = startingPlayerRollKey(state.turn.startingPlayerRoll); const nextTurnKey = state.turn.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; if (dom.game.hidden) showView(dom.game); if (nextTurnKey && nextTurnKey !== previousTurnKey && nextTurnKey !== lastTurnHandoffKey) { lastTurnHandoffKey = nextTurnKey; showTurnHandoff(); } if (nextRollKey && nextRollKey !== previousRollKey && nextRollKey !== lastStartingRollKey) { lastStartingRollKey = nextRollKey; showStartingPlayerRoll(state.turn.startingPlayerRoll); } else if (coinTossKey(state.lastCoinToss) && coinTossKey(state.lastCoinToss) !== previousTossKey) { const dialog = coinTossDialogRequested; coinTossDialogRequested = false; showCoinToss(state.lastCoinToss, { dialog }); } else render(); } });
