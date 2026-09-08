@@ -15,6 +15,13 @@ test('joining keeps optional commander setup out of the primary claim path', () 
   assert.doesNotMatch(html, /Preview join locally/);
 });
 
+test('updating a pod confirms only entered commander names that have not already been checked', () => {
+  assert.match(app, /async function confirmUnresolvedCommanderDetails\(container, count\)/);
+  assert.match(app, /if \(!name \|\| input\.dataset\.commanderColors !== undefined\) continue;/);
+  assert.match(app, /const colors = await confirmUnresolvedCommanderDetails\(dom\.gameCommanderNames, count\);/);
+  assert.match(app, /Color identity not confirmed\. You can update it later\./);
+});
+
 test('joining explains the claimed-seat boundary and normalizes the join code', () => {
   assert.match(html, /id="joinSeatClaim"/);
   assert.match(app, /This phone will control only \$\{seat\}/);
