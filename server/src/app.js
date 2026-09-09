@@ -1212,6 +1212,7 @@ export function createRealtimeServer(options = {}) {
       const parts = url.pathname.split("/").filter(Boolean);
       const connectionId = req.headers["x-connection-id"];
       if (req.method === "GET" && url.pathname === "/health") return json(res, 200, { ok: true });
+      if (req.method === "GET" && url.pathname === "/api/developer/access") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { ok: true }); }
       if (req.method === "GET" && url.pathname === "/api/appearance-studio/catalog") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { catalog: await appearanceCatalog.read() }); }
       if (req.method === "PUT" && url.pathname === "/api/appearance-studio/catalog") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { catalog: await appearanceCatalog.write(await readJson(req, 8 * 1024 * 1024)) }); }
       if (parts[0] === "api" && parts[1] === "appearance-studio" && parts[2] === "assets" && /^[A-Za-z0-9_-]{4,80}$/.test(parts[3] || "")) { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); if (req.method === "GET") return json(res, 200, { asset: await appearanceCatalog.readAsset(parts[3]) }); if (req.method === "PUT") return json(res, 200, { asset: await appearanceCatalog.writeAsset(parts[3], await readJson(req, 2 * 1024 * 1024)) }); if (req.method === "DELETE") { await appearanceCatalog.deleteAsset(parts[3]); return json(res, 204, {}); } }

@@ -8,13 +8,14 @@ const appearancePreviewMode = new URLSearchParams(location.search).get('appearan
 const MODES = ['life', 'commander', 'radiation', 'poison', 'energy', 'generic'];
 const LOCAL_DEMO_IDLE_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 const LOCAL_DEMO_STATE_KEY = 'fivefold-arc-test-state';
+const DEVELOPER_MODE_KEY = 'fivefold-arc:developer-mode';
 const IDENTITY_ORDER = ['W', 'U', 'B', 'R', 'G'];
 const IDENTITY_COLORS = { W: '#efe4c7', U: '#67a6d5', B: '#a089bd', R: '#d57a68', G: '#70a97a' };
 const ELIMINATION_ART = { life: 'assets/elimination-skull-v1.png', poison: 'assets/elimination-skull-poison-v1.png', commander: 'assets/elimination-skull-commander-v1.png' };
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const dom = {
-  views: $$('.view'), landing: $('#landingView'), create: $('#createView'), join: $('#joinView'), joinSeatView: $('#joinSeatView'), game: $('#gameView'), joinCodeForm: $('#joinCodeForm'), joinCodeStatus: $('#joinCodeStatus'), savedTables: $('#savedTables'), savedTablesList: $('#savedTablesList'),
+  views: $$('.view'), landing: $('#landingView'), create: $('#createView'), join: $('#joinView'), joinSeatView: $('#joinSeatView'), game: $('#gameView'), joinCodeForm: $('#joinCodeForm'), joinCodeStatus: $('#joinCodeStatus'), savedTables: $('#savedTables'), savedTablesList: $('#savedTablesList'), quickTestButton: $('#quickTestButton'), localSimulationField: $('#localSimulationField'),
   connectionButton: $('#connectionButton'), connectionText: $('#connectionText'), connectionDialog: $('#connectionDialog'), connectionDetail: $('#connectionDetail'),
   playerCountChoices: $('#playerCountChoices'), createName: $('#createName'), joinSeat: $('#joinSeat'), joinName: $('#joinName'), joinSeatClaim: $('#joinSeatClaim'), activeSeat: $('#activeSeat'), localSimulation: $('#localSimulation'), roundLimitMinutes: $('#roundLimitMinutes'), createCommanderNames: $('#createCommanderNames'), joinCommanderNames: $('#joinCommanderNames'), gameCommanderNames: $('#gameCommanderNames'),
   podStrip: $('#podStrip'), podLabel: $('#podLabel'), commanderIdentityName: $('#commanderIdentityName'), identityHeaderRail: $('#identityHeaderRail'), modeTitle: $('#modeTitle'), mainValue: $('#mainValue'),
@@ -25,10 +26,11 @@ const dom = {
   commanderCountDialog: $('#commanderCountDialog'), commanderCountDetail: $('#commanderCountDetail'), commanderCountForm: $('#commanderCountForm'), saveCommanderCountButton: $('#saveCommanderCountButton'), joinQrDialog: $('#joinQrDialog'), joinQrImage: $('#joinQrImage'), joinQrCode: $('#joinQrCode'), shareJoinLinkButton: $('#shareJoinLinkButton'), copyJoinLinkButton: $('#copyJoinLinkButton'),
   commanderTaxQuickButton: $('#commanderTaxQuickButton'), commanderTaxDialog: $('#commanderTaxDialog'), commanderTaxDetail: $('#commanderTaxDetail'), commanderTaxList: $('#commanderTaxList'),
   cardCameraButton: $('#cardCameraButton'), cardCameraDialog: $('#cardCameraDialog'), cardAdvisorForm: $('#cardAdvisorForm'), firstCardTitle: $('#firstCardTitle'), secondCardTitle: $('#secondCardTitle'), interactionSituation: $('#interactionSituation'), cardLookupStatus: $('#cardLookupStatus'), cardLookupResult: $('#cardLookupResult'),
-  customLifeButton: $('#customLifeButton'), customLifeDialog: $('#customLifeDialog'), customLifeForm: $('#customLifeForm'), customLifeAmount: $('#customLifeAmount'), cancelCustomLifeButton: $('#cancelCustomLifeButton'), playtestNotesButton: $('#playtestNotesButton'), playtestRecapButton: $('#playtestRecapButton'), fieldTestButton: $('#fieldTestButton'), markDevelopmentButton: $('#markDevelopmentButton'), fieldTestDialog: $('#fieldTestDialog'), fieldTestForm: $('#fieldTestForm'), fieldTestStatus: $('#fieldTestStatus'), savedPlaytestsButton: $('#savedPlaytestsButton'), refreshTableButton: $('#refreshTableButton'), playtestNotesDialog: $('#playtestNotesDialog'), playtestNotesForm: $('#playtestNotesForm'), playtestNotesList: $('#playtestNotesList'), playtestNoteText: $('#playtestNoteText'), playtestNoteStatus: $('#playtestNoteStatus'), playtestRecapDialog: $('#playtestRecapDialog'), playtestRecapContent: $('#playtestRecapContent'), savedPlaytestsDialog: $('#savedPlaytestsDialog'), savedPlaytestsContent: $('#savedPlaytestsContent')
+  customLifeButton: $('#customLifeButton'), customLifeDialog: $('#customLifeDialog'), customLifeForm: $('#customLifeForm'), customLifeAmount: $('#customLifeAmount'), cancelCustomLifeButton: $('#cancelCustomLifeButton'), playtestNotesButton: $('#playtestNotesButton'), playtestRecapButton: $('#playtestRecapButton'), fieldTestButton: $('#fieldTestButton'), markDevelopmentButton: $('#markDevelopmentButton'), fieldTestDialog: $('#fieldTestDialog'), fieldTestForm: $('#fieldTestForm'), fieldTestStatus: $('#fieldTestStatus'), savedPlaytestsButton: $('#savedPlaytestsButton'), lockDeveloperModeButton: $('#lockDeveloperModeButton'), developerModeDialog: $('#developerModeDialog'), developerModeForm: $('#developerModeForm'), developerModeKey: $('#developerModeKey'), developerModeStatus: $('#developerModeStatus'), unlockDeveloperModeButton: $('#unlockDeveloperModeButton'), refreshTableButton: $('#refreshTableButton'), playtestNotesDialog: $('#playtestNotesDialog'), playtestNotesForm: $('#playtestNotesForm'), playtestNotesList: $('#playtestNotesList'), playtestNoteText: $('#playtestNoteText'), playtestNoteStatus: $('#playtestNoteStatus'), playtestRecapDialog: $('#playtestRecapDialog'), playtestRecapContent: $('#playtestRecapContent'), savedPlaytestsDialog: $('#savedPlaytestsDialog'), savedPlaytestsContent: $('#savedPlaytestsContent')
 };
 const transport = new RealtimeAdapter({ apiBase: apiBaseFromPage() });
 let state = null;
+let developerMode = sessionStorage.getItem(DEVELOPER_MODE_KEY) === 'on';
 const SAVED_TABLES_KEY = 'fivefold-arc:saved-tables';
 let lifeChange = null;
 let lifeChangeTimer = null;
@@ -108,6 +110,18 @@ function identityBackground(colors) {
 function identityRail(colors) { const values = normaliseIdentity(colors); if (!values.length) return ''; const stops = values.map((color, index) => `${IDENTITY_COLORS[color]} ${Math.round(index * 100 / values.length)}% ${Math.round((index + 1) * 100 / values.length)}%`).join(', '); return `linear-gradient(90deg, ${stops})`; }
 function identityStyle(player) { const rail = identityRail(playerIdentity(player)); return rail ? ` style="--identity-rail: ${rail}"` : ''; }
 function identityLabel(player) { const colors = playerIdentity(player); return colors.length ? `Commander color identity: ${colors.join(', ')}.` : 'Commander color identity: colorless or not set.'; }
+function developerHost() { return Boolean(state && (state.localSimulation || transport.seatId === state.hostSeatId)); }
+function renderDeveloperTools() {
+  const visible = developerMode && developerHost();
+  [dom.playtestNotesButton, dom.playtestRecapButton, dom.fieldTestButton, dom.markDevelopmentButton, dom.savedPlaytestsButton, dom.lockDeveloperModeButton].forEach(button => { button.hidden = !visible; });
+  dom.quickTestButton.hidden = !developerMode;
+  dom.localSimulationField.hidden = !developerMode;
+}
+async function verifyDeveloperKey(key) {
+  const response = await fetch(`${apiBaseFromPage()}/api/developer/access`, { headers: { 'x-feedback-portal-key': key } });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result?.error?.message || 'Developer access could not be verified.');
+}
 function normaliseSnapshotSources(snapshot) {
   const raw = Array.isArray(snapshot.commanderSources) ? snapshot.commanderSources : null;
   if (raw?.length) return raw.map((source, index) => {
@@ -347,6 +361,7 @@ function renderTurnFlow() {
   if (!appearancePreviewMode) turnTicker = setInterval(() => { if (state && !dom.game.hidden) renderTurnFlow(); }, 1000);
 }
 function render() {
+  renderDeveloperTools();
   if (!state.commanderCastCounts) state.commanderCastCounts = blankDamage(state.commanderSources);
   state.players.forEach(evaluatePlayer); localLastPlayerStanding(); const player = activePlayer(); const source = state.mode === 'commander' ? selectedSourceFor(player) : null;
   dom.game.style.setProperty('--identity-seal', identityBackground(playerIdentity(player)) || 'none');
@@ -825,7 +840,7 @@ function touchLocalDemo() {
   }
 }
 
-fillSetupControls(); refreshSetupCommanderNames(); renderConnection(); renderSavedTables();
+fillSetupControls(); refreshSetupCommanderNames(); renderDeveloperTools(); renderConnection(); renderSavedTables();
 $('#createPodButton').addEventListener('click', () => showView(dom.create)); $('#joinPodButton').addEventListener('click', () => { showView(dom.join); dom.joinCodeStatus.textContent = ''; }); $('#changePodButton').addEventListener('click', () => showView(dom.join)); $$('[data-back]').forEach(button => button.addEventListener('click', () => { renderSavedTables(); showView(dom.landing); })); $('#podCode').addEventListener('input', event => { event.currentTarget.value = event.currentTarget.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); }); $('#joinSeat').addEventListener('change', () => { dom.joinName.placeholder = dom.joinSeat.value; renderJoinSeatClaim(); }); dom.joinCodeForm.addEventListener('submit', async event => { event.preventDefault(); await refreshJoinSeats(); }); $$('input[name="commanderCount"], input[name="joinCommanderCount"]').forEach(input => input.addEventListener('change', refreshSetupCommanderNames));
 $('#quickTestButton').addEventListener('click', () => { const saved = loadLocal(); if (saved) { transport.useLocal(); state = saved; showView(dom.game); render(); } else beginLocalGame({}); });
 document.addEventListener('pointerdown', touchLocalDemo);
@@ -852,6 +867,12 @@ dom.startingRollDialog.addEventListener('close', () => { startingRollSequence +=
 dom.rollMyD20Button.addEventListener('click', rollMyStartingD20);
 $('#closeGameMenuButton').addEventListener('click', () => { dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); });
 dom.commanderSetupButton.addEventListener('click', () => { dom.gameMenu.hidden = true; const player = state.localSimulation ? activePlayer() : state.players.find(item => item.id === state.ownerPlayerId); dom.commanderCountDetail.textContent = state.localSimulation ? `Local simulation: change ${displayName(player)}'s commander details.` : `Change your commander names and color identity for this pod. Your current game and seat stay in place.`; dom.saveCommanderCountButton.textContent = 'Update this pod'; dom.saveCommanderCountButton.disabled = false; $(`input[name="gameCommanderCount"][value="${player.commanderCount}"]`).checked = true; renderCommanderNameFields(dom.gameCommanderNames, player.commanderCount, player.commanderNames, player.commanderColors); dom.commanderCountDialog.showModal(); });
+let developerHoldTimer = null;
+const clearDeveloperHold = () => { clearTimeout(developerHoldTimer); developerHoldTimer = null; };
+dom.podLabel.addEventListener('pointerdown', () => { if (!developerMode && developerHost()) developerHoldTimer = setTimeout(() => { developerHoldTimer = null; dom.developerModeKey.value = ''; dom.developerModeStatus.textContent = ''; dom.developerModeDialog.showModal(); dom.developerModeKey.focus(); }, 750); });
+['pointerup', 'pointercancel', 'pointerleave'].forEach(type => dom.podLabel.addEventListener(type, clearDeveloperHold));
+dom.developerModeForm.addEventListener('submit', async event => { event.preventDefault(); const key = dom.developerModeKey.value; dom.unlockDeveloperModeButton.disabled = true; dom.developerModeStatus.textContent = 'Verifying…'; try { await verifyDeveloperKey(key); developerMode = true; sessionStorage.setItem(DEVELOPER_MODE_KEY, 'on'); dom.developerModeDialog.close('unlocked'); renderDeveloperTools(); } catch (error) { dom.developerModeStatus.textContent = error.message; } finally { dom.unlockDeveloperModeButton.disabled = false; } });
+dom.lockDeveloperModeButton.addEventListener('click', () => { developerMode = false; sessionStorage.removeItem(DEVELOPER_MODE_KEY); renderDeveloperTools(); });
 dom.commanderTaxQuickButton?.addEventListener('click', () => { renderCommanderTaxDialog(); dom.commanderTaxDialog.showModal(); });
 dom.backToSetupButton?.addEventListener('click', returnToSetup);
 $$('input[name="gameCommanderCount"]').forEach(input => input.addEventListener('change', () => renderCommanderNameFields(dom.gameCommanderNames, selectedCommanderCount('gameCommanderCount'))));

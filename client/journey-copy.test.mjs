@@ -15,6 +15,16 @@ test('joining keeps optional commander setup out of the primary claim path', () 
   assert.doesNotMatch(html, /Preview join locally/);
 });
 
+test('developer tools stay hidden until a host unlocks them with the protected portal key', () => {
+  assert.match(html, /id="quickTestButton"[^>]*hidden/);
+  assert.match(html, /id="localSimulationField"[^>]*hidden/);
+  assert.match(html, /id="developerModeDialog"/);
+  assert.match(app, /const DEVELOPER_MODE_KEY = 'fivefold-arc:developer-mode';/);
+  assert.match(app, /\/api\/developer\/access/);
+  assert.match(app, /dom\.podLabel\.addEventListener\('pointerdown'/);
+  assert.match(app, /developerMode && developerHost\(\)/);
+});
+
 test('updating a pod confirms only entered commander names that have not already been checked', () => {
   assert.match(app, /async function confirmUnresolvedCommanderDetails\(container, count\)/);
   assert.match(app, /input\.dataset\.commanderLookupFailed === 'true'/);

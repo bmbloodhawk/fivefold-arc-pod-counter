@@ -1079,8 +1079,11 @@ test("protects the Appearance Studio catalog with the developer portal key", asy
   const protectedServer = createRealtimeServer({ feedbackPortalKey: "owner-key", appearanceCatalog: catalog }).server;
   await new Promise((resolve) => protectedServer.listen(0, "127.0.0.1", resolve));
   const url = `http://127.0.0.1:${protectedServer.address().port}/api/appearance-studio/catalog`;
+  const developerAccessUrl = `http://127.0.0.1:${protectedServer.address().port}/api/developer/access`;
   try {
     assert.equal((await fetch(url)).status, 403);
+    assert.equal((await fetch(developerAccessUrl)).status, 403);
+    assert.equal((await fetch(developerAccessUrl, { headers: { "x-feedback-portal-key": "owner-key" } })).status, 200);
     const allowed = await fetch(url, { headers: { "x-feedback-portal-key": "owner-key" } });
     assert.equal(allowed.status, 200);
     assert.deepEqual((await allowed.json()).catalog, catalog.value);

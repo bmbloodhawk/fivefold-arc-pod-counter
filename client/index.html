@@ -31,7 +31,7 @@
       <div class="action-stack">
         <button id="createPodButton" class="primary-action" type="button">Create a pod</button>
         <button id="joinPodButton" class="secondary-action" type="button">Join a pod</button>
-        <button id="quickTestButton" class="text-action" type="button">Try a 4-player local table</button>
+        <button id="quickTestButton" class="text-action" type="button" hidden>Try a 4-player local table</button>
       </div>
       <section id="savedTables" class="saved-tables" hidden aria-labelledby="savedTablesTitle">
         <h2 id="savedTablesTitle">Your tables</h2>
@@ -78,7 +78,7 @@
             <small class="field-help">Commander damage is labeled by the player who owns that commander.</small>
           </fieldset>
           <div id="createCommanderNames" class="commander-name-fields"></div>
-          <label class="toggle-field">
+          <label id="localSimulationField" class="toggle-field" hidden>
             <input id="localSimulation" type="checkbox">
             <span><strong>Local simulation</strong><small>Switch active seats on one phone for testing.</small></span>
           </label>
@@ -228,12 +228,13 @@
         <button id="coinTossButton" type="button">Flip a coin</button>
         <button id="showJoinQrMenuButton" type="button">Show join QR</button>
         <button id="cardCameraButton" type="button">Card rules & interaction</button>
-        <button id="playtestNotesButton" type="button">Playtest notes</button>
-        <button id="playtestRecapButton" type="button">Playtest recap</button>
+        <button id="playtestNotesButton" type="button" hidden>Playtest notes</button>
+        <button id="playtestRecapButton" type="button" hidden>Playtest recap</button>
         <button id="viewCelebrationButton" type="button" hidden>View celebration</button>
-        <button id="fieldTestButton" type="button">Record field test</button>
-        <button id="markDevelopmentButton" type="button">Mark development run</button>
-        <button id="savedPlaytestsButton" type="button">Saved playtests</button>
+        <button id="fieldTestButton" type="button" hidden>Record field test</button>
+        <button id="markDevelopmentButton" type="button" hidden>Mark development run</button>
+        <button id="savedPlaytestsButton" type="button" hidden>Saved playtests</button>
+        <button id="lockDeveloperModeButton" type="button" hidden>Lock developer tools</button>
         <button id="refreshTableButton" type="button">Refresh table</button>
         <button id="declareWinnerButton" type="button">Declare winner</button>
         <button id="commanderSetupButton" type="button">My commander setup</button>
@@ -368,6 +369,21 @@
     </form>
   </dialog>
 
+  <dialog id="developerModeDialog" aria-labelledby="developerModeTitle">
+    <form id="developerModeForm">
+      <h2 id="developerModeTitle">Developer tools</h2>
+      <p>Unlock local test and playtest controls for this browser session.</p>
+      <label class="select-field">Developer passcode
+        <input id="developerModeKey" type="password" autocomplete="current-password" required>
+      </label>
+      <p id="developerModeStatus" class="field-help" aria-live="polite"></p>
+      <div class="dialog-actions">
+        <button type="button" class="secondary-action" onclick="this.closest('dialog').close('cancel')">Cancel</button>
+        <button id="unlockDeveloperModeButton" class="primary-action" type="submit">Unlock tools</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="declareWinnerDialog" aria-labelledby="declareWinnerTitle">
     <form id="declareWinnerForm" method="dialog">
       <h2 id="declareWinnerTitle">Declare winner</h2>
@@ -440,6 +456,6 @@
     <form method="dialog"><h2 id="savedPlaytestsTitle">Saved playtests</h2><div id="savedPlaytestsContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
   </dialog>
 
-  <script type="module" src="app.js?v=145"></script>
+  <script type="module" src="app.js?v=146"></script>
 </body>
 </html>
