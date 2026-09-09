@@ -55,6 +55,17 @@ test('creating a pod is distinct from starting a game', () => {
   assert.match(html, /id="startGameButton"[^>]*>Start game · P1 goes first/);
 });
 
+test('the lobby explains its two-player start threshold and what happens to empty seats', () => {
+  assert.match(html, /Start when 2 or more players are ready\. Unclaimed seats stay unused\./);
+  assert.match(app, /dom\.startGameButton\.disabled = !isHost \|\| claimedPlayers\.length < 2;/);
+});
+
+test('the landing page explains the privacy boundary without overclaiming record retention', () => {
+  assert.match(html, /Test build · No account/);
+  assert.match(html, /No analytics\. Your seat recovery credential stays on this phone\./);
+  assert.match(html, /Shared playtest notes may be saved privately for this test; active rooms can disappear if the service restarts\./);
+});
+
 test('the host lobby has one default start action and keeps alternate first-player choices secondary', () => {
   assert.match(html, /id="startGameButton"[^>]*>Start game · P1 goes first/);
   assert.match(html, /<details id="firstPlayerOptions" class="lobby-options">/);

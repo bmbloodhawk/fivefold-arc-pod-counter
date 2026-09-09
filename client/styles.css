@@ -67,6 +67,11 @@ h1 { max-width: 560px; margin: 0; font-family: Georgia, "Times New Roman", serif
 .recovery-details p { margin: 10px 0 3px; line-height: 1.4; }
 .recovery-details .text-action { min-height: 38px; padding: 4px 0; font-size: .8rem; }
 .privacy-note { margin-top: 28px; color: var(--muted); text-align: center; font-size: .76rem; }
+.privacy-note summary { cursor: pointer; list-style: none; }
+.privacy-note summary::-webkit-details-marker { display: none; }
+.privacy-note summary::after { content: 'Learn more'; display: block; margin-top: 4px; color: var(--brass); font-size: .7rem; font-weight: 700; }
+.privacy-note[open] summary::after { content: 'Show less'; }
+.privacy-note p { margin: 8px auto 0; max-width: 31rem; line-height: 1.4; }
 .saved-tables { display: grid; gap: 9px; margin-top: 28px; padding: 14px; border: 1px solid var(--line); background: rgb(255 255 255 / .025); }
 .saved-tables h2 { margin: 0; font-family: Georgia, serif; font-size: 1.22rem; font-weight: 500; }
 .saved-tables > p { margin: 0; color: var(--muted); font-size: .79rem; line-height: 1.4; }
@@ -137,6 +142,7 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .lobby-controls .lobby-kicker { color: var(--brass); font-size: .68rem; letter-spacing: .12em; }
 .lobby-controls .lobby-invite-help { color: var(--muted); font-size: .73rem; font-weight: 600; letter-spacing: 0; line-height: 1.35; }
 .lobby-controls .lobby-invite-code { display: block; padding: 9px 12px; border: 1px solid rgb(216 174 97 / .56); background: rgb(12 11 9 / .5); color: var(--brass); font-family: ui-monospace, monospace; font-size: 1.25rem; font-weight: 800; letter-spacing: .2em; }
+.lobby-controls .lobby-start-help { color: var(--muted); font-size: .72rem; font-weight: 600; letter-spacing: 0; line-height: 1.35; }
 .lobby-options { display: grid; gap: 7px; text-align: left; }
 .lobby-options summary { padding: 7px 2px; color: var(--brass); cursor: pointer; font-size: .74rem; font-weight: 800; letter-spacing: .04em; text-align: center; }
 .lobby-options[open] { padding-top: 4px; border-top: 1px solid var(--line); }

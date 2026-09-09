@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=175">
+  <link rel="stylesheet" href="styles.css?v=176">
 </head>
 <body>
   <header class="brand-bar">
@@ -38,7 +38,10 @@
         <p>Return to a table from this phone. Your seat still requires this phone’s saved reclaim credential.</p>
         <div id="savedTablesList" class="saved-tables-list"></div>
       </section>
-      <p class="privacy-note"><span aria-hidden="true">◇</span> Test build · No account · Private playtest records</p>
+      <details class="privacy-note">
+        <summary><span aria-hidden="true">◇</span> Test build · No account</summary>
+        <p>No analytics. Your seat recovery credential stays on this phone. Shared playtest notes may be saved privately for this test; active rooms can disappear if the service restarts.</p>
+      </details>
     </section>
 
     <section id="createView" class="view setup-shell" hidden aria-labelledby="createTitle">
@@ -160,6 +163,7 @@
         <output id="lobbyInviteCode" class="lobby-invite-code" aria-label="Pod code"></output>
         <button id="copyLobbyJoinLinkButton" class="primary-action" type="button">Copy invite link</button>
         <button id="showJoinQrButton" class="secondary-action" type="button">Show join QR</button>
+        <p class="lobby-start-help">Start when 2 or more players are ready. Unclaimed seats stay unused.</p>
         <button id="startGameButton" class="primary-action" type="button">Start game · P1 goes first</button>
         <details id="firstPlayerOptions" class="lobby-options">
           <summary>Choose a different first player</summary>
@@ -460,6 +464,6 @@
     <form method="dialog"><h2 id="savedPlaytestsTitle">Saved playtests</h2><div id="savedPlaytestsContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
   </dialog>
 
-  <script type="module" src="app.js?v=147"></script>
+  <script type="module" src="app.js?v=148"></script>
 </body>
 </html>
