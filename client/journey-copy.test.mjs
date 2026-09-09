@@ -42,7 +42,17 @@ test('joining explains the claimed-seat boundary and normalizes the join code', 
 });
 
 test('the host lobby makes sharing the primary next setup action', () => {
-  assert.match(app, /Share code \$\{state\.podCode\}/);
+  assert.match(html, /POD CREATED · INVITE PLAYERS/);
+  assert.match(html, /Players open Fivefold Arc, choose <strong>Join a pod<\/strong>, then enter this code\./);
+  assert.match(html, /id="lobbyInviteCode"/);
+  assert.match(html, /id="copyLobbyJoinLinkButton"[^>]*>Copy invite link/);
+  assert.match(app, /dom\.lobbyInviteCode\.textContent = state\.podCode/);
+  assert.match(app, /dom\.copyLobbyJoinLinkButton\.addEventListener\('click', \(\) => copyJoinLink\(dom\.copyLobbyJoinLinkButton\)\)/);
+});
+
+test('creating a pod is distinct from starting a game', () => {
+  assert.match(html, /<button class="primary-action" type="submit">Create pod<\/button>/);
+  assert.match(html, /id="startGameButton"[^>]*>Start game · P1 goes first/);
 });
 
 test('the host lobby has one default start action and keeps alternate first-player choices secondary', () => {

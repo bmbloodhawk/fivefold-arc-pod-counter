@@ -134,6 +134,9 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .lobby-controls { display: grid; gap: 7px; margin: 8px 0; padding: 12px; border: 1px solid var(--brass-dark); background: rgb(216 174 97 / .08); text-align: center; }
 .lobby-controls p { margin: 0 0 2px; color: var(--paper); font-size: .8rem; font-weight: 800; letter-spacing: .04em; }
 .lobby-controls .primary-action, .lobby-controls .secondary-action { min-height: 42px; }
+.lobby-controls .lobby-kicker { color: var(--brass); font-size: .68rem; letter-spacing: .12em; }
+.lobby-controls .lobby-invite-help { color: var(--muted); font-size: .73rem; font-weight: 600; letter-spacing: 0; line-height: 1.35; }
+.lobby-controls .lobby-invite-code { display: block; padding: 9px 12px; border: 1px solid rgb(216 174 97 / .56); background: rgb(12 11 9 / .5); color: var(--brass); font-family: ui-monospace, monospace; font-size: 1.25rem; font-weight: 800; letter-spacing: .2em; }
 .lobby-options { display: grid; gap: 7px; text-align: left; }
 .lobby-options summary { padding: 7px 2px; color: var(--brass); cursor: pointer; font-size: .74rem; font-weight: 800; letter-spacing: .04em; text-align: center; }
 .lobby-options[open] { padding-top: 4px; border-top: 1px solid var(--line); }
