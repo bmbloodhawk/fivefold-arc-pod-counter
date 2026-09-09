@@ -21,7 +21,7 @@ const dom = {
   podStrip: $('#podStrip'), podLabel: $('#podLabel'), commanderIdentityName: $('#commanderIdentityName'), identityHeaderRail: $('#identityHeaderRail'), modeTitle: $('#modeTitle'), mainValue: $('#mainValue'),
   counterContext: $('#counterContext'), statusMessage: $('#statusMessage'), lethalMark: $('#lethalMark'), lethalImage: $('#lethalMark img'), eliminationOutcome: $('#eliminationOutcome'), lifeChangeIndicator: $('#lifeChangeIndicator'), sourcePanel: $('#sourcePanel'), inspectionNotice: $('#inspectionNotice'), sideSeats: $('#sideSeats'),
   activeSeatBar: $('#activeSeatBar'), gameMenu: $('#gameMenu'), moreButton: $('#moreButton'), viewCelebrationButton: $('#viewCelebrationButton'),
-  disconnectBanner: $('#disconnectBanner'), syncBanner: $('#syncBanner'), coinTossNotice: $('#coinTossNotice'), victoryNotice: $('#victoryNotice'), coinTossButton: $('#coinTossButton'), coinTossDialog: $('#coinTossDialog'), coinTossResult: $('#coinTossResult'), tossAgainButton: $('#tossAgainButton'), resetDialog: $('#resetDialog'), resetTitle: $('#resetTitle'), resetDetail: $('#resetDetail'), confirmResetButton: $('#confirmResetButton'), nextGameButton: $('#nextGameButton'), commanderSetupButton: $('#commanderSetupButton'), backToSetupButton: $('#backToSetupButton'), declareWinnerButton: $('#declareWinnerButton'), declareWinnerDialog: $('#declareWinnerDialog'), declareWinnerForm: $('#declareWinnerForm'), winnerSeat: $('#winnerSeat'), victoryDialog: $('#victoryDialog'), victoryArt: $('.victory-art'), victoryEyebrow: $('#victoryEyebrow'), victoryTitle: $('#victoryTitle'), victoryDetail: $('#victoryDetail'), personalMatchMoment: $('#personalMatchMoment'), personalMatchArt: $('#personalMatchArt'), personalMatchMomentTitle: $('#personalMatchMomentTitle'), personalMatchMomentLine: $('#personalMatchMomentLine'), personalMatchMomentFact: $('#personalMatchMomentFact'),
+  disconnectBanner: $('#disconnectBanner'), syncBanner: $('#syncBanner'), coinTossNotice: $('#coinTossNotice'), victoryNotice: $('#victoryNotice'), coinTossButton: $('#coinTossButton'), coinTossDialog: $('#coinTossDialog'), coinTossResult: $('#coinTossResult'), tossAgainButton: $('#tossAgainButton'), resetDialog: $('#resetDialog'), resetTitle: $('#resetTitle'), resetDetail: $('#resetDetail'), confirmResetButton: $('#confirmResetButton'), nextGameButton: $('#nextGameButton'), commanderSetupButton: $('#commanderSetupButton'), backToSetupButton: $('#backToSetupButton'), declareWinnerButton: $('#declareWinnerButton'), declareWinnerDialog: $('#declareWinnerDialog'), declareWinnerForm: $('#declareWinnerForm'), winnerSeat: $('#winnerSeat'), winnerReason: $('#winnerReason'), victoryDialog: $('#victoryDialog'), victoryArt: $('.victory-art'), victoryEyebrow: $('#victoryEyebrow'), victoryTitle: $('#victoryTitle'), victoryDetail: $('#victoryDetail'), personalMatchMoment: $('#personalMatchMoment'), personalMatchArt: $('#personalMatchArt'), personalMatchMomentTitle: $('#personalMatchMomentTitle'), personalMatchMomentLine: $('#personalMatchMomentLine'), personalMatchMomentFact: $('#personalMatchMomentFact'),
   lobbyControls: $('#lobbyControls'), lobbyStatus: $('#lobbyStatus'), lobbyInviteCode: $('#lobbyInviteCode'), copyLobbyJoinLinkButton: $('#copyLobbyJoinLinkButton'), showJoinQrButton: $('#showJoinQrButton'), showJoinQrMenuButton: $('#showJoinQrMenuButton'), firstPlayerOptions: $('#firstPlayerOptions'), startingSeatField: $('#startingSeatField'), startingSeat: $('#startingSeat'), chooseFirstButton: $('#chooseFirstButton'), randomFirstButton: $('#randomFirstButton'), startGameButton: $('#startGameButton'), startingRollDialog: $('#startingRollDialog'), startingRollStatus: $('#startingRollStatus'), rollMyD20Button: $('#rollMyD20Button'), startingRollCanvas: $('#startingRollCanvas'), startingRollFinalDice: $('#startingRollFinalDice'), startingRollOverlays: $('#startingRollOverlays'), startingRollLive: $('#startingRollLive'), turnCueDialog: $('#turnCueDialog'), turnCueForm: $('#turnCueForm'), turnBanner: $('#turnBanner'), turnLabel: $('#turnLabel'), turnPlayer: $('#turnPlayer'), turnElapsed: $('#turnElapsed'), gameTimer: $('#gameTimer'), lastTurnSummary: $('#lastTurnSummary'), turnActions: $('#turnActions'), endTurnButton: $('#endTurnButton'), undoTurnButton: $('#undoTurnButton'), pauseTurnButton: $('#pauseTurnButton'), toggleTurnTrackingButton: $('#toggleTurnTrackingButton'), toggleTurnCuesButton: $('#toggleTurnCuesButton'), toggleDeviceCuesButton: $('#toggleDeviceCuesButton'), toggleTouchFeedbackButton: $('#toggleTouchFeedbackButton'), turnActionDetail: $('#turnActionDetail'),
   commanderCountDialog: $('#commanderCountDialog'), commanderCountDetail: $('#commanderCountDetail'), commanderCountForm: $('#commanderCountForm'), saveCommanderCountButton: $('#saveCommanderCountButton'), joinQrDialog: $('#joinQrDialog'), joinQrImage: $('#joinQrImage'), joinQrCode: $('#joinQrCode'), shareJoinLinkButton: $('#shareJoinLinkButton'), copyJoinLinkButton: $('#copyJoinLinkButton'),
   commanderTaxQuickButton: $('#commanderTaxQuickButton'), commanderTaxDialog: $('#commanderTaxDialog'), commanderTaxDetail: $('#commanderTaxDetail'), commanderTaxList: $('#commanderTaxList'),
@@ -193,9 +193,10 @@ function renderVictory() {
     const youWon = winner.id === actingSeatId;
     dom.victoryEyebrow.textContent = declared ? 'THE TABLE HAS SPOKEN' : 'LAST PLAYER STANDING';
     dom.victoryTitle.textContent = youWon ? 'You win' : `${displayName(winner)} wins`;
-    dom.victoryDetail.textContent = youWon
-      ? (declared ? 'The table declared you the winner.' : 'You are the last player standing.')
-      : (declared ? `${displayName(winner)} was declared the winner.` : `${displayName(winner)} is the last player standing.`);
+    const declaredDetail = String(result.declarationDetail || '');
+    dom.victoryDetail.textContent = declaredDetail
+      ? `${youWon ? 'The table declared you the winner' : `${displayName(winner)} was declared the winner`}: ${declaredDetail}`
+      : (youWon ? (declared ? 'The table declared you the winner.' : 'You are the last player standing.') : (declared ? `${displayName(winner)} was declared the winner.` : `${displayName(winner)} is the last player standing.`));
     dom.victoryArt.src = winnerArtUrl(winner);
     dom.personalMatchMoment.hidden = true;
     if (!state.localSimulation) transport.getPersonalMatchMoment().then(({ moment }) => {
@@ -771,13 +772,14 @@ function openDeclareWinner() {
   if (!state || (!state.localSimulation && transport.seatId !== state.hostSeatId)) return;
   dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false');
   dom.winnerSeat.innerHTML = state.players.filter(player => player.connectionStatus !== 'waiting').map(player => `<option value="${Number(player.id.slice(1)) - 1}">${escapeHtml(displayPlayer(player))}</option>`).join('');
+  dom.winnerReason.value = '';
   dom.declareWinnerDialog.showModal();
 }
 async function declareWinner() {
-  const winnerSeatId = Number(new FormData(dom.declareWinnerForm).get('winnerSeat'));
+  const form = new FormData(dom.declareWinnerForm); const winnerSeatId = Number(form.get('winnerSeat')); const declarationDetail = String(form.get('winnerReason') || '').trim();
   if (!Number.isInteger(winnerSeatId) || !state.players[winnerSeatId]) return;
-  if (state.localSimulation) { state.gameResult = { winnerSeatId, reason: 'declared_winner', decidedAt: Date.now() }; render(); return; }
-  try { const result = await transport.declareWinner(winnerSeatId); if (result.conflict) showError(new Error('The table changed first. The latest game state is shown.')); }
+  if (state.localSimulation) { state.gameResult = { winnerSeatId, reason: 'declared_winner', declarationDetail: declarationDetail || null, decidedAt: Date.now() }; render(); return; }
+  try { const result = await transport.declareWinner(winnerSeatId, declarationDetail); if (result.conflict) showError(new Error('The table changed first. The latest game state is shown.')); }
   catch (error) { showError(error); }
 }
 function showTurnHandoff() {

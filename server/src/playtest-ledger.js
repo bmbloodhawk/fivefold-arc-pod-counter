@@ -254,7 +254,7 @@ export function recapFromRoom(room, completedAt) {
     startingLife: room.config.startingLife,
     players: room.seats.filter((seat) => seat.claimed).map(publicSeat),
     firstPlayerSeatId: room.turn.startingPlayerSeatId,
-    winner: result ? { seatId: result.winnerSeatId, reason: result.reason, decidedAt: result.decidedAt } : null,
+    winner: result ? { seatId: result.winnerSeatId, reason: result.reason, declarationDetail: result.declarationDetail || null, decidedAt: result.decidedAt } : null,
     latestTurnStartedAt: lastTurnAt,
   };
 }

@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=177">
+  <link rel="stylesheet" href="styles.css?v=178">
 </head>
 <body>
   <header class="brand-bar">
@@ -371,7 +371,6 @@
         <div class="victory-dismissal">
           <p class="victory-tap-hint">Tap anywhere to continue</p>
           <button id="nextGameButton" type="button" class="primary-action" hidden>Start next game</button>
-          <button value="close" class="primary-action">Close celebration</button>
         </div>
       </div>
     </form>
@@ -419,6 +418,9 @@
       <p>Use this for an alternate win condition or any finish the counters cannot recognize.</p>
       <label class="select-field">Winner
         <select id="winnerSeat" name="winnerSeat"></select>
+      </label>
+      <label>How did they win? (optional)
+        <input id="winnerReason" name="winnerReason" type="text" maxlength="160" autocomplete="off" placeholder="e.g. alternate win card, concession">
       </label>
       <div class="dialog-actions">
         <button value="cancel" class="secondary-action">Cancel</button>
@@ -485,6 +487,6 @@
     <form method="dialog"><h2 id="savedPlaytestsTitle">Saved playtests</h2><div id="savedPlaytestsContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
   </dialog>
 
-  <script type="module" src="app.js?v=149"></script>
+  <script type="module" src="app.js?v=150"></script>
 </body>
 </html>

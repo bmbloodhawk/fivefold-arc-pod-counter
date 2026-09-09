@@ -143,12 +143,12 @@ export class RealtimeAdapter extends EventTarget {
   async setSessionKind(sessionKind) { return this.#hostGameRequest('/session-kind', { sessionKind }); }
   async setTurnPaused(paused) { return this.#hostGameRequest('/turn-pause', { paused }); }
 
-  async declareWinner(winnerSeatId) {
+  async declareWinner(winnerSeatId, declarationDetail = '') {
     if (this.localMode) return { local: true };
     if (this.status !== 'connected' || !this.snapshot) return { blocked: true };
     const epoch = this.sessionEpoch;
     try {
-      const result = await this.#request(`/api/rooms/${this.roomCode}/declare-winner`, { method: 'POST', authenticated: true, body: { baseVersion: this.snapshot.version, winnerSeatId } });
+      const result = await this.#request(`/api/rooms/${this.roomCode}/declare-winner`, { method: 'POST', authenticated: true, body: { baseVersion: this.snapshot.version, winnerSeatId, declarationDetail } });
       if (!this.#isCurrentSession(epoch)) return { ignored: true };
       this.#acceptSnapshot(result.snapshot, epoch); return result;
     } catch (error) { if (!this.#isCurrentSession(epoch)) return { ignored: true }; return this.#handleConflict(error, epoch); }

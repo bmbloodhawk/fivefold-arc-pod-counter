@@ -867,9 +867,11 @@ export class RoomService {
     }
     const winnerSeatId = asInteger(input.winnerSeatId, "winnerSeatId", 0, room.config.playerCount - 1);
     if (!room.seats[winnerSeatId].claimed) throw Object.assign(new Error("A winner must be a claimed seat"), { status: 400, code: "INVALID_INPUT" });
-    room.gameResult = { winnerSeatId, reason: "declared_winner", decidedAt: this.now() };
+    const declarationDetail = typeof input.declarationDetail === "string" ? input.declarationDetail.normalize("NFC").trim().replace(/\s+/gu, " ") : "";
+    if (Array.from(declarationDetail).length > 160 || /[\p{Cc}\p{Cf}]/u.test(declarationDetail)) throw Object.assign(new Error("Winner reason must contain at most 160 printable characters"), { status: 400, code: "INVALID_INPUT" });
+    room.gameResult = { winnerSeatId, reason: "declared_winner", declarationDetail: declarationDetail || null, decidedAt: this.now() };
     room.version += 1;
-    this.recordLedger(room, "winner_declared", seatId, { winnerSeatId });
+    this.recordLedger(room, "winner_declared", seatId, { winnerSeatId, declarationDetail: declarationDetail || null });
     this.recordCompletion(room);
     this.broadcast(room);
     return { snapshot: this.snapshot(room) };

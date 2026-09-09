@@ -884,11 +884,12 @@ describe("authority and convergence", () => {
     });
     assert.equal(denied.status, 403);
     const declared = await call(`/api/rooms/${made.snapshot.code}/declare-winner`, {
-      method: "POST", connectionId: made.connectionId, body: { baseVersion: reset.body.snapshot.version, winnerSeatId: 1 },
+      method: "POST", connectionId: made.connectionId, body: { baseVersion: reset.body.snapshot.version, winnerSeatId: 1, declarationDetail: "  Laboratory Maniac  " },
     });
     assert.equal(declared.status, 200);
     assert.equal(declared.body.snapshot.gameResult.winnerSeatId, 1);
     assert.equal(declared.body.snapshot.gameResult.reason, "declared_winner");
+    assert.equal(declared.body.snapshot.gameResult.declarationDetail, "Laboratory Maniac");
   });
 });
 

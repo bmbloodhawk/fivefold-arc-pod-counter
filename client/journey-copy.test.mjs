@@ -71,6 +71,13 @@ test('turn cues offer explicit sound and vibration modes with an iPhone support 
   assert.match(app, /mode === 'sound' \|\| mode === 'both'/);
 });
 
+test('declaring an alternate winner offers an optional visible reason without a redundant celebration close button', () => {
+  assert.match(html, /id="winnerReason"[^>]*maxlength="160"/);
+  assert.match(html, /How did they win\?/);
+  assert.doesNotMatch(html, />Close celebration</);
+  assert.match(app, /declarationDetail: declarationDetail \|\| null/);
+});
+
 test('the landing page explains the privacy boundary without overclaiming record retention', () => {
   assert.match(html, /Test build · No account/);
   assert.match(html, /No analytics\. Your seat recovery credential stays on this phone\./);
