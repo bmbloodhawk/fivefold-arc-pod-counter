@@ -179,6 +179,7 @@ test('the confirmed winner is celebrated on every phone with artwork and a tap-t
   assert.match(html, /id="victoryDialog"[\s\S]*assets\/victory-seal-v1\.png[\s\S]*id="victoryEyebrow"[\s\S]*Tap anywhere to continue/);
   assert.match(html, /class="victory-winner-copy"[\s\S]*id="personalMatchMoment"[\s\S]*class="victory-dismissal"/);
   assert.match(app, /if \(key !== shownVictoryKey\)/);
+  assert.match(app, /if \(!result \|\| !winner\) \{ shownVictoryKey = null; if \(dom\.victoryDialog\.open\) dom\.victoryDialog\.close\('game-reset'\); return; \}/);
   assert.match(app, /const youWon = winner\.id === actingSeatId/);
   assert.match(app, /dom\.victoryDialog\.addEventListener\('click', \(\) => \{ if \(dom\.victoryDialog\.open\) dom\.victoryDialog\.close\('tap'\); \}\)/);
   assert.match(styles, /\.victory-art \{[\s\S]*object-position: center 31%/);

@@ -167,7 +167,7 @@ function renderVictory() {
   dom.victoryNotice.hidden = !result || !winner;
   dom.viewCelebrationButton.hidden = !result || !winner;
   dom.nextGameButton.hidden = !result || !winner || !(state?.localSimulation || transport.seatId === state?.hostSeatId);
-  if (!result || !winner) return;
+  if (!result || !winner) { shownVictoryKey = null; if (dom.victoryDialog.open) dom.victoryDialog.close('game-reset'); return; }
   const declared = result.reason === 'declared_winner';
   dom.victoryNotice.textContent = `${declared ? 'WINNER' : 'LAST PLAYER STANDING'} · ${displayName(winner)}`;
   const actingSeatId = state.localSimulation ? state.activePlayerId : state.ownerPlayerId;
