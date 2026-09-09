@@ -60,6 +60,17 @@ test('the lobby explains its two-player start threshold and what happens to empt
   assert.match(app, /dom\.startGameButton\.disabled = !isHost \|\| claimedPlayers\.length < 2;/);
 });
 
+test('turn cues offer explicit sound and vibration modes with an iPhone support note', () => {
+  assert.match(html, /id="turnCueDialog"/);
+  assert.match(html, /value="sound"><span>Single ding/);
+  assert.match(html, /value="vibrate"><span>Vibrate/);
+  assert.match(html, /value="both"><span>Both/);
+  assert.match(html, /including many iPhones/);
+  assert.match(app, /function cueMode\(turn = state\?\.turn\)/);
+  assert.match(app, /mode === 'vibrate' \|\| mode === 'both'/);
+  assert.match(app, /mode === 'sound' \|\| mode === 'both'/);
+});
+
 test('the landing page explains the privacy boundary without overclaiming record retention', () => {
   assert.match(html, /Test build · No account/);
   assert.match(html, /No analytics\. Your seat recovery credential stays on this phone\./);

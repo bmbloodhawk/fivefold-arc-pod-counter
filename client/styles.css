@@ -143,6 +143,8 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .lobby-controls .lobby-invite-help { color: var(--muted); font-size: .73rem; font-weight: 600; letter-spacing: 0; line-height: 1.35; }
 .lobby-controls .lobby-invite-code { display: block; padding: 9px 12px; border: 1px solid rgb(216 174 97 / .56); background: rgb(12 11 9 / .5); color: var(--brass); font-family: ui-monospace, monospace; font-size: 1.25rem; font-weight: 800; letter-spacing: .2em; }
 .lobby-controls .lobby-start-help { color: var(--muted); font-size: .72rem; font-weight: 600; letter-spacing: 0; line-height: 1.35; }
+.cue-mode-choice { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.turn-cue-support { margin: 12px 0 0; color: var(--muted); font-size: .8rem; line-height: 1.4; }
 .lobby-options { display: grid; gap: 7px; text-align: left; }
 .lobby-options summary { padding: 7px 2px; color: var(--brass); cursor: pointer; font-size: .74rem; font-weight: 800; letter-spacing: .04em; text-align: center; }
 .lobby-options[open] { padding-top: 4px; border-top: 1px solid var(--line); }

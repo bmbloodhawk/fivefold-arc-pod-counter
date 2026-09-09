@@ -447,7 +447,7 @@ export class RoomService {
         startingPlayerRoll: null,
         lastHandoff: null,
         trackingEnabled: true,
-        cuesEnabled: false,
+        cueMode: "off",
         pausedAt: null,
         pausedDurationMs: 0,
       },
@@ -500,7 +500,7 @@ export class RoomService {
         } : null,
         lastHandoff: room.turn.lastHandoff ? { ...room.turn.lastHandoff } : null,
         trackingEnabled: room.turn.trackingEnabled !== false,
-        cuesEnabled: room.turn.cuesEnabled === true,
+        cueMode: ["sound", "vibrate", "both"].includes(room.turn.cueMode) ? room.turn.cueMode : "off",
         pausedAt: room.turn.pausedAt ?? null,
         pausedDurationMs: room.turn.pausedDurationMs ?? 0,
       },
@@ -1037,9 +1037,9 @@ export class RoomService {
     const room = this.room(code); const { seatId } = this.requireOwner(room, connectionId);
     if (seatId !== room.hostSeatId) throw Object.assign(new Error("Only the host seat may change table turn cues"), { status: 403, code: "HOST_ONLY" });
     if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
-    if (typeof input.enabled !== "boolean") throw Object.assign(new Error("Turn cues must be on or off"), { status: 400, code: "INVALID_INPUT" });
-    room.turn = { ...room.turn, cuesEnabled: input.enabled }; room.version += 1;
-    this.recordLedger(room, "turn_cues_changed", seatId, { enabled: input.enabled }); this.broadcast(room); return { snapshot: this.snapshot(room) };
+    if (!["off", "sound", "vibrate", "both"].includes(input.cueMode)) throw Object.assign(new Error("Turn cue must be off, sound, vibrate, or both"), { status: 400, code: "INVALID_INPUT" });
+    room.turn = { ...room.turn, cueMode: input.cueMode }; room.version += 1;
+    this.recordLedger(room, "turn_cues_changed", seatId, { cueMode: input.cueMode }); this.broadcast(room); return { snapshot: this.snapshot(room) };
   }
 
   reportStartingPlayerRoll(code, connectionId, input = {}) {

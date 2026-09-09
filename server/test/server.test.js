@@ -785,9 +785,10 @@ describe("authority and convergence", () => {
     assert.equal(snapshot.turn.gameStarted, false);
     assert.equal(snapshot.turn.trackingEnabled, false);
     snapshot = service.setTurnTracking(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version, enabled: true }).snapshot;
-    snapshot = service.setTurnCues(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version, enabled: true }).snapshot;
-    assert.equal(snapshot.turn.cuesEnabled, true);
-    assert.throws(() => service.setTurnCues(created.snapshot.code, second.connectionId, { baseVersion: snapshot.version, enabled: false }), { code: "HOST_ONLY" });
+    snapshot = service.setTurnCues(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version, cueMode: "both" }).snapshot;
+    assert.equal(snapshot.turn.cueMode, "both");
+    assert.throws(() => service.setTurnCues(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version, cueMode: "chime" }), { code: "INVALID_INPUT" });
+    assert.throws(() => service.setTurnCues(created.snapshot.code, second.connectionId, { baseVersion: snapshot.version, cueMode: "off" }), { code: "HOST_ONLY" });
     snapshot = service.startGame(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
     now += 3_000;
     snapshot = service.setTurnPaused(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version, paused: true }).snapshot;
