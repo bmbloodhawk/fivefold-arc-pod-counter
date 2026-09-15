@@ -69,6 +69,8 @@ test('turn cues offer explicit sound and vibration modes with an iPhone support 
   assert.match(app, /function cueMode\(turn = state\?\.turn\)/);
   assert.match(app, /mode === 'vibrate' \|\| mode === 'both'/);
   assert.match(app, /mode === 'sound' \|\| mode === 'both'/);
+  assert.match(app, /function prepareTurnCueAudio\(\)/);
+  assert.match(app, /window\.webkitAudioContext/);
 });
 
 test('declaring an alternate winner offers an optional visible reason without a redundant celebration close button', () => {
