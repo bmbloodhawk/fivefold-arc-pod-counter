@@ -236,7 +236,7 @@ async function showMyGames(signIn = false) {
     if (!token) { myGamesStatus.textContent = 'Sign in to keep your wins and games in one place.'; myGamesSignInButton.hidden = false; return; }
     const response = await fetch('/api/account/history', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) throw new Error('Your games are not available yet.');
     const history = (await response.json()).history; myGamesStatus.textContent = `${history.wins} wins in ${history.gamesPlayed} games${history.gamesPlayed ? ` · ${Math.round(history.winRate * 100)}% win rate` : ''}`;
-    myGamesContent.innerHTML = history.recentGames.length ? `<ul>${history.recentGames.map(game => `<li><strong>${game.won ? 'Win' : 'Game'} · ${game.tableSize} players</strong><br><small>${new Date(game.savedAt).toLocaleDateString()}${game.commanderName ? ` · ${escapeHtml(game.commanderName)}` : ''}</small><br><button type="button" class="text-action" data-remove-game="${escapeHtml(game.gameId)}">Remove</button></li>`).join('')}</ul>` : '<p>No saved games yet.</p>'; myGamesContent.hidden = false;
+    myGamesContent.innerHTML = history.recentGames.length ? `<ul>${history.recentGames.map(game => `<li><strong>${game.won ? 'Win' : 'Game'} · ${game.tableSize} players${game.place ? ` · ${game.place}${game.place === 1 ? 'st' : game.place === 2 ? 'nd' : game.place === 3 ? 'rd' : 'th'}` : ''}</strong><br><small>${new Date(game.savedAt).toLocaleDateString()}${game.commanderName ? ` · ${escapeHtml(game.commanderName)}` : ''}</small><br><button type="button" class="text-action" data-remove-game="${escapeHtml(game.gameId)}">Remove</button></li>`).join('')}</ul>` : '<p>No saved games yet.</p>'; myGamesContent.hidden = false;
   } catch (error) { myGamesStatus.textContent = error?.message || 'Your games are not available yet.'; myGamesSignInButton.hidden = false; }
 }
 async function showMyDecks(signIn = false) {
@@ -271,7 +271,8 @@ async function saveGameToHistory() {
   dom.saveGameButton.disabled = true; dom.saveGameButton.textContent = 'Signing in…';
   try {
     const token = await googleAccountToken();
-    const response = await fetch('/api/account/games', { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ tableSize: state.players.filter(player => player.connectionStatus !== 'waiting').length, won: result.winnerSeatId === Number(you.id.slice(1)) - 1, outcomeDescription: result.declarationDetail || null, commanderName: you.commanderNames?.filter(Boolean).join(' / ') || null, deckId: selectedDeckId || null }) });
+    const seatId = Number(you.id.slice(1)) - 1; const place = Array.isArray(result.finishingOrder) ? result.finishingOrder.indexOf(seatId) + 1 : null;
+    const response = await fetch('/api/account/games', { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ tableSize: state.players.filter(player => player.connectionStatus !== 'waiting').length, won: result.winnerSeatId === seatId, place: place || null, outcomeDescription: result.declarationDetail || null, commanderName: you.commanderNames?.filter(Boolean).join(' / ') || null, deckId: selectedDeckId || null }) });
     if (!response.ok) throw new Error('This game could not be saved yet.');
     dom.saveGameButton.textContent = 'Game saved';
   } catch (error) { dom.saveGameButton.disabled = false; dom.saveGameButton.textContent = error?.message || 'Save this game'; }

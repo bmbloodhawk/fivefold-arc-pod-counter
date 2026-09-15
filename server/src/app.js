@@ -352,8 +352,11 @@ function recordLastPlayerStanding(room, now) {
   const claimedSeats = room.seats.filter((seat) => seat.claimed);
   if (claimedSeats.length < 2) return;
   const survivors = claimedSeats.filter((seat) => !seatIsEliminated(seat));
+  const eliminated = claimedSeats.filter(seatIsEliminated).map((seat) => seat.seatId);
+  room.automaticEliminationOrder ||= [];
+  for (const seatId of eliminated) if (!room.automaticEliminationOrder.includes(seatId)) room.automaticEliminationOrder.push(seatId);
   if (survivors.length === 1) {
-    room.gameResult = { winnerSeatId: survivors[0].seatId, reason: "last_player_standing", decidedAt: now };
+    room.gameResult = { winnerSeatId: survivors[0].seatId, reason: "last_player_standing", finishingOrder: [survivors[0].seatId, ...room.automaticEliminationOrder.toReversed()], decidedAt: now };
   }
 }
 
@@ -826,7 +829,7 @@ export class RoomService {
       );
     }
     room.lastCoinToss = null;
-    room.gameResult = null;
+    room.gameResult = null; room.automaticEliminationOrder = [];
     room.gameId = opaque(12);
     room.ledgerSequence = 0;
     room.ledgerLastCheckpointAt = this.now();

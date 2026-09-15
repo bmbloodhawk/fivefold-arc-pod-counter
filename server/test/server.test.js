@@ -873,7 +873,7 @@ describe("authority and convergence", () => {
       method: "POST", connectionId: playerConnection, body: { counter: "life", delta: -40 },
     });
     assert.deepEqual(eliminated.body.snapshot.gameResult, {
-      winnerSeatId: 0, reason: "last_player_standing", decidedAt: eliminated.body.snapshot.gameResult.decidedAt,
+      winnerSeatId: 0, reason: "last_player_standing", finishingOrder: [0, 1], decidedAt: eliminated.body.snapshot.gameResult.decidedAt,
     });
     const reset = await call(`/api/rooms/${made.snapshot.code}/reset`, {
       method: "POST", connectionId: made.connectionId, body: { baseVersion: eliminated.body.snapshot.version },
@@ -888,6 +888,7 @@ describe("authority and convergence", () => {
     });
     assert.equal(declared.status, 200);
     assert.equal(declared.body.snapshot.gameResult.winnerSeatId, 1);
+    assert.equal(declared.body.snapshot.gameResult.finishingOrder, undefined);
     assert.equal(declared.body.snapshot.gameResult.reason, "declared_winner");
     assert.equal(declared.body.snapshot.gameResult.declarationDetail, "Laboratory Maniac");
   });
