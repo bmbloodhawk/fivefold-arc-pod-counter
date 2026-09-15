@@ -1203,6 +1203,14 @@ export function createRealtimeServer(options = {}) {
   const maxStreamsPerIp = options.maxStreamsPerIp ?? 12;
   const feedbackPortalKey = options.feedbackPortalKey ?? process.env.FEEDBACK_PORTAL_KEY ?? "";
   const appearanceCatalog = options.appearanceCatalog ?? { read: async () => ({ skins: [], assets: [], selected: "neutral" }), write: async value => value, readAsset: async () => null, writeAsset: async (_id, value) => value, deleteAsset: async () => {} };
+  const accountHistory = options.accountHistory ?? null;
+  const accountVerifier = options.accountVerifier ?? null;
+  const account = async (req) => {
+    if (!accountHistory || !accountVerifier) throw Object.assign(new Error("Personal history is not configured yet"), { status: 503, code: "ACCOUNT_NOT_CONFIGURED" });
+    const token = /^Bearer (.+)$/i.exec(String(req.headers.authorization || ""))?.[1];
+    const identity = await accountVerifier.verify(token);
+    return accountHistory.ensureAccount(identity.providerSubject);
+  };
   const feedbackKeyMatches = (provided) => {
     if (!feedbackPortalKey) throw Object.assign(new Error("The feedback inbox is not configured yet"), { status: 503, code: "FEEDBACK_NOT_CONFIGURED" });
     if (typeof provided !== "string" || provided.length !== feedbackPortalKey.length || !timingSafeEqual(Buffer.from(provided), Buffer.from(feedbackPortalKey))) throw Object.assign(new Error("That feedback key did not match"), { status: 403, code: "FEEDBACK_DENIED" });
@@ -1211,7 +1219,7 @@ export function createRealtimeServer(options = {}) {
     const cors = {
       "access-control-allow-origin": allowedOrigin,
       "access-control-allow-methods": "GET,POST,PATCH,DELETE,OPTIONS",
-      "access-control-allow-headers": "content-type,x-connection-id,x-feedback-portal-key",
+      "access-control-allow-headers": "content-type,x-connection-id,x-feedback-portal-key,authorization",
     };
     if (req.method === "OPTIONS") {
       res.writeHead(204, cors);
@@ -1223,6 +1231,9 @@ export function createRealtimeServer(options = {}) {
       const parts = url.pathname.split("/").filter(Boolean);
       const connectionId = req.headers["x-connection-id"];
       if (req.method === "GET" && url.pathname === "/health") return json(res, 200, { ok: true });
+      if (req.method === "GET" && url.pathname === "/api/account/history") { const accountId = await account(req); return json(res, 200, { history: await accountHistory.summary(accountId) }); }
+      if (req.method === "POST" && url.pathname === "/api/account/games") { const accountId = await account(req); return json(res, 201, { game: await accountHistory.saveGame(accountId, await readJson(req)) }); }
+      if (req.method === "POST" && url.pathname === "/api/account/decks") { const accountId = await account(req); return json(res, 201, { deck: await accountHistory.createDeck(accountId, await readJson(req)) }); }
       if (req.method === "GET" && url.pathname === "/api/developer/access") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { ok: true }); }
       if (req.method === "GET" && url.pathname === "/api/appearance-studio/catalog") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { catalog: await appearanceCatalog.read() }); }
       if (req.method === "PUT" && url.pathname === "/api/appearance-studio/catalog") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { catalog: await appearanceCatalog.write(await readJson(req, 8 * 1024 * 1024)) }); }
