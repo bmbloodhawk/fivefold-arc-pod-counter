@@ -20,3 +20,8 @@ export async function googleAccountToken() {
   const credential = await signInWithPopup(await firebaseAuth(), new GoogleAuthProvider());
   return credential.user.getIdToken();
 }
+
+export async function currentAccountToken() {
+  const user = (await firebaseAuth()).currentUser;
+  return user ? user.getIdToken() : null;
+}
