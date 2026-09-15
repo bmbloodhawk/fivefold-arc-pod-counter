@@ -83,6 +83,7 @@
             <small class="field-help">Commander damage is labeled by the player who owns that commander.</small>
           </fieldset>
           <div id="createCommanderNames" class="commander-name-fields"></div>
+          <label id="createDeckField" class="select-field" hidden>My deck <small>(optional)</small><select id="createDeck"><option value="">No deck selected</option></select></label>
           <label id="localSimulationField" class="toggle-field" hidden>
             <input id="localSimulation" type="checkbox">
             <span><strong>Local simulation</strong><small>Switch active seats on one phone for testing.</small></span>
@@ -138,6 +139,7 @@
             <small class="field-help">You can update commander names and color identity after you claim your seat.</small>
           </fieldset>
           <div id="joinCommanderNames" class="commander-name-fields"></div>
+          <label id="joinDeckField" class="select-field" hidden>My deck <small>(optional)</small><select id="joinDeck"><option value="">No deck selected</option></select></label>
         </details>
         <button class="primary-action" type="submit">Claim this seat</button>
       </form>
@@ -503,6 +505,6 @@
   <dialog id="myGamesDialog" aria-labelledby="myGamesTitle"><form method="dialog"><h2 id="myGamesTitle">My games</h2><p id="myGamesStatus">Sign in to keep your wins and games in one place.</p><div id="myGamesContent" hidden></div><label id="emailSignInFields" class="select-field" hidden>Email<input id="accountEmail" type="email" autocomplete="email"><small>Password</small><input id="accountPassword" type="password" minlength="6" autocomplete="current-password"></label><div class="dialog-actions"><button id="myGamesSignInButton" type="button" class="primary-action">Sign in with Google</button><button id="emailSignInButton" type="button" class="secondary-action">Use email</button><button id="createAccountButton" type="button" class="text-action" hidden>Create account</button><button value="close" class="secondary-action">Close</button></div></form></dialog>
   <dialog id="myDecksDialog" aria-labelledby="myDecksTitle"><form method="dialog"><h2 id="myDecksTitle">My decks</h2><p id="myDecksStatus">Sign in to keep private deck notes.</p><div id="myDecksContent" hidden></div><label class="select-field">Commander<input id="deckCommanderName" maxlength="120" autocomplete="off" placeholder="e.g. Atraxa, Praetors’ Voice"></label><label class="select-field">Deck name <small>(optional)</small><input id="deckName" maxlength="120" autocomplete="off" placeholder="e.g. Poison counters"></label><div class="dialog-actions"><button id="myDecksSignInButton" type="button" class="secondary-action">Sign in with Google</button><button id="createDeckButton" type="button" class="primary-action">Save deck</button><button value="close" class="secondary-action">Close</button></div></form></dialog>
 
-  <script type="module" src="app.js?v=159"></script>
+  <script type="module" src="app.js?v=160"></script>
 </body>
 </html>
