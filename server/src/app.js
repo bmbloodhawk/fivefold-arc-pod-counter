@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
 import QRCode from "qrcode";
 import { NullPlaytestLedger, recapFromRoom } from "./playtest-ledger.js";
+import { ProductMeasurement } from "./product-measurement.js";
 import { blankMatchMoment, personalMatchMoment, recordMatchMoment, recordTurnMoment, tableMatchMomentDecisions } from "./match-moments.js";
 
 const JOIN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -357,13 +358,14 @@ function recordLastPlayerStanding(room, now) {
 }
 
 export class RoomService {
-  constructor({ now = () => Date.now(), roomTtlMs = 6 * 60 * 60 * 1000, connectionTtlMs = 90 * 1000, ledger = new NullPlaytestLedger() } = {}) {
+  constructor({ now = () => Date.now(), roomTtlMs = 6 * 60 * 60 * 1000, connectionTtlMs = 90 * 1000, ledger = new NullPlaytestLedger(), productMeasurement = new ProductMeasurement() } = {}) {
     this.now = now;
     this.roomTtlMs = roomTtlMs;
     this.connectionTtlMs = connectionTtlMs;
     this.rooms = new Map();
     this.connections = new Map();
     this.ledger = ledger;
+    this.productMeasurement = productMeasurement;
   }
 
   createConnection() {
@@ -462,6 +464,7 @@ export class RoomService {
     synchronizeCommanderState(room);
     this.rooms.set(code, room);
     this.recordLedger(room, "room_created", 0, { playerCount, startingLife });
+    this.productMeasurement.record({ event: "pod_creation_succeeded" });
     connection.seatKey = `${code}:0`;
     return { snapshot: this.snapshot(room), seatId: 0, reclaimToken, hostRecoveryKey };
   }
@@ -613,6 +616,7 @@ export class RoomService {
       throw Object.assign(new Error("One connection may own only one seat"), { status: 409, code: "CONNECTION_HAS_SEAT" });
     }
     const seat = room.seats[seatId];
+    const wasClaimed = seat.claimed;
     let reclaimToken = input.reclaimToken;
     if (!seat.claimed) {
       const name = normalizeName(input.name, seat.name);
@@ -655,6 +659,10 @@ export class RoomService {
     synchronizeCommanderState(room);
     room.version += 1;
     this.recordLedger(room, seat.claimed && input.reclaimToken ? "seat_reclaimed" : "seat_claimed", seatId, { name: seat.name, commanderCount: seat.commanderCount });
+    if (!wasClaimed) {
+      this.productMeasurement.record({ event: "seat_claim_succeeded" });
+      if (room.seats.filter((item) => item.claimed).length === 2) this.productMeasurement.record({ event: "second_player_joined" });
+    }
     this.broadcast(room);
     return { snapshot: this.snapshot(room), seatId, ...(!input.reclaimToken ? { reclaimToken } : {}) };
   }
@@ -920,6 +928,7 @@ export class RoomService {
     };
     room.version += 1;
     this.recordLedger(room, "game_started", seatId, { startingSeatId: room.turn.startingPlayerSeatId });
+    this.productMeasurement.record({ event: "game_started" });
     this.broadcast(room);
     return { snapshot: this.snapshot(room) };
   }
