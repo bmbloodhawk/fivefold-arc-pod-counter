@@ -63,6 +63,18 @@ export class AccountHistory {
     return Object.values((await this.store.read(decksPath(accountId))) || {}).sort((a, b) => b.updatedAt - a.updatedAt);
   }
 
+  async removeGame(accountId, gameId) {
+    if (!/^game_[A-Za-z0-9-]{1,80}$/.test(gameId || "")) throw new TypeError("Game is invalid");
+    const games = (await this.store.read(gamesPath(accountId))) || {}; if (!games[gameId]) return false;
+    delete games[gameId]; await this.store.write(gamesPath(accountId), games); return true;
+  }
+
+  async removeDeck(accountId, deckId) {
+    if (!/^deck_[A-Za-z0-9-]{1,80}$/.test(deckId || "")) throw new TypeError("Deck is invalid");
+    const decks = (await this.store.read(decksPath(accountId))) || {}; if (!decks[deckId]) return false;
+    delete decks[deckId]; await this.store.write(decksPath(accountId), decks); return true;
+  }
+
   async summary(accountId) {
     const games = Object.values((await this.store.read(gamesPath(accountId))) || {}).sort((a, b) => b.savedAt - a.savedAt);
     const wins = games.filter((game) => game.won).length;
