@@ -58,6 +58,10 @@ export class AccountHistory {
     await this.store.write(decksPath(accountId), { ...decks, [deckId]: deck }); return deck;
   }
 
+  async decks(accountId) {
+    return Object.values((await this.store.read(decksPath(accountId))) || {}).sort((a, b) => b.updatedAt - a.updatedAt);
+  }
+
   async summary(accountId) {
     const games = Object.values((await this.store.read(gamesPath(accountId))) || {}).sort((a, b) => b.savedAt - a.savedAt);
     const wins = games.filter((game) => game.won).length;

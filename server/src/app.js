@@ -1234,6 +1234,7 @@ export function createRealtimeServer(options = {}) {
       if (req.method === "GET" && url.pathname === "/api/account/history") { const accountId = await account(req); return json(res, 200, { history: await accountHistory.summary(accountId) }); }
       if (req.method === "POST" && url.pathname === "/api/account/games") { const accountId = await account(req); return json(res, 201, { game: await accountHistory.saveGame(accountId, await readJson(req)) }); }
       if (req.method === "POST" && url.pathname === "/api/account/decks") { const accountId = await account(req); return json(res, 201, { deck: await accountHistory.createDeck(accountId, await readJson(req)) }); }
+      if (req.method === "GET" && url.pathname === "/api/account/decks") { const accountId = await account(req); return json(res, 200, { decks: await accountHistory.decks(accountId) }); }
       if (req.method === "GET" && url.pathname === "/api/developer/access") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { ok: true }); }
       if (req.method === "GET" && url.pathname === "/api/appearance-studio/catalog") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { catalog: await appearanceCatalog.read() }); }
       if (req.method === "PUT" && url.pathname === "/api/appearance-studio/catalog") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { catalog: await appearanceCatalog.write(await readJson(req, 8 * 1024 * 1024)) }); }
