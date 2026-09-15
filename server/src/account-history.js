@@ -80,4 +80,8 @@ export class AccountHistory {
     const wins = games.filter((game) => game.won).length;
     return { gamesPlayed: games.length, wins, winRate: games.length ? wins / games.length : null, recentGames: games.slice(0, 12) };
   }
+
+  async export(accountId) {
+    return { schemaVersion: 1, exportedAt: this.now(), history: await this.summary(accountId), decks: await this.decks(accountId) };
+  }
 }

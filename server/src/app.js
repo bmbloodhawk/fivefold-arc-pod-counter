@@ -1235,6 +1235,7 @@ export function createRealtimeServer(options = {}) {
       const connectionId = req.headers["x-connection-id"];
       if (req.method === "GET" && url.pathname === "/health") return json(res, 200, { ok: true });
       if (req.method === "GET" && url.pathname === "/api/account/history") { const accountId = await account(req); return json(res, 200, { history: await accountHistory.summary(accountId) }); }
+      if (req.method === "GET" && url.pathname === "/api/account/export") { const accountId = await account(req); return json(res, 200, { export: await accountHistory.export(accountId) }); }
       if (req.method === "POST" && url.pathname === "/api/account/games") { const accountId = await account(req); return json(res, 201, { game: await accountHistory.saveGame(accountId, await readJson(req)) }); }
       if (req.method === "POST" && url.pathname === "/api/account/decks") { const accountId = await account(req); return json(res, 201, { deck: await accountHistory.createDeck(accountId, await readJson(req)) }); }
       if (req.method === "GET" && url.pathname === "/api/account/decks") { const accountId = await account(req); return json(res, 200, { decks: await accountHistory.decks(accountId) }); }
