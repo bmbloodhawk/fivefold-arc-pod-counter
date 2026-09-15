@@ -179,6 +179,8 @@ test('commander damage keeps entry compact and moves every source into a grouped
   assert.match(styles, /\.commander-source-dialog \{[\s\S]*height: min\(100dvh, 760px\)/);
   assert.match(styles, /\.commander-source-list \{[\s\S]*overflow-y: auto/);
   assert.match(styles, /\.selected-source-button \{[\s\S]*min-height: 40px/);
+  assert.match(app, /dom\.game\.dataset\.counterMode = state\.mode/);
+  assert.match(styles, /\.game-shell\[data-counter-mode="commander"\] #turnActions \{ margin-top: 2px; transform: none; \}/);
 });
 
 test('commander source selection keeps every source grouped, suggests the active turn, and names unnamed partners', () => {

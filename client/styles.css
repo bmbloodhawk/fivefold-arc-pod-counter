@@ -1085,6 +1085,12 @@ button:disabled { cursor: not-allowed; filter: saturate(.45); }
   #turnActions { margin-top: 1px; margin-bottom: 1px; transform: translateY(-20px); }
 }
 
+/* Commander places its source selector directly above the turn slot. Keep the
+   handoff action in that slot instead of lifting it over Change commander. */
+@media (max-width: 599px) {
+  .game-shell[data-counter-mode="commander"] #turnActions { margin-top: 2px; transform: none; }
+}
+
 @media (max-width: 340px) and (max-height: 720px) {
   #quickTestButton { display: none; }
   .saved-tables { gap: 5px; margin-top: 10px; padding: 10px; }

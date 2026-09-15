@@ -384,6 +384,7 @@ function render() {
   state.players.forEach(evaluatePlayer); localLastPlayerStanding(); const player = activePlayer(); const source = state.mode === 'commander' ? selectedSourceFor(player) : null;
   dom.game.style.setProperty('--identity-seal', identityBackground(playerIdentity(player)) || 'none');
   dom.game.dataset.hasIdentity = String(playerIdentity(player).length > 0);
+  dom.game.dataset.counterMode = state.mode;
   const identityNames = player.commanderNames.filter(Boolean).join(' · ');
   dom.podLabel.textContent = state.podCode === 'LOCAL' ? 'LOCAL POD' : `POD ${state.podCode}`; dom.commanderIdentityName.hidden = !identityNames; dom.commanderIdentityName.textContent = identityNames; dom.identityHeaderRail.style.setProperty('--identity-rail', identityRail(playerIdentity(player)) || 'transparent'); dom.identityHeaderRail.hidden = !playerIdentity(player).length; dom.modeTitle.textContent = state.mode.toUpperCase(); dom.mainValue.value = currentValue(player); dom.mainValue.classList.toggle('elimination-placeholder', player.eliminated); dom.mainValue.setAttribute('aria-hidden', String(player.eliminated));
   const inspectingSharedSeat = !state.localSimulation && player.id !== state.ownerPlayerId;
