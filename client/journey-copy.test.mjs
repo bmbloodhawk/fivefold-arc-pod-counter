@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { commanderFallbackLabel, commanderSourceSections } from './commander-source-flow.js';
 
 const root = new URL('./', import.meta.url);
 const html = await readFile(new URL('index.html', root), 'utf8');
@@ -156,9 +157,41 @@ test('the life readout stays together and the tax action cannot overlap custom l
   assert.match(styles, /\.game-shell\[data-your-turn="true"\] \.commander-tax-quick \{ transform: none; margin-bottom: 0; \}/);
 });
 
-test('two-seat commander sources reserve clearance above the fixed turn-action slot', () => {
-  assert.match(app, /source-panel-turn-clearance', state\.playerCount === 2/);
-  assert.match(styles, /\.source-panel\.source-panel-turn-clearance \{ margin-bottom: 39px; \}/);
+test('commander damage keeps the entry controls independent of source count', () => {
+  assert.doesNotMatch(app, /sources\.map\(source => \{ const value = commanderValue\(player, source\.id\)/);
+  assert.match(app, /const source = selectedSourceFor\(player\);/);
+  assert.match(styles, /\.source-panel \{ grid-template-columns: 1fr; gap: 4px; margin: 2px 0 7px; \}/);
+});
+
+test('commander damage keeps entry compact and moves every source into a grouped selector', () => {
+  assert.match(html, /id="commanderSourceDialog"/);
+  assert.match(html, /id="commanderSourceList"/);
+  assert.match(app, /function sourceChoiceLabel\(source\)/);
+  assert.match(app, /commanderFallbackLabel\(source, owner\)/);
+  assert.match(app, /function openCommanderSourceDialog\(player\)/);
+  assert.match(app, /if \(suggested\.length === 1\) state\.selectedSourceId = suggested\[0\]\.id;/);
+  assert.match(app, /Suggested · \$\{sourceOwnerLabel\(suggested\[0\]\)\}'s turn/);
+  assert.match(app, /section\('Recent', recent/);
+  assert.match(app, /<h3>All commanders<\/h3>/);
+  assert.match(app, /data-source-choice=/);
+  assert.match(app, /dom\.commanderSourceDialog\.close\('selected'\); render\(\);/);
+  assert.match(app, /id="changeCommanderSourceButton"/);
+  assert.match(styles, /\.commander-source-dialog \{[\s\S]*height: min\(100dvh, 760px\)/);
+  assert.match(styles, /\.commander-source-list \{[\s\S]*overflow-y: auto/);
+  assert.match(styles, /\.selected-source-button \{[\s\S]*min-height: 40px/);
+});
+
+test('commander source selection keeps every source grouped, suggests the active turn, and names unnamed partners', () => {
+  const players = Array.from({ length: 8 }, (_, index) => ({ id: `P${index + 1}`, commanderCount: index === 2 ? 2 : 1 }));
+  const sources = players.flatMap(player => Array.from({ length: player.commanderCount }, (_, index) => ({ id: `${player.id}-${index + 1}`, ownerPlayerId: player.id, slot: index ? 'B' : 'A' })));
+  const sections = commanderSourceSections({ sources, players, defenderDamage: { 'P1-1': 4, 'P5-1': 2 }, turnSeatId: 'P3', turnTrackingEnabled: true });
+  assert.equal(sections.groups.length, 8);
+  assert.deepEqual(sections.suggested.map(source => source.id), ['P3-1', 'P3-2']);
+  assert.deepEqual(sections.recent.map(source => source.id), ['P1-1', 'P5-1']);
+  assert.ok(sections.groups.find(group => group.owner.id === 'P1').sources.some(source => source.id === 'P1-1'));
+  assert.equal(commanderFallbackLabel({ ownerPlayerId: 'P3', slot: 'A' }, players[2]), "P3's commander 1");
+  assert.equal(commanderFallbackLabel({ ownerPlayerId: 'P3', slot: 'B' }, players[2]), "P3's commander 2");
+  assert.equal(commanderSourceSections({ sources, players, defenderDamage: {}, turnSeatId: 'P3', turnTrackingEnabled: false }).suggested.length, 0);
 });
 
 test('life changes and low-life warnings do not reflow the fixed play surface', () => {

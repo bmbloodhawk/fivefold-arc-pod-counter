@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=178">
+  <link rel="stylesheet" href="styles.css?v=181">
 </head>
 <body>
   <header class="brand-bar">
@@ -320,6 +320,15 @@
     </form>
   </dialog>
 
+  <dialog id="commanderSourceDialog" class="commander-source-dialog" aria-labelledby="commanderSourceTitle">
+    <form method="dialog" class="commander-source-dialog-content">
+      <h2 id="commanderSourceTitle">Choose damage source</h2>
+      <p id="commanderSourceDetail">Damage received by P1</p>
+      <div id="commanderSourceList" class="commander-source-list" aria-live="polite"></div>
+      <div class="dialog-actions commander-source-close"><button value="cancel" class="secondary-action">Cancel</button></div>
+    </form>
+  </dialog>
+
   <dialog id="commanderCountDialog">
     <form id="commanderCountForm" method="dialog">
       <h2>My commander setup</h2>
@@ -487,6 +496,6 @@
     <form method="dialog"><h2 id="savedPlaytestsTitle">Saved playtests</h2><div id="savedPlaytestsContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
   </dialog>
 
-  <script type="module" src="app.js?v=150"></script>
+  <script type="module" src="app.js?v=152"></script>
 </body>
 </html>
