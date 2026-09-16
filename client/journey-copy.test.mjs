@@ -356,4 +356,7 @@ test('signed-in accounts keep private deck details and personal history tools', 
   assert.match(app, /Private milestones/);
   assert.match(app, /Deck statistics/);
   assert.match(app, /id="gameHistorySearch"/);
+  assert.match(app, /data-toggle-archive/);
+  assert.match(app, /exportDeckSummary/);
+  assert.match(html, /id="accountDefaultPlayerCount"/);
 });

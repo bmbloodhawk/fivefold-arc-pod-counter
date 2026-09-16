@@ -68,16 +68,27 @@ export class AccountHistory {
     await this.store.write(decksPath(accountId), { ...decks, [deckId]: deck }); return deck;
   }
 
-  async decks(accountId) {
-    return Object.values((await this.store.read(decksPath(accountId))) || {}).sort((a, b) => Number(b.favorite) - Number(a.favorite) || b.updatedAt - a.updatedAt);
+  async decks(accountId, { includeArchived = false } = {}) {
+    return Object.values((await this.store.read(decksPath(accountId))) || {}).filter(deck => includeArchived || !deck.archived).sort((a, b) => Number(b.favorite) - Number(a.favorite) || b.updatedAt - a.updatedAt);
   }
 
-  async preferences(accountId) { return (await this.store.read(accountPath(accountId)))?.preferences || { preferredName: null }; }
+  async updateDeck(accountId, deckId, input = {}) {
+    if (!/^deck_[A-Za-z0-9-]{1,80}$/.test(deckId || "")) throw new TypeError("Deck is invalid");
+    const extra = Object.keys(input).find(key => !["favorite", "archived"].includes(key)); if (extra) throw new TypeError(`Deck field is not allowed: ${extra}`);
+    if (Object.values(input).some(value => typeof value !== "boolean")) throw new TypeError("Deck update is invalid");
+    const decks = (await this.store.read(decksPath(accountId))) || {}; const deck = decks[deckId]; if (!deck) throw new TypeError("Deck is invalid");
+    const updated = { ...deck, ...input, updatedAt: this.now() }; await this.store.write(decksPath(accountId), { ...decks, [deckId]: updated }); return updated;
+  }
+
+  async preferences(accountId) { return (await this.store.read(accountPath(accountId)))?.preferences || { preferredName: null, defaultPlayerCount: 4, defaultRoundLimitMinutes: null }; }
 
   async savePreferences(accountId, input = {}) {
-    const extra = Object.keys(input).find((key) => key !== "preferredName"); if (extra) throw new TypeError(`Preference is not allowed: ${extra}`);
+    const extra = Object.keys(input).find((key) => !["preferredName", "defaultPlayerCount", "defaultRoundLimitMinutes"].includes(key)); if (extra) throw new TypeError(`Preference is not allowed: ${extra}`);
     const account = (await this.store.read(accountPath(accountId))) || { accountId, createdAt: this.now(), consentVersion: null };
-    const preferences = { preferredName: text(input.preferredName, 24) };
+    const defaultPlayerCount = input.defaultPlayerCount == null ? 4 : Number(input.defaultPlayerCount); const defaultRoundLimitMinutes = input.defaultRoundLimitMinutes == null || input.defaultRoundLimitMinutes === "" ? null : Number(input.defaultRoundLimitMinutes);
+    if (!Number.isInteger(defaultPlayerCount) || defaultPlayerCount < 2 || defaultPlayerCount > 8) throw new TypeError("Default player count is invalid");
+    if (defaultRoundLimitMinutes !== null && (!Number.isInteger(defaultRoundLimitMinutes) || defaultRoundLimitMinutes < 1 || defaultRoundLimitMinutes > 999)) throw new TypeError("Default round limit is invalid");
+    const preferences = { preferredName: text(input.preferredName, 24), defaultPlayerCount, defaultRoundLimitMinutes };
     await this.store.write(accountPath(accountId), { ...account, preferences }); return preferences;
   }
 
@@ -97,12 +108,15 @@ export class AccountHistory {
     const games = Object.values((await this.store.read(gamesPath(accountId))) || {}).sort((a, b) => b.savedAt - a.savedAt);
     const wins = games.filter((game) => game.won).length;
     const deckStats = Object.values((await this.store.read(decksPath(accountId))) || {}).map(deck => { const deckGames = games.filter(game => game.deckId === deck.deckId); const deckWins = deckGames.filter(game => game.won).length; return { deckId: deck.deckId, name: deck.name || deck.commanderName, gamesPlayed: deckGames.length, wins: deckWins, winRate: deckGames.length ? deckWins / deckGames.length : null }; });
-    const milestones = [{ label: "First saved game", reached: games.length >= 1 }, { label: "Ten games saved", reached: games.length >= 10 }, { label: "Five different decks", reached: new Set(games.map(game => game.deckId).filter(Boolean)).size >= 5 }];
-    return { gamesPlayed: games.length, wins, winRate: games.length ? wins / games.length : null, recentGames: games.slice(0, 12), games, deckStats, milestones };
+    const chronologicalGames = [...games].reverse(); let bestWinStreak = 0; let currentWinStreak = 0; chronologicalGames.forEach(game => { currentWinStreak = game.won ? currentWinStreak + 1 : 0; bestWinStreak = Math.max(bestWinStreak, currentWinStreak); });
+    const thisMonth = new Date(this.now()); const monthGames = games.filter(game => { const date = new Date(game.savedAt); return date.getFullYear() === thisMonth.getFullYear() && date.getMonth() === thisMonth.getMonth(); });
+    const deckWins = new Set(games.filter(game => game.won && game.deckId).map(game => game.deckId)); const playedColors = new Set(Object.values((await this.store.read(decksPath(accountId))) || {}).filter(deck => games.some(game => game.deckId === deck.deckId)).flatMap(deck => deck.colors || []));
+    const milestones = [{ label: "First saved game", reached: games.length >= 1 }, { label: "Ten games saved", reached: games.length >= 10 }, { label: "First win with a deck", reached: deckWins.size >= 1 }, { label: "50 games saved", reached: games.length >= 50 }, { label: "Three-game win streak", reached: bestWinStreak >= 3 }, { label: "Played every color identity", reached: ["W", "U", "B", "R", "G"].every(color => playedColors.has(color)) }];
+    return { gamesPlayed: games.length, wins, winRate: games.length ? wins / games.length : null, recentGames: games.slice(0, 12), games, deckStats, milestones, thisMonth: { gamesPlayed: monthGames.length, wins: monthGames.filter(game => game.won).length } };
   }
 
   async export(accountId) {
-    return { schemaVersion: 1, exportedAt: this.now(), history: await this.summary(accountId), decks: await this.decks(accountId), preferences: await this.preferences(accountId) };
+    return { schemaVersion: 1, exportedAt: this.now(), history: await this.summary(accountId), decks: await this.decks(accountId, { includeArchived: true }), preferences: await this.preferences(accountId) };
   }
 
   async deleteAccount(providerSubject) {

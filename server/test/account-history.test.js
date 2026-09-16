@@ -43,7 +43,10 @@ test("saved decks retain private colors, notes, favorites, and account preferenc
   const deck = await history.createDeck(accountId, { commanderName: "Alela", colors: ["W", "U", "B", "U"], notes: "Keep a land hand", favorite: true });
   assert.deepEqual(deck.colors, ["W", "U", "B"]); assert.equal(deck.notes, "Keep a land hand"); assert.equal(deck.favorite, true);
   await history.savePreferences(accountId, { preferredName: "Nia" });
-  assert.deepEqual(await history.preferences(accountId), { preferredName: "Nia" });
+  assert.deepEqual(await history.preferences(accountId), { preferredName: "Nia", defaultPlayerCount: 4, defaultRoundLimitMinutes: null });
+  await history.updateDeck(accountId, deck.deckId, { archived: true, favorite: false });
+  assert.equal((await history.decks(accountId)).length, 0);
+  assert.equal((await history.decks(accountId, { includeArchived: true }))[0].archived, true);
 });
 
 test("account deletion removes the subject mapping and every saved account record", async () => {
