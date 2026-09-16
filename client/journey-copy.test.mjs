@@ -359,6 +359,8 @@ test('standard tables remain the default while hosts can exclude development run
 test('developer insights distinguish automatic qualified games from host-reported field tests', () => {
   assert.match(feedbackPage, /Automatic · qualified standard games/);
   assert.match(feedbackPage, /Host-reported real-table tests/);
+  assert.match(html, /Did the app ever show the table incorrectly\?/);
+  assert.match(feedbackPage, /Did the app ever show the table incorrectly\?/);
   assert.match(feedbackPage, /averageQualifiedDurationMs/);
   assert.match(feedbackPage, /No table insights have been recorded yet/);
 });
