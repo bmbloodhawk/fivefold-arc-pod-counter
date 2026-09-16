@@ -392,6 +392,10 @@ test('email accounts can request a password-reset email', () => {
   assert.match(app, /Enter your email and password, then choose Sign in with email\./);
 });
 
+test('signed-in game history hides sign-in controls', () => {
+  assert.match(app, /myGamesSignInButton\.hidden = true; emailSignInButton\.hidden = true; forgotPasswordButton\.hidden = true; createAccountButton\.hidden = true;/);
+});
+
 test('compact actions use the shared button treatment while removals remain distinct', () => {
   assert.match(styles, /\.text-action, \.back-button \{[\s\S]*border: 1px solid var\(--line\)[\s\S]*text-decoration: none/);
   assert.match(styles, /\.text-action\[data-remove-game\][\s\S]*#deleteAccountButton \{[\s\S]*color: var\(--danger\)/);
