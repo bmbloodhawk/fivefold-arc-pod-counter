@@ -87,6 +87,12 @@ h1 { max-width: 560px; margin: 0; font-family: Georgia, "Times New Roman", serif
 .setup-form { display: grid; gap: 24px; margin-top: 30px; }
 .create-step, .join-step { display: grid; gap: 24px; }
 .create-step > .eyebrow, .join-step > .eyebrow { margin: 0; }
+.commander-setup-step { gap: 12px; }
+.commander-setup-step .select-field { gap: 5px; }
+.commander-setup-step .choice-field .field-help { margin-top: 5px; font-size: .76rem; }
+.commander-setup-step .commander-identity-field { gap: 5px; padding: 8px; }
+.commander-setup-step .commander-lookup { min-height: 40px; }
+.commander-setup-step .dialog-actions { gap: 6px; }
 .commander-manual-colors { display: grid; gap: 8px; }
 .commander-color-chooser { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .commander-color-chooser legend { width: 100%; }

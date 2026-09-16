@@ -72,7 +72,11 @@ test('creating a pod is distinct from starting a game', () => {
   assert.match(html, /STEP 4 OF 4/);
   assert.match(html, /STEP 4 OF 4[\s\S]*?Optional table settings[\s\S]*?Round limit/);
   assert.match(html, /id="createDeckField" class="select-field" hidden>My deck/);
+  assert.match(html, /class="create-step commander-setup-step" data-create-step="3"/);
+  assert.match(app, /function sortSetupDecks\(decks\) \{ return \[\.\.\.decks\]\.sort\(\(left, right\) => Number\(right\.favorite\) - Number\(left\.favorite\)/);
+  assert.match(app, /\[dom\.createDeck, dom\.joinDeck\]\.forEach\(select => \{ select\.innerHTML = options; select\.value = ''; \}\)/);
   assert.match(html, /name="deckCommanderCount" value="2"/);
+  assert.match(styles, /\.commander-setup-step \{ gap: 12px; \}/);
   assert.match(html, /id="createStepThreeSkip"[^>]*>Skip for now/);
   assert.match(app, /Enter colors manually/);
   assert.match(app, /Keep without colors/);
