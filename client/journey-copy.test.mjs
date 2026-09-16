@@ -398,9 +398,9 @@ test('email autofill does not close the My games dialog', () => {
   assert.match(app, /myGamesDialog\.querySelector\('form'\)\.addEventListener\('submit', event => \{ if \(event\.submitter\?\.value !== 'close'\) event\.preventDefault\(\); \}\);/);
 });
 
-test('a completed account sign-in begins pod creation', () => {
-  assert.match(app, /async function showMyGames\(signIn = false, continueToCreate = false\)/);
-  assert.match(app, /if \(continueToCreate\) \{ myGamesDialog\.close\(\); showCreateStep\(1\); showView\(dom\.create\); return; \}/);
+test('a completed account sign-in returns to the pod choice', () => {
+  assert.match(app, /async function showMyGames\(signIn = false, returnToPodChoice = false\)/);
+  assert.match(app, /if \(returnToPodChoice\) \{ myGamesDialog\.close\(\); showView\(dom\.landing\); return; \}/);
   assert.match(app, /showMyGames\(true, true\)/);
   assert.match(app, /showMyGames\(false, true\)/);
 });
