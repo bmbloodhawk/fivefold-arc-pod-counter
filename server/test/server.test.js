@@ -117,6 +117,15 @@ describe("room configuration and claims", () => {
     assert.equal(JSON.stringify(made.snapshot).includes(made.reclaimToken), false);
   });
 
+  test("casual and custom tables omit Commander-only sources", async () => {
+    const casual = await room({ gameFormat: "casual", startingLife: 20 });
+    assert.equal(casual.snapshot.config.gameFormat, "casual");
+    assert.deepEqual(casual.snapshot.commanderSources, []);
+    const custom = await room({ gameFormat: "custom", startingLife: 30 });
+    assert.equal(custom.snapshot.config.gameFormat, "custom");
+    assert.deepEqual(custom.snapshot.commanderSources, []);
+  });
+
   test("rejects unsupported life totals and player counts", async () => {
     const connectionId = await connection();
     const bad = await call("/api/rooms", { method: "POST", connectionId, body: { playerCount: 9, startingLife: 25 } });

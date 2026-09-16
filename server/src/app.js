@@ -158,6 +158,12 @@ function normalizeCommanderCount(value, fallback = 1) {
   return asInteger(value, "commanderCount", 1, 2);
 }
 
+function normalizeGameFormat(value) {
+  if (value === undefined) return "commander";
+  if (!["commander", "casual", "custom"].includes(value)) throw Object.assign(new Error("gameFormat is invalid"), { status: 400, code: "INVALID_INPUT" });
+  return value;
+}
+
 function normalizeCommanderNames(value, commanderCount, fallback = []) {
   if (value === undefined) return Array.from({ length: commanderCount }, (_, slot) => fallback[slot] || "");
   if (!Array.isArray(value) || value.length !== commanderCount) {
@@ -231,6 +237,7 @@ function ownCommanderSourceIds(seat, commanderCount = seat.commanderCount) {
 }
 
 function commanderSources(room) {
+  if (room.config.gameFormat !== "commander") return [];
   return room.seats.flatMap((seat) => {
     if (!seat.claimed) return [];
     const playerLabel = seat.name;
@@ -409,6 +416,7 @@ export class RoomService {
     const playerCount = asInteger(input.playerCount, "playerCount", 2, 8);
     const startingLife = asInteger(input.startingLife, "startingLife", 20, 40);
     if (![20, 30, 40].includes(startingLife)) throw Object.assign(new Error("startingLife must be 20, 30, or 40"), { status: 400, code: "INVALID_INPUT" });
+    const gameFormat = normalizeGameFormat(input.gameFormat);
     const commanderCount = normalizeCommanderCount(input.commanderCount);
     const commanderNames = normalizeCommanderNames(input.commanderNames, commanderCount);
     const commanderColors = normalizeCommanderColors(input.commanderColors, commanderCount);
@@ -438,7 +446,7 @@ export class RoomService {
       createdAt: startedAt,
       lastActiveAt: startedAt,
       hostSeatId: 0,
-      config: { playerCount, startingLife, roundLimitMinutes },
+      config: { playerCount, startingLife, gameFormat, roundLimitMinutes },
       lastCoinToss: null,
       gameResult: null,
       sessionKind: "standard",
@@ -466,7 +474,7 @@ export class RoomService {
     };
     synchronizeCommanderState(room);
     this.rooms.set(code, room);
-    this.recordLedger(room, "room_created", 0, { playerCount, startingLife });
+    this.recordLedger(room, "room_created", 0, { playerCount, startingLife, gameFormat });
     this.productMeasurement.record({ event: "pod_creation_succeeded" });
     connection.seatKey = `${code}:0`;
     return { snapshot: this.snapshot(room), seatId: 0, reclaimToken, hostRecoveryKey };
