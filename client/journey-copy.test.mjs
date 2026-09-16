@@ -380,6 +380,8 @@ test('each phone can choose and preview a turn sound at a personal volume', () =
 test('email accounts can request a password-reset email', () => {
   assert.match(html, /id="forgotPasswordButton"/);
   assert.match(app, /sendAccountPasswordReset/);
+  assert.match(app, /emailSignInButton\.textContent = 'Sign in with email';/);
+  assert.match(app, /Enter your email and password, then choose Sign in with email\./);
 });
 
 test('compact actions use the shared button treatment while removals remain distinct', () => {
