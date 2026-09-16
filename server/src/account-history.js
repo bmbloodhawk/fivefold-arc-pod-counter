@@ -74,10 +74,14 @@ export class AccountHistory {
 
   async updateDeck(accountId, deckId, input = {}) {
     if (!/^deck_[A-Za-z0-9-]{1,80}$/.test(deckId || "")) throw new TypeError("Deck is invalid");
-    const extra = Object.keys(input).find(key => !["favorite", "archived"].includes(key)); if (extra) throw new TypeError(`Deck field is not allowed: ${extra}`);
-    if (Object.values(input).some(value => typeof value !== "boolean")) throw new TypeError("Deck update is invalid");
     const decks = (await this.store.read(decksPath(accountId))) || {}; const deck = decks[deckId]; if (!deck) throw new TypeError("Deck is invalid");
-    const updated = { ...deck, ...input, updatedAt: this.now() }; await this.store.write(decksPath(accountId), { ...decks, [deckId]: updated }); return updated;
+    const extra = Object.keys(input).find(key => !["favorite", "archived", "commanderNames", "name", "colors", "notes"].includes(key)); if (extra) throw new TypeError(`Deck field is not allowed: ${extra}`);
+    if (input.favorite != null && typeof input.favorite !== "boolean" || input.archived != null && typeof input.archived !== "boolean") throw new TypeError("Deck update is invalid");
+    const commanderNames = input.commanderNames === undefined ? deck.commanderNames : input.commanderNames.map(value => text(value, 120));
+    if (!Array.isArray(commanderNames) || commanderNames.length < 1 || commanderNames.length > 2 || commanderNames.some(name => !name)) throw new TypeError("Commander names are invalid");
+    const colors = input.colors === undefined ? deck.colors : [...new Set(input.colors)];
+    if (!Array.isArray(colors) || colors.some(color => !["W", "U", "B", "R", "G"].includes(color))) throw new TypeError("Deck colors are invalid");
+    const updated = { ...deck, ...input, commanderNames, commanderName: commanderNames.join(" / "), colors, ...(input.name !== undefined ? { name: text(input.name, 120) } : {}), ...(input.notes !== undefined ? { notes: text(input.notes, 500) } : {}), updatedAt: this.now() }; await this.store.write(decksPath(accountId), { ...decks, [deckId]: updated }); return updated;
   }
 
   async preferences(accountId) { return (await this.store.read(accountPath(accountId)))?.preferences || { preferredName: null, defaultPlayerCount: 4, defaultRoundLimitMinutes: null }; }
