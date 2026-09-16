@@ -121,8 +121,9 @@ describe("room configuration and claims", () => {
     const casual = await room({ gameFormat: "casual", startingLife: 20 });
     assert.equal(casual.snapshot.config.gameFormat, "casual");
     assert.deepEqual(casual.snapshot.commanderSources, []);
-    const custom = await room({ gameFormat: "custom", startingLife: 30 });
+    const custom = await room({ gameFormat: "custom", startingLife: 25 });
     assert.equal(custom.snapshot.config.gameFormat, "custom");
+    assert.equal(custom.snapshot.config.startingLife, 25);
     assert.deepEqual(custom.snapshot.commanderSources, []);
   });
 

@@ -61,7 +61,9 @@ test('the host lobby makes sharing the primary next setup action', () => {
 test('creating a pod is distinct from starting a game', () => {
   assert.match(html, /name="gameFormat" value="commander" checked/);
   assert.match(html, /name="gameFormat" value="casual"/);
+  assert.match(html, /id="customStartingLife"[^>]*min="1" max="999"/);
   assert.match(app, /function updateFormatSetup\(\)/);
+  assert.match(app, /gameFormat === 'custom' \? form\.get\('customStartingLife'\)/);
   assert.match(app, /gameFormat === 'commander' \? Number\(form\.get\('commanderCount'\)\) : 1/);
   assert.match(html, /STEP 1 OF 4/);
   assert.match(html, /STEP 2 OF 4/);

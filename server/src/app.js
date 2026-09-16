@@ -413,10 +413,10 @@ export class RoomService {
   createRoom(connectionId, input = {}) {
     const connection = this.getConnection(connectionId);
     if (connection.seatKey) throw Object.assign(new Error("One connection may own only one seat"), { status: 409, code: "CONNECTION_HAS_SEAT" });
-    const playerCount = asInteger(input.playerCount, "playerCount", 2, 8);
-    const startingLife = asInteger(input.startingLife, "startingLife", 20, 40);
-    if (![20, 30, 40].includes(startingLife)) throw Object.assign(new Error("startingLife must be 20, 30, or 40"), { status: 400, code: "INVALID_INPUT" });
     const gameFormat = normalizeGameFormat(input.gameFormat);
+    const playerCount = asInteger(input.playerCount, "playerCount", 2, 8);
+    const startingLife = asInteger(input.startingLife, "startingLife", gameFormat === "custom" ? 1 : 20, gameFormat === "custom" ? 999 : 40);
+    if (gameFormat !== "custom" && ![20, 30, 40].includes(startingLife)) throw Object.assign(new Error("startingLife must be 20, 30, or 40"), { status: 400, code: "INVALID_INPUT" });
     const commanderCount = normalizeCommanderCount(input.commanderCount);
     const commanderNames = normalizeCommanderNames(input.commanderNames, commanderCount);
     const commanderColors = normalizeCommanderColors(input.commanderColors, commanderCount);
