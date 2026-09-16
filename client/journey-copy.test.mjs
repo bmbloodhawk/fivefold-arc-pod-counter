@@ -392,6 +392,10 @@ test('email accounts can request a password-reset email', () => {
   assert.match(app, /Enter your email and password, then choose Sign in with email\./);
 });
 
+test('email autofill does not close the My games dialog', () => {
+  assert.match(app, /myGamesDialog\.querySelector\('form'\)\.addEventListener\('submit', event => \{ if \(event\.submitter\?\.value !== 'close'\) event\.preventDefault\(\); \}\);/);
+});
+
 test('signed-in game history hides sign-in controls', () => {
   assert.match(app, /myGamesSignInButton\.hidden = true; emailSignInButton\.hidden = true; forgotPasswordButton\.hidden = true; createAccountButton\.hidden = true;/);
 });
