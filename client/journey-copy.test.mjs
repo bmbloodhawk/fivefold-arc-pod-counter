@@ -11,8 +11,13 @@ const feedbackPage = await readFile(new URL('feedback.html', root), 'utf8');
 const layoutInvariants = await readFile(new URL('../UI_LAYOUT_INVARIANTS.md', root), 'utf8');
 
 test('joining keeps optional commander setup out of the primary claim path', () => {
-  assert.match(html, /Commander details \(optional — set later\)/);
+  assert.match(html, /STEP 2 OF 4/);
+  assert.match(html, /STEP 3 OF 4/);
+  assert.match(html, /STEP 4 OF 4/);
+  assert.match(html, /id="joinStepTwoNext"[^>]*>Next: your name/);
+  assert.match(html, /id="joinStepThreeNext"[^>]*>Next: commander/);
   assert.match(html, /Claim this seat/);
+  assert.match(app, /function showJoinStep\(step\)/);
   assert.doesNotMatch(html, /Preview join locally/);
 });
 

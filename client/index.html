@@ -135,31 +135,39 @@
       <p class="eyebrow">POD READY</p>
       <h2 id="joinDetailsTitle">Choose your seat.</h2>
       <form id="joinForm" class="setup-form">
-        <label class="select-field">Open seat
-          <select id="joinSeat" disabled>
-            <option value="">Enter a pod code first</option>
-          </select>
-          <small>Only currently open seats are shown after the pod code is checked.</small>
-        </label>
-        <p id="joinSeatClaim" class="seat-claim-note" aria-live="polite">Choose an open seat to see what this phone will control.</p>
-        <label class="select-field">Your name <small>(optional)</small>
-          <input id="joinName" name="name" type="text" autocomplete="name" maxlength="24" placeholder="P1">
-          <small>Leave blank to use your seat name. Up to 24 characters.</small>
-        </label>
-        <details class="setup-options">
-          <summary>Commander details (optional — set later)</summary>
+        <section class="join-step" data-join-step="2">
+          <p class="eyebrow">STEP 2 OF 4</p>
+          <label class="select-field">Open seat
+            <select id="joinSeat" disabled>
+              <option value="">Enter a pod code first</option>
+            </select>
+            <small>Only currently open seats are shown after the pod code is checked.</small>
+          </label>
+          <p id="joinSeatClaim" class="seat-claim-note" aria-live="polite">Choose an open seat to see what this phone will control.</p>
+          <button id="joinStepTwoNext" class="primary-action" type="button">Next: your name</button>
+        </section>
+        <section class="join-step" data-join-step="3" hidden>
+          <p class="eyebrow">STEP 3 OF 4</p>
+          <label class="select-field">What should the table call you? <small>(optional)</small>
+            <input id="joinName" name="name" type="text" autocomplete="name" maxlength="24" placeholder="P1">
+            <small>Leave blank to use your seat name.</small>
+          </label>
+          <div class="dialog-actions"><button class="secondary-action" data-join-back type="button">Back</button><button id="joinStepThreeNext" class="primary-action" type="button">Next: commander</button></div>
+        </section>
+        <section class="join-step" data-join-step="4" hidden>
+          <p class="eyebrow">STEP 4 OF 4</p>
+          <label id="joinDeckField" class="select-field" hidden>My deck <small>(optional)</small><select id="joinDeck"><option value="">No deck selected</option></select></label>
           <fieldset class="choice-field">
-            <legend>My commanders</legend>
+            <legend>Your commander <small>(optional)</small></legend>
             <div class="segmented commander-count-choice" role="radiogroup" aria-label="Number of commanders for your claimed seat">
               <label><input type="radio" name="joinCommanderCount" value="1" checked><span>1 commander</span></label>
               <label><input type="radio" name="joinCommanderCount" value="2"><span>2 commanders</span></label>
             </div>
-            <small class="field-help">You can update commander names and color identity after you claim your seat.</small>
+            <small class="field-help">Find the card to add its color identity. You can skip this for now.</small>
           </fieldset>
           <div id="joinCommanderNames" class="commander-name-fields"></div>
-          <label id="joinDeckField" class="select-field" hidden>My deck <small>(optional)</small><select id="joinDeck"><option value="">No deck selected</option></select></label>
-        </details>
-        <button class="primary-action" type="submit">Claim this seat</button>
+          <div class="dialog-actions"><button class="secondary-action" data-join-back type="button">Back</button><button class="primary-action" type="submit">Claim this seat</button></div>
+        </section>
       </form>
     </section>
 
@@ -523,6 +531,6 @@
   <dialog id="myGamesDialog" aria-labelledby="myGamesTitle"><form method="dialog"><h2 id="myGamesTitle">My games</h2><p id="myGamesStatus">Sign in to keep your wins and games in one place.</p><div id="myGamesContent" hidden></div><label id="emailSignInFields" class="select-field" hidden>Email<input id="accountEmail" type="email" autocomplete="email"><small>Password</small><input id="accountPassword" type="password" minlength="6" autocomplete="current-password"></label><div class="dialog-actions"><button id="myGamesSignInButton" type="button" class="primary-action">Sign in with Google</button><button id="emailSignInButton" type="button" class="secondary-action">Use email</button><button id="createAccountButton" type="button" class="text-action" hidden>Create account</button><button id="exportAccountButton" type="button" class="text-action" hidden>Export my data</button><button id="deleteAccountButton" type="button" class="text-action" hidden>Delete my account data</button><button value="close" class="secondary-action">Close</button></div></form></dialog>
   <dialog id="myDecksDialog" aria-labelledby="myDecksTitle"><form method="dialog"><h2 id="myDecksTitle">My decks</h2><p id="myDecksStatus">Sign in to keep private deck notes.</p><div id="myDecksContent" hidden></div><fieldset class="choice-field"><legend>Commanders</legend><div class="segmented commander-count-choice"><label><input type="radio" name="deckCommanderCount" value="1" checked><span>1 commander</span></label><label><input type="radio" name="deckCommanderCount" value="2"><span>2 commanders</span></label></div></fieldset><label class="select-field">Commander 1<input id="deckCommanderName" maxlength="120" autocomplete="off" placeholder="e.g. Atraxa, Praetors’ Voice"></label><label id="deckCommanderNameTwoField" class="select-field" hidden>Commander 2<input id="deckCommanderNameTwo" maxlength="120" autocomplete="off" placeholder="e.g. Tymna the Weaver"></label><label class="select-field">Deck name <small>(optional)</small><input id="deckName" maxlength="120" autocomplete="off" placeholder="e.g. Poison counters"></label><div class="dialog-actions"><button id="myDecksSignInButton" type="button" class="secondary-action">Sign in with Google</button><button id="createDeckButton" type="button" class="primary-action">Save deck</button><button value="close" class="secondary-action">Close</button></div></form></dialog>
 
-  <script type="module" src="app.js?v=169"></script>
+  <script type="module" src="app.js?v=170"></script>
 </body>
 </html>
