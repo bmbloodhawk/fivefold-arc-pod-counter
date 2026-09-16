@@ -360,3 +360,10 @@ test('signed-in accounts keep private deck details and personal history tools', 
   assert.match(app, /exportDeckSummary/);
   assert.match(html, /id="accountDefaultPlayerCount"/);
 });
+
+test('radiation is prompted after turn handoff and resolved from the entered mill result', () => {
+  assert.match(html, /id="radiationDialog"/);
+  assert.match(html, /Nonland cards milled/);
+  assert.match(app, /promptRadiationAfterHandoff/);
+  assert.match(app, /resolveRadiation\(nonlandCount\)/);
+});

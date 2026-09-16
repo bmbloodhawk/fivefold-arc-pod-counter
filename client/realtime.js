@@ -109,6 +109,8 @@ export class RealtimeAdapter extends EventTarget {
     } catch (error) { if (!this.#isCurrentSession(epoch)) return { ignored: true }; return this.#handleConflict(error, epoch); }
   }
 
+  async resolveRadiation(nonlandCount) { return this.#turnRequest('/resolve-radiation', { nonlandCount }); }
+
   async listPlaytestNotes() { return this.#request(`/api/rooms/${this.roomCode}/playtest-notes`, { authenticated: true }); }
   async addPlaytestNote(text) {
     if (this.localMode) throw new Error('Playtest notes are available in a shared pod.');
@@ -180,12 +182,12 @@ export class RealtimeAdapter extends EventTarget {
     } catch (error) { if (!this.#isCurrentSession(epoch)) return { ignored: true }; return this.#handleConflict(error, epoch); }
   }
 
-  async #turnRequest(path) {
+  async #turnRequest(path, extra = {}) {
     if (this.localMode) return { local: true };
     if (this.status !== 'connected' || !this.snapshot) return { blocked: true };
     const epoch = this.sessionEpoch;
     try {
-      const result = await this.#request(`/api/rooms/${this.roomCode}${path}`, { method: 'POST', authenticated: true, body: { baseVersion: this.snapshot.version } });
+      const result = await this.#request(`/api/rooms/${this.roomCode}${path}`, { method: 'POST', authenticated: true, body: { baseVersion: this.snapshot.version, ...extra } });
       if (!this.#isCurrentSession(epoch)) return { ignored: true };
       this.#acceptSnapshot(result.snapshot, epoch); return result;
     } catch (error) { if (!this.#isCurrentSession(epoch)) return { ignored: true }; return this.#handleConflict(error, epoch); }

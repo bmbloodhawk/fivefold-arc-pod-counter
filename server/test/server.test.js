@@ -772,6 +772,14 @@ describe("authority and convergence", () => {
     assert.equal(service.snapshot(service.room(initial.code)).turn.activeSeatId, 0);
   });
 
+  test("the active player resolves radiation as one life-and-counter action", () => {
+    let now = 100_000; const service = new RoomService({ now: () => now }); const host = service.createConnection(); const made = service.createRoom(host.connectionId, { playerCount: 2, startingLife: 40 }); const other = service.createConnection();
+    const claimed = service.claimSeat(made.snapshot.code, other.connectionId, { seatId: 1, name: "Jace" }); const irradiated = service.adjustOwnSeat(made.snapshot.code, host.connectionId, { counter: "radiation", delta: 3 }); const started = service.startGame(made.snapshot.code, host.connectionId, { baseVersion: irradiated.snapshot.version });
+    const resolved = service.resolveRadiation(made.snapshot.code, host.connectionId, { baseVersion: started.snapshot.version, nonlandCount: 2 });
+    assert.equal(resolved.snapshot.seats[0].counters.radiation, 1); assert.equal(resolved.snapshot.seats[0].counters.life, 38);
+    assert.throws(() => service.resolveRadiation(made.snapshot.code, other.connectionId, { baseVersion: resolved.snapshot.version, nonlandCount: 1 }), { code: "NOT_ACTIVE_PLAYER" });
+  });
+
   test("host can pause or disable turn tracking, and handoffs skip eliminated seats", () => {
     let now = 100_000;
     const service = new RoomService({ now: () => now });

@@ -810,6 +810,16 @@ export class RoomService {
     return { snapshot };
   }
 
+  resolveRadiation(code, connectionId, input = {}) {
+    const room = this.room(code); const { seat, seatId } = this.requireOwner(room, connectionId);
+    if (!room.turn.gameStarted || seatId !== room.turn.activeSeatId) throw Object.assign(new Error("Only the active player may resolve radiation"), { status: 403, code: "NOT_ACTIVE_PLAYER" });
+    if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
+    const nonlandCount = asInteger(input.nonlandCount, "nonlandCount", 0, 999); const removed = Math.min(nonlandCount, seat.counters.radiation || 0);
+    seat.counters.radiation -= removed; seat.counters.life = Math.max(-999, seat.counters.life - nonlandCount);
+    recordMatchMoment(seat, { counter: "life", delta: -nonlandCount, lifeAfter: seat.counters.life, gameStarted: true, isOwnTurn: true }); recordLastPlayerStanding(room, this.now()); room.version += 1;
+    this.recordLedger(room, "radiation_resolved", seatId, { nonlandCount, removed }); this.recordCompletion(room); this.broadcast(room); return { snapshot: this.snapshot(room) };
+  }
+
   resetRoom(code, connectionId, input = {}) {
     const room = this.room(code);
     const { seatId } = this.requireOwner(room, connectionId);
@@ -1300,6 +1310,7 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "POST" && parts[3] === "claim") return json(res, 200, service.claimSeat(code, connectionId, await readJson(req)));
         if (req.method === "PATCH" && parts[3] === "me") return json(res, 200, service.mutateOwnSeat(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "adjust") return json(res, 200, service.adjustOwnSeat(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "resolve-radiation") return json(res, 200, service.resolveRadiation(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "reset") return json(res, 200, service.resetRoom(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "coin-toss") return json(res, 200, service.tossCoin(code, connectionId));
         if (req.method === "GET" && parts[3] === "playtest-notes") return json(res, 200, service.listPlaytestNotes(code, connectionId));
