@@ -65,6 +65,7 @@ test('creating a pod is distinct from starting a game', () => {
   assert.match(app, /function updateFormatSetup\(\)/);
   assert.match(app, /gameFormat === 'custom' \? form\.get\('customStartingLife'\)/);
   assert.match(app, /gameFormat === 'commander' \? Number\(form\.get\('commanderCount'\)\) : 1/);
+  assert.match(app, /selectedGameFormat\(\) === 'casual'\) \{ \$\('input\[name="startingLife"\]\[value="20"\]'\)\.checked = true; \$\('input\[name="playerCount"\]\[value="2"\]'\)\.checked = true; \}/);
   assert.match(html, /STEP 1 OF 4/);
   assert.match(html, /STEP 2 OF 4/);
   assert.match(html, /STEP 3 OF 4/);
