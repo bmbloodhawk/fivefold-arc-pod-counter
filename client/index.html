@@ -88,8 +88,7 @@
         <section class="create-step" data-create-step="4" hidden>
           <p class="eyebrow">STEP 4 OF 4</p>
           <p class="field-help">Optional table settings. Leave these at their defaults to create the pod now.</p>
-          <details class="setup-options" open>
-          <summary>More setup options</summary>
+          <div class="setup-options">
           <label class="select-field">Round limit <small>(optional)</small>
             <input id="roundLimitMinutes" name="roundLimitMinutes" type="number" inputmode="numeric" min="1" max="999" step="1" placeholder="No limit — game time counts up">
             <small>Enter minutes only for an organizer countdown. It never ends or skips a turn automatically.</small>
@@ -106,7 +105,7 @@
             <input id="localSimulation" type="checkbox">
             <span><strong>Local simulation</strong><small>Switch active seats on one phone for testing.</small></span>
           </label>
-          </details>
+          </div>
           <div class="dialog-actions"><button class="secondary-action" data-create-back type="button">Back</button><button class="primary-action" type="submit">Create pod</button></div>
         </section>
       </form>
