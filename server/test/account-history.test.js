@@ -15,10 +15,13 @@ test("personal games retain only the saver’s explicitly supplied result", asyn
   const accountId = await history.ensureAccount("subject");
   await history.saveGame(accountId, { tableSize: 4, won: true, place: 1, outcomeDescription: "Combat damage", commanderName: "Alela" });
   await history.saveGame(accountId, { tableSize: 4, won: false });
-  assert.deepEqual(await history.summary(accountId), { gamesPlayed: 2, wins: 1, winRate: .5, recentGames: [
+  const summary = await history.summary(accountId);
+  assert.deepEqual({ gamesPlayed: summary.gamesPlayed, wins: summary.wins, winRate: summary.winRate, recentGames: summary.recentGames }, { gamesPlayed: 2, wins: 1, winRate: .5, recentGames: [
     { gameId: "game_2", savedAt: 20, tableSize: 4, won: true, place: 1, outcomeDescription: "Combat damage", commanderName: "Alela", deckId: null },
     { gameId: "game_3", savedAt: 20, tableSize: 4, won: false, place: null, outcomeDescription: null, commanderName: null, deckId: null },
   ] });
+  assert.equal(summary.games.length, 2);
+  assert.equal(summary.milestones[0].reached, true);
 });
 
 test("account history rejects room details and unrecorded placement data", async () => {
@@ -35,6 +38,14 @@ test("saved decks retain one or two commanders as separate values", async () => 
   await assert.rejects(() => history.createDeck(accountId, { commanderNames: ["A", "B", "C"] }), /Commander names are invalid/);
 });
 
+test("saved decks retain private colors, notes, favorites, and account preferences", async () => {
+  const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: () => "details" }); const accountId = await history.ensureAccount("subject");
+  const deck = await history.createDeck(accountId, { commanderName: "Alela", colors: ["W", "U", "B", "U"], notes: "Keep a land hand", favorite: true });
+  assert.deepEqual(deck.colors, ["W", "U", "B"]); assert.equal(deck.notes, "Keep a land hand"); assert.equal(deck.favorite, true);
+  await history.savePreferences(accountId, { preferredName: "Nia" });
+  assert.deepEqual(await history.preferences(accountId), { preferredName: "Nia" });
+});
+
 test("account deletion removes the subject mapping and every saved account record", async () => {
   const store = new MemoryAccountHistoryStore(); const history = new AccountHistory({ store, createId: (() => { let id = 0; return () => String(++id); })() });
   const accountId = await history.ensureAccount("subject");
@@ -42,7 +53,7 @@ test("account deletion removes the subject mapping and every saved account recor
   await history.saveGame(accountId, { tableSize: 4, won: true, deckId: deck.deckId });
   assert.equal(await history.deleteAccount("subject"), true);
   assert.equal(await history.deleteAccount("subject"), false);
-  assert.deepEqual(await history.summary(accountId), { gamesPlayed: 0, wins: 0, winRate: null, recentGames: [] });
+  const summary = await history.summary(accountId); assert.deepEqual({ gamesPlayed: summary.gamesPlayed, wins: summary.wins, winRate: summary.winRate, recentGames: summary.recentGames, games: summary.games, deckStats: summary.deckStats }, { gamesPlayed: 0, wins: 0, winRate: null, recentGames: [], games: [], deckStats: [] });
   assert.deepEqual(await history.decks(accountId), []);
   assert.notEqual(await history.ensureAccount("subject"), accountId);
 });

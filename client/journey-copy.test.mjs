@@ -346,3 +346,14 @@ test('developer insights accurately distinguish bounded field tests from complet
   assert.match(feedbackPage, /Aggregated field-test metrics and completed-table accolade selections/);
   assert.match(feedbackPage, /No table insights have been recorded yet/);
 });
+
+test('signed-in accounts keep private deck details and personal history tools', () => {
+  assert.match(html, /id="deckNotes"/);
+  assert.match(html, /name="deckColors"/);
+  assert.match(html, /id="deckFavorite"/);
+  assert.match(html, /id="accountPreferredName"/);
+  assert.match(app, /\/api\/account\/preferences/);
+  assert.match(app, /Private milestones/);
+  assert.match(app, /Deck statistics/);
+  assert.match(app, /id="gameHistorySearch"/);
+});
