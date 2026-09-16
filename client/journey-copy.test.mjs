@@ -113,6 +113,7 @@ test('the landing page explains the privacy boundary without overclaiming record
   assert.match(html, /id="joinPodButton" class="primary-action" type="button">Join a pod/);
   assert.match(html, /id="myGamesButton" class="secondary-action account-action" type="button" aria-disabled="true"/);
   assert.match(html, /id="myDecksButton" class="secondary-action account-action" type="button" aria-disabled="true"/);
+  assert.match(html, /id="accountSignedInStatus" class="account-signed-in" hidden>Signed in/);
   assert.match(app, /function enterApp\(signedIn = false\) \{ accountChoice\.hidden = true; playActions\.hidden = false; myGamesButton\.setAttribute\('aria-disabled', String\(!signedIn\)\); myDecksButton\.setAttribute\('aria-disabled', String\(!signedIn\)\);/);
   assert.match(app, /myDecksButton\.getAttribute\('aria-disabled'\) === 'true'\) return openSignIn\(\)/);
   assert.doesNotMatch(html, /PHONE-FIRST PLAYTEST/);
@@ -394,6 +395,13 @@ test('email accounts can request a password-reset email', () => {
 
 test('email autofill does not close the My games dialog', () => {
   assert.match(app, /myGamesDialog\.querySelector\('form'\)\.addEventListener\('submit', event => \{ if \(event\.submitter\?\.value !== 'close'\) event\.preventDefault\(\); \}\);/);
+});
+
+test('a completed account sign-in begins pod creation', () => {
+  assert.match(app, /async function showMyGames\(signIn = false, continueToCreate = false\)/);
+  assert.match(app, /if \(continueToCreate\) \{ myGamesDialog\.close\(\); showCreateStep\(1\); showView\(dom\.create\); return; \}/);
+  assert.match(app, /showMyGames\(true, true\)/);
+  assert.match(app, /showMyGames\(false, true\)/);
 });
 
 test('signed-in game history hides sign-in controls', () => {
