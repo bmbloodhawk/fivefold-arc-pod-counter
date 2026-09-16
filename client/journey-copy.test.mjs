@@ -82,9 +82,9 @@ test('declaring an alternate winner offers an optional visible reason without a 
 });
 
 test('the landing page explains the privacy boundary without overclaiming record retention', () => {
-  assert.match(html, /Test build · No account/);
-  assert.match(html, /No analytics\. Your seat recovery credential stays on this phone\./);
-  assert.match(html, /Shared playtest notes may be saved privately for this test; active rooms can disappear if the service restarts\./);
+  assert.match(html, /Test build · Guest play is always available/);
+  assert.match(html, /You can optionally sign in to save your own games and decks\./);
+  assert.match(html, /href="privacy\.html"/);
 });
 
 test('the host lobby has one default start action and keeps alternate first-player choices secondary', () => {

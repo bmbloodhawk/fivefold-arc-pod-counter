@@ -1208,12 +1208,12 @@ export function createRealtimeServer(options = {}) {
   const appearanceCatalog = options.appearanceCatalog ?? { read: async () => ({ skins: [], assets: [], selected: "neutral" }), write: async value => value, readAsset: async () => null, writeAsset: async (_id, value) => value, deleteAsset: async () => {} };
   const accountHistory = options.accountHistory ?? null;
   const accountVerifier = options.accountVerifier ?? null;
-  const account = async (req) => {
+  const accountIdentity = async (req) => {
     if (!accountHistory || !accountVerifier) throw Object.assign(new Error("Personal history is not configured yet"), { status: 503, code: "ACCOUNT_NOT_CONFIGURED" });
     const token = /^Bearer (.+)$/i.exec(String(req.headers.authorization || ""))?.[1];
-    const identity = await accountVerifier.verify(token);
-    return accountHistory.ensureAccount(identity.providerSubject);
+    return accountVerifier.verify(token);
   };
+  const account = async (req) => accountHistory.ensureAccount((await accountIdentity(req)).providerSubject);
   const feedbackKeyMatches = (provided) => {
     if (!feedbackPortalKey) throw Object.assign(new Error("The feedback inbox is not configured yet"), { status: 503, code: "FEEDBACK_NOT_CONFIGURED" });
     if (typeof provided !== "string" || provided.length !== feedbackPortalKey.length || !timingSafeEqual(Buffer.from(provided), Buffer.from(feedbackPortalKey))) throw Object.assign(new Error("That feedback key did not match"), { status: 403, code: "FEEDBACK_DENIED" });
@@ -1236,6 +1236,7 @@ export function createRealtimeServer(options = {}) {
       if (req.method === "GET" && url.pathname === "/health") return json(res, 200, { ok: true });
       if (req.method === "GET" && url.pathname === "/api/account/history") { const accountId = await account(req); return json(res, 200, { history: await accountHistory.summary(accountId) }); }
       if (req.method === "GET" && url.pathname === "/api/account/export") { const accountId = await account(req); return json(res, 200, { export: await accountHistory.export(accountId) }); }
+      if (req.method === "DELETE" && url.pathname === "/api/account") { const identity = await accountIdentity(req); await accountHistory.deleteAccount(identity.providerSubject); return json(res, 204, {}); }
       if (req.method === "POST" && url.pathname === "/api/account/games") { const accountId = await account(req); return json(res, 201, { game: await accountHistory.saveGame(accountId, await readJson(req)) }); }
       if (req.method === "POST" && url.pathname === "/api/account/decks") { const accountId = await account(req); return json(res, 201, { deck: await accountHistory.createDeck(accountId, await readJson(req)) }); }
       if (req.method === "GET" && url.pathname === "/api/account/decks") { const accountId = await account(req); return json(res, 200, { decks: await accountHistory.decks(accountId) }); }

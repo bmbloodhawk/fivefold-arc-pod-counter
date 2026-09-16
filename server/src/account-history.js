@@ -84,4 +84,18 @@ export class AccountHistory {
   async export(accountId) {
     return { schemaVersion: 1, exportedAt: this.now(), history: await this.summary(accountId), decks: await this.decks(accountId) };
   }
+
+  async deleteAccount(providerSubject) {
+    if (typeof providerSubject !== "string" || !providerSubject) throw new TypeError("Account subject is required");
+    const mappingPath = `account-history/subjects/${subjectKey(providerSubject)}.json`;
+    const mapping = await this.store.read(mappingPath);
+    if (!mapping?.accountId) return false;
+    await Promise.all([
+      this.store.write(gamesPath(mapping.accountId), null),
+      this.store.write(decksPath(mapping.accountId), null),
+      this.store.write(accountPath(mapping.accountId), null),
+      this.store.write(mappingPath, null),
+    ]);
+    return true;
+  }
 }

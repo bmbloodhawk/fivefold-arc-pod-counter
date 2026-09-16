@@ -41,8 +41,8 @@
         <div id="savedTablesList" class="saved-tables-list"></div>
       </section>
       <details class="privacy-note">
-        <summary><span aria-hidden="true">◇</span> Test build · No account</summary>
-        <p>No analytics. Your seat recovery credential stays on this phone. Shared playtest notes may be saved privately for this test; active rooms can disappear if the service restarts.</p>
+        <summary><span aria-hidden="true">◇</span> Test build · Guest play is always available</summary>
+        <p>Your seat recovery credential stays on this phone. You can optionally sign in to save your own games and decks. <a href="privacy.html">Privacy and data details</a>.</p>
       </details>
     </section>
 
@@ -502,9 +502,9 @@
   <dialog id="savedPlaytestsDialog" aria-labelledby="savedPlaytestsTitle">
     <form method="dialog"><h2 id="savedPlaytestsTitle">Saved playtests</h2><div id="savedPlaytestsContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
   </dialog>
-  <dialog id="myGamesDialog" aria-labelledby="myGamesTitle"><form method="dialog"><h2 id="myGamesTitle">My games</h2><p id="myGamesStatus">Sign in to keep your wins and games in one place.</p><div id="myGamesContent" hidden></div><label id="emailSignInFields" class="select-field" hidden>Email<input id="accountEmail" type="email" autocomplete="email"><small>Password</small><input id="accountPassword" type="password" minlength="6" autocomplete="current-password"></label><div class="dialog-actions"><button id="myGamesSignInButton" type="button" class="primary-action">Sign in with Google</button><button id="emailSignInButton" type="button" class="secondary-action">Use email</button><button id="createAccountButton" type="button" class="text-action" hidden>Create account</button><button id="exportAccountButton" type="button" class="text-action" hidden>Export my data</button><button value="close" class="secondary-action">Close</button></div></form></dialog>
+  <dialog id="myGamesDialog" aria-labelledby="myGamesTitle"><form method="dialog"><h2 id="myGamesTitle">My games</h2><p id="myGamesStatus">Sign in to keep your wins and games in one place.</p><div id="myGamesContent" hidden></div><label id="emailSignInFields" class="select-field" hidden>Email<input id="accountEmail" type="email" autocomplete="email"><small>Password</small><input id="accountPassword" type="password" minlength="6" autocomplete="current-password"></label><div class="dialog-actions"><button id="myGamesSignInButton" type="button" class="primary-action">Sign in with Google</button><button id="emailSignInButton" type="button" class="secondary-action">Use email</button><button id="createAccountButton" type="button" class="text-action" hidden>Create account</button><button id="exportAccountButton" type="button" class="text-action" hidden>Export my data</button><button id="deleteAccountButton" type="button" class="text-action" hidden>Delete my account data</button><button value="close" class="secondary-action">Close</button></div></form></dialog>
   <dialog id="myDecksDialog" aria-labelledby="myDecksTitle"><form method="dialog"><h2 id="myDecksTitle">My decks</h2><p id="myDecksStatus">Sign in to keep private deck notes.</p><div id="myDecksContent" hidden></div><label class="select-field">Commander<input id="deckCommanderName" maxlength="120" autocomplete="off" placeholder="e.g. Atraxa, Praetors’ Voice"></label><label class="select-field">Deck name <small>(optional)</small><input id="deckName" maxlength="120" autocomplete="off" placeholder="e.g. Poison counters"></label><div class="dialog-actions"><button id="myDecksSignInButton" type="button" class="secondary-action">Sign in with Google</button><button id="createDeckButton" type="button" class="primary-action">Save deck</button><button value="close" class="secondary-action">Close</button></div></form></dialog>
 
-  <script type="module" src="app.js?v=163"></script>
+  <script type="module" src="app.js?v=164"></script>
 </body>
 </html>

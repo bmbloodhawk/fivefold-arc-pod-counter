@@ -26,3 +26,15 @@ test("account history rejects room details and unrecorded placement data", async
   await assert.rejects(() => history.saveGame(accountId, { tableSize: 4, won: true, place: 5 }), /Place is invalid/);
   await assert.rejects(() => history.saveGame(accountId, { tableSize: 4, won: true, roomCode: "PRIVATE" }), /Text|invalid|allowed/);
 });
+
+test("account deletion removes the subject mapping and every saved account record", async () => {
+  const store = new MemoryAccountHistoryStore(); const history = new AccountHistory({ store, createId: (() => { let id = 0; return () => String(++id); })() });
+  const accountId = await history.ensureAccount("subject");
+  const deck = await history.createDeck(accountId, { commanderName: "Alela" });
+  await history.saveGame(accountId, { tableSize: 4, won: true, deckId: deck.deckId });
+  assert.equal(await history.deleteAccount("subject"), true);
+  assert.equal(await history.deleteAccount("subject"), false);
+  assert.deepEqual(await history.summary(accountId), { gamesPlayed: 0, wins: 0, winRate: null, recentGames: [] });
+  assert.deepEqual(await history.decks(accountId), []);
+  assert.notEqual(await history.ensureAccount("subject"), accountId);
+});
