@@ -76,7 +76,8 @@ test('creating a pod is distinct from starting a game', () => {
   assert.match(app, /function sortSetupDecks\(decks\) \{ return \[\.\.\.decks\]\.sort\(\(left, right\) => Number\(right\.favorite\) - Number\(left\.favorite\)/);
   assert.match(app, /\[dom\.createDeck, dom\.joinDeck\]\.forEach\(select => \{ select\.innerHTML = options; select\.value = ''; \}\)/);
   assert.match(html, /name="deckCommanderCount" value="2"/);
-  assert.match(styles, /\.commander-setup-step \{ gap: 12px; \}/);
+  assert.match(styles, /\.setup-form:has\(\.commander-setup-step:not\(\[hidden\]\)\) \{ margin-top: 16px; \}/);
+  assert.match(styles, /\.commander-setup-step \.dialog-actions \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); gap: 6px; margin-top: 8px; \}/);
   assert.match(html, /id="createStepThreeSkip"[^>]*>Skip for now/);
   assert.match(app, /Enter colors manually/);
   assert.match(app, /Keep without colors/);
