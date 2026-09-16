@@ -380,3 +380,8 @@ test('email accounts can request a password-reset email', () => {
   assert.match(html, /id="forgotPasswordButton"/);
   assert.match(app, /sendAccountPasswordReset/);
 });
+
+test('compact actions use the shared button treatment while removals remain distinct', () => {
+  assert.match(styles, /\.text-action, \.back-button \{[\s\S]*border: 1px solid var\(--line\)[\s\S]*text-decoration: none/);
+  assert.match(styles, /\.text-action\[data-remove-game\][\s\S]*#deleteAccountButton \{[\s\S]*color: var\(--danger\)/);
+});

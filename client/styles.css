@@ -62,11 +62,14 @@ h1 { max-width: 560px; margin: 0; font-family: Georgia, "Times New Roman", serif
 .secondary-action { border: 1px solid var(--line); background: var(--surface-2); }
 .account-action[aria-disabled="true"] { border-style: dashed; color: var(--muted); }
 .danger-action { border: 1px solid #f6a18e; background: #b64f3b; color: white; }
-.text-action, .back-button { border: 0; background: transparent; color: var(--brass); text-decoration: underline; text-underline-offset: 4px; }
+.text-action, .back-button { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--radius-control, 5px); background: rgb(255 255 255 / .045); box-shadow: inset 0 1px rgb(255 255 255 / .055); color: var(--ink); font-weight: 800; text-decoration: none; transition: transform var(--motion-fast, 120ms) ease, filter var(--motion-fast, 120ms) ease, border-color var(--motion-fast, 120ms) ease; }
+.text-action:hover, .back-button:hover { border-color: var(--brass-dark); }
+.text-action:not(:disabled):active, .back-button:not(:disabled):active { transform: translateY(2px); filter: brightness(.94); }
+.text-action[data-remove-game], .text-action[data-remove-deck], #deleteAccountButton { border-color: #a84b3a; background: rgb(182 79 59 / .16); color: var(--danger); }
 .recovery-details { margin-top: -6px; color: var(--muted); font-size: .8rem; }
 .recovery-details summary { color: var(--brass); cursor: pointer; font-weight: 700; }
 .recovery-details p { margin: 10px 0 3px; line-height: 1.4; }
-.recovery-details .text-action { min-height: 38px; padding: 4px 0; font-size: .8rem; }
+.recovery-details .text-action { min-height: 38px; padding: 6px 10px; font-size: .8rem; }
 .privacy-note { margin-top: 28px; color: var(--muted); text-align: center; font-size: .76rem; }
 .privacy-note summary { cursor: pointer; list-style: none; }
 .privacy-note summary::-webkit-details-marker { display: none; }
@@ -1116,7 +1119,6 @@ button:disabled,input:disabled,select:disabled,textarea:disabled { cursor:not-al
 .primary-action,.secondary-action,.danger-action,.end-turn-button { border-radius:var(--radius-control); transition:transform var(--motion-fast) ease,filter var(--motion-fast) ease,border-color var(--motion-fast) ease; }
 .primary-action:not(:disabled):active,.secondary-action:not(:disabled):active,.danger-action:not(:disabled):active,.end-turn-button:not(:disabled):active { transform:translateY(2px); filter:brightness(.94); }
 .secondary-action { background:rgb(255 255 255 / .045); box-shadow:inset 0 1px rgb(255 255 255 / .055); }
-.text-action { min-height:40px; }
 
 /* Panels/messages share a quiet readable surface; state gets non-colour cues. */
 .saved-tables,.commander-identity-field,.commander-tax-row,.insight-list,.diagnostic-record { border-radius:var(--radius-panel); box-shadow:inset 0 1px rgb(255 255 255 / .035); }
