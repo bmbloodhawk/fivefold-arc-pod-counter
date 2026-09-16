@@ -88,7 +88,7 @@ test('turn cues offer explicit sound and vibration modes with an iPhone support 
   assert.match(app, /function cueMode\(turn = state\?\.turn\)/);
   assert.match(app, /mode === 'vibrate' \|\| mode === 'both'/);
   assert.match(app, /mode === 'sound' \|\| mode === 'both'/);
-  assert.match(app, /function prepareTurnCueAudio\(\)/);
+  assert.match(app, /function prepareTurnCueAudio\(preview = false\)/);
   assert.match(app, /window\.webkitAudioContext/);
 });
 
@@ -366,4 +366,12 @@ test('radiation is prompted after turn handoff and resolved from the entered mil
   assert.match(html, /Nonland cards milled/);
   assert.match(app, /promptRadiationAfterHandoff/);
   assert.match(app, /resolveRadiation\(nonlandCount\)/);
+});
+
+test('each phone can choose and preview a turn sound at a personal volume', () => {
+  assert.match(html, /id="turnSoundDialog"/);
+  assert.match(html, /Soft chime/);
+  assert.match(html, /id="turnSoundVolume"/);
+  assert.match(app, /function turnSound\(\)/);
+  assert.match(app, /playTurnCue\(true\)/);
 });
