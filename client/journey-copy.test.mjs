@@ -85,9 +85,11 @@ test('the landing page explains the privacy boundary without overclaiming record
   assert.match(html, /id="signInButton"[^>]*>Sign in/);
   assert.match(html, /id="continueGuestButton"[^>]*>Continue as guest/);
   assert.match(html, /id="playActions"[^>]*hidden/);
-  assert.match(html, /id="myGamesButton" class="secondary-action" type="button" disabled/);
-  assert.match(html, /id="myDecksButton" class="secondary-action" type="button" disabled/);
-  assert.match(app, /function enterApp\(signedIn = false\) \{ accountChoice\.hidden = true; playActions\.hidden = false; myGamesButton\.disabled = !signedIn; myDecksButton\.disabled = !signedIn;/);
+  assert.match(html, /id="joinPodButton" class="primary-action" type="button">Join a pod/);
+  assert.match(html, /id="myGamesButton" class="secondary-action account-action" type="button" aria-disabled="true"/);
+  assert.match(html, /id="myDecksButton" class="secondary-action account-action" type="button" aria-disabled="true"/);
+  assert.match(app, /function enterApp\(signedIn = false\) \{ accountChoice\.hidden = true; playActions\.hidden = false; myGamesButton\.setAttribute\('aria-disabled', String\(!signedIn\)\); myDecksButton\.setAttribute\('aria-disabled', String\(!signedIn\)\);/);
+  assert.match(app, /myDecksButton\.getAttribute\('aria-disabled'\) === 'true'\) return openSignIn\(\)/);
   assert.doesNotMatch(html, /PHONE-FIRST PLAYTEST/);
   assert.match(html, /Test build · Guest play is always available/);
   assert.match(html, /You can optionally sign in to save your own games and decks\./);

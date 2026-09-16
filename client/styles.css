@@ -60,6 +60,7 @@ h1 { max-width: 560px; margin: 0; font-family: Georgia, "Times New Roman", serif
 .primary-action, .secondary-action, .danger-action { width: 100%; padding: 13px 18px; border-radius: 5px; font-weight: 800; letter-spacing: .02em; }
 .primary-action { border: 1px solid #f0cf8f; background: var(--brass); color: #1a150c; box-shadow: 0 5px 0 #785d2b; }
 .secondary-action { border: 1px solid var(--line); background: var(--surface-2); }
+.account-action[aria-disabled="true"] { border-style: dashed; color: var(--muted); }
 .danger-action { border: 1px solid #f6a18e; background: #b64f3b; color: white; }
 .text-action, .back-button { border: 0; background: transparent; color: var(--brass); text-decoration: underline; text-underline-offset: 4px; }
 .recovery-details { margin-top: -6px; color: var(--muted); font-size: .8rem; }
