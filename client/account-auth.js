@@ -31,3 +31,8 @@ export async function emailAccountToken(email, password, create = false) {
   const credential = create ? await createUserWithEmailAndPassword(await firebaseAuth(), email, password) : await signInWithEmailAndPassword(await firebaseAuth(), email, password);
   return credential.user.getIdToken();
 }
+
+export async function sendAccountPasswordReset(email) {
+  const { sendPasswordResetEmail } = await import("https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js");
+  await sendPasswordResetEmail(await firebaseAuth(), email);
+}

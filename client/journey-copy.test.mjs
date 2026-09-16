@@ -375,3 +375,8 @@ test('each phone can choose and preview a turn sound at a personal volume', () =
   assert.match(app, /function turnSound\(\)/);
   assert.match(app, /playTurnCue\(true\)/);
 });
+
+test('email accounts can request a password-reset email', () => {
+  assert.match(html, /id="forgotPasswordButton"/);
+  assert.match(app, /sendAccountPasswordReset/);
+});
