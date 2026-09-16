@@ -25,7 +25,6 @@
   <main>
     <section id="landingView" class="view setup-shell" aria-labelledby="welcomeTitle">
       <div class="hero-mark" aria-hidden="true">V</div>
-      <p class="eyebrow">PHONE-FIRST PLAYTEST</p>
       <h1 id="welcomeTitle">Bring the whole pod into view.</h1>
       <p class="lede">Track life, poison, commander damage, and table status without passing one phone around.</p>
       <div id="accountChoice" class="action-stack">
@@ -35,8 +34,8 @@
       <div id="playActions" class="action-stack" hidden>
         <button id="createPodButton" class="primary-action" type="button">Create a pod</button>
         <button id="joinPodButton" class="secondary-action" type="button">Join a pod</button>
-        <button id="myGamesButton" class="text-action" type="button">My games</button>
-        <button id="myDecksButton" class="text-action" type="button">My decks</button>
+        <button id="myGamesButton" class="secondary-action" type="button" disabled>My games</button>
+        <button id="myDecksButton" class="secondary-action" type="button" disabled>My decks</button>
         <button id="quickTestButton" class="text-action" type="button" hidden>Try a 4-player local table</button>
         <section id="savedTables" class="saved-tables" hidden aria-labelledby="savedTablesTitle">
           <h2 id="savedTablesTitle">Your tables</h2>
@@ -509,6 +508,6 @@
   <dialog id="myGamesDialog" aria-labelledby="myGamesTitle"><form method="dialog"><h2 id="myGamesTitle">My games</h2><p id="myGamesStatus">Sign in to keep your wins and games in one place.</p><div id="myGamesContent" hidden></div><label id="emailSignInFields" class="select-field" hidden>Email<input id="accountEmail" type="email" autocomplete="email"><small>Password</small><input id="accountPassword" type="password" minlength="6" autocomplete="current-password"></label><div class="dialog-actions"><button id="myGamesSignInButton" type="button" class="primary-action">Sign in with Google</button><button id="emailSignInButton" type="button" class="secondary-action">Use email</button><button id="createAccountButton" type="button" class="text-action" hidden>Create account</button><button id="exportAccountButton" type="button" class="text-action" hidden>Export my data</button><button id="deleteAccountButton" type="button" class="text-action" hidden>Delete my account data</button><button value="close" class="secondary-action">Close</button></div></form></dialog>
   <dialog id="myDecksDialog" aria-labelledby="myDecksTitle"><form method="dialog"><h2 id="myDecksTitle">My decks</h2><p id="myDecksStatus">Sign in to keep private deck notes.</p><div id="myDecksContent" hidden></div><label class="select-field">Commander<input id="deckCommanderName" maxlength="120" autocomplete="off" placeholder="e.g. Atraxa, Praetors’ Voice"></label><label class="select-field">Deck name <small>(optional)</small><input id="deckName" maxlength="120" autocomplete="off" placeholder="e.g. Poison counters"></label><div class="dialog-actions"><button id="myDecksSignInButton" type="button" class="secondary-action">Sign in with Google</button><button id="createDeckButton" type="button" class="primary-action">Save deck</button><button value="close" class="secondary-action">Close</button></div></form></dialog>
 
-  <script type="module" src="app.js?v=165"></script>
+  <script type="module" src="app.js?v=166"></script>
 </body>
 </html>

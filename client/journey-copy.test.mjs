@@ -85,7 +85,10 @@ test('the landing page explains the privacy boundary without overclaiming record
   assert.match(html, /id="signInButton"[^>]*>Sign in/);
   assert.match(html, /id="continueGuestButton"[^>]*>Continue as guest/);
   assert.match(html, /id="playActions"[^>]*hidden/);
-  assert.match(app, /function enterApp\(\) \{ accountChoice\.hidden = true; playActions\.hidden = false;/);
+  assert.match(html, /id="myGamesButton" class="secondary-action" type="button" disabled/);
+  assert.match(html, /id="myDecksButton" class="secondary-action" type="button" disabled/);
+  assert.match(app, /function enterApp\(signedIn = false\) \{ accountChoice\.hidden = true; playActions\.hidden = false; myGamesButton\.disabled = !signedIn; myDecksButton\.disabled = !signedIn;/);
+  assert.doesNotMatch(html, /PHONE-FIRST PLAYTEST/);
   assert.match(html, /Test build · Guest play is always available/);
   assert.match(html, /You can optionally sign in to save your own games and decks\./);
   assert.match(html, /href="privacy\.html"/);

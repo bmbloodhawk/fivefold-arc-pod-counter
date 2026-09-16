@@ -235,7 +235,7 @@ async function showMyGames(signIn = false) {
     const token = signIn ? await googleAccountToken() : await currentAccountToken();
     if (!token) { myGamesStatus.textContent = 'Sign in to keep your wins and games in one place.'; myGamesSignInButton.hidden = false; return; }
     const response = await fetch('/api/account/history', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) throw new Error('Your games are not available yet.');
-    const history = (await response.json()).history; enterApp(); exportAccountButton.hidden = false; deleteAccountButton.hidden = false; myGamesStatus.textContent = `${history.wins} wins in ${history.gamesPlayed} games${history.gamesPlayed ? ` · ${Math.round(history.winRate * 100)}% win rate` : ''}`;
+    const history = (await response.json()).history; enterApp(true); exportAccountButton.hidden = false; deleteAccountButton.hidden = false; myGamesStatus.textContent = `${history.wins} wins in ${history.gamesPlayed} games${history.gamesPlayed ? ` · ${Math.round(history.winRate * 100)}% win rate` : ''}`;
     myGamesContent.innerHTML = history.recentGames.length ? `<ul>${history.recentGames.map(game => `<li><strong>${game.won ? 'Win' : 'Game'} · ${game.tableSize} players${game.place ? ` · ${game.place}${game.place === 1 ? 'st' : game.place === 2 ? 'nd' : game.place === 3 ? 'rd' : 'th'}` : ''}</strong><br><small>${new Date(game.savedAt).toLocaleDateString()}${game.commanderName ? ` · ${escapeHtml(game.commanderName)}` : ''}</small><br><button type="button" class="text-action" data-remove-game="${escapeHtml(game.gameId)}">Remove</button></li>`).join('')}</ul>` : '<p>No saved games yet.</p>'; myGamesContent.hidden = false;
   } catch (error) { myGamesStatus.textContent = error?.message || 'Your games are not available yet.'; myGamesSignInButton.hidden = false; }
 }
@@ -245,7 +245,7 @@ async function showMyDecks(signIn = false) {
     const token = signIn ? await googleAccountToken() : await currentAccountToken();
     if (!token) { myDecksStatus.textContent = 'Sign in to keep private deck notes.'; myDecksSignInButton.hidden = false; createDeckButton.disabled = true; return; }
     const response = await fetch('/api/account/decks', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) throw new Error('Your decks are not available yet.');
-    const decks = (await response.json()).decks; myDecksStatus.textContent = decks.length ? `${decks.length} saved deck${decks.length === 1 ? '' : 's'}` : 'No saved decks yet.'; myDecksContent.innerHTML = decks.length ? `<ul>${decks.map(deck => `<li><strong>${escapeHtml(deck.commanderName)}</strong>${deck.name ? `<br><small>${escapeHtml(deck.name)}</small>` : ''}<br><button type="button" class="text-action" data-remove-deck="${escapeHtml(deck.deckId)}">Remove</button></li>`).join('')}</ul>` : ''; myDecksContent.hidden = !decks.length; myDecksSignInButton.hidden = true; createDeckButton.disabled = false;
+    const decks = (await response.json()).decks; enterApp(true); myDecksStatus.textContent = decks.length ? `${decks.length} saved deck${decks.length === 1 ? '' : 's'}` : 'No saved decks yet.'; myDecksContent.innerHTML = decks.length ? `<ul>${decks.map(deck => `<li><strong>${escapeHtml(deck.commanderName)}</strong>${deck.name ? `<br><small>${escapeHtml(deck.name)}</small>` : ''}<br><button type="button" class="text-action" data-remove-deck="${escapeHtml(deck.deckId)}">Remove</button></li>`).join('')}</ul>` : ''; myDecksContent.hidden = !decks.length; myDecksSignInButton.hidden = true; createDeckButton.disabled = false;
   } catch (error) { myDecksStatus.textContent = error?.message || 'Your decks are not available yet.'; myDecksSignInButton.hidden = false; createDeckButton.disabled = true; }
 }
 async function createDeck() {
@@ -271,7 +271,7 @@ async function deleteAccountData() {
   if (!response.ok) throw new Error('Your account data could not be deleted.');
   exportAccountButton.hidden = true; deleteAccountButton.hidden = true; myGamesContent.hidden = true; myGamesStatus.textContent = 'Your saved account data has been deleted.';
 }
-function enterApp() { accountChoice.hidden = true; playActions.hidden = false; renderSavedTables(); }
+function enterApp(signedIn = false) { accountChoice.hidden = true; playActions.hidden = false; myGamesButton.disabled = !signedIn; myDecksButton.disabled = !signedIn; renderSavedTables(); }
 function showView(view) { dom.views.forEach(item => { item.hidden = item !== view; }); window.scrollTo({ top: 0, behavior: 'instant' }); }
 function savedTables() { try { const tables = JSON.parse(localStorage.getItem(SAVED_TABLES_KEY)); return Array.isArray(tables) ? tables.filter(table => /^[A-Z0-9]{6}$/.test(table?.code)).slice(0, 8) : []; } catch { return []; } }
 function saveTable() {
