@@ -82,6 +82,10 @@ test('declaring an alternate winner offers an optional visible reason without a 
 });
 
 test('the landing page explains the privacy boundary without overclaiming record retention', () => {
+  assert.match(html, /id="signInButton"[^>]*>Sign in/);
+  assert.match(html, /id="continueGuestButton"[^>]*>Continue as guest/);
+  assert.match(html, /id="playActions"[^>]*hidden/);
+  assert.match(app, /function enterApp\(\) \{ accountChoice\.hidden = true; playActions\.hidden = false;/);
   assert.match(html, /Test build · Guest play is always available/);
   assert.match(html, /You can optionally sign in to save your own games and decks\./);
   assert.match(html, /href="privacy\.html"/);

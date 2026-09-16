@@ -28,22 +28,26 @@
       <p class="eyebrow">PHONE-FIRST PLAYTEST</p>
       <h1 id="welcomeTitle">Bring the whole pod into view.</h1>
       <p class="lede">Track life, poison, commander damage, and table status without passing one phone around.</p>
-      <div class="action-stack">
+      <div id="accountChoice" class="action-stack">
+        <button id="signInButton" class="primary-action" type="button">Sign in</button>
+        <button id="continueGuestButton" class="secondary-action" type="button">Continue as guest</button>
+      </div>
+      <div id="playActions" class="action-stack" hidden>
         <button id="createPodButton" class="primary-action" type="button">Create a pod</button>
         <button id="joinPodButton" class="secondary-action" type="button">Join a pod</button>
         <button id="myGamesButton" class="text-action" type="button">My games</button>
         <button id="myDecksButton" class="text-action" type="button">My decks</button>
         <button id="quickTestButton" class="text-action" type="button" hidden>Try a 4-player local table</button>
+        <section id="savedTables" class="saved-tables" hidden aria-labelledby="savedTablesTitle">
+          <h2 id="savedTablesTitle">Your tables</h2>
+          <p>Return to a table from this phone. Your seat still requires this phone’s saved reclaim credential.</p>
+          <div id="savedTablesList" class="saved-tables-list"></div>
+        </section>
+        <details class="privacy-note">
+          <summary><span aria-hidden="true">◇</span> Test build · Guest play is always available</summary>
+          <p>Your seat recovery credential stays on this phone. You can optionally sign in to save your own games and decks. <a href="privacy.html">Privacy and data details</a>.</p>
+        </details>
       </div>
-      <section id="savedTables" class="saved-tables" hidden aria-labelledby="savedTablesTitle">
-        <h2 id="savedTablesTitle">Your tables</h2>
-        <p>Return to a table from this phone. Your seat still requires this phone’s saved reclaim credential.</p>
-        <div id="savedTablesList" class="saved-tables-list"></div>
-      </section>
-      <details class="privacy-note">
-        <summary><span aria-hidden="true">◇</span> Test build · Guest play is always available</summary>
-        <p>Your seat recovery credential stays on this phone. You can optionally sign in to save your own games and decks. <a href="privacy.html">Privacy and data details</a>.</p>
-      </details>
     </section>
 
     <section id="createView" class="view setup-shell" hidden aria-labelledby="createTitle">
@@ -505,6 +509,6 @@
   <dialog id="myGamesDialog" aria-labelledby="myGamesTitle"><form method="dialog"><h2 id="myGamesTitle">My games</h2><p id="myGamesStatus">Sign in to keep your wins and games in one place.</p><div id="myGamesContent" hidden></div><label id="emailSignInFields" class="select-field" hidden>Email<input id="accountEmail" type="email" autocomplete="email"><small>Password</small><input id="accountPassword" type="password" minlength="6" autocomplete="current-password"></label><div class="dialog-actions"><button id="myGamesSignInButton" type="button" class="primary-action">Sign in with Google</button><button id="emailSignInButton" type="button" class="secondary-action">Use email</button><button id="createAccountButton" type="button" class="text-action" hidden>Create account</button><button id="exportAccountButton" type="button" class="text-action" hidden>Export my data</button><button id="deleteAccountButton" type="button" class="text-action" hidden>Delete my account data</button><button value="close" class="secondary-action">Close</button></div></form></dialog>
   <dialog id="myDecksDialog" aria-labelledby="myDecksTitle"><form method="dialog"><h2 id="myDecksTitle">My decks</h2><p id="myDecksStatus">Sign in to keep private deck notes.</p><div id="myDecksContent" hidden></div><label class="select-field">Commander<input id="deckCommanderName" maxlength="120" autocomplete="off" placeholder="e.g. Atraxa, Praetors’ Voice"></label><label class="select-field">Deck name <small>(optional)</small><input id="deckName" maxlength="120" autocomplete="off" placeholder="e.g. Poison counters"></label><div class="dialog-actions"><button id="myDecksSignInButton" type="button" class="secondary-action">Sign in with Google</button><button id="createDeckButton" type="button" class="primary-action">Save deck</button><button value="close" class="secondary-action">Close</button></div></form></dialog>
 
-  <script type="module" src="app.js?v=164"></script>
+  <script type="module" src="app.js?v=165"></script>
 </body>
 </html>
