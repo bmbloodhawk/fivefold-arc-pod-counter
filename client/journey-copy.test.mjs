@@ -16,8 +16,10 @@ test('joining keeps optional commander setup out of the primary claim path', () 
   assert.match(html, /STEP 4 OF 4/);
   assert.match(html, /id="joinStepTwoNext"[^>]*>Next: your name/);
   assert.match(html, /id="joinStepThreeNext"[^>]*>Next: commander/);
+  assert.match(html, /id="joinSignInDeckButton"[^>]*>Sign in to use a saved deck/);
   assert.match(html, /Claim this seat/);
   assert.match(app, /function showJoinStep\(step\)/);
+  assert.match(app, /joinSignInDeckButton'\)\.hidden = true/);
   assert.doesNotMatch(html, /Preview join locally/);
 });
 
