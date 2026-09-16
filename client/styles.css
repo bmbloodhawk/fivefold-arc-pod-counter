@@ -81,6 +81,13 @@ h1 { max-width: 560px; margin: 0; font-family: Georgia, "Times New Roman", serif
 .saved-table-button strong { font-size: .9rem; }.saved-table-button span { color: var(--muted); font-size: .75rem; }.saved-table-button em { color: var(--brass); font-size: .72rem; font-style: normal; font-weight: 800; }
 .back-button { margin: -18px 0 14px -10px; padding: 10px; }
 .setup-form { display: grid; gap: 24px; margin-top: 30px; }
+.create-step { display: grid; gap: 24px; }
+.create-step > .eyebrow { margin: 0; }
+.commander-manual-colors { display: grid; gap: 8px; }
+.commander-color-chooser { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.commander-color-chooser legend { width: 100%; }
+.commander-color-chooser label { display: flex; gap: 4px; align-items: center; min-height: 34px; color: var(--brass); font-weight: 800; }
+.commander-color-chooser input { min-height: auto; accent-color: var(--brass); }
 fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 legend, .select-field { font-weight: 750; }
 .segmented { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }

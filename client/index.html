@@ -54,16 +54,40 @@
       <p class="eyebrow">CREATE POD</p>
       <h1 id="createTitle">Set the table.</h1>
       <form id="createForm" class="setup-form">
-        <fieldset class="choice-field">
-          <legend>Players</legend>
-          <div id="playerCountChoices" class="segmented dense" role="radiogroup" aria-label="Number of players"></div>
-        </fieldset>
-        <p class="field-help setup-fast-path">You are P1. Four players at 40 life is ready by default; each other player claims an open seat when joining.</p>
-        <label class="select-field">Your name <small>(optional)</small>
-          <input id="createName" name="name" type="text" autocomplete="name" maxlength="24" placeholder="P1">
-          <small>This is shown to the table. Leave blank to use P1.</small>
-        </label>
-        <details class="setup-options">
+        <section class="create-step" data-create-step="1">
+          <p class="eyebrow">STEP 1 OF 4</p>
+          <fieldset class="choice-field">
+            <legend>How many players?</legend>
+            <div id="playerCountChoices" class="segmented dense" role="radiogroup" aria-label="Number of players"></div>
+          </fieldset>
+          <p class="field-help setup-fast-path">Four players at 40 life is ready by default; each other player claims an open seat when joining.</p>
+          <button id="createStepOneNext" class="primary-action" type="button">Next: your name</button>
+        </section>
+        <section class="create-step" data-create-step="2" hidden>
+          <p class="eyebrow">STEP 2 OF 4</p>
+          <label class="select-field">What should the table call you? <small>(optional)</small>
+            <input id="createName" name="name" type="text" autocomplete="name" maxlength="24" placeholder="P1">
+            <small>Leave blank to use P1.</small>
+          </label>
+          <div class="dialog-actions"><button class="secondary-action" data-create-back type="button">Back</button><button id="createStepTwoNext" class="primary-action" type="button">Next: commander</button></div>
+        </section>
+        <section class="create-step" data-create-step="3" hidden>
+          <p class="eyebrow">STEP 3 OF 4</p>
+          <fieldset class="choice-field">
+            <legend>Your commander <small>(optional)</small></legend>
+            <div class="segmented commander-count-choice" role="radiogroup" aria-label="Number of commanders for your claimed seat">
+              <label><input type="radio" name="commanderCount" value="1" checked><span>1 commander</span></label>
+              <label><input type="radio" name="commanderCount" value="2"><span>2 commanders</span></label>
+            </div>
+            <small class="field-help">Find the card to add its color identity. You can skip this for now.</small>
+          </fieldset>
+          <div id="createCommanderNames" class="commander-name-fields"></div>
+          <div class="dialog-actions"><button class="secondary-action" data-create-back type="button">Back</button><button id="createStepThreeSkip" class="secondary-action" type="button">Skip for now</button><button id="createStepThreeNext" class="primary-action" type="button">Continue</button></div>
+        </section>
+        <section class="create-step" data-create-step="4" hidden>
+          <p class="eyebrow">STEP 4 OF 4</p>
+          <p class="field-help">Optional table settings. Leave these at their defaults to create the pod now.</p>
+          <details class="setup-options" open>
           <summary>More setup options</summary>
           <label class="select-field">Round limit <small>(optional)</small>
             <input id="roundLimitMinutes" name="roundLimitMinutes" type="number" inputmode="numeric" min="1" max="999" step="1" placeholder="No limit — game time counts up">
@@ -77,22 +101,14 @@
               <label><input type="radio" name="startingLife" value="40" checked><span>40</span></label>
             </div>
           </fieldset>
-          <fieldset class="choice-field">
-            <legend>My commanders</legend>
-            <div class="segmented commander-count-choice" role="radiogroup" aria-label="Number of commanders for your claimed seat">
-              <label><input type="radio" name="commanderCount" value="1" checked><span>1 commander</span></label>
-              <label><input type="radio" name="commanderCount" value="2"><span>2 commanders</span></label>
-            </div>
-            <small class="field-help">Commander damage is labeled by the player who owns that commander.</small>
-          </fieldset>
-          <div id="createCommanderNames" class="commander-name-fields"></div>
           <label id="createDeckField" class="select-field" hidden>My deck <small>(optional)</small><select id="createDeck"><option value="">No deck selected</option></select></label>
           <label id="localSimulationField" class="toggle-field" hidden>
             <input id="localSimulation" type="checkbox">
             <span><strong>Local simulation</strong><small>Switch active seats on one phone for testing.</small></span>
           </label>
-        </details>
-        <button class="primary-action" type="submit">Create pod</button>
+          </details>
+          <div class="dialog-actions"><button class="secondary-action" data-create-back type="button">Back</button><button class="primary-action" type="submit">Create pod</button></div>
+        </section>
       </form>
     </section>
 
@@ -508,6 +524,6 @@
   <dialog id="myGamesDialog" aria-labelledby="myGamesTitle"><form method="dialog"><h2 id="myGamesTitle">My games</h2><p id="myGamesStatus">Sign in to keep your wins and games in one place.</p><div id="myGamesContent" hidden></div><label id="emailSignInFields" class="select-field" hidden>Email<input id="accountEmail" type="email" autocomplete="email"><small>Password</small><input id="accountPassword" type="password" minlength="6" autocomplete="current-password"></label><div class="dialog-actions"><button id="myGamesSignInButton" type="button" class="primary-action">Sign in with Google</button><button id="emailSignInButton" type="button" class="secondary-action">Use email</button><button id="createAccountButton" type="button" class="text-action" hidden>Create account</button><button id="exportAccountButton" type="button" class="text-action" hidden>Export my data</button><button id="deleteAccountButton" type="button" class="text-action" hidden>Delete my account data</button><button value="close" class="secondary-action">Close</button></div></form></dialog>
   <dialog id="myDecksDialog" aria-labelledby="myDecksTitle"><form method="dialog"><h2 id="myDecksTitle">My decks</h2><p id="myDecksStatus">Sign in to keep private deck notes.</p><div id="myDecksContent" hidden></div><label class="select-field">Commander<input id="deckCommanderName" maxlength="120" autocomplete="off" placeholder="e.g. Atraxa, Praetors’ Voice"></label><label class="select-field">Deck name <small>(optional)</small><input id="deckName" maxlength="120" autocomplete="off" placeholder="e.g. Poison counters"></label><div class="dialog-actions"><button id="myDecksSignInButton" type="button" class="secondary-action">Sign in with Google</button><button id="createDeckButton" type="button" class="primary-action">Save deck</button><button value="close" class="secondary-action">Close</button></div></form></dialog>
 
-  <script type="module" src="app.js?v=167"></script>
+  <script type="module" src="app.js?v=168"></script>
 </body>
 </html>

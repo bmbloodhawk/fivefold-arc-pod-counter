@@ -52,6 +52,13 @@ test('the host lobby makes sharing the primary next setup action', () => {
 });
 
 test('creating a pod is distinct from starting a game', () => {
+  assert.match(html, /STEP 1 OF 4/);
+  assert.match(html, /STEP 2 OF 4/);
+  assert.match(html, /STEP 3 OF 4/);
+  assert.match(html, /STEP 4 OF 4/);
+  assert.match(html, /id="createStepThreeSkip"[^>]*>Skip for now/);
+  assert.match(app, /Enter colors manually/);
+  assert.match(app, /Keep without colors/);
   assert.match(html, /<button class="primary-action" type="submit">Create pod<\/button>/);
   assert.match(html, /id="startGameButton"[^>]*>Start game · P1 goes first/);
 });
