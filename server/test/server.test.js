@@ -998,7 +998,18 @@ test("developer insights aggregate bounded field-test data without identities or
   const ledger = new MemoryPlaytestLedger();
   ledger.fieldTest({ realTable: true, playerCount: 4, setupMs: 12_000, elapsedMs: 3_600_000, deviceMix: "mixed", repeatUse: "yes", dispute: "none", issues: ["readability", "turn-flow"], note: "Do not expose this." });
   ledger.fieldTest({ realTable: true, playerCount: 2, setupMs: 8_000, elapsedMs: 2_400_000, deviceMix: "ios", repeatUse: "unknown", dispute: "app", issues: ["reconnect"], note: "Or this." });
+  ledger.record({ gameId: "qualified-game", roomCode: "ARC123", sequence: 1, at: 0, type: "room_created", actorSeatId: 0, playerCount: 4 });
+  ledger.record({ gameId: "qualified-game", roomCode: "ARC123", sequence: 2, at: 1_000, type: "game_started", actorSeatId: 0 });
+  ledger.record({ gameId: "qualified-game", roomCode: "ARC123", sequence: 3, at: 10_000, type: "counter_adjusted", actorSeatId: 0, counter: "life", delta: -1 });
+  ledger.record({ gameId: "qualified-game", roomCode: "ARC123", sequence: 4, at: 70_000, type: "turn_handed_off", actorSeatId: 0, toSeatId: 1 });
+  ledger.record({ gameId: "qualified-game", roomCode: "ARC123", sequence: 5, at: 80_000, type: "counter_adjusted", actorSeatId: 1, counter: "life", delta: -1 });
+  ledger.record({ gameId: "qualified-game", roomCode: "ARC123", sequence: 6, at: 130_000, type: "turn_handed_off", actorSeatId: 1, toSeatId: 0 });
+  ledger.record({ gameId: "qualified-game", roomCode: "ARC123", sequence: 7, at: 190_000, type: "turn_handed_off", actorSeatId: 0, toSeatId: 1 });
+  ledger.complete({ gameId: "qualified-game", roomCode: "ARC123", playerCount: 4, durationMs: 189_000, completedAt: 190_000, winner: { seatId: 0 } });
   const insights = await new RoomService({ ledger }).developerFieldTestInsights();
+  assert.equal(insights.qualifiedGameCount, 1);
+  assert.equal(insights.averageQualifiedDurationMs, 189_000);
+  assert.equal(insights.qualifiedPlayerCounts[4], 1);
   assert.equal(insights.fieldTestCount, 2);
   assert.equal(insights.averageSetupMs, 10_000);
   assert.equal(insights.playerCounts[4], 1);

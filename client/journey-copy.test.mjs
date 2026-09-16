@@ -326,7 +326,7 @@ test('the confirmed winner is celebrated on every phone with artwork and a tap-t
 
 test('private feedback review includes a non-personal insights tab', () => {
   assert.match(feedbackPage, /data-tab="insights">Test insights/);
-  assert.match(feedbackPage, /Aggregated field-test metrics and completed-table accolade selections/);
+  assert.match(feedbackPage, /Automatic metrics come from qualified standard games in Diagnostics/);
   assert.match(feedbackPage, /excludes names, room codes, device identifiers, raw taps, and free-text observations/);
   assert.match(feedbackPage, /\/api\/feedback\/insights/);
 });
@@ -356,8 +356,10 @@ test('standard tables remain the default while hosts can exclude development run
   assert.match(feedbackPage, /Review this definition after 12 qualified standard tables or 30 days/);
 });
 
-test('developer insights accurately distinguish bounded field tests from completed-table accolades', () => {
-  assert.match(feedbackPage, /Aggregated field-test metrics and completed-table accolade selections/);
+test('developer insights distinguish automatic qualified games from host-reported field tests', () => {
+  assert.match(feedbackPage, /Automatic · qualified standard games/);
+  assert.match(feedbackPage, /Host-reported real-table tests/);
+  assert.match(feedbackPage, /averageQualifiedDurationMs/);
   assert.match(feedbackPage, /No table insights have been recorded yet/);
 });
 

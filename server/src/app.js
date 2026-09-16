@@ -601,10 +601,16 @@ export class RoomService {
   async developerFieldTestInsights() {
     const tests = await this.ledger.listFieldTests();
     const recaps = await this.ledger.listArchive();
+    const qualifiedGames = (await this.ledger.listRecentDiagnostics()).filter(game => game.sessionKind === "standard" && game.qualified);
     const countBy = (key) => tests.reduce((summary, test) => { const value = String(test[key] || "unknown"); summary[value] = (summary[value] || 0) + 1; return summary; }, {});
+    const countGamesBy = (key) => qualifiedGames.reduce((summary, game) => { const value = String(game[key] || "unknown"); summary[value] = (summary[value] || 0) + 1; return summary; }, {});
     const issueCounts = tests.reduce((summary, test) => { for (const issue of test.issues || []) summary[issue] = (summary[issue] || 0) + 1; return summary; }, {});
     const average = (key) => tests.length ? Math.round(tests.reduce((total, test) => total + Math.max(0, Number(test[key]) || 0), 0) / tests.length) : 0;
+    const qualifiedAverageDurationMs = qualifiedGames.length ? Math.round(qualifiedGames.reduce((total, game) => total + Math.max(0, Number(game.durationMs) || 0), 0) / qualifiedGames.length) : 0;
     return {
+      qualifiedGameCount: qualifiedGames.length,
+      averageQualifiedDurationMs: qualifiedAverageDurationMs,
+      qualifiedPlayerCounts: countGamesBy("playerCount"),
       fieldTestCount: tests.length,
       averageSetupMs: average("setupMs"),
       averageElapsedMs: average("elapsedMs"),
