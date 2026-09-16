@@ -27,6 +27,14 @@ test("account history rejects room details and unrecorded placement data", async
   await assert.rejects(() => history.saveGame(accountId, { tableSize: 4, won: true, roomCode: "PRIVATE" }), /Text|invalid|allowed/);
 });
 
+test("saved decks retain one or two commanders as separate values", async () => {
+  const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: () => "pair" }); const accountId = await history.ensureAccount("subject");
+  const deck = await history.createDeck(accountId, { commanderNames: ["Thrasios", "Tymna"], name: "Partners" });
+  assert.deepEqual(deck.commanderNames, ["Thrasios", "Tymna"]);
+  assert.equal(deck.commanderName, "Thrasios / Tymna");
+  await assert.rejects(() => history.createDeck(accountId, { commanderNames: ["A", "B", "C"] }), /Commander names are invalid/);
+});
+
 test("account deletion removes the subject mapping and every saved account record", async () => {
   const store = new MemoryAccountHistoryStore(); const history = new AccountHistory({ store, createId: (() => { let id = 0; return () => String(++id); })() });
   const accountId = await history.ensureAccount("subject");

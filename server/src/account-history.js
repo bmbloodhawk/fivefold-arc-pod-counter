@@ -53,9 +53,15 @@ export class AccountHistory {
   }
 
   async createDeck(accountId, input = {}) {
-    const commanderName = text(input.commanderName, 120); if (!commanderName) throw new TypeError("Commander name is required");
+    const extra = Object.keys(input).find((key) => !["commanderName", "commanderNames", "name"].includes(key));
+    if (extra) throw new TypeError(`Deck field is not allowed: ${extra}`);
+    const rawNames = input.commanderNames ?? [input.commanderName];
+    if (!Array.isArray(rawNames) || rawNames.length < 1 || rawNames.length > 2) throw new TypeError("Commander names are invalid");
+    const commanderNames = rawNames.map((value) => text(value, 120));
+    if (commanderNames.some((name) => !name)) throw new TypeError("Commander name is required");
+    const commanderName = commanderNames.join(" / ");
     const decks = (await this.store.read(decksPath(accountId))) || {}; const deckId = `deck_${this.createId()}`;
-    const deck = { deckId, commanderName, name: text(input.name, 120), createdAt: this.now(), updatedAt: this.now() };
+    const deck = { deckId, commanderName, commanderNames, name: text(input.name, 120), createdAt: this.now(), updatedAt: this.now() };
     await this.store.write(decksPath(accountId), { ...decks, [deckId]: deck }); return deck;
   }
 
