@@ -70,6 +70,7 @@ test('creating a pod is distinct from starting a game', () => {
   assert.match(app, /Enter colors manually/);
   assert.match(app, /Keep without colors/);
   assert.match(app, /commanderNames = deck\?\.commanderNames\?\.length \? deck\.commanderNames/);
+  assert.match(app, /const name = names\[slot\] \?\? prior\?\.name \?\? '';/);
   assert.match(html, /<button class="primary-action" type="submit">Create pod<\/button>/);
   assert.match(html, /id="startGameButton"[^>]*>Start game · P1 goes first/);
 });
