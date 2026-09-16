@@ -73,7 +73,7 @@ let pendingStartingRoll = null;
 let turnTicker = null;
 let turnUndoTimer = null;
 let lastTurnHandoffKey = null;
-let shownVictoryKey = null;
+let shownVictoryKey = null; let victoryDismissReady = false; let victoryDismissTimer = null;
 let resolvedRadiationTurnKey = null;
 let selectedDeckId = ''; let setupDecks = []; let joinGameFormat = 'commander'; let savedDecks = []; let editingDeckId = null;
 let optimisticLifeDelta = 0;
@@ -232,7 +232,7 @@ function renderVictory() {
       dom.personalMatchMomentFact.textContent = moment.fact;
       dom.personalMatchMoment.hidden = false;
     }).catch(() => {});
-    if (!dom.victoryDialog.open) dom.victoryDialog.showModal();
+    if (!dom.victoryDialog.open) { victoryDismissReady = false; dom.victoryDialog.showModal(); clearTimeout(victoryDismissTimer); victoryDismissTimer = setTimeout(() => { victoryDismissReady = true; $('#victoryTapHint').textContent = 'Tap anywhere to continue'; }, 1200); }
   }
 }
 async function showMyGames(signIn = false, returnToPodChoice = false) {
@@ -1054,7 +1054,7 @@ dom.backToSetupButton?.addEventListener('click', returnToSetup);
 $$('input[name="gameCommanderCount"]').forEach(input => input.addEventListener('change', () => renderCommanderNameFields(dom.gameCommanderNames, selectedCommanderCount('gameCommanderCount'))));
 dom.commanderCountForm.addEventListener('submit', async event => { if (event.submitter?.value === 'confirm') { event.preventDefault(); const form = new FormData(dom.commanderCountForm); const count = Number(form.get('gameCommanderCount')); dom.saveCommanderCountButton.disabled = true; const { colors, unresolved } = await confirmUnresolvedCommanderDetails(dom.gameCommanderNames, count); if (unresolved.length) { dom.saveCommanderCountButton.textContent = 'Update without colors'; dom.saveCommanderCountButton.disabled = false; return; } const names = commanderNamesFromForm(new FormData(dom.commanderCountForm), count); selectedDeckId = dom.commanderDeck.value || ''; try { sessionStorage.setItem('fivefold-arc:selected-deck', selectedDeckId); } catch {} await updateCommanderSetup(count, names, colors); dom.commanderCountDialog.close('confirm'); } }); dom.declareWinnerForm.addEventListener('submit', event => { if (event.submitter?.value === 'confirm') declareWinner(); }); dom.connectionButton.addEventListener('click', () => dom.connectionDialog.showModal());
 dom.nextGameButton.addEventListener('click', event => { event.stopPropagation(); if (dom.victoryDialog.open) dom.victoryDialog.close('next-game'); openResetDialog({ nextGame: true }); });
-dom.victoryDialog.addEventListener('click', () => { if (dom.victoryDialog.open) dom.victoryDialog.close('tap'); });
+dom.victoryDialog.addEventListener('click', () => { if (victoryDismissReady && dom.victoryDialog.open) dom.victoryDialog.close('tap'); });
 dom.viewCelebrationButton.addEventListener('click', () => { shownVictoryKey = null; dom.gameMenu.hidden = true; renderVictory(); });
 transport.addEventListener('status', event => renderConnection(event.detail)); transport.addEventListener('state', event => { if (event.detail?.seats?.length) { const previousTossKey = coinTossKey(state?.lastCoinToss); const previousRollKey = startingPlayerRollKey(state?.turn?.startingPlayerRoll); const previousTurnKey = state?.turn?.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; state = stateFromSnapshot(event.detail); if (awaitingConfirmedResync && transport.status === 'connected') { awaitingConfirmedResync = false; const presentation = connectionPresentation({ status: 'connected', resynced: true }); dom.syncBanner.textContent = presentation.syncMessage; dom.syncBanner.hidden = false; clearTimeout(syncBannerTimer); syncBannerTimer = setTimeout(() => { dom.syncBanner.hidden = true; }, 5000); } const nextRollKey = startingPlayerRollKey(state.turn.startingPlayerRoll); const nextTurnKey = state.turn.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; if (dom.game.hidden) showView(dom.game); if (nextTurnKey && nextTurnKey !== previousTurnKey && nextTurnKey !== lastTurnHandoffKey) { lastTurnHandoffKey = nextTurnKey; showTurnHandoff(); } if (nextRollKey && nextRollKey !== previousRollKey && nextRollKey !== lastStartingRollKey) { lastStartingRollKey = nextRollKey; showStartingPlayerRoll(state.turn.startingPlayerRoll); } else if (coinTossKey(state.lastCoinToss) && coinTossKey(state.lastCoinToss) !== previousTossKey) { const dialog = coinTossDialogRequested; coinTossDialogRequested = false; showCoinToss(state.lastCoinToss, { dialog }); } else render(); } });
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js').catch(() => {});
