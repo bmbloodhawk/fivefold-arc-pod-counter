@@ -4,8 +4,9 @@ import { dirname, extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DuelRoomService } from "./room-service.js";
 import { FileDuelStore } from "./duel-store.js";
+import { createDuelStoreFromEnv } from "./firebase-duel-store.js";
 
-const port = Number(process.env.PORT || 8790); const root = join(dirname(fileURLToPath(import.meta.url)), "../client"); const dataPath = process.env.DUEL_DATA_FILE || join(dirname(fileURLToPath(import.meta.url)), "../data/duels.json"); const service = new DuelRoomService({ store: new FileDuelStore(dataPath) });
+const port = Number(process.env.PORT || 8790); const root = join(dirname(fileURLToPath(import.meta.url)), "../client"); const dataPath = process.env.DUEL_DATA_FILE || join(dirname(fileURLToPath(import.meta.url)), "../data/duels.json"); const store = createDuelStoreFromEnv() || new FileDuelStore(dataPath); if (store.hydrate) await store.hydrate(); const service = new DuelRoomService({ store });
 const mime = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8" };
 function json(res, status, body) { res.writeHead(status, { "content-type": "application/json; charset=utf-8" }); res.end(JSON.stringify(body)); }
 async function body(req) { const chunks = []; for await (const chunk of req) chunks.push(chunk); try { return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}"); } catch { throw Object.assign(new Error("Invalid request."), { status: 400, code: "INVALID_JSON" }); } }
@@ -35,4 +36,6 @@ const routes = async (req, res) => {
   }
   if (req.method === "GET" && await serveFile(req, res)) return; json(res, 404, { error: { code: "NOT_FOUND", message: "Not found." } });
 };
-createServer((req, res) => routes(req, res).catch(error => json(res, error.status || 500, { error: { code: error.code || "SERVER_ERROR", message: error.message || "Unexpected error." } }))).listen(port, () => console.log(`Fivefold Arc Duel running at http://localhost:${port}`));
+const server = createServer((req, res) => routes(req, res).catch(error => json(res, error.status || 500, { error: { code: error.code || "SERVER_ERROR", message: error.message || "Unexpected error." } }))).listen(port, () => console.log(`Fivefold Arc Duel running at http://localhost:${port}`));
+async function shutdown() { server.close(); await store.flush?.(); process.exit(0); }
+process.on("SIGTERM", shutdown); process.on("SIGINT", shutdown);

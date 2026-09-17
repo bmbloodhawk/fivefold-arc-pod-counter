@@ -1,0 +1,15 @@
+import { createSign } from "node:crypto";
+
+// Server-only Firebase persistence. The service account is never sent to phones.
+export class FirebaseDuelStore {
+  constructor({ databaseUrl, clientEmail, privateKey, fetchImpl = fetch, now = () => Date.now() } = {}) { this.databaseUrl = String(databaseUrl || "").replace(/\/$/, ""); this.clientEmail = clientEmail; this.privateKey = String(privateKey || "").replace(/\\n/g, "\n"); this.fetch = fetchImpl; this.now = now; this.token = null; this.rooms = []; this.pending = Promise.resolve(); }
+  load() { return this.rooms; }
+  async hydrate() { this.rooms = (await this.read("yugioh-duel/rooms.json"))?.rooms || []; }
+  save(rooms) { this.rooms = structuredClone(rooms); this.pending = this.pending.then(() => this.write("yugioh-duel/rooms.json", { version: 1, rooms })).catch(error => { console.error("Fivefold Arc Duel persistence failed", error); }); }
+  async flush() { await this.pending; }
+  async read(path) { const response = await this.fetch(`${this.databaseUrl}/${path}`, { headers: { authorization: `Bearer ${await this.accessToken()}` } }); if (!response.ok) throw new Error(`Firebase Duel read failed (${response.status})`); return response.json(); }
+  async write(path, body) { const response = await this.fetch(`${this.databaseUrl}/${path}`, { method: "PUT", headers: { authorization: `Bearer ${await this.accessToken()}`, "content-type": "application/json" }, body: JSON.stringify(body) }); if (!response.ok) throw new Error(`Firebase Duel write failed (${response.status})`); }
+  async accessToken() { if (this.token?.expiresAt > this.now() + 60_000) return this.token.value; const encode = value => Buffer.from(JSON.stringify(value)).toString("base64url"); const issuedAt = Math.floor(this.now() / 1000); const header = encode({ alg: "RS256", typ: "JWT" }); const claim = encode({ iss: this.clientEmail, scope: "https://www.googleapis.com/auth/firebase.database https://www.googleapis.com/auth/userinfo.email", aud: "https://oauth2.googleapis.com/token", iat: issuedAt, exp: issuedAt + 3600 }); const signer = createSign("RSA-SHA256"); signer.update(`${header}.${claim}`); signer.end(); const assertion = `${header}.${claim}.${signer.sign(this.privateKey, "base64url")}`; const response = await this.fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion }).toString() }); if (!response.ok) throw new Error(`Firebase Duel credential exchange failed (${response.status})`); const payload = await response.json(); this.token = { value: payload.access_token, expiresAt: this.now() + Number(payload.expires_in || 3600) * 1000 }; return this.token.value; }
+}
+
+export function createDuelStoreFromEnv(env = process.env) { return env.FIREBASE_DATABASE_URL && env.FIREBASE_SERVICE_ACCOUNT_EMAIL && env.FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY ? new FirebaseDuelStore({ databaseUrl: env.FIREBASE_DATABASE_URL, clientEmail: env.FIREBASE_SERVICE_ACCOUNT_EMAIL, privateKey: env.FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY }) : null; }
