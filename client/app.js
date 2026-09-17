@@ -221,7 +221,7 @@ function renderVictory() {
       : (youWon ? (declared ? 'The table declared you the winner.' : 'You are the last player standing.') : (declared ? `${displayName(winner)} was declared the winner.` : `${displayName(winner)} is the last player standing.`));
     dom.victoryArt.src = winnerArtUrl(winner);
     void loadSaveGameDecks();
-    dom.personalMatchMoment.hidden = true;
+    dom.personalMatchMoment.hidden = true; dom.personalMatchMoment.classList.remove('achievement-reveal');
     if (!state.localSimulation) transport.getPersonalMatchMoment().then(({ moment }) => {
       if (victoryKey(state?.gameResult) !== key || !moment) return;
       dom.personalMatchMomentTitle.textContent = moment.title;
@@ -248,6 +248,7 @@ async function showMyGames(signIn = false, returnToPodChoice = false) {
     myGamesStatus.textContent = `${history.wins} wins in ${history.gamesPlayed} games${history.gamesPlayed ? ` · ${Math.round(history.winRate * 100)}% win rate` : ''}`;
     const historyItems = history.games || history.recentGames;
     myGamesContent.innerHTML = `<section><h3>This month</h3><p>${history.thisMonth?.wins || 0} wins in ${history.thisMonth?.gamesPlayed || 0} games.${historyItems[0] ? ` Last saved ${new Date(historyItems[0].savedAt).toLocaleDateString()}.` : ''}</p></section><section><h3>Private milestones</h3><p>${(history.milestones || []).map(item => `${item.reached ? '✓' : '○'} ${escapeHtml(item.label)}`).join(' · ') || 'Save your first game to begin.'}</p></section>${history.deckStats?.length ? `<section><h3>Deck statistics</h3><ul>${history.deckStats.map(stat => `<li>${escapeHtml(stat.name || 'Saved deck')}: ${stat.wins}/${stat.gamesPlayed} wins${stat.gamesPlayed ? ` · ${Math.round(stat.winRate * 100)}%` : ''}</li>`).join('')}</ul></section>` : ''}<section><h3>Game history</h3><label class="select-field">Find a game<input id="gameHistorySearch" type="search" placeholder="Commander or result"></label><ul id="gameHistoryList">${historyItems.map(game => `<li data-history-game><strong>${game.won ? 'Win' : 'Game'} · ${game.tableSize} players${game.place ? ` · ${game.place}${game.place === 1 ? 'st' : game.place === 2 ? 'nd' : game.place === 3 ? 'rd' : 'th'}` : ''}</strong><br><small>${new Date(game.savedAt).toLocaleDateString()}${game.commanderName ? ` · ${escapeHtml(game.commanderName)}` : ''}${game.outcomeDescription ? ` · ${escapeHtml(game.outcomeDescription)}` : ''}</small><br><button type="button" class="text-action" data-remove-game="${escapeHtml(game.gameId)}">Remove</button></li>`).join('') || '<li>No saved games yet.</li>'}</ul></section>`; myGamesContent.hidden = false;
+    const achievements = history.achievements || []; const achievementSection = myGamesContent.querySelector(':scope > section:nth-of-type(2)'); achievementSection.querySelector('h3').textContent = 'Achievements'; achievementSection.querySelector('p').textContent = achievements.length ? `You have uncovered ${achievements.length} achievement${achievements.length === 1 ? '' : 's'}. More await.` : 'Save a completed game to uncover your first achievement.'; if (achievements.length) achievementSection.insertAdjacentHTML('beforeend', `<div class="achievement-grid">${achievements.map(achievement => `<article class="achievement-card"><span aria-hidden="true">✦</span><div><strong>${escapeHtml(achievement.title)}</strong><small>${escapeHtml(achievement.detail)}</small></div></article>`).join('')}</div>`);
     myGamesDialog.querySelector('#myGamesTitle').textContent = 'My profile';
     const profileSections = [...myGamesContent.querySelectorAll(':scope > section')];
     const profileSettings = [accountDefaultPlayerCountField, accountDefaultRoundLimitField, saveAccountPreferencesButton, exportAccountButton, deleteAccountButton];
@@ -317,7 +318,8 @@ async function saveGameToHistory() {
     const seatId = Number(you.id.slice(1)) - 1; const place = Array.isArray(result.finishingOrder) ? result.finishingOrder.indexOf(seatId) + 1 : null;
     const response = await fetch('/api/account/games', { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ tableSize: state.players.filter(player => player.connectionStatus !== 'waiting').length, won: result.winnerSeatId === seatId, place: place || null, outcomeDescription: result.declarationDetail || null, commanderName: you.commanderNames?.filter(Boolean).join(' / ') || null, deckId: selectedDeckId || null }) });
     if (!response.ok) throw new Error('This game could not be saved yet.');
-    dom.saveGameButton.textContent = 'Game saved';
+    const { unlockedAchievements = [] } = await response.json(); dom.saveGameButton.textContent = 'Game saved';
+    if (unlockedAchievements.length) { const achievement = unlockedAchievements[0]; dom.personalMatchMoment.classList.add('achievement-reveal'); dom.personalMatchMomentTitle.textContent = 'Achievement unlocked'; dom.personalMatchMomentLine.textContent = achievement.title; dom.personalMatchMomentFact.textContent = achievement.detail; dom.personalMatchArt.style.backgroundImage = ''; dom.personalMatchMoment.hidden = false; }
   } catch (error) { dom.saveGameButton.disabled = false; dom.saveGameButton.textContent = error?.message || 'Save this game'; }
 }
 function renderSavedTables() {

@@ -12,6 +12,35 @@ const text = (value, max) => {
   return normalized;
 };
 
+const achievementsFor = ({ games, decks, bestWinStreak, monthCount, playedColors }) => {
+  const wins = games.filter(game => game.won);
+  const tableSizes = new Set(games.map(game => game.tableSize));
+  const deckGames = new Map(); games.filter(game => game.deckId).forEach(game => deckGames.set(game.deckId, (deckGames.get(game.deckId) || 0) + 1));
+  const deckWins = new Set(wins.filter(game => game.deckId).map(game => game.deckId));
+  const definitions = [
+    ['first-chronicle', 'First Chronicle', 'Saved your first completed game.', games.length >= 1],
+    ['first-crown', 'First Crown', 'Recorded your first victory.', wins.length >= 1],
+    ['duelist', 'Duelist', 'Won a two-player game.', wins.some(game => game.tableSize === 2)],
+    ['pod-victor', 'Pod Victor', 'Won a game with four or more players.', wins.some(game => game.tableSize >= 4)],
+    ['full-table', 'Full Table', 'Won a game with six or more players.', wins.some(game => game.tableSize >= 6)],
+    ['table-regular', 'Table Regular', 'Saved ten completed games.', games.length >= 10],
+    ['seasoned', 'Seasoned', 'Saved twenty-five completed games.', games.length >= 25],
+    ['enduring-legend', 'Enduring Legend', 'Saved one hundred completed games.', games.length >= 100],
+    ['hot-streak', 'Hot Streak', 'Won three games in a row.', bestWinStreak >= 3],
+    ['unstoppable', 'Unstoppable', 'Won five games in a row.', bestWinStreak >= 5],
+    ['mythic-run', 'Mythic Run', 'Won eight games in a row.', bestWinStreak >= 8],
+    ['trusted-blade', 'Trusted Blade', 'Saved ten games with the same deck.', [...deckGames.values()].some(count => count >= 10)],
+    ['armory', 'Full Armory', 'Won with three different saved decks.', deckWins.size >= 3],
+    ['color-wheel', 'Color Wheel', 'Played every color identity.', ['W', 'U', 'B', 'R', 'G'].every(color => playedColors.has(color))],
+    ['wide-table', 'Across the Table', 'Played at every table size from two through eight.', [2, 3, 4, 5, 6, 7, 8].every(size => tableSizes.has(size))],
+    ['month-regular', 'Monthly Ritual', 'Saved three games in one month.', monthCount >= 3],
+    ['near-crown', 'Near Crown', 'Recorded second place five times.', games.filter(game => game.place === 2).length >= 5],
+    ['ten-crowns', 'Ten Crowns', 'Recorded ten victories.', wins.length >= 10],
+    ['fifty-crowns', 'Fifty Crowns', 'Recorded fifty victories.', wins.length >= 50],
+  ];
+  return definitions.filter(([, , , reached]) => reached).map(([id, title, detail]) => ({ id, title, detail }));
+};
+
 export class MemoryAccountHistoryStore {
   constructor() { this.values = new Map(); }
   async read(path) { return this.values.get(path) ?? null; }
@@ -114,9 +143,9 @@ export class AccountHistory {
     const deckStats = Object.values((await this.store.read(decksPath(accountId))) || {}).map(deck => { const deckGames = games.filter(game => game.deckId === deck.deckId); const deckWins = deckGames.filter(game => game.won).length; return { deckId: deck.deckId, name: deck.name || deck.commanderName, gamesPlayed: deckGames.length, wins: deckWins, winRate: deckGames.length ? deckWins / deckGames.length : null }; });
     const chronologicalGames = [...games].reverse(); let bestWinStreak = 0; let currentWinStreak = 0; chronologicalGames.forEach(game => { currentWinStreak = game.won ? currentWinStreak + 1 : 0; bestWinStreak = Math.max(bestWinStreak, currentWinStreak); });
     const thisMonth = new Date(this.now()); const monthGames = games.filter(game => { const date = new Date(game.savedAt); return date.getFullYear() === thisMonth.getFullYear() && date.getMonth() === thisMonth.getMonth(); });
-    const deckWins = new Set(games.filter(game => game.won && game.deckId).map(game => game.deckId)); const playedColors = new Set(Object.values((await this.store.read(decksPath(accountId))) || {}).filter(deck => games.some(game => game.deckId === deck.deckId)).flatMap(deck => deck.colors || []));
-    const milestones = [{ label: "First saved game", reached: games.length >= 1 }, { label: "Ten games saved", reached: games.length >= 10 }, { label: "First win with a deck", reached: deckWins.size >= 1 }, { label: "50 games saved", reached: games.length >= 50 }, { label: "Three-game win streak", reached: bestWinStreak >= 3 }, { label: "Played every color identity", reached: ["W", "U", "B", "R", "G"].every(color => playedColors.has(color)) }];
-    return { gamesPlayed: games.length, wins, winRate: games.length ? wins / games.length : null, recentGames: games.slice(0, 12), games, deckStats, milestones, thisMonth: { gamesPlayed: monthGames.length, wins: monthGames.filter(game => game.won).length } };
+    const decks = Object.values((await this.store.read(decksPath(accountId))) || {}); const playedColors = new Set(decks.filter(deck => games.some(game => game.deckId === deck.deckId)).flatMap(deck => deck.colors || []));
+    const achievements = achievementsFor({ games, decks, bestWinStreak, monthCount: monthGames.length, playedColors });
+    return { gamesPlayed: games.length, wins, winRate: games.length ? wins / games.length : null, recentGames: games.slice(0, 12), games, deckStats, achievements, thisMonth: { gamesPlayed: monthGames.length, wins: monthGames.filter(game => game.won).length } };
   }
 
   async export(accountId) {

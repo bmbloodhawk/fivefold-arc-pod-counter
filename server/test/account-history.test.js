@@ -21,13 +21,21 @@ test("personal games retain only the saver’s explicitly supplied result", asyn
     { gameId: "game_3", savedAt: 20, tableSize: 4, won: false, place: null, outcomeDescription: null, commanderName: null, deckId: null },
   ] });
   assert.equal(summary.games.length, 2);
-  assert.equal(summary.milestones[0].reached, true);
+  assert.equal(summary.achievements.some(achievement => achievement.id === "first-chronicle"), true);
 });
 
 test("account history rejects room details and unrecorded placement data", async () => {
   const history = new AccountHistory({ store: new MemoryAccountHistoryStore() }); const accountId = await history.ensureAccount("subject");
   await assert.rejects(() => history.saveGame(accountId, { tableSize: 4, won: true, place: 5 }), /Place is invalid/);
   await assert.rejects(() => history.saveGame(accountId, { tableSize: 4, won: true, roomCode: "PRIVATE" }), /Text|invalid|allowed/);
+});
+
+test("achievements are earned from saved results and do not reveal unfinished goals", async () => {
+  const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: (() => { let id = 0; return () => String(++id); })() }); const accountId = await history.ensureAccount("subject");
+  await history.saveGame(accountId, { tableSize: 2, won: true, place: 1 });
+  const summary = await history.summary(accountId); const ids = summary.achievements.map(achievement => achievement.id);
+  assert.deepEqual(ids, ["first-chronicle", "first-crown", "duelist"]);
+  assert.equal("milestones" in summary, false);
 });
 
 test("saved decks retain one or two commanders as separate values", async () => {

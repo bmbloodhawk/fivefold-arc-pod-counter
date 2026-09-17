@@ -372,6 +372,9 @@ test('signed-in accounts keep private deck details and personal history tools', 
   assert.match(html, /id="accountPreferredName"/);
   assert.match(app, /\/api\/account\/preferences/);
   assert.match(app, /profile-tabs/);
+  assert.match(app, /Achievement unlocked/);
+  assert.match(app, /More await\./);
+  assert.match(styles, /\.achievement-card/);
   assert.match(app, /'Settings'/);
   assert.match(app, /const profileSettings = \[accountDefaultPlayerCountField/);
   assert.match(app, /emailSignInFields\.hidden = true; accountPassword\.value = '';/);
