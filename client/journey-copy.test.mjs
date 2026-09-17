@@ -374,6 +374,7 @@ test('signed-in accounts keep private deck details and personal history tools', 
   assert.match(app, /profile-tabs/);
   assert.match(app, /'Settings'/);
   assert.match(app, /const profileSettings = \[accountDefaultPlayerCountField/);
+  assert.match(app, /emailSignInFields\.hidden = true; accountPassword\.value = '';/);
   assert.match(app, /Deck statistics/);
   assert.match(app, /id="gameHistorySearch"/);
   assert.match(app, /data-toggle-archive/);
@@ -416,8 +417,8 @@ test('a completed account sign-in returns to the pod choice', () => {
   assert.match(app, /showMyGames\(false, true\)/);
 });
 
-test('signed-in game history hides sign-in controls', () => {
-  assert.match(app, /myGamesSignInButton\.hidden = true; emailSignInButton\.hidden = true; forgotPasswordButton\.hidden = true; createAccountButton\.hidden = true;/);
+test('signed-in profile hides sign-in controls and clears the password field', () => {
+  assert.match(app, /myGamesSignInButton\.hidden = true; emailSignInButton\.hidden = true; emailSignInFields\.hidden = true; accountPassword\.value = ''; forgotPasswordButton\.hidden = true; createAccountButton\.hidden = true;/);
 });
 
 test('compact actions use the shared button treatment while removals remain distinct', () => {
