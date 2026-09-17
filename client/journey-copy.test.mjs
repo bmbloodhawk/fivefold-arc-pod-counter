@@ -365,6 +365,15 @@ test('developer insights distinguish automatic qualified games from host-reporte
   assert.match(feedbackPage, /No table insights have been recorded yet/);
 });
 
+test('host recovery finds the most recent saved host pod on this phone without asking for its code', () => {
+  assert.match(html, /No pod code needed\./);
+  assert.match(html, /id="recoverPodButton"[^>]*>Recover my host pod/);
+  assert.match(app, /function latestRecoverableHostPodCode\(\)/);
+  assert.match(app, /transport\.hostRecoveryPodCodes\(\)/);
+  assert.match(app, /This phone does not have a saved host pod to recover\./);
+  assert.doesNotMatch(app, /Enter the six-character pod code first\./);
+});
+
 test('signed-in accounts keep private deck details and personal history tools', () => {
   assert.match(html, /id="deckNotes"/);
   assert.match(html, /name="deckColors"/);

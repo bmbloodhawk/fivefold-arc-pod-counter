@@ -23,6 +23,15 @@ export class RealtimeAdapter extends EventTarget {
 
   inspectRoom(code) { return this.#request(`/api/rooms/${encodeURIComponent(code)}`); }
   hasStoredReclaimToken(code, seatId) { return Boolean(this.#storedToken(String(code).toUpperCase(), seatId)); }
+  hostRecoveryPodCodes() {
+    const prefix = 'fivefold-arc:host-recovery:';
+    try {
+      return Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index))
+        .filter(key => key?.startsWith(prefix))
+        .map(key => key.slice(prefix.length))
+        .filter(code => /^[A-Z0-9]{6}$/.test(code) && Boolean(this.#storedRecoveryKey(code)));
+    } catch { return []; }
+  }
   async refreshRoom() {
     if (this.localMode || !this.roomCode) return { snapshot: this.snapshot, local: true };
     const result = await this.inspectRoom(this.roomCode);
