@@ -303,6 +303,7 @@ dialog p { color: var(--muted); line-height: 1.5; }
 .victory-dismissal { position: absolute; z-index: 2; right: 16px; bottom: 14px; left: 16px; display: grid; gap: 8px; }.victory-tap-hint { margin: 0 !important; color: #d9b475 !important; font-size: .72rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }.victory-dismissal .primary-action { min-height: 42px; }
 .victory-dialog-copy .primary-action { cursor: pointer; }
 .dialog-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 22px; }
+.profile-tabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 14px; padding-bottom: 2px; }.profile-tabs button { flex: 0 0 auto; min-height: 36px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 5px; background: transparent; color: var(--muted); font-size: .76rem; font-weight: 800; }.profile-tabs button[aria-current="page"] { border-color: var(--brass); color: var(--brass); background: rgb(216 174 97 / .1); }
 .playtest-notes-list { display: grid; gap: 10px; max-height: 34dvh; margin: 16px 0; padding: 0; overflow-y: auto; list-style: none; }
 .playtest-notes-list li { padding: 10px; border: 1px solid var(--line); background: var(--surface-2); }
 .playtest-notes-list p { margin: 5px 0 0; color: var(--ink); white-space: pre-wrap; }

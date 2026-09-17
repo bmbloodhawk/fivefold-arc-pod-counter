@@ -117,7 +117,7 @@ test('the landing page explains the privacy boundary without overclaiming record
   assert.match(html, /id="continueGuestButton"[^>]*>Continue as guest/);
   assert.match(html, /id="playActions"[^>]*hidden/);
   assert.match(html, /id="joinPodButton" class="primary-action" type="button">Join a pod/);
-  assert.match(html, /id="myGamesButton" class="secondary-action account-action" type="button" aria-disabled="true"/);
+  assert.match(html, /id="myGamesButton" class="secondary-action account-action" type="button" aria-disabled="true">My profile/);
   assert.match(html, /id="myDecksButton" class="secondary-action account-action" type="button" aria-disabled="true"/);
   assert.match(html, /id="accountSignedInStatus" class="account-signed-in" hidden>Signed in/);
   assert.match(app, /function enterApp\(signedIn = false\) \{ accountChoice\.hidden = true; playActions\.hidden = false; myGamesButton\.setAttribute\('aria-disabled', String\(!signedIn\)\); myDecksButton\.setAttribute\('aria-disabled', String\(!signedIn\)\);/);
@@ -371,7 +371,7 @@ test('signed-in accounts keep private deck details and personal history tools', 
   assert.match(html, /id="deckFavorite"/);
   assert.match(html, /id="accountPreferredName"/);
   assert.match(app, /\/api\/account\/preferences/);
-  assert.match(app, /Private milestones/);
+  assert.match(app, /profile-tabs/);
   assert.match(app, /Deck statistics/);
   assert.match(app, /id="gameHistorySearch"/);
   assert.match(app, /data-toggle-archive/);
