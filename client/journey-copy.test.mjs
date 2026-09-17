@@ -414,11 +414,12 @@ test('email autofill does not close the My games dialog', () => {
   assert.match(app, /myGamesDialog\.querySelector\('form'\)\.addEventListener\('submit', event => \{ if \(event\.submitter\?\.value !== 'close'\) event\.preventDefault\(\); \}\);/);
 });
 
-test('a completed account sign-in returns to the pod choice', () => {
-  assert.match(app, /async function showMyGames\(signIn = false, returnToPodChoice = false\)/);
-  assert.match(app, /if \(returnToPodChoice\) \{ myGamesDialog\.close\(\); showView\(dom\.landing\); return; \}/);
-  assert.match(app, /showMyGames\(true, true\)/);
-  assert.match(app, /showMyGames\(false, true\)/);
+test('a completed account sign-in goes directly to the pod choice without loading the profile', () => {
+  assert.match(app, /async function finishAccountSignIn\(token\)/);
+  assert.match(app, /enterApp\(true\); void loadSetupDecks\(\); myGamesDialog\.close\(\); showView\(dom\.landing\);/);
+  assert.match(app, /finishAccountSignIn\(await googleAccountToken\(\)\)/);
+  assert.match(app, /finishAccountSignIn\(await emailAccountToken\(accountEmail\.value, accountPassword\.value\)\)/);
+  assert.doesNotMatch(app, /showMyGames\(true, true\)/);
 });
 
 test('sign-in is a single-purpose gate rather than a detour through the profile', () => {
