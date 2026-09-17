@@ -1,4 +1,4 @@
-const $ = selector => document.querySelector(selector); const api = "/api";
+const $ = (selector, root = document) => root.querySelector(selector); const api = "/api";
 let connectionId = null; let room = null; let seatId = Number(localStorage.getItem("fivefold-duel:seat")); let stream = null; let live = false;
 const views = ["home", "create", "join", "duel"].map(id => $(`#${id}`));
 function show(id) { views.forEach(view => view.hidden = view.id !== id); }
