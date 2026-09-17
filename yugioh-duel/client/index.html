@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><title>Fivefold Arc Duel</title><link rel="stylesheet" href="styles.css"></head>
+<body>
+  <div class="aether-field" aria-hidden="true"><i></i><i></i><i></i></div>
+  <main class="shell">
+    <header><a href="#" class="brand">FIVEFOLD ARC <span>DUEL</span></a><p id="connection" aria-live="polite">Not connected</p></header>
+    <p id="offlineBanner" class="offline-banner" role="status" hidden><strong>Offline — showing last confirmed Duel state.</strong> LP and phase changes are paused; nothing will be saved to send later.</p>
+    <section id="home" class="panel">
+      <p class="eyebrow">YU-GI-OH! TABLETOP</p><h1>The Duel, confirmed.</h1><p class="lede">Two Duelists. Two phones. One shared Life Point record.</p>
+      <div class="actions"><button id="showCreate" class="primary">Create Duel</button><button id="showJoin" class="secondary">Join Duel</button></div>
+      <p class="quiet">An independent tabletop aid. It does not connect to a card game client or replace official event procedure.</p>
+    </section>
+    <section id="create" class="panel" hidden><button class="back" data-home>← Home</button><p class="eyebrow">CREATE DUEL</p><h1>Set the match.</h1><form id="createForm"><label>Your Duelist name <input name="name" maxlength="24" placeholder="Duelist 1"></label><fieldset><legend>Play format</legend><label><input type="radio" name="matchFormat" value="single_duel"> Single Duel</label><label><input type="radio" name="matchFormat" value="best_of_three" checked> Best of 3 Match</label></fieldset><p class="help">Both Duelists begin each Duel at 8,000 LP.</p><button class="primary">Create two-phone Duel</button></form></section>
+    <section id="join" class="panel" hidden><button class="back" data-home>← Home</button><p class="eyebrow">JOIN DUEL</p><h1>Enter the Duel code.</h1><form id="joinForm"><label>Duel code <input name="code" maxlength="6" placeholder="ABC234" autocapitalize="characters" required></label><label>Your Duelist name <input name="name" maxlength="24" placeholder="Duelist 2"></label><button class="primary">Claim open seat</button></form><p id="joinError" class="error" aria-live="polite"></p></section>
+    <section id="duel" hidden>
+      <div class="duel-meta"><span id="code"></span><span id="format"></span><button id="copyCode" class="text">Copy code</button></div>
+      <section class="match-bar"><span>DUEL <strong id="duelNumber">1</strong></span><span id="score"></span></section>
+      <section class="turn-card"><div class="phase-seal" aria-hidden="true">✦</div><p id="turnLabel">—</p><strong id="phase">Draw</strong><span id="turnHint"></span><div><button id="advancePhase" class="primary">Next phase</button><button id="undoPhase" class="secondary">Undo</button></div></section>
+      <section id="lifeCards" class="life-cards" aria-live="polite"></section>
+      <section class="log-panel"><div class="section-heading"><h2>Life Point record</h2><span>Confirmed table state</span></div><ol id="lpLog"></ol></section>
+      <section class="tools-panel"><div class="section-heading"><h2>Table tools</h2><span>Shared utilities</span></div><div class="tool-buttons"><button data-random="2" class="secondary">Flip coin</button><button data-random="6" class="secondary">Roll d6</button><button data-random="20" class="secondary">Roll d20</button></div><p id="randomHistory" class="tool-history">No shared random result yet.</p><form id="sharedNoteForm" class="shared-note"><input name="note" maxlength="160" placeholder="Shared table note"><button class="secondary">Add note</button></form><ol id="sharedNotes"></ol><form id="counterForm" class="shared-note"><input name="label" maxlength="32" placeholder="Counter, e.g. Spell Counter" required><input name="value" inputmode="numeric" value="0" aria-label="Counter value"><button class="secondary">Add counter</button></form><ol id="sharedCounters"></ol><form id="tokenForm" class="token-form"><input name="name" maxlength="32" placeholder="Token name" required><input name="atk" inputmode="numeric" value="0" aria-label="Token ATK"><input name="def" inputmode="numeric" value="0" aria-label="Token DEF"><input name="level" inputmode="numeric" value="0" aria-label="Token Level"><button class="secondary">Add Token</button></form><ol id="sharedTokens"></ol></section>
+      <section id="outcomePanel" class="outcome-panel"><h2>Finish this Duel</h2><p>Declare the result; do not infer a winner from LP alone.</p><div id="outcomeButtons" class="actions"></div><div id="nextDuelChoice" hidden><p id="nextDuelPrompt"></p><button data-first-seat="0" class="primary">Duelist 1 goes first</button><button data-first-seat="1" class="secondary">Duelist 2 goes first</button></div></section>
+    </section>
+  </main>
+  <template id="lifeCard"><article class="life-card"><p class="seat-name"></p><output class="life-total"></output><p class="ownership"></p><div class="quick"><button data-delta="-1000">−1000</button><button data-delta="-500">−500</button><button data-delta="500">+500</button><button data-delta="1000">+1000</button></div><form class="custom-lp"><input name="delta" inputmode="numeric" placeholder="LP change, e.g. -1200"><input name="note" maxlength="80" placeholder="Optional note"><button>Record</button></form></article></template>
+  <script type="module" src="app.js"></script>
+</body></html>
