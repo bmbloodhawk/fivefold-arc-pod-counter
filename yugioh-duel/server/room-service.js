@@ -9,9 +9,29 @@ function roomCode() { return Array.from({ length: 6 }, () => CODE_ALPHABET[rando
 function name(value, fallback) { const cleaned = String(value ?? "").trim().replace(/\s+/g, " "); return cleaned ? cleaned.slice(0, 24) : fallback; }
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
 function emptyTools() { return { randomHistory: [], notes: [], counters: [], tokens: [] }; }
+function recoverRoom(room) {
+  const duel = room.duel || {};
+  return {
+    ...room,
+    matchScore: Array.isArray(room.matchScore) ? room.matchScore : [0, 0],
+    duelists: Array.isArray(room.duelists) ? room.duelists : [],
+    duel: {
+      lifePoints: Array.isArray(duel.lifePoints) ? duel.lifePoints : [8000, 8000],
+      activeSeatId: Number.isInteger(duel.activeSeatId) ? duel.activeSeatId : 0,
+      turnNumber: Number.isInteger(duel.turnNumber) ? duel.turnNumber : 1,
+      phaseIndex: Number.isInteger(duel.phaseIndex) ? duel.phaseIndex : 0,
+      firstTurn: typeof duel.firstTurn === "boolean" ? duel.firstTurn : true,
+      phaseHistory: Array.isArray(duel.phaseHistory) ? duel.phaseHistory : [],
+      lifePointLog: Array.isArray(duel.lifePointLog) ? duel.lifePointLog : [],
+      outcome: duel.outcome || null,
+      priorLoserSeatId: Number.isInteger(duel.priorLoserSeatId) ? duel.priorLoserSeatId : null
+    },
+    tools: { ...emptyTools(), ...(room.tools || {}) }
+  };
+}
 
 export class DuelRoomService {
-  constructor({ now = () => Date.now(), store = null } = {}) { this.now = now; this.store = store; this.rooms = new Map((store?.load() || []).map(room => [room.code, { ...room, recovered: true, duelists: room.duelists.map(duelist => ({ ...duelist, connectionId: null })) }])); this.connections = new Map(); this.listeners = new Map(); }
+  constructor({ now = () => Date.now(), store = null } = {}) { this.now = now; this.store = store; this.rooms = new Map((store?.load() || []).map(savedRoom => { const room = recoverRoom(savedRoom); return [room.code, { ...room, recovered: true, duelists: room.duelists.map(duelist => ({ ...duelist, connectionId: null })) }]; })); this.connections = new Map(); this.listeners = new Map(); }
   persist() { if (!this.store) return; this.store.save([...this.rooms.values()].map(room => ({ ...room, duelists: room.duelists.map(({ connectionId, ...duelist }) => duelist) }))); }
   connect() { const connectionId = id(); this.connections.set(connectionId, { seatKey: null }); return { connectionId }; }
   room(code) { const room = this.rooms.get(String(code).toUpperCase()); if (!room) throw Object.assign(new Error("Duel not found."), { status: 404, code: "NOT_FOUND" }); return room; }
