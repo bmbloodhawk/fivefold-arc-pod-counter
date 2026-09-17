@@ -366,6 +366,7 @@ function recordLastPlayerStanding(room, now) {
     room.gameResult = { winnerSeatId: survivors[0].seatId, reason: "last_player_standing", finishingOrder: [survivors[0].seatId, ...room.automaticEliminationOrder.toReversed()], decidedAt: now };
   }
 }
+function feedbackPromptSeatId(room) { const seats = room.seats.filter(seat => seat.claimed); if (!room.gameResult || !seats.length) return null; const value = [...room.gameId].reduce((total, character) => total + character.codePointAt(0), 0); return value % 3 ? null : seats[value % seats.length].seatId; }
 
 export class RoomService {
   constructor({ now = () => Date.now(), roomTtlMs = 6 * 60 * 60 * 1000, connectionTtlMs = 90 * 1000, ledger = new NullPlaytestLedger(), productMeasurement = new ProductMeasurement() } = {}) {
@@ -496,6 +497,7 @@ export class RoomService {
       config: { ...room.config },
       lastCoinToss: room.lastCoinToss ? { ...room.lastCoinToss } : null,
       gameResult: room.gameResult ? { ...room.gameResult } : null,
+      feedbackPromptSeatId: feedbackPromptSeatId(room),
       sessionKind: room.sessionKind || "standard",
       turn: {
         activeSeatId: room.turn.activeSeatId,
@@ -601,7 +603,8 @@ export class RoomService {
   async developerFieldTestInsights() {
     const tests = await this.ledger.listFieldTests();
     const recaps = await this.ledger.listArchive();
-    const qualifiedGames = (await this.ledger.listRecentDiagnostics()).filter(game => game.sessionKind === "standard" && game.qualified);
+    const diagnostics = await this.ledger.listRecentDiagnostics(); const qualifiedGames = diagnostics.filter(game => game.sessionKind === "standard" && game.qualified);
+    const quickFeedback = diagnostics.flatMap(game => (game.events || []).filter(event => event.type === "quick_feedback"));
     const countBy = (key) => tests.reduce((summary, test) => { const value = String(test[key] || "unknown"); summary[value] = (summary[value] || 0) + 1; return summary; }, {});
     const countGamesBy = (key) => qualifiedGames.reduce((summary, game) => { const value = String(game[key] || "unknown"); summary[value] = (summary[value] || 0) + 1; return summary; }, {});
     const issueCounts = tests.reduce((summary, test) => { for (const issue of test.issues || []) summary[issue] = (summary[issue] || 0) + 1; return summary; }, {});
@@ -611,6 +614,7 @@ export class RoomService {
       qualifiedGameCount: qualifiedGames.length,
       averageQualifiedDurationMs: qualifiedAverageDurationMs,
       qualifiedPlayerCounts: countGamesBy("playerCount"),
+      quickFeedback: quickFeedback.reduce((counts, event) => ({ ...counts, [event.response]: (counts[event.response] || 0) + 1 }), {}),
       fieldTestCount: tests.length,
       averageSetupMs: average("setupMs"),
       averageElapsedMs: average("elapsedMs"),
@@ -853,7 +857,7 @@ export class RoomService {
       );
     }
     room.lastCoinToss = null;
-    room.gameResult = null; room.automaticEliminationOrder = [];
+    room.gameResult = null; room.automaticEliminationOrder = []; room.quickFeedbackRecordedAt = null;
     room.gameId = opaque(12);
     room.ledgerSequence = 0;
     room.ledgerLastCheckpointAt = this.now();
@@ -1046,6 +1050,15 @@ export class RoomService {
     const record = { schemaVersion: 1, gameId: room.gameId, roomCode: room.code, recordedAt: now, realTable: true, playerCount: room.seats.filter((seat) => seat.claimed).length, setupMs: Math.max(0, room.turn.gameStartedAt - room.createdAt), elapsedMs: Math.max(0, now - room.turn.gameStartedAt), deviceMix, repeatUse, dispute, issues, note };
     room.fieldTestRecordedAt = now; this.ledger.fieldTest(record);
     return { record };
+  }
+
+  recordQuickFeedback(code, connectionId, input = {}) {
+    const room = this.room(code); const { seatId } = this.requireOwner(room, connectionId);
+    if (!room.gameResult || feedbackPromptSeatId(room) !== seatId || room.quickFeedbackRecordedAt) throw Object.assign(new Error("This check-in is not available."), { status: 409, code: "CHECKIN_UNAVAILABLE" });
+    const response = ["yes", "not_quite"].includes(input.response) ? input.response : null;
+    const issues = Array.isArray(input.issues) ? [...new Set(input.issues)].filter(issue => ["setup", "reclaim", "reconnect", "authority", "readability", "turn-flow", "other"].includes(issue)) : [];
+    if (!response || issues.length > 3) throw Object.assign(new Error("Choose a valid response."), { status: 400, code: "INVALID_INPUT" });
+    room.quickFeedbackRecordedAt = this.now(); this.recordLedger(room, "quick_feedback", seatId, { response, issues }); return { recorded: true };
   }
 
   setSessionKind(code, connectionId, input = {}) {
@@ -1332,6 +1345,7 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "GET" && parts[3] === "playtest-recap") return json(res, 200, service.playtestRecap(code, connectionId));
         if (req.method === "GET" && parts[3] === "match-moment") return json(res, 200, service.personalMatchMoment(code, connectionId));
         if (req.method === "POST" && parts[3] === "field-test") return json(res, 201, service.recordFieldTest(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "quick-feedback") return json(res, 201, service.recordQuickFeedback(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "session-kind") return json(res, 200, service.setSessionKind(code, connectionId, await readJson(req)));
         if (req.method === "GET" && parts[3] === "saved-playtests") return json(res, 200, await service.hostArchive(code, connectionId));
         if (req.method === "POST" && parts[3] === "declare-winner") return json(res, 200, service.declareWinner(code, connectionId, await readJson(req)));

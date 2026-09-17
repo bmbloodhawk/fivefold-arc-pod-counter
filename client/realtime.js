@@ -120,6 +120,7 @@ export class RealtimeAdapter extends EventTarget {
   async getPlaytestRecap() { return this.#request(`/api/rooms/${this.roomCode}/playtest-recap`, { authenticated: true }); }
   async getPersonalMatchMoment() { return this.#request(`/api/rooms/${this.roomCode}/match-moment`, { authenticated: true }); }
   async recordFieldTest(input) { return this.#request(`/api/rooms/${this.roomCode}/field-test`, { method: 'POST', authenticated: true, body: input }); }
+  async recordQuickFeedback(input) { return this.#request(`/api/rooms/${this.roomCode}/quick-feedback`, { method: 'POST', authenticated: true, body: input }); }
   async getSavedPlaytests() { return this.#request(`/api/rooms/${this.roomCode}/saved-playtests`, { authenticated: true }); }
   async restoreRoom(code) {
     const normalizedCode = String(code).toUpperCase(); const hostRecoveryKey = this.#storedRecoveryKey(normalizedCode);
