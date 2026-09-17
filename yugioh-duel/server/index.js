@@ -27,6 +27,7 @@ const routes = async (req, res) => {
     if (req.method === "POST" && parts[3] === "phase" && parts[4] === "advance") return json(res, 200, service.advancePhase(code, connection(req)));
     if (req.method === "POST" && parts[3] === "phase" && parts[4] === "undo") return json(res, 200, service.undoPhase(code, connection(req)));
     if (req.method === "POST" && parts[3] === "outcome") return json(res, 200, service.declareOutcome(code, connection(req), await body(req)));
+    if (req.method === "POST" && parts[3] === "reopen-life-point-outcome") return json(res, 200, service.reopenLifePointOutcome(code, connection(req)));
     if (req.method === "POST" && parts[3] === "next-duel") return json(res, 200, service.nextDuel(code, connection(req), await body(req)));
     if (req.method === "POST" && parts[3] === "randomize") return json(res, 200, service.randomize(code, connection(req), await body(req)));
     if (req.method === "POST" && parts[3] === "shared-notes") return json(res, 200, service.addSharedNote(code, connection(req), await body(req)));
