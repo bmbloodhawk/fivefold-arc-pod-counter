@@ -373,6 +373,7 @@ test('signed-in accounts keep private deck details and personal history tools', 
   assert.match(app, /\/api\/account\/preferences/);
   assert.match(app, /profile-tabs/);
   assert.match(app, /Achievement unlocked/);
+  assert.match(app, /poisonCounters: you\.poisonReceived \|\| 0/);
   assert.match(app, /More await\./);
   assert.match(styles, /\.achievement-card/);
   assert.match(app, /'Settings'/);

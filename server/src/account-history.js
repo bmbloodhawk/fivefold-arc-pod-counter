@@ -18,6 +18,7 @@ const achievementsFor = ({ games, decks, bestWinStreak, monthCount, playedColors
   const deckGames = new Map(); games.filter(game => game.deckId).forEach(game => deckGames.set(game.deckId, (deckGames.get(game.deckId) || 0) + 1));
   const deckWins = new Set(wins.filter(game => game.deckId).map(game => game.deckId));
   const definitions = [
+    ['account-awakened', 'Account Awakened', 'Created your Fivefold Arc profile.', true],
     ['first-chronicle', 'First Chronicle', 'Saved your first completed game.', games.length >= 1],
     ['first-crown', 'First Crown', 'Recorded your first victory.', wins.length >= 1],
     ['duelist', 'Duelist', 'Won a two-player game.', wins.some(game => game.tableSize === 2)],
@@ -37,6 +38,7 @@ const achievementsFor = ({ games, decks, bestWinStreak, monthCount, playedColors
     ['near-crown', 'Near Crown', 'Recorded second place five times.', games.filter(game => game.place === 2).length >= 5],
     ['ten-crowns', 'Ten Crowns', 'Recorded ten victories.', wins.length >= 10],
     ['fifty-crowns', 'Fifty Crowns', 'Recorded fifty victories.', wins.length >= 50],
+    ['poisoned-legend', 'Poisoned Legend', 'Received 1,000 poison counters across saved games.', games.reduce((total, game) => total + (game.poisonCounters || 0), 0) >= 1000],
   ];
   return definitions.filter(([, , , reached]) => reached).map(([id, title, detail]) => ({ id, title, detail }));
 };
@@ -67,7 +69,7 @@ export class AccountHistory {
   }
 
   async saveGame(accountId, input = {}) {
-    const extra = Object.keys(input).find((key) => !["tableSize", "won", "place", "outcomeDescription", "commanderName", "deckId"].includes(key));
+    const extra = Object.keys(input).find((key) => !["tableSize", "won", "place", "outcomeDescription", "commanderName", "deckId", "poisonCounters"].includes(key));
     if (extra) throw new TypeError(`Game field is not allowed: ${extra}`);
     const tableSize = Number(input.tableSize); const won = input.won === true;
     const place = input.place == null ? null : Number(input.place);
@@ -76,7 +78,8 @@ export class AccountHistory {
     if (input.deckId && !(await this.store.read(decksPath(accountId)))?.[input.deckId]) throw new TypeError("Deck is invalid");
     const games = (await this.store.read(gamesPath(accountId))) || {};
     const gameId = `game_${this.createId()}`;
-    const game = { gameId, savedAt: this.now(), tableSize, won, place, outcomeDescription: text(input.outcomeDescription, 160), commanderName: text(input.commanderName, 120), deckId: input.deckId || null };
+    const poisonCounters = input.poisonCounters == null ? 0 : Number(input.poisonCounters); if (!Number.isInteger(poisonCounters) || poisonCounters < 0 || poisonCounters > 9999) throw new TypeError("Poison counters are invalid");
+    const game = { gameId, savedAt: this.now(), tableSize, won, place, outcomeDescription: text(input.outcomeDescription, 160), commanderName: text(input.commanderName, 120), deckId: input.deckId || null, poisonCounters };
     await this.store.write(gamesPath(accountId), { ...games, [gameId]: game });
     return game;
   }

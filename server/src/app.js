@@ -436,7 +436,7 @@ export class RoomService {
       commanderCount: seatId === 0 ? commanderCount : 1,
       commanderNames: seatId === 0 ? commanderNames : [""],
       commanderColors: seatId === 0 ? commanderColors : [[]],
-      counters: { life: startingLife, radiation: 0, poison: 0, energy: 0, generic: 0 },
+      counters: { life: startingLife, radiation: 0, poison: 0, energy: 0, generic: 0 }, counterTotals: { poison: 0 },
       commanderDamageReceived: {},
       commanderCastCounts: {},
       matchMoment: blankMatchMoment(startingLife),
@@ -521,7 +521,7 @@ export class RoomService {
         pausedDurationMs: room.turn.pausedDurationMs ?? 0,
       },
       commanderSources: sources,
-      seats: room.seats.map(({ seatId, name, claimed, ownerConnectionId, commanderCount, commanderNames, commanderColors, counters, commanderDamageReceived, commanderCastCounts }) => ({
+      seats: room.seats.map(({ seatId, name, claimed, ownerConnectionId, commanderCount, commanderNames, commanderColors, counters, counterTotals, commanderDamageReceived, commanderCastCounts }) => ({
         seatId,
         name,
         claimed,
@@ -530,6 +530,7 @@ export class RoomService {
         commanderNames: [...commanderNames],
         commanderColors: commanderColors.map((colors) => [...colors]),
         counters: { ...counters },
+        counterTotals: { poison: counterTotals?.poison || 0 },
         commanderDamageReceived: { ...commanderDamageReceived },
         commanderCastCounts: { ...commanderCastCounts },
         nextCommanderTax: Object.fromEntries(
@@ -812,8 +813,9 @@ export class RoomService {
       seat.counters.life = Math.max(-999, Math.min(999, seat.counters.life - applied));
     } else {
       const minimum = counter === "life" ? -999 : 0;
-      seat.counters[counter] = Math.max(minimum, Math.min(999, (seat.counters[counter] ?? 0) + delta));
+      const before = seat.counters[counter] ?? 0; seat.counters[counter] = Math.max(minimum, Math.min(999, before + delta)); applied = seat.counters[counter] - before;
     }
+    if (counter === "poison" && applied > 0) seat.counterTotals = { ...(seat.counterTotals || {}), poison: (seat.counterTotals?.poison || 0) + applied };
     recordMatchMoment(seat, { counter, delta: applied, commanderSourceId: input.commanderSourceId, lifeAfter: seat.counters.life, gameStarted: room.turn.gameStarted, isOwnTurn: room.turn.activeSeatId === seat.seatId });
     recordLastPlayerStanding(room, this.now());
     room.version += 1;
@@ -848,6 +850,7 @@ export class RoomService {
     this.completePlaytest(room, this.now(), { incomplete: !room.gameResult });
     for (const seat of room.seats) {
       seat.counters = { life: room.config.startingLife, radiation: 0, poison: 0, energy: 0, generic: 0 };
+      seat.counterTotals = { poison: 0 };
       seat.matchMoment = blankMatchMoment(room.config.startingLife);
       seat.commanderDamageReceived = Object.fromEntries(
         Object.keys(seat.commanderDamageReceived).map((sourceId) => [sourceId, 0]),

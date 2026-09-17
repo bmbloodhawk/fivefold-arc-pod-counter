@@ -17,8 +17,8 @@ test("personal games retain only the saver’s explicitly supplied result", asyn
   await history.saveGame(accountId, { tableSize: 4, won: false });
   const summary = await history.summary(accountId);
   assert.deepEqual({ gamesPlayed: summary.gamesPlayed, wins: summary.wins, winRate: summary.winRate, recentGames: summary.recentGames }, { gamesPlayed: 2, wins: 1, winRate: .5, recentGames: [
-    { gameId: "game_2", savedAt: 20, tableSize: 4, won: true, place: 1, outcomeDescription: "Combat damage", commanderName: "Alela", deckId: null },
-    { gameId: "game_3", savedAt: 20, tableSize: 4, won: false, place: null, outcomeDescription: null, commanderName: null, deckId: null },
+    { gameId: "game_2", savedAt: 20, tableSize: 4, won: true, place: 1, outcomeDescription: "Combat damage", commanderName: "Alela", deckId: null, poisonCounters: 0 },
+    { gameId: "game_3", savedAt: 20, tableSize: 4, won: false, place: null, outcomeDescription: null, commanderName: null, deckId: null, poisonCounters: 0 },
   ] });
   assert.equal(summary.games.length, 2);
   assert.equal(summary.achievements.some(achievement => achievement.id === "first-chronicle"), true);
@@ -34,8 +34,14 @@ test("achievements are earned from saved results and do not reveal unfinished go
   const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: (() => { let id = 0; return () => String(++id); })() }); const accountId = await history.ensureAccount("subject");
   await history.saveGame(accountId, { tableSize: 2, won: true, place: 1 });
   const summary = await history.summary(accountId); const ids = summary.achievements.map(achievement => achievement.id);
-  assert.deepEqual(ids, ["first-chronicle", "first-crown", "duelist"]);
+  assert.deepEqual(ids, ["account-awakened", "first-chronicle", "first-crown", "duelist"]);
   assert.equal("milestones" in summary, false);
+});
+
+test("poison achievements add only counters actually gained during saved games", async () => {
+  const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: (() => { let id = 0; return () => String(++id); })() }); const accountId = await history.ensureAccount("subject");
+  await history.saveGame(accountId, { tableSize: 4, won: false, poisonCounters: 999 }); assert.equal((await history.summary(accountId)).achievements.some(achievement => achievement.id === "poisoned-legend"), false);
+  await history.saveGame(accountId, { tableSize: 4, won: false, poisonCounters: 1 }); assert.equal((await history.summary(accountId)).achievements.some(achievement => achievement.id === "poisoned-legend"), true);
 });
 
 test("saved decks retain one or two commanders as separate values", async () => {
