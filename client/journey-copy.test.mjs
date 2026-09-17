@@ -421,6 +421,13 @@ test('a completed account sign-in returns to the pod choice', () => {
   assert.match(app, /showMyGames\(false, true\)/);
 });
 
+test('sign-in is a single-purpose gate rather than a detour through the profile', () => {
+  assert.match(html, /<h2 id="myGamesTitle">Sign in<\/h2>/);
+  assert.match(app, /function openSignIn\(\) \{[\s\S]*Guest play is always available[\s\S]*myGamesDialog\.showModal\(\); \}/);
+  assert.match(app, /function openMyProfile\(\) \{ myGamesDialog\.showModal\(\); void showMyGames\(\); \}/);
+  assert.doesNotMatch(app, /function openSignIn\(\) \{ myGamesDialog\.showModal\(\); showMyGames\(\); \}/);
+});
+
 test('signed-in profile hides sign-in controls and clears the password field', () => {
   assert.match(app, /myGamesSignInButton\.hidden = true; emailSignInButton\.hidden = true; emailSignInFields\.hidden = true; accountPassword\.value = ''; forgotPasswordButton\.hidden = true; createAccountButton\.hidden = true;/);
 });
