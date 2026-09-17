@@ -11,7 +11,7 @@
 ## Required before a private hosted test
 
 - Configure a separate service and URL for `yugioh-duel/`.
-- Set `DUEL_DATA_FILE` to storage that survives service restart and redeploy. Do not use the default local path on ephemeral hosting.
+- For the free hosted service, configure the dedicated Yu-Gi-Oh! Firebase database URL, service-account email, and private key. Do not use the default local file path on ephemeral hosting.
 - Set the host's port environment as required by its platform.
 - Confirm HTTPS, long-lived event-stream connections, and a healthy `/health` response from the hosted URL.
 - Run two physical phones through create, join, LP change, correction, phase handoff, best-of-three Match, refresh reclaim, and restart recovery.
