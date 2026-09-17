@@ -24,6 +24,7 @@
       <section id="outcomePanel" class="outcome-panel"><h2>Finish this Duel</h2><p>Declare the result; do not infer a winner from LP alone.</p><div id="outcomeButtons" class="actions"></div><div id="nextDuelChoice" hidden><p id="nextDuelPrompt"></p><button data-first-seat="0" class="primary">Duelist 1 goes first</button><button data-first-seat="1" class="secondary">Duelist 2 goes first</button></div></section>
     </section>
   </main>
+  <dialog id="randomResult" class="random-result" aria-labelledby="randomResultTitle"><div class="result-orbit" aria-hidden="true">✦</div><p id="randomResultKind" class="eyebrow">SHARED TABLE RESULT</p><h2 id="randomResultTitle">Rolling…</h2><output id="randomResultValue" aria-live="assertive">—</output><p id="randomResultStatus">Confirming the shared result…</p><button id="closeRandomResult" class="primary" hidden>Close result</button></dialog>
   <template id="lifeCard"><article class="life-card"><p class="seat-name"></p><output class="life-total"></output><p class="ownership"></p><div class="quick"><button data-delta="-1000">−1000</button><button data-delta="-500">−500</button><button data-delta="500">+500</button><button data-delta="1000">+1000</button></div><form class="custom-lp"><input name="delta" inputmode="numeric" placeholder="LP change, e.g. -1200"><input name="note" maxlength="80" placeholder="Optional note"><button>Record</button></form></article></template>
   <script type="module" src="app.js"></script>
 </body></html>
