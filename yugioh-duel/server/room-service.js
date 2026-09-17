@@ -9,6 +9,7 @@ function roomCode() { return Array.from({ length: 6 }, () => CODE_ALPHABET[rando
 function name(value, fallback) { const cleaned = String(value ?? "").trim().replace(/\s+/g, " "); return cleaned ? cleaned.slice(0, 24) : fallback; }
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
 function emptyTools() { return { randomHistory: [], notes: [], counters: [], tokens: [] }; }
+function recoverTools(value) { const tools = value || {}; return { ...emptyTools(), ...tools, randomHistory: Array.isArray(tools.randomHistory) ? tools.randomHistory : [], notes: Array.isArray(tools.notes) ? tools.notes : [], counters: Array.isArray(tools.counters) ? tools.counters : [], tokens: Array.isArray(tools.tokens) ? tools.tokens : [] }; }
 function recoverRoom(room) {
   const duel = room.duel || {};
   return {
@@ -26,7 +27,7 @@ function recoverRoom(room) {
       outcome: duel.outcome || null,
       priorLoserSeatId: Number.isInteger(duel.priorLoserSeatId) ? duel.priorLoserSeatId : null
     },
-    tools: { ...emptyTools(), ...(room.tools || {}) }
+    tools: recoverTools(room.tools)
   };
 }
 
@@ -76,7 +77,7 @@ export class DuelRoomService {
   undoPhase(code, connectionId) { const room = this.room(code); const seatId = this.owner(room, connectionId); const prior = room.duel.phaseHistory.at(-1); if (!prior || seatId !== room.duel.activeSeatId && seatId !== prior.activeSeatId) throw Object.assign(new Error("There is no phase advance you can undo."), { status: 409, code: "NOT_UNDOABLE" }); Object.assign(room.duel, prior); room.duel.phaseHistory.pop(); room.version++; this.persist(); this.broadcast(room); return { snapshot: this.snapshot(room) }; }
   declareOutcome(code, connectionId, { winnerSeatId, type = "win" } = {}) { const room = this.room(code); this.owner(room, connectionId); if (![0, 1].includes(winnerSeatId) || !["win", "concession"].includes(type)) throw Object.assign(new Error("Choose a Duel winner and outcome."), { status: 400, code: "INVALID_INPUT" }); room.duel.outcome = { winnerSeatId, type, declaredAt: this.now() }; room.matchScore[winnerSeatId]++; room.version++; this.persist(); this.broadcast(room); return { snapshot: this.snapshot(room) }; }
   nextDuel(code, connectionId, { firstSeatId } = {}) { const room = this.room(code); this.owner(room, connectionId); if (!room.duel.outcome) throw Object.assign(new Error("Declare this Duel's outcome first."), { status: 409, code: "OUTCOME_REQUIRED" }); if (room.matchFormat === "best_of_three" && Math.max(...room.matchScore) >= 2) throw Object.assign(new Error("This Match is complete."), { status: 409, code: "MATCH_COMPLETE" }); const loser = room.duel.outcome.winnerSeatId === 0 ? 1 : 0; if (![0, 1].includes(firstSeatId)) throw Object.assign(new Error("The previous Duel loser chooses first or second."), { status: 400, code: "INVALID_INPUT" }); room.duelNumber++; room.duel = this.blankDuel(firstSeatId); room.duel.priorLoserSeatId = loser; room.version++; this.persist(); this.broadcast(room); return { snapshot: this.snapshot(room) }; }
-  tools(room) { room.tools = { ...emptyTools(), ...(room.tools || {}) }; return room.tools; }
+  tools(room) { room.tools = recoverTools(room.tools); return room.tools; }
   randomize(code, connectionId, { sides = 2 } = {}) { const room = this.room(code); const seatId = this.owner(room, connectionId); const die = Number(sides); if (![2, 6, 20].includes(die)) throw Object.assign(new Error("Choose coin, d6, or d20."), { status: 400, code: "INVALID_INPUT" }); const tools = this.tools(room); const value = 1 + (randomBytes(1)[0] % die); tools.randomHistory.unshift({ id: id(), seatId, sides: die, value, at: this.now() }); tools.randomHistory = tools.randomHistory.slice(0, 8); room.version++; this.persist(); this.broadcast(room); return { snapshot: this.snapshot(room) }; }
   addSharedNote(code, connectionId, { text } = {}) { const room = this.room(code); const seatId = this.owner(room, connectionId); const clean = String(text || "").trim().slice(0, 160); if (!clean) throw Object.assign(new Error("Enter a table note."), { status: 400, code: "INVALID_INPUT" }); const tools = this.tools(room); tools.notes.unshift({ id: id(), seatId, text: clean, at: this.now() }); tools.notes = tools.notes.slice(0, 12); room.version++; this.persist(); this.broadcast(room); return { snapshot: this.snapshot(room) }; }
   addCounter(code, connectionId, { label, value = 0 } = {}) { const room = this.room(code); const seatId = this.owner(room, connectionId); const clean = String(label || "").trim().slice(0, 32); const amount = Number(value); if (!clean || !Number.isInteger(amount) || Math.abs(amount) > 999) throw Object.assign(new Error("Enter a counter name and a whole value from -999 to 999."), { status: 400, code: "INVALID_INPUT" }); const tools = this.tools(room); if (tools.counters.length >= 12) throw Object.assign(new Error("This Duel already has 12 shared counters."), { status: 409, code: "COUNTER_LIMIT" }); tools.counters.unshift({ id: id(), seatId, label: clean, value: amount }); room.version++; this.persist(); this.broadcast(room); return { snapshot: this.snapshot(room) }; }
