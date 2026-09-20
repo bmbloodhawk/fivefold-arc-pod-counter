@@ -34,6 +34,10 @@ const achievementsFor = ({ games, decks, bestWinStreak, monthCount, playedColors
     ['second-wind', 'Second Wind', 'Recovered 10 life after reaching 5 life or less.', games.some(game => game.achievementFacts?.lowestLife <= 5 && game.achievementFacts.lifeGainedAfterLow >= 10)],
     ['phoenix-turn', 'Phoenix Turn', 'Won after recovering 15 life from 1 life.', games.some(game => game.won && game.achievementFacts?.lowestLife === 1 && game.achievementFacts.lifeGainedAfterLow >= 15)],
     ['settling-in', 'Settling In', 'Completed a game lasting at least one hour.', games.some(game => game.achievementFacts?.durationMs >= 3_600_000)],
+    ['commander-magnet', 'Commander Magnet', 'Received 10 commander damage from one commander.', games.some(game => game.achievementFacts?.largestCommanderDamage >= 10)],
+    ['grand-audience', 'Grand Audience', 'Received 18 commander damage in one saved game.', games.some(game => game.counterTotals?.commanderDamage >= 18)],
+    ['legend-collector', 'Legend Collector', 'Received commander damage from three opposing commanders in one saved game.', games.some(game => game.achievementFacts?.commanderSourcesHit >= 3)],
+    ['the-full-court', 'The Full Court', 'Won after receiving 18 damage from every opposing commander in a four-player game.', games.some(game => game.won && game.achievementFacts?.everyOpponentCommanderAt18 === 1)],
     ['account-awakened', 'Account Awakened', 'Created your Fivefold Arc profile.', true],
     ['first-chronicle', 'First Chronicle', 'Saved your first completed game.', games.length >= 1],
     ['first-crown', 'First Crown', 'Recorded your first victory.', wins.length >= 1],
@@ -134,9 +138,9 @@ export class AccountHistory {
       if (!Number.isInteger(value) || value < 0 || value > 9999) throw new TypeError("Counter totals are invalid");
       return [key, value];
     }));
-    const rawFacts = input.achievementFacts || {}; const factKeys = ["lowestLife", "lifeGainedAfterLow", "actionsAfterLow", "playerCountAtStart", "turnCount", "durationMs"];
+    const rawFacts = input.achievementFacts || {}; const factKeys = ["lowestLife", "lifeGainedAfterLow", "actionsAfterLow", "playerCountAtStart", "turnCount", "durationMs", "commanderSourcesHit", "largestCommanderDamage", "everyOpponentCommanderAt18"];
     if (!rawFacts || typeof rawFacts !== "object" || Array.isArray(rawFacts) || Object.keys(rawFacts).some(key => !factKeys.includes(key))) throw new TypeError("Achievement facts are invalid");
-    const achievementFacts = Object.fromEntries(factKeys.map(key => { const value = rawFacts[key] == null ? 0 : Number(rawFacts[key]); if (!Number.isInteger(value) || value < 0 || value > 9_999_999_999) throw new TypeError("Achievement facts are invalid"); return [key, value]; }));
+    const achievementFacts = Object.fromEntries(factKeys.filter(key => rawFacts[key] != null).map(key => { const value = Number(rawFacts[key]); if (!Number.isInteger(value) || value < 0 || value > 9_999_999_999) throw new TypeError("Achievement facts are invalid"); return [key, value]; }));
     const game = { gameId, savedAt: this.now(), tableSize, won, place, outcomeDescription: text(input.outcomeDescription, 160), commanderName: text(input.commanderName, 120), deckId: input.deckId || null, counterTotals, achievementFacts, ...(sourceGameId ? { sourceGameId } : {}) };
     await this.store.write(gamesPath(accountId), { ...games, [gameId]: game });
     return game;

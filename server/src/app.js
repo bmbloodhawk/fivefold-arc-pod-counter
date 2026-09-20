@@ -616,6 +616,7 @@ export class RoomService {
     const room = this.room(code); const { seat } = this.requireOwner(room, connectionId);
     if (!room.gameResult) throw Object.assign(new Error("A match moment is available after the game ends"), { status: 409, code: "GAME_NOT_COMPLETE" });
     const matchMoment = seat.matchMoment || blankMatchMoment(room.config.startingLife);
+    const commanderDamage = Object.values(matchMoment.commanderDamageBySource || {});
     return {
       moment: personalMatchMoment({ seat, seats: room.seats, winnerSeatId: room.gameResult.winnerSeatId, seed: room.gameId }),
       counterTotals: {
@@ -631,6 +632,9 @@ export class RoomService {
         playerCountAtStart: matchMoment.playerCountAtStart || room.seats.filter((item) => item.claimed).length,
         turnCount: matchMoment.turnCount || 0,
         durationMs: Math.max(0, room.gameResult.decidedAt - (room.turn.gameStartedAt || room.gameResult.decidedAt)),
+        commanderSourcesHit: commanderDamage.filter((damage) => damage > 0).length,
+        largestCommanderDamage: Math.max(0, ...commanderDamage),
+        everyOpponentCommanderAt18: (matchMoment.playerCountAtStart === 4 && commanderDamage.length >= 3 && commanderDamage.every((damage) => damage >= 18)) ? 1 : 0,
       },
     };
   }

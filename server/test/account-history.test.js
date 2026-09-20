@@ -17,8 +17,8 @@ test("personal games retain only the saver’s explicitly supplied result", asyn
   await history.saveGame(accountId, { tableSize: 4, won: false });
   const summary = await history.summary(accountId);
   assert.deepEqual({ gamesPlayed: summary.gamesPlayed, wins: summary.wins, winRate: summary.winRate, recentGames: summary.recentGames }, { gamesPlayed: 2, wins: 1, winRate: .5, recentGames: [
-    { gameId: "game_2", savedAt: 20, tableSize: 4, won: true, place: 1, outcomeDescription: "Combat damage", commanderName: "Alela", deckId: null, counterTotals: { poison: 0, energy: 0, radiation: 0, commanderDamage: 0 }, achievementFacts: { lowestLife: 0, lifeGainedAfterLow: 0, actionsAfterLow: 0, playerCountAtStart: 0, turnCount: 0, durationMs: 0 } },
-    { gameId: "game_3", savedAt: 20, tableSize: 4, won: false, place: null, outcomeDescription: null, commanderName: null, deckId: null, counterTotals: { poison: 0, energy: 0, radiation: 0, commanderDamage: 0 }, achievementFacts: { lowestLife: 0, lifeGainedAfterLow: 0, actionsAfterLow: 0, playerCountAtStart: 0, turnCount: 0, durationMs: 0 } },
+    { gameId: "game_2", savedAt: 20, tableSize: 4, won: true, place: 1, outcomeDescription: "Combat damage", commanderName: "Alela", deckId: null, counterTotals: { poison: 0, energy: 0, radiation: 0, commanderDamage: 0 }, achievementFacts: {} },
+    { gameId: "game_3", savedAt: 20, tableSize: 4, won: false, place: null, outcomeDescription: null, commanderName: null, deckId: null, counterTotals: { poison: 0, energy: 0, radiation: 0, commanderDamage: 0 }, achievementFacts: {} },
   ] });
   assert.equal(summary.games.length, 2);
   assert.equal(summary.achievements.some(achievement => achievement.id === "first-chronicle"), true);
