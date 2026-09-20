@@ -289,7 +289,10 @@ export class RealtimeAdapter extends EventTarget {
   }
 
   #acceptSnapshot(snapshot, epoch = this.sessionEpoch) {
-    if (!this.#isCurrentSession(epoch) || !snapshot || (this.snapshot && snapshot.version < this.snapshot.version)) return;
+    // The mobile safety refresh polls frequently, but an unchanged authoritative
+    // snapshot must not rebuild the entire table UI. On Android that repeated
+    // layout work can present as a visible flicker during otherwise idle play.
+    if (!this.#isCurrentSession(epoch) || !snapshot || (this.snapshot && snapshot.version <= this.snapshot.version)) return;
     this.snapshot = snapshot; this.dispatchEvent(new CustomEvent('state', { detail: snapshot }));
   }
 

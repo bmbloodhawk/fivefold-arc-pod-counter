@@ -11,6 +11,36 @@ class FakeEventSource {
   emit(type, event = {}) { this.listeners.get(type)?.(event); }
 }
 
+test('does not emit a second state event for an unchanged snapshot', async () => {
+  const originals = Object.fromEntries(['fetch', 'EventSource', 'document', 'localStorage'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  try {
+    globalThis.document = { visibilityState: 'visible' };
+    globalThis.EventSource = FakeEventSource;
+    globalThis.localStorage = { getItem: () => null, setItem: () => {} };
+    globalThis.fetch = async (url, options = {}) => {
+      const path = new URL(url).pathname;
+      if (path === '/api/connections') return response({ connectionId: 'connection-1' });
+      if (path === '/api/rooms' && options.method === 'POST') return response({ snapshot: { code: 'POD123', version: 1 }, seatId: 0, reclaimToken: 'pod-token' });
+      if (path === '/api/rooms/POD123') return response({ snapshot: { code: 'POD123', version: 1 } });
+      throw new Error(`Unexpected request: ${options.method || 'GET'} ${path}`);
+    };
+
+    const { RealtimeAdapter } = await import(new URL(`./realtime.js?same-snapshot=${Date.now()}`, import.meta.url));
+    const adapter = new RealtimeAdapter({ apiBase: 'https://pod.test' }); const states = [];
+    adapter.addEventListener('state', event => states.push(event.detail.version));
+    await adapter.createRoom({ playerCount: 2, startingLife: 40 });
+    FakeEventSource.instances.at(-1).emit('snapshot', { data: JSON.stringify({ code: 'POD123', version: 1 }) });
+
+    assert.deepEqual(states, [1]);
+    adapter.clearSession();
+  } finally {
+    for (const [key, descriptor] of Object.entries(originals)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else delete globalThis[key];
+    }
+  }
+});
+
 test('a cleared room cannot overwrite a newly created room with late SSE or mutation snapshots', async () => {
   const originals = Object.fromEntries(['fetch', 'EventSource', 'document', 'localStorage'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   let connectionNumber = 0; let roomNumber = 0; let releaseOldMutation;
