@@ -101,8 +101,10 @@ test('turn cues offer explicit sound and vibration modes with an iPhone support 
   assert.match(app, /function cueMode\(turn = state\?\.turn\)/);
   assert.match(app, /mode === 'vibrate' \|\| mode === 'both'/);
   assert.match(app, /mode === 'sound' \|\| mode === 'both'/);
-  assert.match(app, /function prepareTurnCueAudio\(preview = false\)/);
+  assert.match(app, /function prepareTurnCueAudio\(preview = false, mode = cueMode\(\), force = false\)/);
   assert.match(app, /window\.webkitAudioContext/);
+  assert.match(app, /prepareTurnCueAudio\(false, mode\);/);
+  assert.match(app, /document\.addEventListener\('pointerdown', \(\) => prepareTurnCueAudio\(false, cueMode\(\), true\)\);/);
 });
 
 test('declaring an alternate winner offers an optional visible reason without a redundant celebration close button', () => {
@@ -395,6 +397,15 @@ test('signed-in accounts keep private deck details and personal history tools', 
   assert.match(app, /function beginDeckEdit\(deckId\)/);
   assert.match(app, /exportDeckSummary/);
   assert.match(html, /id="accountDefaultPlayerCount"/);
+});
+
+test('completed signed-in games save automatically without a final player action', () => {
+  assert.match(app, /void saveGameToHistory\(\{ automatic: true, gameKey: key \}\);/);
+  assert.match(app, /const token = automatic \? await currentAccountToken\(\) : await currentAccountToken\(\) \|\| await googleAccountToken\(\);/);
+  assert.match(app, /automaticallySavedGameKey = gameKey/);
+  assert.match(app, /Game saved automatically/);
+  assert.match(app, /state\?\.sessionKind === 'development'/);
+  assert.match(app, /sourceGameId: `\$\{state\.podCode\}:\$\{result\.decidedAt\}:\$\{seatId\}`/);
 });
 
 test('radiation is prompted after turn handoff and resolved from the entered mill result', () => {

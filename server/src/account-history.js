@@ -69,7 +69,7 @@ export class AccountHistory {
   }
 
   async saveGame(accountId, input = {}) {
-    const extra = Object.keys(input).find((key) => !["tableSize", "won", "place", "outcomeDescription", "commanderName", "deckId", "poisonCounters"].includes(key));
+    const extra = Object.keys(input).find((key) => !["tableSize", "won", "place", "outcomeDescription", "commanderName", "deckId", "poisonCounters", "sourceGameId"].includes(key));
     if (extra) throw new TypeError(`Game field is not allowed: ${extra}`);
     const tableSize = Number(input.tableSize); const won = input.won === true;
     const place = input.place == null ? null : Number(input.place);
@@ -77,9 +77,14 @@ export class AccountHistory {
     if (place !== null && (!Number.isInteger(place) || place < 1 || place > tableSize)) throw new TypeError("Place is invalid");
     if (input.deckId && !(await this.store.read(decksPath(accountId)))?.[input.deckId]) throw new TypeError("Deck is invalid");
     const games = (await this.store.read(gamesPath(accountId))) || {};
+    const sourceGameId = text(input.sourceGameId, 120);
+    if (sourceGameId) {
+      const existing = Object.values(games).find((game) => game.sourceGameId === sourceGameId);
+      if (existing) return existing;
+    }
     const gameId = `game_${this.createId()}`;
     const poisonCounters = input.poisonCounters == null ? 0 : Number(input.poisonCounters); if (!Number.isInteger(poisonCounters) || poisonCounters < 0 || poisonCounters > 9999) throw new TypeError("Poison counters are invalid");
-    const game = { gameId, savedAt: this.now(), tableSize, won, place, outcomeDescription: text(input.outcomeDescription, 160), commanderName: text(input.commanderName, 120), deckId: input.deckId || null, poisonCounters };
+    const game = { gameId, savedAt: this.now(), tableSize, won, place, outcomeDescription: text(input.outcomeDescription, 160), commanderName: text(input.commanderName, 120), deckId: input.deckId || null, poisonCounters, ...(sourceGameId ? { sourceGameId } : {}) };
     await this.store.write(gamesPath(accountId), { ...games, [gameId]: game });
     return game;
   }

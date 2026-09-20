@@ -355,14 +355,18 @@ export function createCardInteractionLookup(fetchImpl = fetch, { timeoutMs = COM
 }
 
 function recordLastPlayerStanding(room, now) {
-  if (room.gameResult || !room.turn.gameStarted) return;
+  if (!room.turn.gameStarted) return;
   const claimedSeats = room.seats.filter((seat) => seat.claimed);
   if (claimedSeats.length < 2) return;
   const survivors = claimedSeats.filter((seat) => !seatIsEliminated(seat));
   const eliminated = claimedSeats.filter(seatIsEliminated).map((seat) => seat.seatId);
   room.automaticEliminationOrder ||= [];
   for (const seatId of eliminated) if (!room.automaticEliminationOrder.includes(seatId)) room.automaticEliminationOrder.push(seatId);
-  if (survivors.length === 1) {
+  // Automatic elimination is reversible: a rapid correction after an
+  // accidental lethal tap must restore play instead of leaving the table
+  // permanently locked on a victory screen. A declared winner remains final.
+  if (room.gameResult?.reason === "last_player_standing" && survivors.length !== 1) room.gameResult = null;
+  if (!room.gameResult && survivors.length === 1) {
     room.gameResult = { winnerSeatId: survivors[0].seatId, reason: "last_player_standing", finishingOrder: [survivors[0].seatId, ...room.automaticEliminationOrder.toReversed()], decidedAt: now };
   }
 }
@@ -865,6 +869,7 @@ export class RoomService {
     room.ledgerSequence = 0;
     room.ledgerLastCheckpointAt = this.now();
     room.ledgerCompletedAt = null;
+    const cueMode = ["sound", "vibrate", "both"].includes(room.turn.cueMode) ? room.turn.cueMode : "off";
     room.turn = {
       activeSeatId: 0,
       gameStarted: false,
@@ -875,6 +880,7 @@ export class RoomService {
       startingPlayerRoll: null,
       lastHandoff: null,
       trackingEnabled: true,
+      cueMode,
       pausedAt: null,
       pausedDurationMs: 0,
     };

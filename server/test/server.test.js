@@ -961,7 +961,8 @@ test("archives a reset playtest with its notes and hands turns only to claimed s
   const made = service.createRoom(host.connectionId, { playerCount: 3, startingLife: 40, name: "Host" });
   const other = service.createConnection();
   const claimed = service.claimSeat(made.snapshot.code, other.connectionId, { seatId: 2, name: "Nissa" });
-  service.chooseStartingPlayer(made.snapshot.code, host.connectionId, { baseVersion: claimed.snapshot.version, startingSeatId: 0 });
+  service.setTurnCues(made.snapshot.code, host.connectionId, { baseVersion: claimed.snapshot.version, cueMode: "both" });
+  service.chooseStartingPlayer(made.snapshot.code, host.connectionId, { baseVersion: service.snapshot(service.room(made.snapshot.code)).version, startingSeatId: 0 });
   const started = service.startGame(made.snapshot.code, host.connectionId, { baseVersion: service.snapshot(service.room(made.snapshot.code)).version });
   clock += 4_000;
   const handoff = service.handoffTurn(made.snapshot.code, host.connectionId, { baseVersion: started.snapshot.version });
@@ -969,6 +970,7 @@ test("archives a reset playtest with its notes and hands turns only to claimed s
   service.addPlaytestNote(made.snapshot.code, other.connectionId, { text: "The table stayed readable." });
   const reset = service.resetRoom(made.snapshot.code, host.connectionId, { baseVersion: service.snapshot(service.room(made.snapshot.code)).version });
   assert.notEqual(reset.snapshot.version, started.snapshot.version);
+  assert.equal(reset.snapshot.turn.cueMode, "both");
   const completed = ledger.records.find((entry) => entry.kind === "complete");
   assert.equal(completed.record.incomplete, true);
   assert.equal(completed.record.notes[0].text, "The table stayed readable.");

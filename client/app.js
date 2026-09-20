@@ -57,7 +57,7 @@ function touchFeedbackEnabled() { try { return localStorage.getItem('fivefold-ar
 function setTouchFeedback(enabled) { try { localStorage.setItem('fivefold-arc:touch-feedback', enabled ? 'on' : 'off'); } catch { /* preference is optional */ } }
 function pulseTouchFeedback() { if (!touchFeedbackEnabled()) return; try { navigator.vibrate?.(12); } catch { /* unsupported, including iPhone */ } }
 function cueMode(turn = state?.turn) { return ['sound', 'vibrate', 'both'].includes(turn?.cueMode) ? turn.cueMode : 'off'; }
-function prepareTurnCueAudio(preview = false) { if (!preview && (!deviceTurnCuesEnabled() || !['sound', 'both'].includes(cueMode()))) return; try { const AudioContextConstructor = window.AudioContext || window.webkitAudioContext; if (!AudioContextConstructor) return; turnCueAudio ||= new AudioContextConstructor(); if (turnCueAudio.state === 'suspended') void turnCueAudio.resume(); } catch { /* audio remains best-effort on mobile browsers */ } }
+function prepareTurnCueAudio(preview = false, mode = cueMode(), force = false) { if (!force && !preview && (!deviceTurnCuesEnabled() || !['sound', 'both'].includes(mode))) return; try { const AudioContextConstructor = window.AudioContext || window.webkitAudioContext; if (!AudioContextConstructor) return; turnCueAudio ||= new AudioContextConstructor(); if (turnCueAudio.state === 'suspended') void turnCueAudio.resume(); } catch { /* audio remains best-effort on mobile browsers */ } }
 function playTurnCue(preview = false) {
   const mode = cueMode();
   if (!preview && (mode === 'off' || !deviceTurnCuesEnabled())) return;
@@ -74,6 +74,7 @@ let turnTicker = null;
 let turnUndoTimer = null;
 let lastTurnHandoffKey = null;
 let shownVictoryKey = null; let victoryDismissReady = false; let victoryDismissTimer = null;
+let automaticallySavedGameKey = null; let automaticSaveInFlightKey = null;
 let resolvedRadiationTurnKey = null;
 let selectedDeckId = ''; let setupDecks = []; let joinGameFormat = 'commander'; let savedDecks = []; let editingDeckId = null;
 let optimisticLifeDelta = 0;
@@ -210,6 +211,9 @@ function renderVictory() {
   dom.victoryNotice.textContent = `${declared ? 'WINNER' : 'LAST PLAYER STANDING'} · ${displayName(winner)}`;
   const actingSeatId = state.localSimulation ? state.activePlayerId : state.ownerPlayerId;
   const key = victoryKey(result);
+  // Give a rapid correction a short grace period before a provisional
+  // last-player-standing modal takes over the controls.
+  if (result.reason === 'last_player_standing' && lifeChange && Date.now() - (lifeChange.startedAt || 0) < 700) { setTimeout(() => render(), 700); return; }
   if (key !== shownVictoryKey) {
     shownVictoryKey = key;
     const youWon = winner.id === actingSeatId;
@@ -221,6 +225,9 @@ function renderVictory() {
       : (youWon ? (declared ? 'The table declared you the winner.' : 'You are the last player standing.') : (declared ? `${displayName(winner)} was declared the winner.` : `${displayName(winner)} is the last player standing.`));
     dom.victoryArt.src = winnerArtUrl(winner);
     void loadSaveGameDecks();
+    // A completed shared-table result is the record of the game. Save it for
+    // each signed-in player without relying on them to remember a final tap.
+    void saveGameToHistory({ automatic: true, gameKey: key });
     dom.personalMatchMoment.hidden = true; dom.personalMatchMoment.classList.remove('achievement-reveal');
     if (!state.localSimulation) transport.getPersonalMatchMoment().then(({ moment }) => {
       if (victoryKey(state?.gameResult) !== key || !moment) return;
@@ -320,18 +327,32 @@ function latestRecoverableHostPodCode() {
     .filter(table => table.isHost && recoverableCodes.has(table.code))
     .sort((left, right) => Number(right.lastUsedAt || 0) - Number(left.lastUsedAt || 0))[0]?.code || '';
 }
-async function saveGameToHistory() {
+async function saveGameToHistory({ automatic = false, gameKey = victoryKey(state?.gameResult) } = {}) {
   const result = state?.gameResult; const you = state?.players.find(player => player.id === state?.ownerPlayerId);
-  if (!result || !you || state?.localSimulation) return;
+  if (!result || !you || state?.localSimulation || (automatic && (state?.sessionKind === 'development' || !gameKey || automaticallySavedGameKey === gameKey || automaticSaveInFlightKey === gameKey))) return false;
   dom.saveGameButton.disabled = true; dom.saveGameButton.textContent = 'Signing in…';
   try {
-    const token = await googleAccountToken();
+    const token = automatic ? await currentAccountToken() : await currentAccountToken() || await googleAccountToken();
+    // Automatic saves never interrupt a game result with a sign-in dialog.
+    // A player can still use the visible button to sign in and save manually.
+    if (!token) {
+      if (automatic) { dom.saveGameButton.disabled = false; dom.saveGameButton.textContent = 'Sign in to save this game'; return false; }
+      throw new Error('Sign in to save this game.');
+    }
+    if (automatic) automaticSaveInFlightKey = gameKey;
+    // Do not persist a provisional result that was corrected while a token was
+    // being refreshed.
+    if (victoryKey(state?.gameResult) !== gameKey) { dom.saveGameButton.disabled = false; dom.saveGameButton.textContent = 'Save this game'; return false; }
     const seatId = Number(you.id.slice(1)) - 1; const place = Array.isArray(result.finishingOrder) ? result.finishingOrder.indexOf(seatId) + 1 : null;
-    const response = await fetch('/api/account/games', { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ tableSize: state.players.filter(player => player.connectionStatus !== 'waiting').length, won: result.winnerSeatId === seatId, place: place || null, outcomeDescription: result.declarationDetail || null, commanderName: you.commanderNames?.filter(Boolean).join(' / ') || null, deckId: selectedDeckId || null, poisonCounters: you.poisonReceived || 0 }) });
+    const response = await fetch('/api/account/games', { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ tableSize: state.players.filter(player => player.connectionStatus !== 'waiting').length, won: result.winnerSeatId === seatId, place: place || null, outcomeDescription: result.declarationDetail || null, commanderName: you.commanderNames?.filter(Boolean).join(' / ') || null, deckId: selectedDeckId || null, poisonCounters: you.poisonReceived || 0, sourceGameId: `${state.podCode}:${result.decidedAt}:${seatId}` }) });
     if (!response.ok) throw new Error('This game could not be saved yet.');
-    const { unlockedAchievements = [] } = await response.json(); dom.saveGameButton.textContent = 'Game saved';
+    const { unlockedAchievements = [] } = await response.json();
+    if (automatic) automaticallySavedGameKey = gameKey;
+    dom.saveGameButton.textContent = automatic ? 'Game saved automatically' : 'Game saved';
     if (unlockedAchievements.length) { const achievement = unlockedAchievements[0]; dom.personalMatchMoment.classList.add('achievement-reveal'); dom.personalMatchMomentTitle.textContent = 'Achievement unlocked'; dom.personalMatchMomentLine.textContent = achievement.title; dom.personalMatchMomentFact.textContent = achievement.detail; dom.personalMatchArt.style.backgroundImage = ''; dom.personalMatchMoment.hidden = false; }
-  } catch (error) { dom.saveGameButton.disabled = false; dom.saveGameButton.textContent = error?.message || 'Save this game'; }
+    return true;
+  } catch (error) { dom.saveGameButton.disabled = false; dom.saveGameButton.textContent = error?.message || 'Save this game'; return false; }
+  finally { if (automatic && automaticSaveInFlightKey === gameKey) automaticSaveInFlightKey = null; }
 }
 function renderSavedTables() {
   const tables = savedTables();
@@ -571,7 +592,7 @@ function showLifeChange(playerId, delta, from, to, { confirmed = false } = {}) {
   // changes. The total resets only after four quiet seconds or a seat switch.
   const prior = lifeChange?.playerId === playerId && Math.sign(lifeChange.delta) === Math.sign(delta) ? lifeChange : null;
   const start = prior?.from ?? from;
-  lifeChange = { playerId, from: start, to, delta: to - start, confirmed };
+  lifeChange = { playerId, from: start, to, delta: to - start, confirmed, startedAt: Date.now() };
   clearTimeout(lifeChangeTimer);
   lifeChangeTimer = setTimeout(() => { lifeChange = null; if (state) render(); }, 4000);
   if (state) render();
@@ -852,7 +873,7 @@ async function updateCommanderCastCount(sourceId, delta) {
   catch (error) { renderConnection('disconnected'); showError(error); }
 }
 async function resetGame() {
-  if (transport.status === 'local') { const sources = state.commanderSources; state.players = state.players.map(player => ({ ...playerTemplate(Number(player.id.slice(1)), state.startingLife, player.commanderCount, sources, player.commanderNames, player.commanderColors), name: player.name, commanderCount: player.commanderCount, commanderNames: player.commanderNames, commanderColors: player.commanderColors })); state.commanderCastCounts = blankDamage(sources); state.lastCoinToss = null; state.gameResult = null; state.turn = { activeSeatId: 0, gameStarted: false, gameStartedAt: null, turnStartedAt: null, roundEndsAt: null, startingPlayerSeatId: null, startingPlayerRoll: null, lastHandoff: null, trackingEnabled: true, pausedAt: null }; state.turnSeatId = 'P1'; coinTossNotice = null; clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); clearStartingRollTimers(); state.selectedSourceId = null; render(); return; }
+  if (transport.status === 'local') { const sources = state.commanderSources; const preservedCueMode = cueMode(state.turn); state.players = state.players.map(player => ({ ...playerTemplate(Number(player.id.slice(1)), state.startingLife, player.commanderCount, sources, player.commanderNames, player.commanderColors), name: player.name, commanderCount: player.commanderCount, commanderNames: player.commanderNames, commanderColors: player.commanderColors })); state.commanderCastCounts = blankDamage(sources); state.lastCoinToss = null; state.gameResult = null; state.turn = { activeSeatId: 0, gameStarted: false, gameStartedAt: null, turnStartedAt: null, roundEndsAt: null, startingPlayerSeatId: null, startingPlayerRoll: null, lastHandoff: null, trackingEnabled: true, cueMode: preservedCueMode, pausedAt: null }; state.turnSeatId = 'P1'; coinTossNotice = null; clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); clearStartingRollTimers(); state.selectedSourceId = null; render(); return; }
   try { const result = await transport.reset(); if (result.conflict) showError(new Error('The table changed first. The latest totals are shown; confirm reset again if it is still needed.')); else { coinTossNotice = null; clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); render(); } } catch (error) { showError(error); }
 }
 async function handoffTurn() {
@@ -1045,8 +1066,11 @@ dom.activeSeat.addEventListener('change', () => { state.activePlayerId = dom.act
 dom.customLifeButton.addEventListener('click', () => { dom.customLifeAmount.value = ''; dom.customLifeDialog.showModal(); dom.customLifeAmount.focus(); }); dom.cancelCustomLifeButton.addEventListener('click', () => dom.customLifeDialog.close('cancel'));
 dom.customLifeForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; const form = new FormData(dom.customLifeForm); const amount = Number(form.get('amount')); if (!Number.isInteger(amount) || amount < 1 || amount > 999) { event.preventDefault(); dom.customLifeAmount.focus(); return; } const delta = form.get('direction') === 'subtract' ? -amount : amount; adjust(delta); });
 dom.radiationForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); void resolveRadiation(); }); dom.radiationDialog.addEventListener('cancel', event => event.preventDefault());
-document.addEventListener('pointerup', event => { prepareTurnCueAudio(); const button = event.target.closest('button'); if (!button || button.disabled || button.hidden || !button.getClientRects().length) return; pulseTouchFeedback(); });
-dom.endTurnButton.addEventListener('click', handoffTurn); dom.undoTurnButton.addEventListener('click', undoTurnHandoff); dom.pauseTurnButton.addEventListener('click', toggleTurnPause); dom.toggleTurnTrackingButton.addEventListener('click', toggleTurnTracking); dom.toggleTurnCuesButton.addEventListener('click', openTurnCueDialog); dom.turnCueForm.addEventListener('submit', async event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); if (await setTurnCue(String(new FormData(dom.turnCueForm).get('cueMode') || 'off'))) dom.turnCueDialog.close('confirm'); }); dom.toggleDeviceCuesButton.addEventListener('click', () => { setDeviceTurnCues(!deviceTurnCuesEnabled()); render(); }); dom.toggleTouchFeedbackButton.addEventListener('click', () => { setTouchFeedback(!touchFeedbackEnabled()); render(); });
+// iOS permits Web Audio only after a direct gesture. Prime the context on
+// every deliberate tap so a cue changed by another phone is ready too.
+document.addEventListener('pointerdown', () => prepareTurnCueAudio(false, cueMode(), true));
+document.addEventListener('pointerup', event => { const button = event.target.closest('button'); if (!button || button.disabled || button.hidden || !button.getClientRects().length) return; pulseTouchFeedback(); });
+dom.endTurnButton.addEventListener('click', handoffTurn); dom.undoTurnButton.addEventListener('click', undoTurnHandoff); dom.pauseTurnButton.addEventListener('click', toggleTurnPause); dom.toggleTurnTrackingButton.addEventListener('click', toggleTurnTracking); dom.toggleTurnCuesButton.addEventListener('click', openTurnCueDialog); dom.turnCueForm.addEventListener('submit', async event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); const mode = String(new FormData(dom.turnCueForm).get('cueMode') || 'off'); prepareTurnCueAudio(false, mode); if (await setTurnCue(mode)) dom.turnCueDialog.close('confirm'); }); dom.toggleDeviceCuesButton.addEventListener('click', () => { setDeviceTurnCues(!deviceTurnCuesEnabled()); render(); }); dom.toggleTouchFeedbackButton.addEventListener('click', () => { setTouchFeedback(!touchFeedbackEnabled()); render(); });
 dom.turnSoundPreferencesButton.addEventListener('click', openTurnSoundDialog); dom.turnSoundVolume.addEventListener('input', () => { dom.turnSoundVolumeValue.value = `${dom.turnSoundVolume.value}%`; }); dom.previewTurnSoundButton.addEventListener('click', () => { setTurnSound(dom.turnSoundChoice.value, Number(dom.turnSoundVolume.value)); playTurnCue(true); }); dom.turnSoundForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); setTurnSound(dom.turnSoundChoice.value, Number(dom.turnSoundVolume.value)); dom.turnSoundDialog.close('confirm'); render(); });
 dom.chooseFirstButton.addEventListener('click', () => chooseStartingPlayer(Number(dom.startingSeat.value))); dom.randomFirstButton.addEventListener('click', () => chooseStartingPlayer()); dom.startGameButton.addEventListener('click', startGame);
 const syncGameMenuScrollLock = () => { const open = !dom.gameMenu.hidden; document.documentElement.classList.toggle('game-menu-open', open); document.body.classList.toggle('game-menu-open', open); };
