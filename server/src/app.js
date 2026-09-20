@@ -615,7 +615,16 @@ export class RoomService {
   personalMatchMoment(code, connectionId) {
     const room = this.room(code); const { seat } = this.requireOwner(room, connectionId);
     if (!room.gameResult) throw Object.assign(new Error("A match moment is available after the game ends"), { status: 409, code: "GAME_NOT_COMPLETE" });
-    return { moment: personalMatchMoment({ seat, seats: room.seats, winnerSeatId: room.gameResult.winnerSeatId, seed: room.gameId }) };
+    const matchMoment = seat.matchMoment || blankMatchMoment(room.config.startingLife);
+    return {
+      moment: personalMatchMoment({ seat, seats: room.seats, winnerSeatId: room.gameResult.winnerSeatId, seed: room.gameId }),
+      counterTotals: {
+        poison: matchMoment.poisonGained || 0,
+        energy: matchMoment.energyGained || 0,
+        radiation: matchMoment.radiationGained || 0,
+        commanderDamage: matchMoment.commanderDamageReceived || 0,
+      },
+    };
   }
 
   async developerFieldTestInsights() {

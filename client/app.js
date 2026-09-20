@@ -353,7 +353,8 @@ async function saveGameToHistory({ automatic = false, gameKey = victoryKey(state
     // being refreshed.
     if (victoryKey(state?.gameResult) !== gameKey) { dom.saveGameButton.disabled = false; dom.saveGameButton.textContent = 'Save this game'; return false; }
     const seatId = Number(you.id.slice(1)) - 1; const place = Array.isArray(result.finishingOrder) ? result.finishingOrder.indexOf(seatId) + 1 : null;
-    const response = await fetch('/api/account/games', { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ tableSize: state.players.filter(player => player.connectionStatus !== 'waiting').length, won: result.winnerSeatId === seatId, place: place || null, outcomeDescription: result.declarationDetail || null, commanderName: you.commanderNames?.filter(Boolean).join(' / ') || null, deckId: selectedDeckId || null, poisonCounters: you.poisonReceived || 0, sourceGameId: `${state.podCode}:${result.decidedAt}:${seatId}` }) });
+    const { counterTotals } = await transport.getPersonalMatchMoment();
+    const response = await fetch('/api/account/games', { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ tableSize: state.players.filter(player => player.connectionStatus !== 'waiting').length, won: result.winnerSeatId === seatId, place: place || null, outcomeDescription: result.declarationDetail || null, commanderName: you.commanderNames?.filter(Boolean).join(' / ') || null, deckId: selectedDeckId || null, counterTotals, sourceGameId: `${state.podCode}:${result.decidedAt}:${seatId}` }) });
     if (!response.ok) throw new Error('This game could not be saved yet.');
     const { unlockedAchievements = [] } = await response.json();
     if (automatic) automaticallySavedGameKey = gameKey;

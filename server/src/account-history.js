@@ -12,11 +12,22 @@ const text = (value, max) => {
   return normalized;
 };
 
+const COUNTER_TOTAL_KEYS = ["poison", "energy", "radiation", "commanderDamage"];
+const counterTotalsFor = (game) => ({
+  poison: game.counterTotals?.poison ?? game.poisonCounters ?? 0,
+  energy: game.counterTotals?.energy ?? 0,
+  radiation: game.counterTotals?.radiation ?? 0,
+  commanderDamage: game.counterTotals?.commanderDamage ?? 0,
+});
+const lifetimeCounterTotals = (games) => Object.fromEntries(COUNTER_TOTAL_KEYS.map((key) => [key, games.reduce((total, game) => total + counterTotalsFor(game)[key], 0)]));
+
 const achievementsFor = ({ games, decks, bestWinStreak, monthCount, playedColors }) => {
   const wins = games.filter(game => game.won);
   const tableSizes = new Set(games.map(game => game.tableSize));
   const deckGames = new Map(); games.filter(game => game.deckId).forEach(game => deckGames.set(game.deckId, (deckGames.get(game.deckId) || 0) + 1));
   const deckWins = new Set(wins.filter(game => game.deckId).map(game => game.deckId));
+  const counters = lifetimeCounterTotals(games);
+  const counterChain = (key, tiers) => tiers.map(([id, title, detail, target]) => [id, title, detail, counters[key] >= target]);
   const definitions = [
     ['account-awakened', 'Account Awakened', 'Created your Fivefold Arc profile.', true],
     ['first-chronicle', 'First Chronicle', 'Saved your first completed game.', games.length >= 1],
@@ -38,7 +49,30 @@ const achievementsFor = ({ games, decks, bestWinStreak, monthCount, playedColors
     ['near-crown', 'Near Crown', 'Recorded second place five times.', games.filter(game => game.place === 2).length >= 5],
     ['ten-crowns', 'Ten Crowns', 'Recorded ten victories.', wins.length >= 10],
     ['fifty-crowns', 'Fifty Crowns', 'Recorded fifty victories.', wins.length >= 50],
-    ['poisoned-legend', 'Poisoned Legend', 'Received 1,000 poison counters across saved games.', games.reduce((total, game) => total + (game.poisonCounters || 0), 0) >= 1000],
+    ...counterChain('poison', [
+      ['first-dose', 'First Dose', 'Received 25 poison counters across saved games.', 25],
+      ['toxic-regular', 'Toxic Regular', 'Received 100 poison counters across saved games.', 100],
+      ['venom-veteran', 'Venom Veteran', 'Received 400 poison counters across saved games.', 400],
+      ['poisoned-legend', 'Poisoned Legend', 'Received 1,000 poison counters across saved games.', 1000],
+    ]),
+    ...counterChain('energy', [
+      ['power-cell', 'Power Cell', 'Gained 25 energy across saved games.', 25],
+      ['grid-connected', 'Grid Connected', 'Gained 100 energy across saved games.', 100],
+      ['living-battery', 'Living Battery', 'Gained 400 energy across saved games.', 400],
+      ['infinite-reserve', 'Infinite Reserve', 'Gained 1,000 energy across saved games.', 1000],
+    ]),
+    ...counterChain('radiation', [
+      ['fallout-shelter', 'Fallout Shelter', 'Received 25 radiation across saved games.', 25],
+      ['glow-up', 'Glow Up', 'Received 100 radiation across saved games.', 100],
+      ['irradiated-veteran', 'Irradiated Veteran', 'Received 400 radiation across saved games.', 400],
+      ['wasteland-legend', 'Wasteland Legend', 'Received 1,000 radiation across saved games.', 1000],
+    ]),
+    ...counterChain('commanderDamage', [
+      ['marked', 'Marked', 'Received 50 commander damage across saved games.', 50],
+      ['battle-scarred', 'Battle-Scarred', 'Received 200 commander damage across saved games.', 200],
+      ['legend-scarred', 'Legend-Scarred', 'Received 500 commander damage across saved games.', 500],
+      ['known-to-legends', 'Known to the Legends', 'Received 1,000 commander damage across saved games.', 1000],
+    ]),
   ];
   return definitions.filter(([, , , reached]) => reached).map(([id, title, detail]) => ({ id, title, detail }));
 };
@@ -69,7 +103,7 @@ export class AccountHistory {
   }
 
   async saveGame(accountId, input = {}) {
-    const extra = Object.keys(input).find((key) => !["tableSize", "won", "place", "outcomeDescription", "commanderName", "deckId", "poisonCounters", "sourceGameId"].includes(key));
+    const extra = Object.keys(input).find((key) => !["tableSize", "won", "place", "outcomeDescription", "commanderName", "deckId", "poisonCounters", "counterTotals", "sourceGameId"].includes(key));
     if (extra) throw new TypeError(`Game field is not allowed: ${extra}`);
     const tableSize = Number(input.tableSize); const won = input.won === true;
     const place = input.place == null ? null : Number(input.place);
@@ -83,8 +117,14 @@ export class AccountHistory {
       if (existing) return existing;
     }
     const gameId = `game_${this.createId()}`;
-    const poisonCounters = input.poisonCounters == null ? 0 : Number(input.poisonCounters); if (!Number.isInteger(poisonCounters) || poisonCounters < 0 || poisonCounters > 9999) throw new TypeError("Poison counters are invalid");
-    const game = { gameId, savedAt: this.now(), tableSize, won, place, outcomeDescription: text(input.outcomeDescription, 160), commanderName: text(input.commanderName, 120), deckId: input.deckId || null, poisonCounters, ...(sourceGameId ? { sourceGameId } : {}) };
+    const rawCounterTotals = input.counterTotals === undefined ? { poison: input.poisonCounters ?? 0 } : input.counterTotals;
+    if (!rawCounterTotals || typeof rawCounterTotals !== "object" || Array.isArray(rawCounterTotals) || Object.keys(rawCounterTotals).some((key) => !COUNTER_TOTAL_KEYS.includes(key))) throw new TypeError("Counter totals are invalid");
+    const counterTotals = Object.fromEntries(COUNTER_TOTAL_KEYS.map((key) => {
+      const value = rawCounterTotals[key] == null ? 0 : Number(rawCounterTotals[key]);
+      if (!Number.isInteger(value) || value < 0 || value > 9999) throw new TypeError("Counter totals are invalid");
+      return [key, value];
+    }));
+    const game = { gameId, savedAt: this.now(), tableSize, won, place, outcomeDescription: text(input.outcomeDescription, 160), commanderName: text(input.commanderName, 120), deckId: input.deckId || null, counterTotals, ...(sourceGameId ? { sourceGameId } : {}) };
     await this.store.write(gamesPath(accountId), { ...games, [gameId]: game });
     return game;
   }
@@ -153,7 +193,7 @@ export class AccountHistory {
     const thisMonth = new Date(this.now()); const monthGames = games.filter(game => { const date = new Date(game.savedAt); return date.getFullYear() === thisMonth.getFullYear() && date.getMonth() === thisMonth.getMonth(); });
     const decks = Object.values((await this.store.read(decksPath(accountId))) || {}); const playedColors = new Set(decks.filter(deck => games.some(game => game.deckId === deck.deckId)).flatMap(deck => deck.colors || []));
     const achievements = achievementsFor({ games, decks, bestWinStreak, monthCount: monthGames.length, playedColors });
-    return { gamesPlayed: games.length, wins, winRate: games.length ? wins / games.length : null, recentGames: games.slice(0, 12), games, deckStats, achievements, thisMonth: { gamesPlayed: monthGames.length, wins: monthGames.filter(game => game.won).length } };
+    return { gamesPlayed: games.length, wins, winRate: games.length ? wins / games.length : null, counterTotals: lifetimeCounterTotals(games), recentGames: games.slice(0, 12), games, deckStats, achievements, thisMonth: { gamesPlayed: monthGames.length, wins: monthGames.filter(game => game.won).length } };
   }
 
   async export(accountId) {
