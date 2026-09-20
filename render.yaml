@@ -3,7 +3,7 @@ services:
     name: fivefold-arc-pod-counter
     runtime: node
     plan: free
-    autoDeploy: false
+    autoDeploy: true
     buildCommand: npm install --prefix server
     startCommand: npm start
     healthCheckPath: /health
