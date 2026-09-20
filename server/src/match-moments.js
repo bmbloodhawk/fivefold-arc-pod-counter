@@ -1,5 +1,5 @@
 export function blankMatchMoment(startingLife) {
-  return { lifeGained: 0, lifeLostOnOwnTurn: 0, lowestLife: startingLife, lifeGainedAfterLow: 0, actionsAfterLow: 0, playerCountAtStart: null, poisonGained: 0, commanderDamageReceived: 0, commanderDamageBySource: {}, energyGained: 0, radiationGained: 0, turnCount: 0, totalTurnMs: 0 };
+  return { lifeGained: 0, lifeLostOnOwnTurn: 0, lowestLife: startingLife, lifeGainedAfterLow: 0, actionsAfterLow: 0, reclaimedDuringGame: false, actionsAfterReclaim: 0, turnsAfterReclaim: 0, playerCountAtStart: null, poisonGained: 0, commanderDamageReceived: 0, commanderDamageBySource: {}, energyGained: 0, radiationGained: 0, turnCount: 0, totalTurnMs: 0 };
 }
 
 export function recordMatchMoment(seat, { counter, delta, commanderSourceId, lifeAfter, gameStarted, isOwnTurn = false }) {
@@ -19,11 +19,13 @@ export function recordMatchMoment(seat, { counter, delta, commanderSourceId, lif
   if (counter === 'radiation' && delta > 0) m.radiationGained += delta;
   if (m.lowestLife < priorLowest) { m.lifeGainedAfterLow = 0; m.actionsAfterLow = 0; }
   else if (m.lowestLife <= 5) { m.actionsAfterLow += 1; if (counter === 'life' && delta > 0) m.lifeGainedAfterLow += delta; }
+  if (m.reclaimedDuringGame) m.actionsAfterReclaim += 1;
 }
 
 export function recordTurnMoment(seat, turnLengthMs) {
   if (!seat.matchMoment) return;
   seat.matchMoment.turnCount += 1;
+  if (seat.matchMoment.reclaimedDuringGame) seat.matchMoment.turnsAfterReclaim += 1;
   seat.matchMoment.totalTurnMs += Math.max(0, turnLengthMs);
 }
 

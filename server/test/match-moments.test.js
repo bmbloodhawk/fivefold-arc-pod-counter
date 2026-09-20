@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { blankMatchMoment, personalMatchMoment, recordMatchMoment, tableMatchMomentDecisions } from '../src/match-moments.js';
+import { blankMatchMoment, personalMatchMoment, recordMatchMoment, recordTurnMoment, tableMatchMomentDecisions } from '../src/match-moments.js';
 
 function seat(seatId, name, commanderNames = []) {
   return { seatId, name, commanderNames, counters: { life: 40 }, matchMoment: blankMatchMoment(40) };
@@ -31,6 +31,19 @@ test('match moments ignore setup changes and preserve the low-life and comeback 
   recordMatchMoment(defender, { counter: 'life', delta: -36, lifeAfter: 4, gameStarted: true });
   recordMatchMoment(defender, { counter: 'life', delta: 10, lifeAfter: 14, gameStarted: true });
   assert.equal(personalMatchMoment({ seat: defender, seats, winnerSeatId: 99, seed: 'test' }).category, 'Comeback Kid');
+});
+
+test('recovery tracking counts only play that continues after a reclaim', () => {
+  const alex = seat(0, 'Alex');
+  recordMatchMoment(alex, { counter: 'life', delta: 1, lifeAfter: 41, gameStarted: true });
+  recordTurnMoment(alex, 1_000);
+  assert.equal(alex.matchMoment.actionsAfterReclaim, 0);
+  assert.equal(alex.matchMoment.turnsAfterReclaim, 0);
+  alex.matchMoment.reclaimedDuringGame = true;
+  recordMatchMoment(alex, { counter: 'life', delta: -1, lifeAfter: 40, gameStarted: true });
+  recordTurnMoment(alex, 1_000);
+  assert.equal(alex.matchMoment.actionsAfterReclaim, 1);
+  assert.equal(alex.matchMoment.turnsAfterReclaim, 1);
 });
 
 test('accolade decisions retain eligible categories and the selection reason for review', () => {

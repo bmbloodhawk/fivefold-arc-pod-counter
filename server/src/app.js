@@ -638,6 +638,9 @@ export class RoomService {
         handoffCount: room.seats.reduce((total, item) => total + (item.matchMoment?.turnCount || 0), 0),
         everyStarterTwoTurns: room.seats.filter((item) => item.claimed).every((item) => (item.matchMoment?.turnCount || 0) >= 2) ? 1 : 0,
         everyStarterThreeTurns: room.seats.filter((item) => item.claimed).every((item) => (item.matchMoment?.turnCount || 0) >= 3) ? 1 : 0,
+        reclaimedDuringGame: matchMoment.reclaimedDuringGame ? 1 : 0,
+        actionsAfterReclaim: matchMoment.actionsAfterReclaim || 0,
+        turnsAfterReclaim: matchMoment.turnsAfterReclaim || 0,
       },
     };
   }
@@ -709,6 +712,11 @@ export class RoomService {
       if (input.commanderNames !== undefined) seat.commanderNames = normalizeCommanderNames(input.commanderNames, seat.commanderCount, seat.commanderNames);
       if (input.commanderColors !== undefined) seat.commanderColors = normalizeCommanderColors(input.commanderColors, seat.commanderCount, seat.commanderColors);
       seat.name = name;
+      if (room.turn.gameStarted) {
+        seat.matchMoment.reclaimedDuringGame = true;
+        seat.matchMoment.actionsAfterReclaim = 0;
+        seat.matchMoment.turnsAfterReclaim = 0;
+      }
       if (seat.ownerConnectionId && seat.ownerConnectionId !== connectionId) {
         const oldConnection = this.connections.get(seat.ownerConnectionId);
         if (oldConnection) {

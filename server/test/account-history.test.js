@@ -71,6 +71,14 @@ test("table progression rewards completion and table variety without requiring a
   assert.equal(ids.has("seasoned"), false);
 });
 
+test("recovery achievements require continued play after reclaiming a seat", async () => {
+  const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: (() => { let id = 0; return () => String(++id); })() }); const accountId = await history.ensureAccount("subject");
+  await history.saveGame(accountId, { tableSize: 4, won: false, achievementFacts: { reclaimedDuringGame: 1, actionsAfterReclaim: 3, turnsAfterReclaim: 2 } });
+  const ids = new Set((await history.summary(accountId)).achievements.map(item => item.id));
+  assert.equal(ids.has("back-at-the-table"), true);
+  assert.equal(ids.has("still-here"), true);
+});
+
 test("saved decks retain one or two commanders as separate values", async () => {
   const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: () => "pair" }); const accountId = await history.ensureAccount("subject");
   const deck = await history.createDeck(accountId, { commanderNames: ["Thrasios", "Tymna"], name: "Partners" });
