@@ -624,6 +624,14 @@ export class RoomService {
         radiation: matchMoment.radiationGained || 0,
         commanderDamage: matchMoment.commanderDamageReceived || 0,
       },
+      achievementFacts: {
+        lowestLife: matchMoment.lowestLife,
+        lifeGainedAfterLow: matchMoment.lifeGainedAfterLow || 0,
+        actionsAfterLow: matchMoment.actionsAfterLow || 0,
+        playerCountAtStart: matchMoment.playerCountAtStart || room.seats.filter((item) => item.claimed).length,
+        turnCount: matchMoment.turnCount || 0,
+        durationMs: Math.max(0, room.gameResult.decidedAt - (room.turn.gameStartedAt || room.gameResult.decidedAt)),
+      },
     };
   }
 

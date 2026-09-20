@@ -28,7 +28,12 @@ const achievementsFor = ({ games, decks, bestWinStreak, monthCount, playedColors
   const deckWins = new Set(wins.filter(game => game.deckId).map(game => game.deckId));
   const counters = lifetimeCounterTotals(games);
   const counterChain = (key, tiers) => tiers.map(([id, title, detail, target]) => [id, title, detail, counters[key] >= target]);
-  const definitions = [
+    const definitions = [
+    ['hanging-by-a-thread', 'Hanging by a Thread', 'Reached 5 life or less in a saved game.', games.some(game => game.achievementFacts?.lowestLife >= 2 && game.achievementFacts.lowestLife <= 5)],
+    ['one-is-plenty', 'One Is Plenty', 'Reached 1 life and recorded another action.', games.some(game => game.achievementFacts?.lowestLife === 1 && game.achievementFacts.actionsAfterLow >= 1)],
+    ['second-wind', 'Second Wind', 'Recovered 10 life after reaching 5 life or less.', games.some(game => game.achievementFacts?.lowestLife <= 5 && game.achievementFacts.lifeGainedAfterLow >= 10)],
+    ['phoenix-turn', 'Phoenix Turn', 'Won after recovering 15 life from 1 life.', games.some(game => game.won && game.achievementFacts?.lowestLife === 1 && game.achievementFacts.lifeGainedAfterLow >= 15)],
+    ['settling-in', 'Settling In', 'Completed a game lasting at least one hour.', games.some(game => game.achievementFacts?.durationMs >= 3_600_000)],
     ['account-awakened', 'Account Awakened', 'Created your Fivefold Arc profile.', true],
     ['first-chronicle', 'First Chronicle', 'Saved your first completed game.', games.length >= 1],
     ['first-crown', 'First Crown', 'Recorded your first victory.', wins.length >= 1],
@@ -108,7 +113,7 @@ export class AccountHistory {
   }
 
   async saveGame(accountId, input = {}) {
-    const extra = Object.keys(input).find((key) => !["tableSize", "won", "place", "outcomeDescription", "commanderName", "deckId", "poisonCounters", "counterTotals", "sourceGameId"].includes(key));
+    const extra = Object.keys(input).find((key) => !["tableSize", "won", "place", "outcomeDescription", "commanderName", "deckId", "poisonCounters", "counterTotals", "achievementFacts", "sourceGameId"].includes(key));
     if (extra) throw new TypeError(`Game field is not allowed: ${extra}`);
     const tableSize = Number(input.tableSize); const won = input.won === true;
     const place = input.place == null ? null : Number(input.place);
@@ -129,7 +134,10 @@ export class AccountHistory {
       if (!Number.isInteger(value) || value < 0 || value > 9999) throw new TypeError("Counter totals are invalid");
       return [key, value];
     }));
-    const game = { gameId, savedAt: this.now(), tableSize, won, place, outcomeDescription: text(input.outcomeDescription, 160), commanderName: text(input.commanderName, 120), deckId: input.deckId || null, counterTotals, ...(sourceGameId ? { sourceGameId } : {}) };
+    const rawFacts = input.achievementFacts || {}; const factKeys = ["lowestLife", "lifeGainedAfterLow", "actionsAfterLow", "playerCountAtStart", "turnCount", "durationMs"];
+    if (!rawFacts || typeof rawFacts !== "object" || Array.isArray(rawFacts) || Object.keys(rawFacts).some(key => !factKeys.includes(key))) throw new TypeError("Achievement facts are invalid");
+    const achievementFacts = Object.fromEntries(factKeys.map(key => { const value = rawFacts[key] == null ? 0 : Number(rawFacts[key]); if (!Number.isInteger(value) || value < 0 || value > 9_999_999_999) throw new TypeError("Achievement facts are invalid"); return [key, value]; }));
+    const game = { gameId, savedAt: this.now(), tableSize, won, place, outcomeDescription: text(input.outcomeDescription, 160), commanderName: text(input.commanderName, 120), deckId: input.deckId || null, counterTotals, achievementFacts, ...(sourceGameId ? { sourceGameId } : {}) };
     await this.store.write(gamesPath(accountId), { ...games, [gameId]: game });
     return game;
   }
