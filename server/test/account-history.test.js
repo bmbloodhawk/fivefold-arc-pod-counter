@@ -43,7 +43,7 @@ test("achievements are earned from saved results and do not reveal unfinished go
   const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: (() => { let id = 0; return () => String(++id); })() }); const accountId = await history.ensureAccount("subject");
   await history.saveGame(accountId, { tableSize: 2, won: true, place: 1 });
   const summary = await history.summary(accountId); const ids = summary.achievements.map(achievement => achievement.id);
-  assert.deepEqual(ids, ["account-awakened", "first-chronicle", "first-crown", "duelist"]);
+  assert.deepEqual(ids, ["account-awakened", "first-chronicle", "first-crown", "duelist", "duo-queue"]);
   assert.equal("milestones" in summary, false);
 });
 
@@ -61,6 +61,14 @@ test("counter chronicle chains use private per-game totals and preserve legacy p
   assert.deepEqual(summary.counterTotals, { poison: 25, energy: 100, radiation: 400, commanderDamage: 500 });
   ["first-dose", "power-cell", "grid-connected", "fallout-shelter", "glow-up", "irradiated-veteran", "marked", "battle-scarred", "legend-scarred"].forEach(id => assert.equal(ids.has(id), true));
   assert.equal(ids.has("toxic-regular"), false); assert.equal(ids.has("living-battery"), false); assert.equal(ids.has("wasteland-legend"), false); assert.equal(ids.has("known-to-legends"), false);
+});
+
+test("table progression rewards completion and table variety without requiring a win", async () => {
+  const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: (() => { let id = 0; return () => String(++id); })() }); const accountId = await history.ensureAccount("subject");
+  for (const tableSize of [2, 3, 4, 5, 6, 7, 8]) await history.saveGame(accountId, { tableSize, won: false });
+  const ids = new Set((await history.summary(accountId)).achievements.map(item => item.id));
+  ["duo-queue", "fourfold-arc", "crowded-table", "eightfold-assembly", "table-regular", "wide-table"].forEach(id => assert.equal(ids.has(id), true));
+  assert.equal(ids.has("seasoned"), false);
 });
 
 test("saved decks retain one or two commanders as separate values", async () => {
