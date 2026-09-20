@@ -38,6 +38,11 @@ const achievementsFor = ({ games, decks, bestWinStreak, monthCount, playedColors
     ['grand-audience', 'Grand Audience', 'Received 18 commander damage in one saved game.', games.some(game => game.counterTotals?.commanderDamage >= 18)],
     ['legend-collector', 'Legend Collector', 'Received commander damage from three opposing commanders in one saved game.', games.some(game => game.achievementFacts?.commanderSourcesHit >= 3)],
     ['the-full-court', 'The Full Court', 'Won after receiving 18 damage from every opposing commander in a four-player game.', games.some(game => game.won && game.achievementFacts?.everyOpponentCommanderAt18 === 1)],
+    ['round-robin', 'Round Robin', 'Every player took at least two recorded turns in a four-player game.', games.some(game => game.achievementFacts?.playerCountAtStart >= 4 && game.achievementFacts.everyStarterTwoTurns === 1)],
+    ['no-seat-left-behind', 'No Seat Left Behind', 'Every player took at least three recorded turns in a six-player game.', games.some(game => game.achievementFacts?.playerCountAtStart >= 6 && game.achievementFacts.everyStarterThreeTurns === 1)],
+    ['deep-into-the-night', 'Deep Into the Night', 'Completed a two-hour game with 20 handoffs.', games.some(game => game.achievementFacts?.durationMs >= 7_200_000 && game.achievementFacts.handoffCount >= 20)],
+    ['saga-at-the-table', 'Saga at the Table', 'Completed a three-hour four-player game with 36 handoffs.', games.some(game => game.achievementFacts?.playerCountAtStart >= 4 && game.achievementFacts.durationMs >= 10_800_000 && game.achievementFacts.handoffCount >= 36)],
+    ['the-long-goodbye', 'The Long Goodbye', 'Completed a four-hour four-player game with 48 handoffs.', games.some(game => game.achievementFacts?.playerCountAtStart >= 4 && game.achievementFacts.durationMs >= 14_400_000 && game.achievementFacts.handoffCount >= 48)],
     ['account-awakened', 'Account Awakened', 'Created your Fivefold Arc profile.', true],
     ['first-chronicle', 'First Chronicle', 'Saved your first completed game.', games.length >= 1],
     ['first-crown', 'First Crown', 'Recorded your first victory.', wins.length >= 1],
@@ -138,7 +143,7 @@ export class AccountHistory {
       if (!Number.isInteger(value) || value < 0 || value > 9999) throw new TypeError("Counter totals are invalid");
       return [key, value];
     }));
-    const rawFacts = input.achievementFacts || {}; const factKeys = ["lowestLife", "lifeGainedAfterLow", "actionsAfterLow", "playerCountAtStart", "turnCount", "durationMs", "commanderSourcesHit", "largestCommanderDamage", "everyOpponentCommanderAt18"];
+    const rawFacts = input.achievementFacts || {}; const factKeys = ["lowestLife", "lifeGainedAfterLow", "actionsAfterLow", "playerCountAtStart", "turnCount", "durationMs", "commanderSourcesHit", "largestCommanderDamage", "everyOpponentCommanderAt18", "handoffCount", "everyStarterTwoTurns", "everyStarterThreeTurns"];
     if (!rawFacts || typeof rawFacts !== "object" || Array.isArray(rawFacts) || Object.keys(rawFacts).some(key => !factKeys.includes(key))) throw new TypeError("Achievement facts are invalid");
     const achievementFacts = Object.fromEntries(factKeys.filter(key => rawFacts[key] != null).map(key => { const value = Number(rawFacts[key]); if (!Number.isInteger(value) || value < 0 || value > 9_999_999_999) throw new TypeError("Achievement facts are invalid"); return [key, value]; }));
     const game = { gameId, savedAt: this.now(), tableSize, won, place, outcomeDescription: text(input.outcomeDescription, 160), commanderName: text(input.commanderName, 120), deckId: input.deckId || null, counterTotals, achievementFacts, ...(sourceGameId ? { sourceGameId } : {}) };

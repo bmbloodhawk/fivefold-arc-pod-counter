@@ -635,6 +635,9 @@ export class RoomService {
         commanderSourcesHit: commanderDamage.filter((damage) => damage > 0).length,
         largestCommanderDamage: Math.max(0, ...commanderDamage),
         everyOpponentCommanderAt18: (matchMoment.playerCountAtStart === 4 && commanderDamage.length >= 3 && commanderDamage.every((damage) => damage >= 18)) ? 1 : 0,
+        handoffCount: room.seats.reduce((total, item) => total + (item.matchMoment?.turnCount || 0), 0),
+        everyStarterTwoTurns: room.seats.filter((item) => item.claimed).every((item) => (item.matchMoment?.turnCount || 0) >= 2) ? 1 : 0,
+        everyStarterThreeTurns: room.seats.filter((item) => item.claimed).every((item) => (item.matchMoment?.turnCount || 0) >= 3) ? 1 : 0,
       },
     };
   }
