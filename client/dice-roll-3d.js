@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three/three.module.js';
 
-let renderer, scene, camera, tray, animationFrame = 0, activeRoll = 0, physicsReady, RAPIER;
+let renderer, scene, camera, tray, animationFrame = 0, activeRoll = 0, activeWorld = null, physicsReady, RAPIER;
 const FACE_COUNT = 20, RADIUS = 1.08, STEP_SECONDS = 1 / 60, MIN_ROLL_SECONDS = 2.25, MAX_ROLL_SECONDS = 5.25;
 const FACE_COLORS = { W: '#efe4c8', U: '#4f92c6', B: '#6f5b91', R: '#bd5a4c', G: '#4f8a63' };
 const FACE_TEXTURES = new Map();
@@ -39,6 +39,20 @@ async function physics() {
   await physicsReady;
 }
 function resize(container) { renderer.setSize(Math.max(1, container.clientWidth), Math.max(1, container.clientHeight), false); camera.aspect = container.clientWidth / container.clientHeight; camera.updateProjectionMatrix(); }
+export function disposeTrayResources(group) {
+  if (!group) return;
+  group.traverse?.(object => {
+    object.geometry?.dispose?.();
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    materials.forEach(material => material?.dispose?.());
+  });
+  group.clear?.();
+}
+function freeActiveWorld(world = activeWorld) {
+  if (!world) return;
+  if (world === activeWorld) activeWorld = null;
+  world.free();
+}
 function setup(container) {
   if (renderer?.domElement.parentElement === container) { resize(container); return; } cancelAnimationFrame(animationFrame); container.querySelector('.custom-dice-canvas')?.remove(); renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true }); renderer.domElement.className = 'custom-dice-canvas'; renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.shadowMap.enabled = true;
   scene = new THREE.Scene(); camera = new THREE.PerspectiveCamera(38, 1, .1, 100); camera.position.set(0, 12.5, 9.2); camera.lookAt(0, -1.8, 0); const key = new THREE.DirectionalLight('#fff1cf', 3.7); key.position.set(4, 8, 7); key.castShadow = true; key.shadow.mapSize.set(1024, 1024); scene.add(key); scene.add(new THREE.HemisphereLight('#91bcd5', '#21170e', 2.15)); const surface = new THREE.Mesh(new THREE.PlaneGeometry(10.5, 8.5), new THREE.MeshStandardMaterial({ color: '#21160f', roughness: .76 })); surface.rotation.x = -Math.PI / 2; surface.position.y = -3.05; surface.receiveShadow = true; scene.add(surface); tray = new THREE.Group(); scene.add(tray); container.append(renderer.domElement); resize(container);
@@ -56,9 +70,9 @@ function landedValue(model, body) {
 export async function rollPhysicalD20s({ container, dice = [], onRollSettled = () => {} }) {
   if (!container || !dice.length || prefersReducedMotion() || !window.WebGLRenderingContext) return { animated: false, results: [] }; const sequence = ++activeRoll;
   try {
-    await physics(); if (sequence !== activeRoll) return { animated: false, results: [] }; setup(container); tray.clear(); container.dataset.diceCount = String(dice.length); container.dataset.rollComplete = 'false'; const startedAt = Number(dice[0]?.startedAt) || Date.now(); const seed = Number(dice[0]?.seed) || Math.floor(startedAt % 2_147_483_647); const world = new RAPIER.World({ x: 0, y: -15, z: 0 }); trayPhysics(world); const models = dice.map((die, index) => createDie(die, index, dice.length, seed));
+    await physics(); if (sequence !== activeRoll) return { animated: false, results: [] }; cancelAnimationFrame(animationFrame); freeActiveWorld(); disposeTrayResources(tray); setup(container); container.dataset.diceCount = String(dice.length); container.dataset.rollComplete = 'false'; const startedAt = Number(dice[0]?.startedAt) || Date.now(); const seed = Number(dice[0]?.seed) || Math.floor(startedAt % 2_147_483_647); const world = activeWorld = new RAPIER.World({ x: 0, y: -15, z: 0 }); trayPhysics(world); const models = dice.map((die, index) => createDie(die, index, dice.length, seed));
     const bodies = models.map(model => { tray.add(model.group); const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(model.spawn.x, model.spawn.y, model.spawn.z).setRotation({ x: model.start.x, y: model.start.y, z: model.start.z, w: model.start.w }).setLinearDamping(.72).setAngularDamping(.68)); world.createCollider(RAPIER.ColliderDesc.convexHull(model.hullPoints).setDensity(1.25).setFriction(.76).setRestitution(.32), body); body.applyImpulse(model.impulse, true); body.applyTorqueImpulse(model.torque, true); return body; });
-    let previous = Date.now(), accumulator = 0; const speed = vector => Math.hypot(vector.x, vector.y, vector.z); const tick = () => { if (sequence !== activeRoll) { world.free(); return; } const now = Date.now(); accumulator += Math.min(.05, (now - previous) / 1000); previous = now; const elapsed = Math.max(0, (now - startedAt) / 1000); while (accumulator >= STEP_SECONDS) { world.timestep = STEP_SECONDS; world.step(); accumulator -= STEP_SECONDS; } models.forEach((model, index) => { const pose = bodies[index].translation(), rotation = bodies[index].rotation(); model.group.position.set(pose.x, pose.y, pose.z); model.group.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w); }); renderer.render(scene, camera); const settled = elapsed >= MIN_ROLL_SECONDS && bodies.every(body => speed(body.linvel()) < .11 && speed(body.angvel()) < .18); if (settled || elapsed >= MAX_ROLL_SECONDS) { const results = models.map((model, index) => landedValue(model, bodies[index])); container.dataset.rollComplete = 'true'; world.free(); onRollSettled({ results }); return; } animationFrame = requestAnimationFrame(tick); }; tick(); return { animated: true, results: [] };
-  } catch (error) { console.warn('Physical d20 renderer unavailable; showing the locked table result instead.', error); return { animated: false, results: [] }; }
+    let previous = Date.now(), accumulator = 0; const speed = vector => Math.hypot(vector.x, vector.y, vector.z); const tick = () => { if (sequence !== activeRoll) { freeActiveWorld(world); return; } const now = Date.now(); accumulator += Math.min(.05, (now - previous) / 1000); previous = now; const elapsed = Math.max(0, (now - startedAt) / 1000); while (accumulator >= STEP_SECONDS) { world.timestep = STEP_SECONDS; world.step(); accumulator -= STEP_SECONDS; } models.forEach((model, index) => { const pose = bodies[index].translation(), rotation = bodies[index].rotation(); model.group.position.set(pose.x, pose.y, pose.z); model.group.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w); }); renderer.render(scene, camera); const settled = elapsed >= MIN_ROLL_SECONDS && bodies.every(body => speed(body.linvel()) < .11 && speed(body.angvel()) < .18); if (settled || elapsed >= MAX_ROLL_SECONDS) { const results = models.map((model, index) => landedValue(model, bodies[index])); container.dataset.rollComplete = 'true'; freeActiveWorld(world); onRollSettled({ results }); return; } animationFrame = requestAnimationFrame(tick); }; tick(); return { animated: true, results: [] };
+  } catch (error) { if (sequence === activeRoll) { freeActiveWorld(); disposeTrayResources(tray); } console.warn('Physical d20 renderer unavailable; showing the locked table result instead.', error); return { animated: false, results: [] }; }
 }
-export function stopPhysicalD20s() { activeRoll += 1; cancelAnimationFrame(animationFrame); tray?.clear(); }
+export function stopPhysicalD20s() { activeRoll += 1; cancelAnimationFrame(animationFrame); freeActiveWorld(); disposeTrayResources(tray); }

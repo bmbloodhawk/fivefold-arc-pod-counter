@@ -136,6 +136,19 @@ function asInteger(value, name, min, max) {
   return value;
 }
 
+const CLIENT_DIAGNOSTIC_KINDS = new Set(["session_started", "visibility_changed", "sse_error", "protocol_error", "webgl_context_lost", "unhandled_error"]);
+function normalizeClientDiagnostic(input = {}) {
+  if (!input || typeof input !== "object" || Array.isArray(input) || !CLIENT_DIAGNOSTIC_KINDS.has(input.kind)) {
+    throw Object.assign(new Error("Diagnostic kind is invalid"), { status: 400, code: "INVALID_INPUT" });
+  }
+  const build = typeof input.build === "string" && /^[A-Za-z0-9._-]{1,32}$/.test(input.build) ? input.build : "unknown";
+  const viewport = ["compact", "phone", "wide", "unknown"].includes(input.viewport) ? input.viewport : "unknown";
+  const deviceMemoryGb = ["unknown", "1", "2", "4", "8", "8plus"].includes(String(input.deviceMemoryGb)) ? String(input.deviceMemoryGb) : "unknown";
+  const visibility = ["visible", "hidden", "unknown"].includes(input.visibility) ? input.visibility : "unknown";
+  const jsHeapMb = Number.isInteger(input.jsHeapMb) && input.jsHeapMb >= 0 && input.jsHeapMb <= 2048 ? input.jsHeapMb : null;
+  return { kind: input.kind, build, viewport, deviceMemoryGb, visibility, jsHeapMb };
+}
+
 function normalizeName(value, fallback) {
   if (value === undefined) return fallback;
   if (typeof value !== "string") throw Object.assign(new Error("name must be text"), { status: 400, code: "INVALID_INPUT" });
@@ -1061,6 +1074,12 @@ export class RoomService {
     return { record };
   }
 
+  recordClientDiagnostic(code, connectionId, input = {}) {
+    const room = this.room(code); const { seatId } = this.requireOwner(room, connectionId);
+    this.recordLedger(room, "client_diagnostic", seatId, normalizeClientDiagnostic(input));
+    return { recorded: true };
+  }
+
   recordQuickFeedback(code, connectionId, input = {}) {
     const room = this.room(code); const { seatId } = this.requireOwner(room, connectionId);
     if (!room.gameResult || feedbackPromptSeatId(room) !== seatId || room.quickFeedbackRecordedAt) throw Object.assign(new Error("This check-in is not available."), { status: 409, code: "CHECKIN_UNAVAILABLE" });
@@ -1354,6 +1373,7 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "GET" && parts[3] === "playtest-recap") return json(res, 200, service.playtestRecap(code, connectionId));
         if (req.method === "GET" && parts[3] === "match-moment") return json(res, 200, service.personalMatchMoment(code, connectionId));
         if (req.method === "POST" && parts[3] === "field-test") return json(res, 201, service.recordFieldTest(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "client-diagnostics") return json(res, 201, service.recordClientDiagnostic(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "quick-feedback") return json(res, 201, service.recordQuickFeedback(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "session-kind") return json(res, 200, service.setSessionKind(code, connectionId, await readJson(req)));
         if (req.method === "GET" && parts[3] === "saved-playtests") return json(res, 200, await service.hostArchive(code, connectionId));

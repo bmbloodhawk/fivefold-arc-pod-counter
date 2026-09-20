@@ -129,6 +129,10 @@ export class RealtimeAdapter extends EventTarget {
   async getPlaytestRecap() { return this.#request(`/api/rooms/${this.roomCode}/playtest-recap`, { authenticated: true }); }
   async getPersonalMatchMoment() { return this.#request(`/api/rooms/${this.roomCode}/match-moment`, { authenticated: true }); }
   async recordFieldTest(input) { return this.#request(`/api/rooms/${this.roomCode}/field-test`, { method: 'POST', authenticated: true, body: input }); }
+  async recordClientDiagnostic(input) {
+    if (this.localMode || this.status !== 'connected' || !this.roomCode) return { skipped: true };
+    return this.#request(`/api/rooms/${this.roomCode}/client-diagnostics`, { method: 'POST', authenticated: true, body: input });
+  }
   async recordQuickFeedback(input) { return this.#request(`/api/rooms/${this.roomCode}/quick-feedback`, { method: 'POST', authenticated: true, body: input }); }
   async getSavedPlaytests() { return this.#request(`/api/rooms/${this.roomCode}/saved-playtests`, { authenticated: true }); }
   async restoreRoom(code) {
@@ -240,7 +244,7 @@ export class RealtimeAdapter extends EventTarget {
     events.addEventListener('open', () => { if (this.#isCurrentSession(epoch) && this.events === events) this.#setStatus('connected'); });
     events.addEventListener('snapshot', event => { if (!this.#isCurrentSession(epoch) || this.events !== events) return; try { this.#acceptSnapshot(JSON.parse(event.data), epoch); } catch { if (this.#isCurrentSession(epoch) && this.events === events) this.dispatchEvent(new CustomEvent('protocolerror')); } });
     events.addEventListener('close', () => { if (!this.#isCurrentSession(epoch) || this.events !== events) return; events.close(); this.#scheduleReconnect(epoch); });
-    events.addEventListener('error', () => { if (!this.#isCurrentSession(epoch) || this.events !== events) return; events.close(); this.#setStatus('disconnected'); this.#scheduleReconnect(epoch); });
+    events.addEventListener('error', () => { if (!this.#isCurrentSession(epoch) || this.events !== events) return; void this.recordClientDiagnostic({ kind: 'sse_error' }).catch(() => {}); events.close(); this.#setStatus('disconnected'); this.#scheduleReconnect(epoch); });
   }
 
   #startHeartbeat(epoch) {

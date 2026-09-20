@@ -1108,6 +1108,15 @@ test("uses a compatible life operation ID when randomUUID is unavailable", () =>
   }
 });
 
+test("stores only allow-listed, coarse client health diagnostics with a game", () => {
+  const ledger = new MemoryPlaytestLedger(); const service = new RoomService({ ledger });
+  const host = service.createConnection(); const created = service.createRoom(host.connectionId, { playerCount: 2, startingLife: 40 });
+  assert.deepEqual(service.recordClientDiagnostic(created.snapshot.code, host.connectionId, { kind: "session_started", build: "200", viewport: "phone", deviceMemoryGb: "4", visibility: "visible", jsHeapMb: 37 }), { recorded: true });
+  const diagnostic = ledger.records.findLast(item => item.kind === "event" && item.record.type === "client_diagnostic").record;
+  assert.deepEqual({ type: diagnostic.type, kind: diagnostic.kind, build: diagnostic.build, viewport: diagnostic.viewport, deviceMemoryGb: diagnostic.deviceMemoryGb, visibility: diagnostic.visibility, jsHeapMb: diagnostic.jsHeapMb }, { type: "client_diagnostic", kind: "session_started", build: "200", viewport: "phone", deviceMemoryGb: "4", visibility: "visible", jsHeapMb: 37 });
+  assert.throws(() => service.recordClientDiagnostic(created.snapshot.code, host.connectionId, { kind: "raw_user_agent", userAgent: "not allowed" }), { code: "INVALID_INPUT" });
+});
+
 test("protects the Appearance Studio catalog with the developer portal key", async () => {
   const catalog = { value: { skins: [{ id: "skin-a" }], assets: [], selected: "skin-a" }, async read() { return this.value; }, async write(value) { this.value = value; return this.value; } };
   const protectedServer = createRealtimeServer({ feedbackPortalKey: "owner-key", appearanceCatalog: catalog }).server;
