@@ -744,6 +744,23 @@ describe("authority and convergence", () => {
     assert.equal(manual.snapshot.turn.startingPlayerRoll, null);
   });
 
+  test("retains the table-game and local d20 facts for completed-game achievements", () => {
+    const service = new RoomService({ now: () => 100_000 });
+    const host = service.createConnection(); const created = service.createRoom(host.connectionId, { playerCount: 2, startingLife: 40 });
+    const other = service.createConnection(); const claimed = service.claimSeat(created.snapshot.code, other.connectionId, { seatId: 1, name: "Jace" });
+    const rolling = service.chooseStartingPlayer(created.snapshot.code, host.connectionId, { baseVersion: claimed.snapshot.version });
+    const hostRoll = service.reportStartingPlayerRoll(created.snapshot.code, host.connectionId, { value: 15 });
+    const completed = service.reportStartingPlayerRoll(created.snapshot.code, other.connectionId, { value: 12 });
+    const started = service.startGame(created.snapshot.code, host.connectionId, { baseVersion: completed.snapshot.version });
+    assert.equal(service.room(created.snapshot.code).seats[0].matchMoment.usedLocalD20, true);
+    const reset = service.resetRoom(created.snapshot.code, host.connectionId, { baseVersion: started.snapshot.version });
+    const restarted = service.startGame(created.snapshot.code, host.connectionId, { baseVersion: reset.snapshot.version });
+    assert.equal(service.room(created.snapshot.code).seats[0].matchMoment.tableGameNumber, 2);
+    assert.equal(restarted.snapshot.turn.gameStarted, true);
+    assert.equal(hostRoll.snapshot.turn.startingPlayerRoll.status, "rolling");
+    assert.equal(rolling.snapshot.turn.startingPlayerRoll.status, "rolling");
+  });
+
   test("tracks an active turn, supports a 15-second owner-only undo, and never auto-advances", async () => {
     let now = 100_000;
     const service = new RoomService({ now: () => now });

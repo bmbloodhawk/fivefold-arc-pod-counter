@@ -79,6 +79,14 @@ test("recovery achievements require continued play after reclaiming a seat", asy
   assert.equal(ids.has("still-here"), true);
 });
 
+test("shared-table and d20 achievements use only completed-game facts", async () => {
+  const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: (() => { let id = 0; return () => String(++id); })() }); const accountId = await history.ensureAccount("subject");
+  await history.saveGame(accountId, { tableSize: 4, won: false, achievementFacts: { tableGameNumber: 2, usedLocalD20: 1 } });
+  const ids = new Set((await history.summary(accountId)).achievements.map(item => item.id));
+  assert.equal(ids.has("run-it-back"), true);
+  assert.equal(ids.has("dice-have-spoken"), true);
+});
+
 test("saved decks retain one or two commanders as separate values", async () => {
   const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: () => "pair" }); const accountId = await history.ensureAccount("subject");
   const deck = await history.createDeck(accountId, { commanderNames: ["Thrasios", "Tymna"], name: "Partners" });

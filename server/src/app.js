@@ -467,6 +467,7 @@ export class RoomService {
       config: { playerCount, startingLife, gameFormat, roundLimitMinutes },
       lastCoinToss: null,
       gameResult: null,
+      tableGameNumber: 1,
       sessionKind: "standard",
       turn: {
         activeSeatId: 0,
@@ -641,6 +642,8 @@ export class RoomService {
         reclaimedDuringGame: matchMoment.reclaimedDuringGame ? 1 : 0,
         actionsAfterReclaim: matchMoment.actionsAfterReclaim || 0,
         turnsAfterReclaim: matchMoment.turnsAfterReclaim || 0,
+        tableGameNumber: matchMoment.tableGameNumber || room.tableGameNumber || 1,
+        usedLocalD20: matchMoment.usedLocalD20 ? 1 : 0,
       },
     };
   }
@@ -911,6 +914,7 @@ export class RoomService {
     room.lastCoinToss = null;
     room.gameResult = null; room.automaticEliminationOrder = []; room.quickFeedbackRecordedAt = null;
     room.gameId = opaque(12);
+    room.tableGameNumber = (room.tableGameNumber || 1) + 1;
     room.ledgerSequence = 0;
     room.ledgerLastCheckpointAt = this.now();
     room.ledgerCompletedAt = null;
@@ -1001,7 +1005,12 @@ export class RoomService {
     if (playerCountAtStart < 2) throw Object.assign(new Error("At least two claimed players are needed to start the game"), { status: 409, code: "NOT_ENOUGH_PLAYERS", snapshot: this.snapshot(room) });
     if (room.turn.startingPlayerRoll?.status === "rolling") throw Object.assign(new Error("Wait for every local d20 roll to report before starting the game"), { status: 409, code: "ROLL_IN_PROGRESS", snapshot: this.snapshot(room) });
     const startedAt = this.now();
-    for (const seat of room.seats) seat.matchMoment.playerCountAtStart = playerCountAtStart;
+    const usedLocalD20 = room.turn.startingPlayerRoll?.status === "complete";
+    for (const seat of room.seats) {
+      seat.matchMoment.playerCountAtStart = playerCountAtStart;
+      seat.matchMoment.tableGameNumber = room.tableGameNumber || 1;
+      seat.matchMoment.usedLocalD20 = usedLocalD20;
+    }
     room.turn = {
       ...room.turn,
       gameStarted: true,

@@ -35,6 +35,8 @@ const achievementsFor = ({ games, decks, bestWinStreak, monthCount, playedColors
     ['phoenix-turn', 'Phoenix Turn', 'Won after recovering 15 life from 1 life.', games.some(game => game.won && game.achievementFacts?.lowestLife === 1 && game.achievementFacts.lifeGainedAfterLow >= 15)],
     ['back-at-the-table', 'Back at the Table', 'Reclaimed your seat and recorded three more actions.', games.some(game => game.achievementFacts?.reclaimedDuringGame === 1 && game.achievementFacts.actionsAfterReclaim >= 3)],
     ['still-here', 'Still Here', 'Reclaimed your seat and completed two more recorded turns.', games.some(game => game.achievementFacts?.reclaimedDuringGame === 1 && game.achievementFacts.turnsAfterReclaim >= 2)],
+    ['run-it-back', 'Run It Back', 'Completed a second game at the same table.', games.some(game => game.achievementFacts?.tableGameNumber >= 2)],
+    ['dice-have-spoken', 'The Dice Have Spoken', 'Completed a game after the table used the local d20 roll-off.', games.some(game => game.achievementFacts?.usedLocalD20 === 1)],
     ['settling-in', 'Settling In', 'Completed a game lasting at least one hour.', games.some(game => game.achievementFacts?.durationMs >= 3_600_000)],
     ['commander-magnet', 'Commander Magnet', 'Received 10 commander damage from one commander.', games.some(game => game.achievementFacts?.largestCommanderDamage >= 10)],
     ['grand-audience', 'Grand Audience', 'Received 18 commander damage in one saved game.', games.some(game => game.counterTotals?.commanderDamage >= 18)],
@@ -145,7 +147,7 @@ export class AccountHistory {
       if (!Number.isInteger(value) || value < 0 || value > 9999) throw new TypeError("Counter totals are invalid");
       return [key, value];
     }));
-    const rawFacts = input.achievementFacts || {}; const factKeys = ["lowestLife", "lifeGainedAfterLow", "actionsAfterLow", "playerCountAtStart", "turnCount", "durationMs", "commanderSourcesHit", "largestCommanderDamage", "everyOpponentCommanderAt18", "handoffCount", "everyStarterTwoTurns", "everyStarterThreeTurns", "reclaimedDuringGame", "actionsAfterReclaim", "turnsAfterReclaim"];
+    const rawFacts = input.achievementFacts || {}; const factKeys = ["lowestLife", "lifeGainedAfterLow", "actionsAfterLow", "playerCountAtStart", "turnCount", "durationMs", "commanderSourcesHit", "largestCommanderDamage", "everyOpponentCommanderAt18", "handoffCount", "everyStarterTwoTurns", "everyStarterThreeTurns", "reclaimedDuringGame", "actionsAfterReclaim", "turnsAfterReclaim", "tableGameNumber", "usedLocalD20"];
     if (!rawFacts || typeof rawFacts !== "object" || Array.isArray(rawFacts) || Object.keys(rawFacts).some(key => !factKeys.includes(key))) throw new TypeError("Achievement facts are invalid");
     const achievementFacts = Object.fromEntries(factKeys.filter(key => rawFacts[key] != null).map(key => { const value = Number(rawFacts[key]); if (!Number.isInteger(value) || value < 0 || value > 9_999_999_999) throw new TypeError("Achievement facts are invalid"); return [key, value]; }));
     const game = { gameId, savedAt: this.now(), tableSize, won, place, outcomeDescription: text(input.outcomeDescription, 160), commanderName: text(input.commanderName, 120), deckId: input.deckId || null, counterTotals, achievementFacts, ...(sourceGameId ? { sourceGameId } : {}) };
