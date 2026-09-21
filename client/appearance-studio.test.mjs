@@ -25,6 +25,14 @@ test('every counter icon can be previewed and scaled within bounded limits', () 
   assert.match(app, /MODES\.forEach\(mode =>/);
 });
 
+test('Studio accepts a 20 MB source image and optimizes large assets before saving', () => {
+  assert.match(studio, /file\.size > 20000000/);
+  assert.match(studio, /up to 20 MB/);
+  assert.match(studio, /file\.size > 700000 \|\| file\.type === 'image\/svg\+xml' \? await scaleForStudio/);
+  assert.match(studio, /placement === 'symbol' \? 256 : 1280/);
+  assert.match(studio, /data\.length \* \.75 <= 700000/);
+});
+
 test('the exact preview covers phone sizes and 4, 6, and 8-player tables', () => {
   assert.match(html, /393 × 852/);
   assert.match(html, /320 × 700/);
