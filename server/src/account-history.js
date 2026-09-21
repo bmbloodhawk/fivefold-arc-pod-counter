@@ -47,7 +47,7 @@ const achievementsFor = ({ games, decks, bestWinStreak, monthCount, playedColors
     ['commander-magnet', 'Commander Magnet', 'Received 10 commander damage from one commander.', games.some(game => game.achievementFacts?.largestCommanderDamage >= 10)],
     ['grand-audience', 'Grand Audience', 'Received 18 commander damage in one saved game.', games.some(game => game.counterTotals?.commanderDamage >= 18)],
     ['legend-collector', 'Legend Collector', 'Received commander damage from three opposing commanders in one saved game.', games.some(game => game.achievementFacts?.commanderSourcesHit >= 3)],
-    ['the-full-court', 'The Full Court', 'Won after receiving 18 damage from every opposing commander in a four-player game.', games.some(game => game.won && game.achievementFacts?.everyOpponentCommanderAt18 === 1)],
+    ['the-full-court', 'The Full Court', 'Won after receiving 18 damage from every opposing commander in a four-or-more-player game.', games.some(game => game.won && game.achievementFacts?.everyOpponentCommanderAt18 === 1)],
     ['legendary-welcome', 'Legendary Welcome', 'Received commander damage from four opposing commanders in one saved game.', games.some(game => game.achievementFacts?.commanderSourcesHit >= 4)],
     ['toxic-tenacity', 'Toxic Tenacity', 'Won after receiving at least 8 poison in one saved game.', games.some(game => game.won && game.counterTotals?.poison >= 8)],
     ['irradiated-victory', 'Irradiated Victory', 'Won after receiving at least 10 radiation in one saved game.', games.some(game => game.won && game.counterTotals?.radiation >= 10)],
