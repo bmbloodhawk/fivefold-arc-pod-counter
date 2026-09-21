@@ -628,6 +628,7 @@ export class RoomService {
       },
       achievementFacts: {
         lowestLife: matchMoment.lowestLife,
+        lifeGained: matchMoment.lifeGained || 0,
         lifeGainedAfterLow: matchMoment.lifeGainedAfterLow || 0,
         actionsAfterLow: matchMoment.actionsAfterLow || 0,
         playerCountAtStart: matchMoment.playerCountAtStart || room.seats.filter((item) => item.claimed).length,

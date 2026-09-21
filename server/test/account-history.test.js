@@ -87,6 +87,13 @@ test("shared-table and d20 achievements use only completed-game facts", async ()
   assert.equal(ids.has("dice-have-spoken"), true);
 });
 
+test("life achievement milestones reward recovery and close wins without requiring a loss", async () => {
+  const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: (() => { let id = 0; return () => String(++id); })() }); const accountId = await history.ensureAccount("subject");
+  await history.saveGame(accountId, { tableSize: 4, won: true, achievementFacts: { lowestLife: 1, actionsAfterLow: 1, lifeGainedAfterLow: 15, lifeGained: 75 } });
+  const ids = new Set((await history.summary(accountId)).achievements.map(item => item.id));
+  ["last-breath", "one-life-to-live", "full-pantry", "overflowing-cup", "phoenix-turn"].forEach(id => assert.equal(ids.has(id), true));
+});
+
 test("saved decks retain one or two commanders as separate values", async () => {
   const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: () => "pair" }); const accountId = await history.ensureAccount("subject");
   const deck = await history.createDeck(accountId, { commanderNames: ["Thrasios", "Tymna"], name: "Partners" });
