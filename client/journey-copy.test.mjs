@@ -435,12 +435,14 @@ test('email accounts can request a password-reset email', () => {
 });
 
 test('email autofill does not close the My games dialog', () => {
-  assert.match(app, /myGamesDialog\.querySelector\('form'\)\.addEventListener\('submit', event => \{ if \(event\.submitter\?\.value !== 'close'\) event\.preventDefault\(\); \}\);/);
+  assert.match(app, /myGamesDialog\.querySelector\('form'\)\.addEventListener\('submit', event => event\.preventDefault\(\)\);/);
+  assert.match(app, /myGamesDialog\.querySelector\('button\[value="close"\]'\)\.addEventListener\('click', \(\) => myGamesDialog\.close\(\)\)/);
 });
 
 test('a completed account sign-in goes directly to the pod choice without loading the profile', () => {
   assert.match(app, /async function finishAccountSignIn\(token\)/);
-  assert.match(app, /enterApp\(true\); void loadSetupDecks\(\); myGamesDialog\.close\(\); showView\(dom\.landing\);/);
+  assert.match(app, /enterApp\(true\); await loadSetupDecks\(\); myGamesDialog\.close\(\);/);
+  assert.match(app, /else showView\(dom\.landing\);/);
   assert.match(app, /finishAccountSignIn\(await googleAccountToken\(\)\)/);
   assert.match(app, /finishAccountSignIn\(await emailAccountToken\(accountEmail\.value, accountPassword\.value\)\)/);
   assert.doesNotMatch(app, /showMyGames\(true, true\)/);
@@ -448,13 +450,20 @@ test('a completed account sign-in goes directly to the pod choice without loadin
 
 test('sign-in is a single-purpose gate rather than a detour through the profile', () => {
   assert.match(html, /<h2 id="myGamesTitle">Sign in<\/h2>/);
-  assert.match(app, /function openSignIn\(\) \{[\s\S]*Guest play is always available[\s\S]*myGamesDialog\.showModal\(\); \}/);
+  assert.match(app, /function openSignIn\(\{ returnToJoin = false \} = \{\}\) \{[\s\S]*Guest play is always available[\s\S]*myGamesDialog\.showModal\(\); \}/);
   assert.match(app, /function openMyProfile\(\) \{ myGamesDialog\.showModal\(\); void showMyGames\(\); \}/);
   assert.doesNotMatch(app, /function openSignIn\(\) \{ myGamesDialog\.showModal\(\); showMyGames\(\); \}/);
 });
 
 test('signed-in profile hides sign-in controls and clears the password field', () => {
   assert.match(app, /myGamesSignInButton\.hidden = true; emailSignInButton\.hidden = true; emailSignInFields\.hidden = true; accountPassword\.value = ''; forgotPasswordButton\.hidden = true; createAccountButton\.hidden = true;/);
+});
+
+test('signing in for a saved deck returns a QR joiner to the join step', () => {
+  assert.match(app, /function openSignIn\(\{ returnToJoin = false \} = \{\}\)/);
+  assert.match(app, /pendingSignInReturn = returnToJoin \? \{ view: 'join', code: \$\('#podCode'\)\.value\.trim\(\)\.toUpperCase\(\), step: joinStep \} : null;/);
+  assert.match(app, /if \(returnTo\?\.view === 'join'[^\n]*showView\(dom\.joinSeatView\); showJoinStep\(returnTo\.step\);/);
+  assert.match(app, /joinSignInDeckButton'\)\.addEventListener\('click', \(\) => openSignIn\(\{ returnToJoin: true \}\)\)/);
 });
 
 test('signing out returns the device to guest play without deleting account data', () => {
