@@ -949,6 +949,23 @@ test("expired connections release transport ownership but preserve seat reservat
   assert.equal(reclaimed.snapshot.seats[0].connected, true);
 });
 
+test("full-court commander facts require every opposing commander at tables of four or more", () => {
+  const service = new RoomService({ now: () => 100_000 });
+  const host = service.createConnection(); const created = service.createRoom(host.connectionId, { playerCount: 4, startingLife: 40 });
+  for (const seatId of [1, 2, 3]) {
+    const player = service.createConnection();
+    service.claimSeat(created.snapshot.code, player.connectionId, { seatId, name: `P${seatId + 1}` });
+  }
+  const table = service.room(created.snapshot.code); const defender = table.seats[0];
+  defender.matchMoment.playerCountAtStart = 4;
+  defender.matchMoment.commanderDamageBySource = { "seat-1-commander-a": 18, "seat-2-commander-a": 18, "seat-3-commander-a": 18 };
+  defender.matchMoment.commanderDamageReceived = 54;
+  table.gameResult = { winnerSeatId: 0, decidedAt: 100_000 };
+  assert.equal(service.personalMatchMoment(created.snapshot.code, host.connectionId).achievementFacts.everyOpponentCommanderAt18, 1);
+  defender.matchMoment.commanderDamageBySource["seat-3-commander-a"] = 17;
+  assert.equal(service.personalMatchMoment(created.snapshot.code, host.connectionId).achievementFacts.everyOpponentCommanderAt18, 0);
+});
+
 test("stores player-owned playtest notes and limits recaps to the host", async () => {
   const made = await room({ playerCount: 2, name: "Host" });
   const playerConnection = await connection();
