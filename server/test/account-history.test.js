@@ -81,9 +81,11 @@ test("recovery achievements require continued play after reclaiming a seat", asy
 
 test("shared-table and d20 achievements use only completed-game facts", async () => {
   const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: (() => { let id = 0; return () => String(++id); })() }); const accountId = await history.ensureAccount("subject");
-  await history.saveGame(accountId, { tableSize: 4, won: false, achievementFacts: { tableGameNumber: 2, usedLocalD20: 1 } });
+  await history.saveGame(accountId, { tableSize: 4, won: false, achievementFacts: { tableGameNumber: 5, usedLocalD20: 1 } });
   const ids = new Set((await history.summary(accountId)).achievements.map(item => item.id));
   assert.equal(ids.has("run-it-back"), true);
+  assert.equal(ids.has("table-trilogy"), true);
+  assert.equal(ids.has("one-more-before-bed"), true);
   assert.equal(ids.has("dice-have-spoken"), true);
 });
 
@@ -92,6 +94,13 @@ test("life achievement milestones reward recovery and close wins without requiri
   await history.saveGame(accountId, { tableSize: 4, won: true, achievementFacts: { lowestLife: 1, actionsAfterLow: 1, lifeGainedAfterLow: 15, lifeGained: 75 } });
   const ids = new Set((await history.summary(accountId)).achievements.map(item => item.id));
   ["last-breath", "one-life-to-live", "full-pantry", "overflowing-cup", "phoenix-turn"].forEach(id => assert.equal(ids.has(id), true));
+});
+
+test("rare counter moments require values recorded in one completed game", async () => {
+  const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: (() => { let id = 0; return () => String(++id); })() }); const accountId = await history.ensureAccount("subject");
+  await history.saveGame(accountId, { tableSize: 5, won: true, counterTotals: { poison: 8, radiation: 10, energy: 20, commanderDamage: 1 }, achievementFacts: { commanderSourcesHit: 4 } });
+  const ids = new Set((await history.summary(accountId)).achievements.map(item => item.id));
+  ["legendary-welcome", "toxic-tenacity", "irradiated-victory", "capacitor-discharge", "all-systems-go"].forEach(id => assert.equal(ids.has(id), true));
 });
 
 test("saved decks retain one or two commanders as separate values", async () => {
