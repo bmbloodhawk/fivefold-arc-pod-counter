@@ -26,6 +26,11 @@ export async function currentAccountToken() {
   return user ? user.getIdToken() : null;
 }
 
+export async function signOutAccount() {
+  const { signOut } = await import("https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js");
+  await signOut(await firebaseAuth());
+}
+
 export async function emailAccountToken(email, password, create = false) {
   const { createUserWithEmailAndPassword, signInWithEmailAndPassword } = await import("https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js");
   const credential = create ? await createUserWithEmailAndPassword(await firebaseAuth(), email, password) : await signInWithEmailAndPassword(await firebaseAuth(), email, password);

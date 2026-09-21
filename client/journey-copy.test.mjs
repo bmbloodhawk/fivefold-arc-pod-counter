@@ -398,6 +398,9 @@ test('signed-in accounts keep private deck details and personal history tools', 
   assert.match(app, /function beginDeckEdit\(deckId\)/);
   assert.match(app, /exportDeckSummary/);
   assert.match(html, /id="accountDefaultPlayerCount"/);
+  assert.match(html, /id="signOutButton"[^>]*>Sign out/);
+  assert.match(app, /signOutAccount/);
+  assert.match(app, /const profileSettings = \[accountDefaultPlayerCountField[^\]]*signOutButton\]/);
 });
 
 test('completed signed-in games save automatically without a final player action', () => {
@@ -452,6 +455,14 @@ test('sign-in is a single-purpose gate rather than a detour through the profile'
 
 test('signed-in profile hides sign-in controls and clears the password field', () => {
   assert.match(app, /myGamesSignInButton\.hidden = true; emailSignInButton\.hidden = true; emailSignInFields\.hidden = true; accountPassword\.value = ''; forgotPasswordButton\.hidden = true; createAccountButton\.hidden = true;/);
+});
+
+test('signing out returns the device to guest play without deleting account data', () => {
+  assert.match(app, /async function signOut\(\) \{/);
+  assert.match(app, /await signOutAccount\(\);/);
+  assert.match(app, /selectedDeckId = ''; setupDecks = \[\]; savedDecks = \[\];/);
+  assert.match(app, /enterApp\(false\);/);
+  assert.match(app, /signOutButton\.addEventListener\('click', \(\) => void signOut\(\)\)/);
 });
 
 test('compact actions use the shared button treatment while removals remain distinct', () => {
