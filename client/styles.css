@@ -1064,6 +1064,10 @@ button:disabled { cursor: not-allowed; filter: saturate(.45); }
 #gameView[data-interface-style="dial"] .counter-readout { z-index: 4; pointer-events: none; }
 #gameView[data-interface-style="dial"] .counter-mode, #gameView[data-interface-style="dial"] .counter-context { opacity: .88; }
 #gameView[data-interface-style="dial"] .main-value { font-size: clamp(6.8rem, 32vw, 10rem); }
+/* Rotate the complete seal assembly, including the identity ring and the
+   outer timing marks. The readout and invisible adjustment zones stay fixed. */
+#gameView[data-interface-style="dial"] .counter-stage::before,
+#gameView[data-interface-style="dial"] .counter-stage::after { transform: translate(-50%, -43%) rotate(var(--dial-seal-rotation, 0deg)); transition: transform 180ms cubic-bezier(.2, .8, .2, 1); }
 #gameView[data-interface-style="dial"] .counter-sigil { z-index: 2; width: min(65vw, 255px); opacity: .68; transform: translate(-50%, -43%) rotate(var(--dial-seal-rotation, 0deg)); transition: transform 180ms cubic-bezier(.2, .8, .2, 1); }
 @media (max-width: 359px), (max-height: 740px) {
   .dial-controls { grid-template-columns: 44px minmax(170px, 196px) 44px; width: min(92vw, 284px); }
