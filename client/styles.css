@@ -1192,3 +1192,11 @@ dialog:not(#victoryDialog) { max-height:calc(100dvh - 24px); overflow-y:auto; ov
   left: 0;
   margin: 0;
 }
+
+/* In Dial mode, the extra seats leave the counter clear and form one compact
+   row directly above Custom Life. Button mode retains its side-seat layout. */
+#gameView[data-interface-style="dial"] > .side-seats { position: relative; z-index: 3; top: auto; right: auto; left: auto; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; margin: 0 0 8px; gap: 6px; pointer-events: auto; }
+#gameView[data-interface-style="dial"] > .side-seats .pod-seat { position: relative; min-height: 64px; padding: 6px 3px 9px; }
+#gameView[data-interface-style="dial"] > .side-seats .pod-seat .seat-name { position: static; padding-inline: 4px; font-size: clamp(.54rem, 2.7vw, .68rem); }
+#gameView[data-interface-style="dial"] > .side-seats .pod-seat .seat-life { position: static; display: block; margin-top: 5px; padding: 0; font-size: clamp(1.28rem, 6.4vw, 2rem); line-height: .88; }
+@media (max-width: 359px), (max-height: 740px) { #gameView[data-interface-style="dial"] > .side-seats { gap: 5px; margin-bottom: 6px; }#gameView[data-interface-style="dial"] > .side-seats .pod-seat { min-height: 58px; padding: 5px 2px 8px; }#gameView[data-interface-style="dial"] > .side-seats .pod-seat .seat-name { padding-inline: 1px; font-size: .5rem; }#gameView[data-interface-style="dial"] > .side-seats .pod-seat .seat-life { margin-top: 4px; font-size: 1.16rem; } }

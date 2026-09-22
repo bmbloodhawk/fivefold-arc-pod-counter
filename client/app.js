@@ -608,6 +608,9 @@ function render() {
   dom.inspectionNotice.hidden = !inspectingSharedSeat;
   dom.inspectionNotice.textContent = inspectingSharedSeat ? `VIEWING ${displayPlayer(player)} · READ ONLY ON THIS PHONE` : '';
   dom.lethalMark.hidden = !player.eliminated; dom.eliminationOutcome.hidden = !player.eliminated; if (player.eliminationOutcome) { dom.lethalImage.src = ELIMINATION_ART[player.eliminationOutcome.art] || ELIMINATION_ART.life; dom.eliminationOutcome.querySelector('strong').textContent = player.eliminationOutcome.title; dom.eliminationOutcome.querySelector('span').textContent = player.eliminationOutcome.detail; } const status = player.warning; const lifeChangeOwnsStatusSlot = lifeChange?.playerId === player.id; dom.statusMessage.hidden = !status || lifeChangeOwnsStatusSlot; dom.statusMessage.textContent = status || ''; dom.statusMessage.classList.toggle('lethal', false);
+  const counterStage = dom.game.querySelector('.counter-stage');
+  if (interfaceStyle === 'dial') dom.customLifeButton.before(dom.sideSeats);
+  else counterStage.prepend(dom.sideSeats);
   renderPodStrip(); renderSources(player); renderModeNav(); renderSeatPicker();
   renderTurnFlow();
   renderCoinTossNotice();
@@ -760,11 +763,11 @@ function showCoinToss(toss, { dialog = false } = {}) {
   coinFlipTimer = setTimeout(() => advance(0), 400);
 }
 function renderPodStrip() {
-  // Larger pods keep four matched seats in the top rail and place the remaining
-  // seats beside the focused counter. This keeps routine controls in reach.
+  // Larger pods keep four matched seats in the top rail. Button mode keeps the
+  // remaining seats beside the counter; Dial mode places them above Custom Life.
   const largePod = state.players.length > 4;
   dom.podStrip.dataset.playerCount = String(state.players.length);
-  dom.game.querySelector('.counter-stage').classList.toggle('has-side-seats', largePod);
+  dom.game.querySelector('.counter-stage').classList.toggle('has-side-seats', largePod && interfaceStyle !== 'dial');
   const seatMarkup = (player) => {
     const isWaiting = player.connectionStatus === 'waiting';
     const isOffline = player.connectionStatus === 'disconnected';
