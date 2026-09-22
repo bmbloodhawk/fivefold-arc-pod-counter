@@ -1050,7 +1050,7 @@ button:disabled { cursor: not-allowed; filter: saturate(.45); }
 
 /* Alternate gameplay presentation: the state, mode navigation, and every
    mutation still remain shared; only the routine adjustment surface changes. */
-.dial-controls { position: absolute; z-index: 3; inset: 50% 50% auto auto; display: grid; grid-template-columns: 48px minmax(180px, 255px) 48px; align-items: center; width: min(98vw, 351px); min-height: min(79vw, 310px); transform: translate(50%, -50%); touch-action: none; overscroll-behavior: contain; }
+.dial-controls { position: absolute; z-index: 3; inset: 50% 50% auto auto; display: grid; grid-template-columns: minmax(52px, 1fr) minmax(180px, 255px) minmax(52px, 1fr); align-items: center; width: 100%; min-height: min(79vw, 310px); transform: translate(50%, -50%); touch-action: none; overscroll-behavior: contain; }
 /* The seal is the dial: it rotates behind the fixed, readable counter value.
    This transparent element only supplies its drag and keyboard interaction. */
 .dial-gesture { aspect-ratio: 1; border-radius: 50%; background: transparent; cursor: grab; touch-action: none; user-select: none; }
@@ -1071,7 +1071,7 @@ button:disabled { cursor: not-allowed; filter: saturate(.45); }
 #gameView[data-interface-style="dial"] .counter-sigil { z-index: 2; width: min(65vw, 255px); opacity: .68; transform: translate(-50%, -43%) rotate(var(--dial-seal-rotation, 0deg)); transition: transform 180ms cubic-bezier(.2, .8, .2, 1); }
 body.dial-dragging { overflow: hidden; overscroll-behavior: none; }
 @media (max-width: 359px), (max-height: 740px) {
-  .dial-controls { grid-template-columns: 44px minmax(170px, 196px) 44px; width: min(92vw, 284px); }
+  .dial-controls { grid-template-columns: minmax(50px, 1fr) minmax(170px, 196px) minmax(50px, 1fr); width: 100%; }
   .dial-step { min-height: 110px; }
   #gameView[data-interface-style="dial"] .counter-stage { min-height: 242px; }
   #gameView[data-interface-style="dial"] .main-value { font-size: min(28vw, 6.4rem); }
