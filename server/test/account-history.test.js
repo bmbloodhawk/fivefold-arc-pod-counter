@@ -22,6 +22,7 @@ test("personal games retain only the saver’s explicitly supplied result", asyn
   ] });
   assert.equal(summary.games.length, 2);
   assert.equal(summary.achievements.some(achievement => achievement.id === "first-chronicle"), true);
+  assert.equal(summary.achievements.find(achievement => achievement.id === "first-chronicle").rarity, "common");
 });
 
 test("saving the same completed table twice is idempotent", async () => {

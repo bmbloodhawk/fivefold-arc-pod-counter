@@ -20,6 +20,13 @@ const counterTotalsFor = (game) => ({
   commanderDamage: game.counterTotals?.commanderDamage ?? 0,
 });
 const lifetimeCounterTotals = (games) => Object.fromEntries(COUNTER_TOTAL_KEYS.map((key) => [key, games.reduce((total, game) => total + counterTotalsFor(game)[key], 0)]));
+const achievementRarity = (id) => {
+  if (new Set(['phoenix-turn', 'the-full-court', 'all-systems-go', 'the-long-goodbye', 'enduring-legend', 'mythic-run', 'color-wheel', 'wide-table', 'fifty-crowns', 'poisoned-legend', 'infinite-reserve', 'wasteland-legend', 'known-to-legends']).has(id)) return 'legendary';
+  if (new Set(['one-life-to-live', 'overflowing-cup', 'one-more-before-bed', 'saga-at-the-table', 'legendary-welcome', 'toxic-tenacity', 'irradiated-victory', 'no-seat-left-behind', 'pod-pillar', 'unstoppable', 'armory', 'venom-veteran', 'living-battery', 'irradiated-veteran', 'legend-scarred']).has(id)) return 'epic';
+  if (new Set(['second-wind', 'last-breath', 'still-here', 'table-trilogy', 'deep-into-the-night', 'legend-collector', 'capacitor-discharge', 'round-robin', 'full-table', 'eightfold-assembly', 'seasoned', 'hot-streak', 'trusted-blade', 'near-crown', 'ten-crowns', 'toxic-regular', 'grid-connected', 'glow-up', 'battle-scarred']).has(id)) return 'rare';
+  if (new Set(['one-is-plenty', 'full-pantry', 'back-at-the-table', 'run-it-back', 'dice-have-spoken', 'settling-in', 'commander-magnet', 'grand-audience', 'duelist', 'pod-victor', 'crowded-table', 'table-regular', 'month-regular', 'first-dose', 'power-cell', 'fallout-shelter', 'marked']).has(id)) return 'uncommon';
+  return 'common';
+};
 
 const achievementsFor = ({ games, decks, bestWinStreak, monthCount, playedColors }) => {
   const wins = games.filter(game => game.won);
@@ -108,7 +115,7 @@ const achievementsFor = ({ games, decks, bestWinStreak, monthCount, playedColors
       ['known-to-legends', 'Known to the Legends', 'Received 1,000 commander damage across saved games.', 1000],
     ]),
   ];
-  return definitions.filter(([, , , reached]) => reached).map(([id, title, detail]) => ({ id, title, detail }));
+  return definitions.filter(([, , , reached]) => reached).map(([id, title, detail]) => ({ id, title, detail, rarity: achievementRarity(id) }));
 };
 
 export class MemoryAccountHistoryStore {
