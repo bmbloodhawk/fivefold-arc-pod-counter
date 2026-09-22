@@ -1050,13 +1050,12 @@ button:disabled { cursor: not-allowed; filter: saturate(.45); }
 
 /* Alternate gameplay presentation: the state, mode navigation, and every
    mutation still remain shared; only the routine adjustment surface changes. */
-.dial-controls { position: absolute; z-index: 3; inset: 50% 50% auto auto; display: grid; grid-template-columns: 72px minmax(150px, 214px) 72px; align-items: center; width: min(92vw, 358px); transform: translate(50%, -50%); }
-.dial-gesture { display: grid; place-items: center; aspect-ratio: 1; border: 2px solid rgb(216 174 97 / .72); border-radius: 50%; background: radial-gradient(circle, rgb(19 18 15 / .94) 0 59%, transparent 60%), repeating-conic-gradient(from -6deg, rgb(216 174 97 / .68) 0 2deg, transparent 2deg 20deg); box-shadow: inset 0 0 0 9px rgb(8 8 8 / .78), inset 0 0 24px rgb(216 174 97 / .13), 0 6px 18px rgb(0 0 0 / .28); cursor: grab; touch-action: none; user-select: none; }
-.dial-gesture.dragging { cursor: grabbing; border-color: #fff0c8; box-shadow: inset 0 0 0 9px rgb(8 8 8 / .78), inset 0 0 30px rgb(216 174 97 / .34), 0 0 22px rgb(216 174 97 / .26); }
+.dial-controls { position: absolute; z-index: 3; inset: 50% 50% auto auto; display: grid; grid-template-columns: 48px minmax(180px, 255px) 48px; align-items: center; width: min(98vw, 351px); transform: translate(50%, -50%); }
+/* The seal is the dial: it rotates behind the fixed, readable counter value.
+   This transparent element only supplies its drag and keyboard interaction. */
+.dial-gesture { aspect-ratio: 1; border-radius: 50%; background: transparent; cursor: grab; touch-action: none; user-select: none; }
+.dial-gesture.dragging { cursor: grabbing; }
 .dial-gesture[aria-disabled="true"] { opacity: .42; cursor: not-allowed; }
-.dial-gesture-label, .dial-gesture-hint { display: block; text-align: center; }
-.dial-gesture-label { color: var(--brass); font-size: .7rem; font-weight: 900; letter-spacing: .13em; }
-.dial-gesture-hint { max-width: 110px; margin-top: 5px; color: var(--muted); font-size: .57rem; line-height: 1.3; }
 .dial-step { width: 100%; min-height: 128px; padding: 0; border: 0; background: transparent; color: transparent; cursor: pointer; }
 .dial-step:not(:disabled):active { background: radial-gradient(ellipse, rgb(216 174 97 / .22), transparent 68%); }
 .dial-step:disabled { opacity: .42; }
@@ -1065,10 +1064,10 @@ button:disabled { cursor: not-allowed; filter: saturate(.45); }
 #gameView[data-interface-style="dial"] .counter-readout { z-index: 4; pointer-events: none; }
 #gameView[data-interface-style="dial"] .counter-mode, #gameView[data-interface-style="dial"] .counter-context { opacity: .88; }
 #gameView[data-interface-style="dial"] .main-value { font-size: clamp(6.8rem, 32vw, 10rem); }
+#gameView[data-interface-style="dial"] .counter-sigil { z-index: 2; width: min(65vw, 255px); opacity: .68; transform: translate(-50%, -43%) rotate(var(--dial-seal-rotation, 0deg)); transition: transform 180ms cubic-bezier(.2, .8, .2, 1); }
 @media (max-width: 359px), (max-height: 740px) {
-  .dial-controls { grid-template-columns: 60px minmax(136px, 176px) 60px; width: min(92vw, 296px); }
+  .dial-controls { grid-template-columns: 44px minmax(170px, 196px) 44px; width: min(92vw, 284px); }
   .dial-step { min-height: 110px; }
-  .dial-gesture-label { font-size: .57rem; }.dial-gesture-hint { max-width: 88px; font-size: .48rem; }
   #gameView[data-interface-style="dial"] .counter-stage { min-height: 242px; }
   #gameView[data-interface-style="dial"] .main-value { font-size: min(28vw, 6.4rem); }
 }

@@ -600,7 +600,9 @@ function render() {
   dom.game.dataset.hasIdentity = String(playerIdentity(player).length > 0);
   dom.game.dataset.counterMode = state.mode;
   const identityNames = player.commanderNames.filter(Boolean).join(' · ');
-  dom.podLabel.textContent = state.podCode === 'LOCAL' ? 'LOCAL POD' : `POD ${state.podCode}`; dom.commanderIdentityName.hidden = !identityNames; dom.commanderIdentityName.textContent = identityNames; dom.identityHeaderRail.style.setProperty('--identity-rail', identityRail(playerIdentity(player)) || 'transparent'); dom.identityHeaderRail.hidden = !playerIdentity(player).length; dom.modeTitle.textContent = state.mode.toUpperCase(); dom.mainValue.value = currentValue(player); dom.mainValue.classList.toggle('elimination-placeholder', player.eliminated); dom.mainValue.setAttribute('aria-hidden', String(player.eliminated));
+  const counterValue = currentValue(player);
+  dom.podLabel.textContent = state.podCode === 'LOCAL' ? 'LOCAL POD' : `POD ${state.podCode}`; dom.commanderIdentityName.hidden = !identityNames; dom.commanderIdentityName.textContent = identityNames; dom.identityHeaderRail.style.setProperty('--identity-rail', identityRail(playerIdentity(player)) || 'transparent'); dom.identityHeaderRail.hidden = !playerIdentity(player).length; dom.modeTitle.textContent = state.mode.toUpperCase(); dom.mainValue.value = counterValue; dom.mainValue.classList.toggle('elimination-placeholder', player.eliminated); dom.mainValue.setAttribute('aria-hidden', String(player.eliminated));
+  dom.game.style.setProperty('--dial-seal-rotation', `${counterValue * 12}deg`);
   const inspectingSharedSeat = !state.localSimulation && player.id !== state.ownerPlayerId;
   dom.counterContext.textContent = state.mode === 'commander' ? (source ? `${displayPlayer(player)} HAS RECEIVED DAMAGE FROM ${displaySource(source)}` : `NO OTHER COMMANDERS · ${displayPlayer(player)}`) : `${displayName(player)}${player.id === state.ownerPlayerId ? ' · YOU' : state.localSimulation ? ' · SIMULATED' : ' · READ ONLY'}`;
   dom.inspectionNotice.hidden = !inspectingSharedSeat;
@@ -613,7 +615,7 @@ function render() {
   renderCommanderTaxDialog();
   const playerCanMutate = state.localSimulation || player.id === state.ownerPlayerId;
   const mutationsEnabled = playerCanMutate && (transport.status === 'local' || transport.status === 'connected') && (state.mode !== 'commander' || Boolean(source)); $$('[data-delta]').forEach(button => { button.disabled = !mutationsEnabled; });
-  dom.dialControls.hidden = interfaceStyle !== 'dial'; dom.dialGesture.setAttribute('aria-valuenow', String(currentValue(player))); dom.dialGesture.setAttribute('aria-valuetext', `${currentValue(player)} ${state.mode}`); dom.dialGesture.setAttribute('aria-disabled', String(!mutationsEnabled)); dom.dialGesture.tabIndex = mutationsEnabled ? 0 : -1;
+  dom.dialControls.hidden = interfaceStyle !== 'dial'; dom.dialGesture.setAttribute('aria-valuenow', String(counterValue)); dom.dialGesture.setAttribute('aria-valuetext', `${counterValue} ${state.mode}`); dom.dialGesture.setAttribute('aria-disabled', String(!mutationsEnabled)); dom.dialGesture.tabIndex = mutationsEnabled ? 0 : -1;
   dom.customLifeButton.hidden = state.mode !== 'life'; dom.customLifeButton.disabled = !playerCanMutate || !(transport.status === 'local' || transport.status === 'connected');
   dom.toggleInterfaceStyleButton.textContent = `Interface style: ${interfaceStyle === 'dial' ? 'Dial' : 'Button'}`;
   renderLifeChange(player);
