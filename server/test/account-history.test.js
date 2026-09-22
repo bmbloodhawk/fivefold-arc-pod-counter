@@ -117,7 +117,7 @@ test("saved decks retain private colors, notes, favorites, and account preferenc
   const deck = await history.createDeck(accountId, { commanderName: "Alela", colors: ["W", "U", "B", "U"], notes: "Keep a land hand", favorite: true });
   assert.deepEqual(deck.colors, ["W", "U", "B"]); assert.equal(deck.notes, "Keep a land hand"); assert.equal(deck.favorite, true);
   await history.savePreferences(accountId, { preferredName: "Nia" });
-  assert.deepEqual(await history.preferences(accountId), { preferredName: "Nia", defaultPlayerCount: 4, defaultRoundLimitMinutes: null });
+  assert.deepEqual(await history.preferences(accountId), { preferredName: "Nia", defaultPlayerCount: 4, defaultRoundLimitMinutes: null, interfaceStyle: "button" });
   const corrected = await history.updateDeck(accountId, deck.deckId, { commanderNames: ["Alela, Artful Provocateur"], name: "Faeries", colors: ["W", "U", "B"], notes: "Corrected name", favorite: false });
   assert.equal(corrected.commanderName, "Alela, Artful Provocateur"); assert.equal(corrected.name, "Faeries"); assert.equal(corrected.notes, "Corrected name");
   await history.updateDeck(accountId, deck.deckId, { archived: true, favorite: false });

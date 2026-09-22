@@ -1048,6 +1048,31 @@ button:disabled { cursor: not-allowed; filter: saturate(.45); }
   .counter-sigil { top: 45%; }
 }
 
+/* Alternate gameplay presentation: the state, mode navigation, and every
+   mutation still remain shared; only the routine adjustment surface changes. */
+.dial-controls { position: absolute; z-index: 3; inset: 50% 50% auto auto; display: grid; grid-template-columns: 72px minmax(150px, 214px) 72px; align-items: center; width: min(92vw, 358px); transform: translate(50%, -50%); }
+.dial-gesture { display: grid; place-items: center; aspect-ratio: 1; border: 2px solid rgb(216 174 97 / .72); border-radius: 50%; background: radial-gradient(circle, rgb(19 18 15 / .94) 0 59%, transparent 60%), repeating-conic-gradient(from -6deg, rgb(216 174 97 / .68) 0 2deg, transparent 2deg 20deg); box-shadow: inset 0 0 0 9px rgb(8 8 8 / .78), inset 0 0 24px rgb(216 174 97 / .13), 0 6px 18px rgb(0 0 0 / .28); cursor: grab; touch-action: none; user-select: none; }
+.dial-gesture.dragging { cursor: grabbing; border-color: #fff0c8; box-shadow: inset 0 0 0 9px rgb(8 8 8 / .78), inset 0 0 30px rgb(216 174 97 / .34), 0 0 22px rgb(216 174 97 / .26); }
+.dial-gesture[aria-disabled="true"] { opacity: .42; cursor: not-allowed; }
+.dial-gesture-label, .dial-gesture-hint { display: block; text-align: center; }
+.dial-gesture-label { color: var(--brass); font-size: .7rem; font-weight: 900; letter-spacing: .13em; }
+.dial-gesture-hint { max-width: 110px; margin-top: 5px; color: var(--muted); font-size: .57rem; line-height: 1.3; }
+.dial-step { width: 100%; min-height: 128px; padding: 0; border: 0; background: transparent; color: transparent; cursor: pointer; }
+.dial-step:not(:disabled):active { background: radial-gradient(ellipse, rgb(216 174 97 / .22), transparent 68%); }
+.dial-step:disabled { opacity: .42; }
+#gameView[data-interface-style="dial"] .adjust-controls { display: none; }
+#gameView[data-interface-style="dial"] .counter-stage { min-height: 310px; }
+#gameView[data-interface-style="dial"] .counter-readout { z-index: 4; pointer-events: none; }
+#gameView[data-interface-style="dial"] .counter-mode, #gameView[data-interface-style="dial"] .counter-context { opacity: .88; }
+#gameView[data-interface-style="dial"] .main-value { font-size: clamp(6.8rem, 32vw, 10rem); }
+@media (max-width: 359px), (max-height: 740px) {
+  .dial-controls { grid-template-columns: 60px minmax(136px, 176px) 60px; width: min(92vw, 296px); }
+  .dial-step { min-height: 110px; }
+  .dial-gesture-label { font-size: .57rem; }.dial-gesture-hint { max-width: 88px; font-size: .48rem; }
+  #gameView[data-interface-style="dial"] .counter-stage { min-height: 242px; }
+  #gameView[data-interface-style="dial"] .main-value { font-size: min(28vw, 6.4rem); }
+}
+
 /* A changing total must never reflow the play surface. Reserve a stable
    numeric measure, and use one compact overlay slot between the player title
    and the fixed turn-action slot. */
@@ -1152,3 +1177,16 @@ dialog:not(#victoryDialog) { max-height:calc(100dvh - 24px); overflow-y:auto; ov
 @media (min-width:600px) { .setup-shell { max-width:720px; }.pod-strip[data-player-count="5"],.pod-strip[data-player-count="6"],.pod-strip[data-player-count="7"],.pod-strip[data-player-count="8"] { gap:var(--space-2); } }
 @media (max-width:359px),(max-height:700px) { .setup-shell { padding:24px 16px calc(20px + env(safe-area-inset-bottom)); }.dialog-actions { gap:var(--space-2); }.pod-seat.turn-active:not(.active)::before { font-size:.42rem; } }
 @media (prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; } }
+
+/* Commander adds its source selector above the turn control. Keep the turn
+   action in the normal document flow so it cannot overlap the life controls. */
+#gameView[data-counter-mode="commander"] #turnActions {
+  position: static;
+  z-index: auto;
+  margin: 4px 0 5px;
+  transform: none;
+}
+
+#gameView[data-counter-mode="commander"] .adjust-controls {
+  margin-top: 0;
+}
