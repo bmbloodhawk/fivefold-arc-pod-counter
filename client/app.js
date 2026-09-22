@@ -1126,7 +1126,7 @@ function dialAngle(event) { const rect = dom.dialGesture.getBoundingClientRect()
 function normalizeDialAngle(angle) { return angle > 180 ? angle - 360 : angle < -180 ? angle + 360 : angle; }
 function beginDialDrag(event) {
   if (event.target.closest('[data-delta]') || dom.dialGesture.getAttribute('aria-disabled') === 'true') return;
-  dialPointer = { id: event.pointerId, angle: dialAngle(event), accumulated: 0 }; dom.dialGesture.classList.add('dragging'); dom.dialGesture.setPointerCapture?.(event.pointerId); event.preventDefault();
+  dialPointer = { id: event.pointerId, angle: dialAngle(event), accumulated: 0 }; document.body.classList.add('dial-dragging'); dom.dialGesture.classList.add('dragging'); dom.dialGesture.setPointerCapture?.(event.pointerId); event.preventDefault();
 }
 function moveDialDrag(event) {
   if (!dialPointer || event.pointerId !== dialPointer.id) return;
@@ -1135,7 +1135,7 @@ function moveDialDrag(event) {
   // each crossed threshold still uses the same single-step action as a button.
   while (Math.abs(dialPointer.accumulated) >= 20) { const delta = dialPointer.accumulated > 0 ? 1 : -1; dialPointer.accumulated -= 20 * Math.sign(dialPointer.accumulated); void adjust(delta); }
 }
-function endDialDrag(event) { if (dialPointer && event.pointerId === dialPointer.id) { dom.dialGesture.classList.remove('dragging'); dialPointer = null; } }
+function endDialDrag(event) { if (dialPointer && event.pointerId === dialPointer.id) { document.body.classList.remove('dial-dragging'); dom.dialGesture.classList.remove('dragging'); dialPointer = null; } }
 dom.activeSeat.addEventListener('change', () => { state.activePlayerId = dom.activeSeat.value; render(); }); $$('[data-mode]').forEach(button => button.addEventListener('click', () => { state.mode = button.dataset.mode; render(); })); $$('[data-delta]').forEach(button => button.addEventListener('click', () => adjust(Number(button.dataset.delta))));
 dom.dialGesture.addEventListener('pointerdown', beginDialDrag); dom.dialGesture.addEventListener('pointermove', moveDialDrag); dom.dialGesture.addEventListener('pointerup', endDialDrag); dom.dialGesture.addEventListener('pointercancel', endDialDrag); dom.dialGesture.addEventListener('keydown', event => { if (event.key === 'ArrowUp' || event.key === 'ArrowRight') { event.preventDefault(); void adjust(1); } if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') { event.preventDefault(); void adjust(-1); } });
 accountInterfaceStyle.addEventListener('change', () => setInterfaceStyle(accountInterfaceStyle.value, { persistAccount: true }));
