@@ -1177,15 +1177,13 @@ dialog:not(#victoryDialog) { max-height:calc(100dvh - 24px); overflow-y:auto; ov
 @media (max-width:359px),(max-height:700px) { .setup-shell { padding:24px 16px calc(20px + env(safe-area-inset-bottom)); }.dialog-actions { gap:var(--space-2); }.pod-seat.turn-active:not(.active)::before { font-size:.42rem; } }
 @media (prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; } }
 
-/* Commander adds its source selector above the turn control. Keep the turn
-   action in the normal document flow so it cannot overlap the life controls. */
-#gameView[data-counter-mode="commander"] #turnActions {
-  position: static;
-  z-index: auto;
-  margin: 4px 0 5px;
-  transform: none;
-}
-
-#gameView[data-counter-mode="commander"] .adjust-controls {
-  margin-top: 0;
+/* Commander uses its compact source chooser in the counter-context space.
+   That leaves the shared turn and life-control slots unchanged. */
+#gameView[data-counter-mode="commander"] .counter-context { visibility: hidden; }
+#gameView[data-counter-mode="commander"] .counter-stage .source-panel {
+  position: absolute;
+  right: 10px;
+  bottom: 42px;
+  left: 10px;
+  margin: 0;
 }

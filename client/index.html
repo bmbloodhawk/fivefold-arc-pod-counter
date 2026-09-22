@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=194">
+  <link rel="stylesheet" href="styles.css?v=196">
 </head>
 <body>
   <header class="brand-bar">
@@ -241,7 +241,8 @@
           <p id="modeTitle" class="counter-mode">LIFE</p>
           <output id="mainValue" class="main-value">40</output>
           <div id="eliminationOutcome" class="elimination-outcome" hidden aria-live="polite"><strong></strong><span></span></div>
-          <p id="counterContext" class="counter-context">P1 · YOU</p>
+        <p id="counterContext" class="counter-context">P1 · YOU</p>
+        <section id="sourcePanel" class="source-panel" hidden aria-label="Commander damage sources"></section>
         </div>
         <div id="dialControls" class="dial-controls" role="group" aria-label="Dial counter controls" hidden>
           <button type="button" class="dial-step dial-step-minus" data-delta="-1" aria-label="Decrease counter by one"><span class="sr-only">Decrease by one</span></button>
@@ -251,8 +252,6 @@
         <output id="lifeChangeIndicator" class="life-change-indicator" aria-live="polite" hidden></output>
         <p id="statusMessage" class="status-message" hidden></p>
       </div>
-
-      <section id="sourcePanel" class="source-panel" hidden aria-label="Commander damage sources"></section>
 
       <section id="turnActions" class="turn-actions" aria-label="Turn controls">
         <button id="endTurnButton" class="end-turn-button" type="button">End turn → Next player</button>
