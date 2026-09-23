@@ -41,6 +41,11 @@ test('the center seal and life total can be positioned independently in each con
   assert.match(app, /--appearance-life-number-scale/);
 });
 
+test('the Studio preview preserves the app seal as an absolutely centered layer', () => {
+  assert.match(app, /\.counter-readout\{translate:0 var\(--appearance-counter-offset,0\);position:relative;z-index:3\}/);
+  assert.doesNotMatch(app, /\.counter-stage>\*:not\(\.appearance-overlay\)/);
+});
+
 test('every counter icon can be previewed and scaled within bounded limits', () => {
   for (const mode of ['life', 'commander', 'radiation', 'poison', 'energy', 'generic']) {
     assert.match(studio, new RegExp(`\\b${mode}\\b`));
