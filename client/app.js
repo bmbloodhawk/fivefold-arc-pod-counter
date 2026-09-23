@@ -185,7 +185,14 @@ function displaySource(source) { const owner = state?.players.find(player => pla
 function sourceChoiceLabel(source) { const owner = state?.players.find(player => player.id === source.ownerPlayerId); return source.commanderName || commanderFallbackLabel(source, owner); }
 function sourceOwnerLabel(source) { const owner = state?.players.find(player => player.id === source.ownerPlayerId); return displayName(owner || { name: source.ownerLabel, id: source.ownerPlayerId || 'Player' }); }
 function escapeHtml(value) { return String(value).replace(/[&<>"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[character]); }
-function selectedSourceFor(player) { const sources = sourcesForDefender(player.id); if (!sources.some(source => source.id === state.selectedSourceId)) state.selectedSourceId = sources[0]?.id || null; return sources.find(source => source.id === state.selectedSourceId) || null; }
+function selectedSourceFor(player) {
+  const sources = sourcesForDefender(player.id);
+  if (!sources.some(source => source.id === state.selectedSourceId)) {
+    const turnSources = state.turn?.trackingEnabled === false ? [] : sources.filter(source => source.ownerPlayerId === state.turnSeatId);
+    state.selectedSourceId = turnSources[0]?.id || sources[0]?.id || null;
+  }
+  return sources.find(source => source.id === state.selectedSourceId) || null;
+}
 function commanderValue(player, sourceId = state.selectedSourceId) { return player.commanderDamage[sourceId] || 0; }
 function evaluatePlayer(player) {
   const lethalSource = state.commanderSources.find(source => commanderValue(player, source.id) >= 21);
