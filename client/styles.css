@@ -1182,15 +1182,59 @@ dialog:not(#victoryDialog) { max-height:calc(100dvh - 24px); overflow-y:auto; ov
 @media (max-width:359px),(max-height:700px) { .setup-shell { padding:24px 16px calc(20px + env(safe-area-inset-bottom)); }.dialog-actions { gap:var(--space-2); }.pod-seat.turn-active:not(.active)::before { font-size:.42rem; } }
 @media (prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; } }
 
-/* Commander uses its compact source chooser in the counter-context space.
-   That leaves the shared turn and life-control slots unchanged. */
+/* Commander selection sits above the turn control, never inside the dial. */
 #gameView[data-counter-mode="commander"] .counter-context { visibility: hidden; }
-#gameView[data-counter-mode="commander"] .counter-stage .source-panel {
-  position: absolute;
-  right: 0;
-  bottom: 42px;
-  left: 0;
-  margin: 0;
+#gameView[data-counter-mode="commander"] > .source-panel {
+  position: relative;
+  z-index: 6;
+  width: 100%;
+  margin: 0 0 4px;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+#gameView[data-counter-mode="commander"] > .source-panel .selected-source-button {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  gap: 2px 10px;
+  min-height: 52px;
+  padding: 6px 10px;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+#gameView[data-counter-mode="commander"] > .source-panel .selected-source-button span {
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+#gameView[data-counter-mode="commander"] > .source-panel .selected-source-button strong {
+  overflow-wrap: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#gameView[data-counter-mode="commander"] > .source-panel .selected-source-button span > small { display: none; }
+#gameView[data-counter-mode="commander"] > .source-panel .selected-source-button em {
+  display: flex;
+  grid-column: 1;
+  grid-row: 2;
+  align-items: baseline;
+  gap: 5px;
+  font-size: 1.12rem;
+}
+#gameView[data-counter-mode="commander"] > .source-panel .selected-source-button em::before {
+  content: "Damage";
+  color: var(--muted);
+  font-family: system-ui, sans-serif;
+  font-size: .56rem;
+  font-weight: 900;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+#gameView[data-counter-mode="commander"] > .source-panel .selected-source-button b {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: center;
+  font-size: .58rem;
+  white-space: nowrap;
 }
 
 /* In Dial mode, the extra seats leave the counter clear and form one compact
