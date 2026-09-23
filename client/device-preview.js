@@ -25,7 +25,7 @@ export const DEVICE_PRESETS = [
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const escapeHtml = value => String(value).replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
-const defaultState = { presetId: 'iphone-16', orientation: 'portrait', zoom: 'fit', frame: true, safe: true, scheme: 'system', network: 'online', count: 1, category: 'All', query: '', custom: [] };
+const defaultState = { presetId: 'iphone-16', orientation: 'portrait', zoom: 'fit', frame: true, safe: true, scheme: 'system', network: 'online', count: 1, category: 'All', query: '', custom: [], slots: [] };
 function loadState() { try { return { ...defaultState, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') }; } catch { return { ...defaultState }; } }
 
 export function mountDevicePreview({ primaryFrame, getSkin }) {
@@ -41,6 +41,20 @@ export function mountDevicePreview({ primaryFrame, getSkin }) {
   const $ = selector => panel.querySelector(selector);
   const allDevices = () => [...DEVICE_PRESETS, ...state.custom];
   const selected = () => allDevices().find(device => device.id === state.presetId) || DEVICE_PRESETS[0];
+  // Each visible shell owns its device and orientation. The first shell stays
+  // connected to the main picker so single-device use remains simple.
+  function syncSlots() {
+    const devices = allDevices(); const used = new Set(); const fallbacks = ['iphone-se-3', 'pixel-9', 'galaxy-s24', 'ipad-mini'];
+    state.slots = Array.isArray(state.slots) ? state.slots : [];
+    for (let index = 0; index < state.count; index += 1) {
+      const existing = state.slots[index]; let presetId = existing?.presetId;
+      if (!devices.some(device => device.id === presetId) || (index > 0 && used.has(presetId))) presetId = index === 0 ? state.presetId : fallbacks.find(id => devices.some(device => device.id === id) && !used.has(id)) || devices.find(device => !used.has(device.id))?.id || state.presetId;
+      state.slots[index] = { presetId, orientation: existing?.orientation === 'landscape' ? 'landscape' : index === 0 && state.orientation === 'landscape' ? 'landscape' : 'portrait' };
+      used.add(presetId);
+    }
+    state.slots.length = state.count; state.presetId = state.slots[0]?.presetId || state.presetId; state.orientation = state.slots[0]?.orientation || state.orientation;
+  }
+  const deviceForSlot = index => allDevices().find(device => device.id === state.slots[index]?.presetId) || DEVICE_PRESETS[0];
   const save = () => localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   const post = frame => { frame.classList.add('device-preview-frame'); frame.contentWindow?.postMessage({ type: 'fivefold-arc:appearance-skin', skin: { ...getSkin(), previewColorScheme: state.scheme } }, location.origin); };
   function options() {
@@ -50,26 +64,32 @@ export function mountDevicePreview({ primaryFrame, getSkin }) {
     if (!devices.some(device => device.id === state.presetId)) state.presetId = devices[0]?.id || DEVICE_PRESETS[0].id;
     $('#devicePreset').value = state.presetId;
   }
-  function dimensions(device) { return state.orientation === 'landscape' ? { width: device.height, height: device.width } : device; }
-  function createShell(frame, device) {
-    const { width, height } = dimensions(device); const shell = document.createElement('article');
-    shell.className = `sim-device frame-${device.frame}${state.frame ? '' : ' no-frame'} ${state.orientation}`;
+  function dimensions(device, orientation) { return orientation === 'landscape' ? { width: device.height, height: device.width } : device; }
+  function createShell(frame, device, slotIndex) {
+    const slot = state.slots[slotIndex]; const { width, height } = dimensions(device, slot.orientation); const shell = document.createElement('article');
+    shell.className = `sim-device frame-${device.frame}${state.frame ? '' : ' no-frame'} ${slot.orientation}`;
     shell.style.setProperty('--device-width', `${width}px`); shell.style.setProperty('--device-height', `${height}px`);
     shell.style.setProperty('--device-scale', state.zoom === 'fit' ? 'var(--fit-scale)' : String(Number(state.zoom) / 100));
     shell.dataset.network = state.network;
-    const label = document.createElement('p'); label.className = 'sim-device-label'; label.textContent = `${device.name} · ${width} × ${height} · ${device.dpr}×`;
+    const controls = document.createElement('div'); controls.className = 'sim-device-controls';
+    const picker = document.createElement('select'); picker.setAttribute('aria-label', `Device ${slotIndex + 1}`); picker.innerHTML = allDevices().map(item => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)}</option>`).join(''); picker.value = device.id;
+    const rotate = document.createElement('button'); rotate.type = 'button'; rotate.className = 'quiet'; rotate.textContent = slot.orientation === 'portrait' ? 'Landscape' : 'Portrait';
+    picker.addEventListener('change', () => { state.slots[slotIndex].presetId = picker.value; if (slotIndex === 0) state.presetId = picker.value; render(); });
+    rotate.addEventListener('click', () => { state.slots[slotIndex].orientation = slot.orientation === 'portrait' ? 'landscape' : 'portrait'; if (slotIndex === 0) state.orientation = state.slots[slotIndex].orientation; render(); });
+    controls.append(picker, rotate);
+    const label = document.createElement('p'); label.className = 'sim-device-label'; label.textContent = `${width} × ${height} · ${device.dpr}× DPR`;
     const screen = document.createElement('div'); screen.className = 'sim-device-screen';
     frame.className = 'exact-preview device-preview-frame'; frame.tabIndex = -1; frame.style.width = `${width}px`; frame.style.height = `${height}px`;
-    screen.append(frame); shell.append(label, screen);
+    screen.append(frame); shell.append(controls, label, screen);
     if (state.safe) { const status = document.createElement('span'); status.className = 'sim-status'; status.textContent = '9:41'; const home = document.createElement('span'); home.className = 'sim-home'; shell.append(status, home); }
     return shell;
   }
   function render() {
-    const device = selected(); const grid = $('#devicePreviewGrid'); const oldFrames = [...grid.querySelectorAll('iframe')];
+    syncSlots(); const device = deviceForSlot(0); const grid = $('#devicePreviewGrid'); const oldFrames = [...grid.querySelectorAll('iframe')];
     const primary = oldFrames.find(frame => frame.id === 'exactPreview') || primaryFrame;
     oldFrames.filter(frame => frame !== primary).forEach(frame => frame.remove()); grid.replaceChildren();
-    grid.dataset.count = state.count; grid.append(createShell(primary, device));
-    for (let index = 1; index < state.count; index += 1) { const clone = document.createElement('iframe'); clone.title = `${device.name} synchronized app preview ${index + 1}`; clone.src = 'index.html?appearance-preview=1'; clone.addEventListener('load', () => post(clone), { once: true }); grid.append(createShell(clone, device)); }
+    grid.dataset.count = state.count; grid.append(createShell(primary, device, 0));
+    for (let index = 1; index < state.count; index += 1) { const comparisonDevice = deviceForSlot(index); const clone = document.createElement('iframe'); clone.title = `${comparisonDevice.name} synchronized app preview ${index + 1}`; clone.src = 'index.html?appearance-preview=1'; clone.addEventListener('load', () => post(clone), { once: true }); grid.append(createShell(clone, comparisonDevice, index)); }
     $('#devicePreviewMeta').textContent = `${device.width} × ${device.height} CSS px · ${device.dpr}× DPR`;
     $('#deviceRotate').textContent = state.orientation === 'portrait' ? 'Rotate landscape' : 'Rotate portrait';
     save(); post(primary); grid.querySelectorAll('iframe').forEach(post);
@@ -77,8 +97,8 @@ export function mountDevicePreview({ primaryFrame, getSkin }) {
   function bind(selector, key, value = element => element.value) { $(selector).addEventListener('change', event => { state[key] = value(event.currentTarget); render(); }); }
   $('#deviceSearch').value = state.query; $('#deviceCategory').value = state.category; $('#deviceZoom').value = state.zoom; $('#deviceCount').value = state.count; $('#deviceFrame').checked = state.frame; $('#deviceSafe').checked = state.safe; $('#deviceScheme').value = state.scheme; $('#deviceNetwork').value = state.network;
   $('#deviceSearch').addEventListener('input', event => { state.query = event.currentTarget.value; options(); save(); });
-  bind('#deviceCategory', 'category'); bind('#devicePreset', 'presetId'); bind('#deviceZoom', 'zoom'); bind('#deviceCount', 'count', element => Number(element.value)); bind('#deviceFrame', 'frame', element => element.checked); bind('#deviceSafe', 'safe', element => element.checked); bind('#deviceScheme', 'scheme'); bind('#deviceNetwork', 'network');
-  $('#deviceRotate').addEventListener('click', () => { state.orientation = state.orientation === 'portrait' ? 'landscape' : 'portrait'; render(); });
+  bind('#deviceCategory', 'category'); $('#devicePreset').addEventListener('change', event => { state.presetId = event.currentTarget.value; if (state.slots[0]) state.slots[0].presetId = state.presetId; render(); }); bind('#deviceZoom', 'zoom'); bind('#deviceCount', 'count', element => Number(element.value)); bind('#deviceFrame', 'frame', element => element.checked); bind('#deviceSafe', 'safe', element => element.checked); bind('#deviceScheme', 'scheme'); bind('#deviceNetwork', 'network');
+  $('#deviceRotate').addEventListener('click', () => { state.orientation = state.orientation === 'portrait' ? 'landscape' : 'portrait'; if (state.slots[0]) state.slots[0].orientation = state.orientation; render(); });
   $('#saveCustomDevice').addEventListener('click', () => { const name = $('#customDeviceName').value.trim(); const width = Number($('#customDeviceWidth').value); const height = Number($('#customDeviceHeight').value); const dpr = Number($('#customDeviceDpr').value); if (!name || !Number.isFinite(width) || !Number.isFinite(height) || !Number.isFinite(dpr)) return; const device = { id: `custom-${Date.now()}`, name, category: 'Custom', width: clamp(width, 240, 1600), height: clamp(height, 400, 1800), dpr: clamp(dpr, 1, 5), frame: $('#customDeviceFrame').value }; state.custom.push(device); state.category = 'Custom'; state.presetId = device.id; options(); $('#deviceCategory').value = 'Custom'; render(); });
   options(); render();
   return { sync: () => panel.querySelectorAll('iframe').forEach(post) };
