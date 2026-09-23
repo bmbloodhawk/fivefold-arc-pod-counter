@@ -34,6 +34,13 @@ test('button and dial layout values are stored independently in a skin', () => {
   assert.match(studio, /const layout = activeModeLayout\(skin\)/);
 });
 
+test('the center seal and life total can be positioned independently in each control layout', () => {
+  for (const label of ['Center seal size', 'Center seal left\/right', 'Life total size', 'Life total left\/right']) assert.match(html, new RegExp(label));
+  for (const key of ['centerSealScale', 'centerSealOffsetX', 'centerSealOffsetY', 'lifeNumberScale', 'lifeNumberOffsetX', 'lifeNumberOffsetY']) assert.match(studio, new RegExp(`\\b${key}\\b`));
+  assert.match(app, /--appearance-seal-scale/);
+  assert.match(app, /--appearance-life-number-scale/);
+});
+
 test('every counter icon can be previewed and scaled within bounded limits', () => {
   for (const mode of ['life', 'commander', 'radiation', 'poison', 'energy', 'generic']) {
     assert.match(studio, new RegExp(`\\b${mode}\\b`));
