@@ -22,9 +22,9 @@ const counterTotalsFor = (game) => ({
 const lifetimeCounterTotals = (games) => Object.fromEntries(COUNTER_TOTAL_KEYS.map((key) => [key, games.reduce((total, game) => total + counterTotalsFor(game)[key], 0)]));
 const achievementRarity = (id) => {
   if (new Set(['phoenix-turn', 'the-full-court', 'all-systems-go', 'the-long-goodbye', 'enduring-legend', 'mythic-run', 'color-wheel', 'wide-table', 'fifty-crowns', 'poisoned-legend', 'infinite-reserve', 'wasteland-legend', 'known-to-legends']).has(id)) return 'legendary';
-  if (new Set(['one-life-to-live', 'overflowing-cup', 'one-more-before-bed', 'saga-at-the-table', 'legendary-welcome', 'toxic-tenacity', 'irradiated-victory', 'no-seat-left-behind', 'pod-pillar', 'unstoppable', 'armory', 'venom-veteran', 'living-battery', 'irradiated-veteran', 'legend-scarred']).has(id)) return 'epic';
-  if (new Set(['second-wind', 'last-breath', 'still-here', 'table-trilogy', 'deep-into-the-night', 'legend-collector', 'capacitor-discharge', 'round-robin', 'full-table', 'eightfold-assembly', 'seasoned', 'hot-streak', 'trusted-blade', 'near-crown', 'ten-crowns', 'toxic-regular', 'grid-connected', 'glow-up', 'battle-scarred']).has(id)) return 'rare';
-  if (new Set(['one-is-plenty', 'full-pantry', 'back-at-the-table', 'run-it-back', 'dice-have-spoken', 'settling-in', 'commander-magnet', 'grand-audience', 'duelist', 'pod-victor', 'crowded-table', 'table-regular', 'month-regular', 'first-dose', 'power-cell', 'fallout-shelter', 'marked']).has(id)) return 'uncommon';
+  if (new Set(['one-life-to-live', 'overflowing-cup', 'one-more-before-bed', 'saga-at-the-table', 'legendary-welcome', 'toxic-tenacity', 'no-seat-left-behind', 'pod-pillar', 'unstoppable', 'armory', 'venom-veteran', 'living-battery', 'irradiated-veteran', 'legend-scarred']).has(id)) return 'epic';
+  if (new Set(['second-wind', 'last-breath', 'table-trilogy', 'deep-into-the-night', 'legend-collector', 'seasoned', 'hot-streak', 'trusted-blade', 'near-crown', 'ten-crowns', 'toxic-regular', 'grid-connected', 'glow-up', 'battle-scarred']).has(id)) return 'rare';
+  if (new Set(['one-is-plenty', 'full-pantry', 'back-at-the-table', 'still-here', 'run-it-back', 'dice-have-spoken', 'settling-in', 'commander-magnet', 'grand-audience', 'irradiated-victory', 'capacitor-discharge', 'round-robin', 'duelist', 'pod-victor', 'full-table', 'crowded-table', 'eightfold-assembly', 'table-regular', 'month-regular', 'first-dose', 'power-cell', 'fallout-shelter', 'marked']).has(id)) return 'uncommon';
   return 'common';
 };
 

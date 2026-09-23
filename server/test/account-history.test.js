@@ -48,6 +48,13 @@ test("achievements are earned from saved results and do not reveal unfinished go
   assert.equal("milestones" in summary, false);
 });
 
+test("ordinary completed-game moments stay common or uncommon", async () => {
+  const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: (() => { let id = 0; return () => String(++id); })() }); const accountId = await history.ensureAccount("subject");
+  await history.saveGame(accountId, { tableSize: 8, won: true, achievementFacts: { reclaimedDuringGame: 1, turnsAfterReclaim: 2, lifeGained: 25, playerCountAtStart: 8, everyStarterTwoTurns: 1 }, counterTotals: { energy: 20, radiation: 10 } });
+  const rarities = new Map((await history.summary(accountId)).achievements.map(achievement => [achievement.id, achievement.rarity]));
+  ["full-pantry", "still-here", "irradiated-victory", "capacitor-discharge", "round-robin", "full-table", "eightfold-assembly"].forEach(id => assert.equal(rarities.get(id), "uncommon"));
+});
+
 test("poison achievements add only counters actually gained during saved games", async () => {
   const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: (() => { let id = 0; return () => String(++id); })() }); const accountId = await history.ensureAccount("subject");
   await history.saveGame(accountId, { tableSize: 4, won: false, poisonCounters: 999 }); assert.equal((await history.summary(accountId)).achievements.some(achievement => achievement.id === "poisoned-legend"), false);

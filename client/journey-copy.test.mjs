@@ -335,14 +335,15 @@ test('the confirmed winner is celebrated on every phone with artwork and a tap-t
   assert.doesNotMatch(styles, /\.personal-match-art \{[^}]*opacity:/);
 });
 
-test('achievements follow the personal match accolade and reveal their rarity only after unlock', () => {
-  assert.match(html, /id="achievementDialog"[\s\S]*id="achievementEmblem"[\s\S]*id="achievementRarity"[\s\S]*ACHIEVEMENT UNCOVERED/);
+test('achievements follow the personal match accolade and reveal every new rarity only after unlock', () => {
+  assert.match(html, /id="achievementDialog"[\s\S]*ACHIEVEMENT UNCOVERED[\s\S]*id="achievementUnlockList"/);
   assert.match(app, /function showAchievementUnlocks\(gameKey\)/);
   assert.match(app, /unlockedAchievementsByGame\.set\(gameKey, unlockedAchievements\)/);
   assert.match(app, /dom\.victoryDialog\.addEventListener\('close', \(\) => \{ if \(dom\.victoryDialog\.returnValue === 'tap' && !showAchievementUnlocks/);
   assert.match(app, /data-rarity="\$\{escapeHtml\(achievement\.rarity \|\| 'common'\)\}"/);
+  assert.match(app, /unlocked\.map\(achievement =>/);
   assert.match(styles, /\.achievement-card\[data-rarity="legendary"\]/);
-  assert.match(styles, /#achievementDialog\[data-rarity="epic"\]/);
+  assert.match(styles, /\.achievement-card\[data-rarity="epic"\]/);
 });
 
 test('private feedback review includes a non-personal insights tab', () => {
@@ -402,7 +403,7 @@ test('signed-in accounts keep private deck details and personal history tools', 
   assert.match(html, /id="accountPreferredName"/);
   assert.match(app, /\/api\/account\/preferences/);
   assert.match(app, /profile-tabs/);
-  assert.match(html, /Achievement unlocked/);
+  assert.match(html, /Achievements uncovered/);
   assert.match(app, /transport\.getPersonalMatchMoment\(\)/);
   assert.match(app, /counterTotals,/);
   assert.match(app, /More await\./);
