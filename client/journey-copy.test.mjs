@@ -10,6 +10,15 @@ const styles = await readFile(new URL('styles.css', root), 'utf8');
 const feedbackPage = await readFile(new URL('feedback.html', root), 'utf8');
 const layoutInvariants = await readFile(new URL('../UI_LAYOUT_INVARIANTS.md', root), 'utf8');
 
+test('phone layout uses the visible viewport and prevents browser text inflation from changing geometry', () => {
+  assert.match(html, /interactive-widget=resizes-content/);
+  assert.match(styles, /-webkit-text-size-adjust: 100%; text-size-adjust: 100%/);
+  assert.match(styles, /--app-viewport-height: 100dvh/);
+  assert.match(styles, /min-height: var\(--app-viewport-height\)/);
+  assert.match(app, /function syncViewportMetrics\(\)/);
+  assert.match(app, /window\.visualViewport\?\.addEventListener\('resize', syncViewportMetrics/);
+});
+
 test('joining keeps optional commander setup out of the primary claim path', () => {
   assert.match(html, /STEP 2 OF 4/);
   assert.match(html, /STEP 3 OF 4/);

@@ -4,6 +4,7 @@ import test from 'node:test';
 
 const root = new URL('./', import.meta.url);
 const studio = await readFile(new URL('appearance-studio.js', root), 'utf8');
+const devicePreview = await readFile(new URL('device-preview.js', root), 'utf8');
 const app = await readFile(new URL('app.js', root), 'utf8');
 const html = await readFile(new URL('appearance-studio.html', root), 'utf8');
 
@@ -14,6 +15,23 @@ test('Appearance Studio uses the isolated live renderer as its visible preview',
   assert.match(app, /appearancePreviewMode = new URLSearchParams\(location\.search\)\.get\('appearance-preview'\) === '1'/);
   assert.match(app, /event\.origin !== location\.origin \|\| event\.data\?\.type !== 'fivefold-arc:appearance-skin'/);
   assert.match(app, /window\.parent\.postMessage\(\{ type: 'fivefold-arc:appearance-preview-ready' \}, location\.origin\)/);
+});
+
+test('Device Preview uses live app iframes with persisted iPhone-first presets', () => {
+  for (const device of ['iPhone 16', 'iPhone 16 Pro', 'iPhone 16 Pro Max', 'iPhone 15', 'iPhone SE (3rd gen)']) assert.match(devicePreview, new RegExp(device.replace(/[()]/g, '\\$&')));
+  assert.match(devicePreview, /width: 393, height: 852, dpr: 3/);
+  assert.match(devicePreview, /localStorage\.setItem\(STORAGE_KEY/);
+  assert.match(devicePreview, /index\.html\?appearance-preview=1/);
+  assert.match(devicePreview, /previewColorScheme/);
+  assert.match(devicePreview, /Rotate landscape/);
+  assert.match(devicePreview, /Safe areas/);
+});
+
+test('button and dial layout values are stored independently in a skin', () => {
+  assert.match(studio, /skin\.modeLayouts\[mode\] \|\|=/);
+  assert.match(studio, /function activeModeLayout/);
+  assert.match(studio, /activeModeLayout\(\)\[key\] = Number/);
+  assert.match(studio, /const layout = activeModeLayout\(skin\)/);
 });
 
 test('every counter icon can be previewed and scaled within bounded limits', () => {
@@ -62,7 +80,9 @@ test('the exact preview receives every appearance control family', () => {
   assert.match(app, /skin\.sealData/);
   assert.match(app, /skin\.symbolData\?\.\[mode\]/);
   assert.match(app, /pointer-events:none/);
-  assert.doesNotMatch(studio, /renderPreview\s*=/);
+  assert.match(studio, /const renderPreviewBase = renderPreview/);
+  assert.match(studio, /interfaceStyle: 'button'/);
+  assert.match(studio, /overlayData/);
 });
 
 test('Studio preflight checks the exact-app matrix without saving or publishing a draft', () => {
