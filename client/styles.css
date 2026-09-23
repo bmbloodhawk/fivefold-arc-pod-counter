@@ -1236,6 +1236,67 @@ dialog:not(#victoryDialog) { max-height:calc(100dvh - 24px); overflow-y:auto; ov
   font-size: .58rem;
   white-space: nowrap;
 }
+#gameView[data-counter-mode="commander"] > .source-panel.commander-source-pair {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+#gameView[data-counter-mode="commander"] > .source-panel .inline-commander-choice {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 4px 7px;
+  min-height: 64px;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--ink);
+  text-align: left;
+  touch-action: manipulation;
+}
+#gameView[data-counter-mode="commander"] > .source-panel .inline-commander-choice.selected {
+  border: 2px solid var(--brass);
+  padding: 6px 7px;
+  background: rgb(216 174 97 / .14);
+  box-shadow: inset 0 0 0 1px rgb(216 174 97 / .22);
+}
+#gameView[data-counter-mode="commander"] > .source-panel .inline-commander-choice strong {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  color: var(--brass);
+  font-family: Georgia, serif;
+  font-size: clamp(.76rem, 3.5vw, .96rem);
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#gameView[data-counter-mode="commander"] > .source-panel .inline-commander-choice em {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  color: var(--brass);
+  font-family: Georgia, serif;
+  font-size: 1.02rem;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+#gameView[data-counter-mode="commander"] > .source-panel .inline-commander-choice em small {
+  color: var(--muted);
+  font-family: system-ui, sans-serif;
+  font-size: .5rem;
+  font-weight: 900;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+#gameView[data-counter-mode="commander"] > .source-panel .inline-commander-choice b {
+  color: var(--ink);
+  font-size: .48rem;
+  letter-spacing: .04em;
+  text-align: right;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
 
 /* In Dial mode, the extra seats leave the counter clear and form one compact
    row directly above Custom Life. Button mode retains its side-seat layout. */

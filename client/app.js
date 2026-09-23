@@ -804,8 +804,18 @@ function openCommanderSourceDialog(player) {
 function renderSources(player) {
   dom.sourcePanel.hidden = state.mode !== 'commander'; if (dom.sourcePanel.hidden) return; const source = selectedSourceFor(player);
   dom.sourcePanel.classList.remove('source-panel-dense', 'source-panel-turn-clearance');
-  dom.sourcePanel.innerHTML = source ? `<button class="selected-source-button" id="changeCommanderSourceButton" type="button"><span><strong>${escapeHtml(sourceChoiceLabel(source))}</strong><small>${escapeHtml(`${sourceOwnerLabel(source)} · ${source.ownerPlayerId}`)}</small></span><em>${commanderValue(player, source.id)}</em><b>Change commander</b></button>` : '<p class="field-help">No commander sources are available for this table.</p>';
+  const pairedSources = source ? sourcesForDefender(player.id).filter(candidate => candidate.ownerPlayerId === source.ownerPlayerId) : [];
+  const hasPair = pairedSources.length === 2;
+  dom.sourcePanel.classList.toggle('commander-source-pair', hasPair);
+  dom.sourcePanel.innerHTML = source ? (hasPair ? pairedSources.map(candidate => {
+    const selected = candidate.id === source.id;
+    return `<button class="inline-commander-choice${selected ? ' selected' : ''}" data-inline-source-choice="${escapeHtml(candidate.id)}" type="button" aria-pressed="${selected}" aria-label="${escapeHtml(`${sourceChoiceLabel(candidate)}${selected ? ', selected. Tap to choose another commander.' : ', choose this commander.'}`)}"><strong>${escapeHtml(sourceChoiceLabel(candidate))}</strong><em><small>Damage</small>${commanderValue(player, candidate.id)}</em><b>${selected ? 'Selected · change' : 'Choose'}</b></button>`;
+  }).join('') : `<button class="selected-source-button" id="changeCommanderSourceButton" type="button"><span><strong>${escapeHtml(sourceChoiceLabel(source))}</strong><small>${escapeHtml(`${sourceOwnerLabel(source)} · ${source.ownerPlayerId}`)}</small></span><em>${commanderValue(player, source.id)}</em><b>Change commander</b></button>`) : '<p class="field-help">No commander sources are available for this table.</p>';
   $('#changeCommanderSourceButton')?.addEventListener('click', () => openCommanderSourceDialog(player));
+  $$('[data-inline-source-choice]').forEach(button => button.addEventListener('click', () => {
+    if (button.dataset.inlineSourceChoice === state.selectedSourceId) openCommanderSourceDialog(player);
+    else { state.selectedSourceId = button.dataset.inlineSourceChoice; render(); }
+  }));
 }
 function renderModeNav() { $$('[data-mode]').forEach(button => { const active = button.dataset.mode === state.mode; button.classList.toggle('active', active); button.setAttribute('aria-current', active ? 'page' : 'false'); }); }
 function renderSeatPicker() { dom.activeSeat.innerHTML = state.players.map(player => `<option value="${player.id}">${escapeHtml(displayPlayer(player))}${player.id === state.ownerPlayerId ? ' (you)' : ''}</option>`).join(''); dom.activeSeat.value = state.activePlayerId; }
