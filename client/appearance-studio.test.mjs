@@ -25,6 +25,8 @@ test('Device Preview uses live app iframes with persisted iPhone-first presets',
   assert.match(devicePreview, /previewColorScheme/);
   assert.match(devicePreview, /Rotate landscape/);
   assert.match(devicePreview, /Safe areas/);
+  assert.match(devicePreview, /selected CSS viewport/);
+  assert.match(devicePreview, /real phone browser/);
   assert.match(devicePreview, /Each visible shell owns its device and orientation/);
   assert.match(devicePreview, /comparisonDevice\.name/);
   assert.match(devicePreview, /Compare devices/);
