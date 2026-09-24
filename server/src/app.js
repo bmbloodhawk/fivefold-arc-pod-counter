@@ -464,7 +464,7 @@ export class RoomService {
       createdAt: startedAt,
       lastActiveAt: startedAt,
       hostSeatId: 0,
-      config: { playerCount, startingLife, gameFormat, roundLimitMinutes },
+      config: { playerCount, startingLife, gameFormat, roundLimitMinutes, tableSkinId: /^[A-Za-z0-9_-]{1,80}$/.test(String(input.tableSkinId || '')) ? String(input.tableSkinId) : null },
       lastCoinToss: null,
       gameResult: null,
       tableGameNumber: 1,
@@ -1142,6 +1142,17 @@ export class RoomService {
     return { snapshot: this.snapshot(room) };
   }
 
+  setTableSkin(code, connectionId, input = {}) {
+    const room = this.room(code); const { seatId } = this.requireOwner(room, connectionId);
+    if (seatId !== room.hostSeatId) throw Object.assign(new Error("Only the host may change the table appearance"), { status: 403, code: "HOST_ONLY" });
+    if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
+    const tableSkinId = input.tableSkinId == null || input.tableSkinId === '' ? null : String(input.tableSkinId);
+    if (tableSkinId && !/^[A-Za-z0-9_-]{1,80}$/.test(tableSkinId)) throw Object.assign(new Error("Choose a valid published skin"), { status: 400, code: "INVALID_INPUT" });
+    room.config = { ...room.config, tableSkinId }; room.version += 1;
+    this.recordLedger(room, "table_skin_changed", seatId, { tableSkinId }); this.broadcast(room);
+    return { snapshot: this.snapshot(room) };
+  }
+
   setTurnTracking(code, connectionId, input = {}) {
     const room = this.room(code);
     const { seatId } = this.requireOwner(room, connectionId);
@@ -1352,7 +1363,7 @@ export function createRealtimeServer(options = {}) {
       if (req.method === "GET" && url.pathname === "/health") return json(res, 200, { ok: true });
       if (req.method === "GET" && url.pathname === "/api/account/history") { const accountId = await account(req); return json(res, 200, { history: await accountHistory.summary(accountId) }); }
       if (req.method === "GET" && url.pathname === "/api/account/preferences") { const accountId = await account(req); return json(res, 200, { preferences: await accountHistory.preferences(accountId) }); }
-      if (req.method === "PUT" && url.pathname === "/api/account/preferences") { const accountId = await account(req); return json(res, 200, { preferences: await accountHistory.savePreferences(accountId, await readJson(req)) }); }
+      if (req.method === "PUT" && url.pathname === "/api/account/preferences") { const accountId = await account(req); const input = await readJson(req); if (input.personalSkinId) { const catalog = await appearanceCatalog.read(); if (!(catalog.skins || []).some((skin) => skin?.id === input.personalSkinId && skin.status === "Approved")) throw Object.assign(new Error("Choose a published skin."), { status: 400, code: "INVALID_INPUT" }); } return json(res, 200, { preferences: await accountHistory.savePreferences(accountId, input) }); }
       if (req.method === "GET" && url.pathname === "/api/account/export") { const accountId = await account(req); return json(res, 200, { export: await accountHistory.export(accountId) }); }
       if (req.method === "DELETE" && url.pathname === "/api/account") { const identity = await accountIdentity(req); await accountHistory.deleteAccount(identity.providerSubject); return json(res, 204, {}); }
       if (req.method === "POST" && url.pathname === "/api/account/games") { const accountId = await account(req); const before = await accountHistory.summary(accountId); const game = await accountHistory.saveGame(accountId, await readJson(req)); const history = await accountHistory.summary(accountId); const known = new Set(before.achievements.map(achievement => achievement.id)); return json(res, 201, { game, unlockedAchievements: history.achievements.filter(achievement => !known.has(achievement.id)) }); }
@@ -1366,6 +1377,7 @@ export function createRealtimeServer(options = {}) {
       if (req.method === "PUT" && url.pathname === "/api/appearance-studio/catalog") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { catalog: await appearanceCatalog.write(await readJson(req, 8 * 1024 * 1024)) }); }
       if (req.method === "GET" && url.pathname === "/api/game-layout") { const catalog = await appearanceCatalog.read(); return json(res, 200, { layout: catalog.gameDefaultLayout || null }); }
       if (req.method === "GET" && url.pathname === "/api/game-skins") { const catalog = await appearanceCatalog.read(); return json(res, 200, { skins: (catalog.skins || []).filter((skin) => skin?.status === "Approved").map(({ id, name, edited, interfaceStyle, modeLayouts, background, surface, accent, secondary, text, muted }) => ({ id, name, edited, interfaceStyle, modeLayouts, background, surface, accent, secondary, text, muted })) }); }
+      if (req.method === "GET" && parts[0] === "api" && parts[1] === "game-skins" && /^[A-Za-z0-9_-]{1,80}$/.test(parts[2] || "")) { const catalog = await appearanceCatalog.read(); const skin = (catalog.skins || []).find((item) => item?.id === parts[2] && item.status === "Approved"); if (!skin) throw Object.assign(new Error("Published skin not found"), { status: 404, code: "SKIN_NOT_FOUND" }); const assetData = async (id) => { if (!id || !/^[A-Za-z0-9_-]{4,80}$/.test(id)) return ""; try { return (await appearanceCatalog.readAsset(id))?.data || ""; } catch { return ""; } }; const overlayData = Object.fromEntries(await Promise.all(Object.entries(skin.overlays || {}).map(async ([slot, id]) => [slot, await assetData(id)]))); const symbolData = Object.fromEntries(await Promise.all(Object.entries(skin.symbolAssets || {}).map(async ([mode, id]) => [mode, await assetData(id)]))); return json(res, 200, { skin: { ...skin, backgroundData: await assetData(skin.backgroundAsset), sealData: await assetData(skin.sealAsset), symbolData, overlayData } }); }
       if (req.method === "PUT" && url.pathname === "/api/appearance-studio/game-layout") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); const body = await readJson(req, 512 * 1024); if (!body?.layout || typeof body.layout !== "object") throw Object.assign(new Error("A base game layout is required."), { status: 400, code: "INVALID_INPUT" }); const catalog = await appearanceCatalog.read(); catalog.gameDefaultLayout = body.layout; return json(res, 200, { layout: (await appearanceCatalog.write(catalog)).gameDefaultLayout }); }
       if (req.method === "POST" && url.pathname === "/api/appearance-studio/phone-layout") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); const body = await readJson(req, 8 * 1024 * 1024); if (!body?.skin || typeof body.skin !== "object") throw Object.assign(new Error("A Studio skin is required."), { status: 400, code: "INVALID_INPUT" }); const id = randomBytes(12).toString("base64url"); const session = { skin: body.skin, updatedAt: Date.now(), expiresAt: Date.now() + PHONE_LAYOUT_TTL_MS }; phoneLayoutSessions.set(id, session); return json(res, 201, { id, skin: session.skin, expiresAt: session.expiresAt }); }
       if (parts[0] === "api" && parts[1] === "appearance-studio" && parts[2] === "phone-layout" && /^[A-Za-z0-9_-]{12,40}$/.test(parts[3] || "")) { const session = readPhoneLayoutSession(parts[3]); const phoneLayoutUrl = `${req.headers["x-forwarded-proto"] || "https"}://${req.headers.host}/index.html?appearance-preview=1&phone-layout=${parts[3]}`; if (req.method === "GET" && parts[4] === "qr") return json(res, 200, { url: phoneLayoutUrl, data: await QRCode.toDataURL(phoneLayoutUrl, { margin: 1, width: 320, errorCorrectionLevel: "M" }) }); if (req.method === "GET") return json(res, 200, { skin: session.skin, updatedAt: session.updatedAt, expiresAt: session.expiresAt }); if (req.method === "PUT") { const body = await readJson(req, 8 * 1024 * 1024); if (!body?.skin || typeof body.skin !== "object") throw Object.assign(new Error("A Studio skin is required."), { status: 400, code: "INVALID_INPUT" }); session.skin = body.skin; session.updatedAt = Date.now(); session.expiresAt = Date.now() + PHONE_LAYOUT_TTL_MS; return json(res, 200, { skin: session.skin, updatedAt: session.updatedAt, expiresAt: session.expiresAt }); } }
@@ -1432,6 +1444,7 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "POST" && parts[3] === "client-diagnostics") return json(res, 201, service.recordClientDiagnostic(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "quick-feedback") return json(res, 201, service.recordQuickFeedback(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "session-kind") return json(res, 200, service.setSessionKind(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "table-skin") return json(res, 200, service.setTableSkin(code, connectionId, await readJson(req)));
         if (req.method === "GET" && parts[3] === "saved-playtests") return json(res, 200, await service.hostArchive(code, connectionId));
         if (req.method === "POST" && parts[3] === "declare-winner") return json(res, 200, service.declareWinner(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "choose-starting-player") return json(res, 200, service.chooseStartingPlayer(code, connectionId, await readJson(req)));

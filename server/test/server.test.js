@@ -1193,3 +1193,13 @@ test("shares a temporary Appearance Studio phone layout session without exposing
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+test("only a host can set a bounded shared table skin", () => {
+  const service = new RoomService(); const host = service.createConnection(); const created = service.createRoom(host.connectionId, { playerCount: 2, startingLife: 40, tableSkinId: "approved-skin" });
+  assert.equal(created.snapshot.config.tableSkinId, "approved-skin");
+  const guest = service.createConnection(); service.claimSeat(created.snapshot.code, guest.connectionId, { seatId: 1, name: "Guest" });
+  assert.throws(() => service.setTableSkin(created.snapshot.code, guest.connectionId, { baseVersion: service.snapshot(service.room(created.snapshot.code)).version, tableSkinId: "other-skin" }), { code: "HOST_ONLY" });
+  const changed = service.setTableSkin(created.snapshot.code, host.connectionId, { baseVersion: service.snapshot(service.room(created.snapshot.code)).version, tableSkinId: "other-skin" });
+  assert.equal(changed.snapshot.config.tableSkinId, "other-skin");
+  assert.throws(() => service.setTableSkin(created.snapshot.code, host.connectionId, { baseVersion: changed.snapshot.version, tableSkinId: "bad skin" }), { code: "INVALID_INPUT" });
+});
