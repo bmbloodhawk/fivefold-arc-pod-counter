@@ -791,6 +791,7 @@ function renderPodStrip() {
   // remaining seats beside the counter; Dial mode places them above Custom Life.
   const largePod = state.players.length > 4;
   dom.podStrip.dataset.playerCount = String(state.players.length);
+  dom.game.dataset.dialSideSeatCount = interfaceStyle === 'dial' && largePod ? String(state.players.length - 4) : '0';
   dom.game.querySelector('.counter-stage').classList.toggle('has-side-seats', largePod && interfaceStyle !== 'dial');
   const seatMarkup = (player) => {
     const isWaiting = player.connectionStatus === 'waiting';

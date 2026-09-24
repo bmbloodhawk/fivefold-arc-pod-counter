@@ -1079,6 +1079,18 @@ button:disabled { cursor: not-allowed; filter: saturate(.45); }
 #gameView[data-interface-style="dial"] .counter-sigil,
 #gameView[data-interface-style="dial"] .dial-controls { top: 48%; }
 #gameView[data-interface-style="dial"] .turn-actions { margin-top: 52px; }
+/* Dial controls use the bottom tab bar as their anchor. Commander Tax stays
+   fixed just above it; extra seats occupy the middle tier and lift End Turn. */
+@media (max-width: 599px) {
+  #gameView[data-interface-style="dial"] { --dial-control-gap: 8px; --dial-tax-height: 64px; --dial-side-seat-stack: 0px; }
+  #gameView[data-interface-style="dial"][data-dial-side-seat-count="1"],
+  #gameView[data-interface-style="dial"][data-dial-side-seat-count="2"] { --dial-side-seat-stack: 82px; }
+  #gameView[data-interface-style="dial"][data-dial-side-seat-count="3"],
+  #gameView[data-interface-style="dial"][data-dial-side-seat-count="4"] { --dial-side-seat-stack: 172px; }
+  #gameView[data-interface-style="dial"] .commander-tax-quick { position: fixed; z-index: 9; right: 12px; bottom: calc(var(--mode-nav-height) + var(--dial-control-gap) + env(safe-area-inset-bottom)); left: 12px; margin: 0; }
+  #gameView[data-interface-style="dial"] .turn-actions { position: fixed; z-index: 9; right: 12px; bottom: calc(var(--mode-nav-height) + var(--dial-control-gap) + var(--dial-tax-height) + var(--dial-control-gap) + var(--dial-side-seat-stack) + var(--dial-control-gap) + env(safe-area-inset-bottom)); left: 12px; margin: 0; }
+  #gameView[data-interface-style="dial"] .side-seats:not([hidden]) { position: fixed; z-index: 9; top: auto; right: 5px; bottom: calc(var(--mode-nav-height) + var(--dial-control-gap) + var(--dial-tax-height) + var(--dial-control-gap) + env(safe-area-inset-bottom)); left: 5px; }
+}
 body.dial-dragging { overflow: hidden; overscroll-behavior: none; }
 @media (max-width: 359px), (max-height: 740px) {
   .dial-controls { grid-template-columns: minmax(50px, 1fr) minmax(170px, 196px) minmax(50px, 1fr); width: 100%; }
@@ -1089,6 +1101,11 @@ body.dial-dragging { overflow: hidden; overscroll-behavior: none; }
   #gameView[data-interface-style="dial"] .counter-sigil,
   #gameView[data-interface-style="dial"] .dial-controls { top: 48%; }
   #gameView[data-interface-style="dial"] .turn-actions { margin-top: 28px; }
+  #gameView[data-interface-style="dial"] { --dial-tax-height: 54px; }
+  #gameView[data-interface-style="dial"][data-dial-side-seat-count="1"],
+  #gameView[data-interface-style="dial"][data-dial-side-seat-count="2"] { --dial-side-seat-stack: 62px; }
+  #gameView[data-interface-style="dial"][data-dial-side-seat-count="3"],
+  #gameView[data-interface-style="dial"][data-dial-side-seat-count="4"] { --dial-side-seat-stack: 132px; }
   #gameView[data-interface-style="dial"] .main-value { font-size: min(28vw, 6.4rem); }
 }
 
