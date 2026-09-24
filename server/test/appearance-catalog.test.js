@@ -5,8 +5,8 @@ import { FirebaseAppearanceCatalog, createAppearanceCatalogFromEnv } from "../sr
 test("Firebase appearance catalog reads and writes a dedicated catalog path", async () => {
   const calls = [];
   const catalog = new FirebaseAppearanceCatalog({ client: { async read(path) { calls.push(["read", path]); return { skins: [{ id: "skin-a" }], assets: [], selected: "skin-a" }; }, async write(path, value) { calls.push(["write", path, value]); } } });
-  assert.deepEqual(await catalog.read(), { skins: [{ id: "skin-a" }], assets: [], selected: "skin-a" });
-  assert.deepEqual(await catalog.write({ skins: "invalid", assets: [{ id: "asset-a" }], selected: 4 }), { skins: [], assets: [{ id: "asset-a" }], selected: "4" });
+  assert.deepEqual(await catalog.read(), { skins: [{ id: "skin-a" }], assets: [], selected: "skin-a", gameDefaultLayout: null });
+  assert.deepEqual(await catalog.write({ skins: "invalid", assets: [{ id: "asset-a" }], selected: 4 }), { skins: [], assets: [{ id: "asset-a" }], selected: "4", gameDefaultLayout: null });
   assert.deepEqual(calls.map(([type, path]) => [type, path]), [["read", "appearance-studio/catalog.json"], ["write", "appearance-studio/catalog.json"]]);
 });
 

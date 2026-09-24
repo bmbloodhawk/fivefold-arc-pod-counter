@@ -2,8 +2,8 @@ import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { FirebasePlaytestLedger } from "./playtest-ledger.js";
 
-const emptyCatalog = () => ({ skins: [], assets: [], selected: "neutral" });
-const normalizeCatalog = (value) => ({ skins: Array.isArray(value?.skins) ? value.skins : [], assets: Array.isArray(value?.assets) ? value.assets : [], selected: String(value?.selected || "neutral") });
+const emptyCatalog = () => ({ skins: [], assets: [], selected: "neutral", gameDefaultLayout: null });
+const normalizeCatalog = (value) => ({ skins: Array.isArray(value?.skins) ? value.skins : [], assets: Array.isArray(value?.assets) ? value.assets : [], selected: String(value?.selected || "neutral"), gameDefaultLayout: value?.gameDefaultLayout && typeof value.gameDefaultLayout === "object" ? value.gameDefaultLayout : null });
 
 export class AppearanceCatalog {
   constructor(path) { this.path = path; this.value = emptyCatalog(); }
