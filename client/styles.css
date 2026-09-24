@@ -1078,7 +1078,7 @@ button:disabled { cursor: not-allowed; filter: saturate(.45); }
 #gameView[data-interface-style="dial"] .counter-stage::after { top: 48%; }
 #gameView[data-interface-style="dial"] .counter-sigil,
 #gameView[data-interface-style="dial"] .dial-controls { top: 48%; }
-#gameView[data-interface-style="dial"] .turn-actions { margin-top: 16px; }
+#gameView[data-interface-style="dial"] .turn-actions { margin-top: 52px; }
 body.dial-dragging { overflow: hidden; overscroll-behavior: none; }
 @media (max-width: 359px), (max-height: 740px) {
   .dial-controls { grid-template-columns: minmax(50px, 1fr) minmax(170px, 196px) minmax(50px, 1fr); width: 100%; }
@@ -1088,7 +1088,7 @@ body.dial-dragging { overflow: hidden; overscroll-behavior: none; }
   #gameView[data-interface-style="dial"] .counter-stage::after,
   #gameView[data-interface-style="dial"] .counter-sigil,
   #gameView[data-interface-style="dial"] .dial-controls { top: 48%; }
-  #gameView[data-interface-style="dial"] .turn-actions { margin-top: 10px; }
+  #gameView[data-interface-style="dial"] .turn-actions { margin-top: 28px; }
   #gameView[data-interface-style="dial"] .main-value { font-size: min(28vw, 6.4rem); }
 }
 
