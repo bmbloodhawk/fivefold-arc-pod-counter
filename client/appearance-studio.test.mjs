@@ -70,6 +70,12 @@ test('the exact preview and the phone session use the same active layout payload
   assert.match(app, /phone-layout-editor-launcher/);
 });
 
+test('Neutral Arc baseline bypasses Studio-only card and background treatments', () => {
+  assert.match(studio, /useGameBase: showingBaseline/);
+  assert.match(app, /data-appearance-custom="false"/);
+  assert.match(app, /customAppearance = !skin\.useGameBase/);
+});
+
 test('the Studio preview preserves the app seal as an absolutely centered layer', () => {
   assert.match(app, /\.counter-readout\{translate:0 var\(--appearance-counter-offset,0\);position:relative;z-index:3\}/);
   assert.doesNotMatch(app, /\.counter-stage>\*:not\(\.appearance-overlay\)/);
