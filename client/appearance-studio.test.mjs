@@ -25,12 +25,14 @@ test('Device Preview uses live app iframes with persisted iPhone-first presets',
   assert.match(devicePreview, /previewColorScheme/);
   assert.match(devicePreview, /Rotate landscape/);
   assert.match(devicePreview, /Safe areas/);
-  assert.match(devicePreview, /selected CSS viewport/);
-  assert.match(devicePreview, /real phone browser/);
+  assert.match(devicePreview, /live game renderer at the selected viewport/);
+  assert.match(devicePreview, /same device or desktop window/);
   assert.match(devicePreview, /Each visible shell owns its device and orientation/);
   assert.match(devicePreview, /comparisonDevice\.name/);
   assert.match(devicePreview, /Compare devices/);
   assert.match(devicePreview, /Comparison device \$\{index \+ 1\}/);
+  assert.match(devicePreview, /Desktop game window/);
+  assert.match(devicePreview, /width: 860, height: 900, dpr: 1/);
 });
 
 test('button and dial layout values are stored independently in a skin', () => {
@@ -74,6 +76,12 @@ test('Neutral Arc baseline bypasses Studio-only card and background treatments',
   assert.match(studio, /useGameBase: showingBaseline/);
   assert.match(app, /data-appearance-custom="false"/);
   assert.match(app, /customAppearance = !skin\.useGameBase/);
+});
+
+test('a non-baseline skin can be deleted without allowing Neutral Arc to be removed', () => {
+  assert.match(studio, /data-delete-skin/);
+  assert.match(studio, /async function deleteSkin/);
+  assert.match(studio, /id === 'neutral'/);
 });
 
 test('the Studio preview preserves the app seal as an absolutely centered layer', () => {
