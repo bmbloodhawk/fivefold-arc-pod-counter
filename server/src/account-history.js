@@ -205,17 +205,18 @@ export class AccountHistory {
     const updated = { ...deck, ...input, commanderNames, commanderName: commanderNames.join(" / "), colors, ...(input.name !== undefined ? { name: text(input.name, 120) } : {}), ...(input.notes !== undefined ? { notes: text(input.notes, 500) } : {}), updatedAt: this.now() }; await this.store.write(decksPath(accountId), { ...decks, [deckId]: updated }); return updated;
   }
 
-  async preferences(accountId) { return (await this.store.read(accountPath(accountId)))?.preferences || { preferredName: null, defaultPlayerCount: 4, defaultRoundLimitMinutes: null, interfaceStyle: "button" }; }
+  async preferences(accountId) { return (await this.store.read(accountPath(accountId)))?.preferences || { preferredName: null, defaultPlayerCount: 4, defaultRoundLimitMinutes: null, interfaceStyle: "button", personalSkinId: null, usePersonalSkin: false }; }
 
   async savePreferences(accountId, input = {}) {
-    const extra = Object.keys(input).find((key) => !["preferredName", "defaultPlayerCount", "defaultRoundLimitMinutes", "interfaceStyle"].includes(key)); if (extra) throw new TypeError(`Preference is not allowed: ${extra}`);
+    const extra = Object.keys(input).find((key) => !["preferredName", "defaultPlayerCount", "defaultRoundLimitMinutes", "interfaceStyle", "personalSkinId", "usePersonalSkin"].includes(key)); if (extra) throw new TypeError(`Preference is not allowed: ${extra}`);
     const account = (await this.store.read(accountPath(accountId))) || { accountId, createdAt: this.now(), consentVersion: null };
     const defaultPlayerCount = input.defaultPlayerCount == null ? 4 : Number(input.defaultPlayerCount); const defaultRoundLimitMinutes = input.defaultRoundLimitMinutes == null || input.defaultRoundLimitMinutes === "" ? null : Number(input.defaultRoundLimitMinutes);
     if (!Number.isInteger(defaultPlayerCount) || defaultPlayerCount < 2 || defaultPlayerCount > 8) throw new TypeError("Default player count is invalid");
     if (defaultRoundLimitMinutes !== null && (!Number.isInteger(defaultRoundLimitMinutes) || defaultRoundLimitMinutes < 1 || defaultRoundLimitMinutes > 999)) throw new TypeError("Default round limit is invalid");
     const interfaceStyle = input.interfaceStyle == null ? "button" : input.interfaceStyle;
     if (!["button", "dial"].includes(interfaceStyle)) throw new TypeError("Interface style is invalid");
-    const preferences = { preferredName: text(input.preferredName, 24), defaultPlayerCount, defaultRoundLimitMinutes, interfaceStyle };
+    const personalSkinId = input.personalSkinId == null || input.personalSkinId === "" ? null : text(input.personalSkinId, 80); if (personalSkinId !== null && !/^[A-Za-z0-9_-]{1,80}$/.test(personalSkinId)) throw new TypeError("Personal skin is invalid");
+    const preferences = { preferredName: text(input.preferredName, 24), defaultPlayerCount, defaultRoundLimitMinutes, interfaceStyle, personalSkinId, usePersonalSkin: Boolean(input.usePersonalSkin) };
     await this.store.write(accountPath(accountId), { ...account, preferences }); return preferences;
   }
 
