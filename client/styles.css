@@ -1062,6 +1062,7 @@ button:disabled { cursor: not-allowed; filter: saturate(.45); }
 .dial-step:not(:disabled):active { background: radial-gradient(ellipse, rgb(216 174 97 / .22), transparent 68%); }
 .dial-step:disabled { opacity: .42; }
 #gameView[data-interface-style="dial"] .adjust-controls { display: none; }
+#gameView[data-interface-style="dial"] .custom-life-button { display: none; }
 #gameView[data-interface-style="dial"] .counter-stage { min-height: 310px; }
 #gameView[data-interface-style="dial"] .counter-readout { z-index: 4; pointer-events: none; }
 #gameView[data-interface-style="dial"] .counter-mode, #gameView[data-interface-style="dial"] .counter-context { opacity: .88; }

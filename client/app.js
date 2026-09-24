@@ -638,7 +638,7 @@ function render() {
   const playerCanMutate = state.localSimulation || player.id === state.ownerPlayerId;
   const mutationsEnabled = playerCanMutate && (transport.status === 'local' || transport.status === 'connected') && (state.mode !== 'commander' || Boolean(source)); $$('[data-delta]').forEach(button => { button.disabled = !mutationsEnabled; });
   dom.dialControls.hidden = interfaceStyle !== 'dial'; dom.dialGesture.setAttribute('aria-valuenow', String(counterValue)); dom.dialGesture.setAttribute('aria-valuetext', `${counterValue} ${state.mode}`); dom.dialGesture.setAttribute('aria-disabled', String(!mutationsEnabled)); dom.dialGesture.tabIndex = mutationsEnabled ? 0 : -1;
-  dom.customLifeButton.hidden = state.mode !== 'life'; dom.customLifeButton.disabled = !playerCanMutate || !(transport.status === 'local' || transport.status === 'connected');
+  dom.customLifeButton.hidden = state.mode !== 'life' || interfaceStyle === 'dial'; dom.customLifeButton.disabled = !playerCanMutate || !(transport.status === 'local' || transport.status === 'connected');
   dom.toggleInterfaceStyleButton.textContent = `Interface style: ${interfaceStyle === 'dial' ? 'Dial' : 'Button'}`;
   renderLifeChange(player);
   dom.activeSeatBar.hidden = !state.localSimulation; $('#resetButton').hidden = !state.localSimulation && transport.seatId !== state.hostSeatId;
