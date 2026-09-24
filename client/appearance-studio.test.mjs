@@ -137,8 +137,8 @@ test('the exact preview can render every supported counter mode', () => {
 });
 
 test('the exact preview receives every appearance control family', () => {
-  for (const key of ['backgroundData', 'sealData', 'symbolData', 'seatOpacity', 'seatBlur', 'seatBorder', 'buttonOpacity', 'lifeButtonOpacity', 'customLifeOpacity', 'commanderTaxOpacity']) assert.match(studio, new RegExp(`\\b${key}\\b`));
-  assert.match(app, /\['button','lifeButton','customLife','commanderTax'\]\.forEach/);
+  for (const key of ['backgroundData', 'sealData', 'symbolData', 'seatOpacity', 'seatBlur', 'seatBorder', 'buttonOpacity', 'lifeButtonOpacity', 'customLifeOpacity', 'commanderTaxOpacity', 'commanderDamageOpacity']) assert.match(studio, new RegExp(`\\b${key}\\b`));
+  assert.match(app, /\['button','lifeButton','customLife','commanderTax','commanderDamage'\]\.forEach/);
   assert.match(app, /skin\[`\$\{prefix\}Opacity`\]/);
   assert.match(app, /--appearance-seat-opacity/);
   assert.match(app, /skin\.backgroundData/);
