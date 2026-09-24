@@ -116,7 +116,7 @@ const buildDevicePreviewSkin = () => {
   const skin = showingBaseline ? neutral : draft;
   const asset = id => store.assets.find(item => item.id === id)?.data || '';
   const layout = activeModeLayout(skin);
-  return { ...skin, ...layout, useGameBase: showingBaseline, previewState, previewMode, previewPlayers, backgroundData: asset(skin.backgroundAsset), sealData: asset(skin.sealAsset), symbolData: Object.fromEntries(Object.keys(icons).map(key => [key, asset(skin.symbolAssets?.[key])])), overlayData: Object.fromEntries(Object.entries(layout.overlays || {}).map(([slot, id]) => [slot, asset(id)])) };
+  return { ...skin, ...layout, useGameBase: showingBaseline || skin.id === 'neutral', previewState, previewMode, previewPlayers, backgroundData: asset(skin.backgroundAsset), sealData: asset(skin.sealAsset), symbolData: Object.fromEntries(Object.keys(icons).map(key => [key, asset(skin.symbolAssets?.[key])])), overlayData: Object.fromEntries(Object.entries(layout.overlays || {}).map(([slot, id]) => [slot, asset(id)])) };
 };
 const devicePreview = mountDevicePreview({ primaryFrame: $('#exactPreview'), getSkin: buildDevicePreviewSkin });
 const phoneLayoutControl = document.createElement('section'); phoneLayoutControl.className = 'phone-layout-control'; phoneLayoutControl.innerHTML = '<strong>Phone Layout Editor</strong><p>Open this draft on your iPhone and adjust the live game there.</p><button type="button" id="openPhoneLayoutEditor">Create phone link</button><div id="phoneLayoutLink" hidden></div>'; $('#uxStudioPanel').insertBefore(phoneLayoutControl, $('#uxStudioPanel').querySelector('details:last-child'));
