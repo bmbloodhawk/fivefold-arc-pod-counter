@@ -76,11 +76,14 @@ test('the exact preview and the phone session use the same active layout payload
 
 test('Neutral Arc baseline bypasses Studio-only card and background treatments', () => {
   assert.match(studio, /useGameBase: showingBaseline \|\| skin\.id === 'neutral'/);
-  assert.match(app, /data-appearance-custom="false"/);
+  assert.match(app, /root\.dataset\.appearanceCustom = String\(customAppearance\)/);
   assert.match(app, /customAppearance = !skin\.useGameBase/);
   assert.match(app, /appearanceUxStyle\.disabled = !customAppearance/);
   assert.doesNotMatch(app, /\.pod-seat>\*:not\(\.appearance-overlay\)/);
   assert.match(app, /\.pod-seat>\.seat-name,html\.appearance-preview \.pod-seat>\.seat-life/);
+  assert.doesNotMatch(app, /appearanceBaseStyle/);
+  assert.doesNotMatch(app, /\.mode-nav button>span\{font-size:1\.4rem\}/);
+  assert.match(app, /data-appearance-custom="true"\] \.mode-nav img/);
 });
 
 test('a non-baseline skin can be deleted without allowing Neutral Arc to be removed', () => {
