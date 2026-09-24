@@ -1171,3 +1171,22 @@ test("protects the Appearance Studio catalog with the developer portal key", asy
     await new Promise((resolve) => protectedServer.close(resolve));
   }
 });
+
+test("shares a temporary Appearance Studio phone layout session without exposing the developer key", async () => {
+  const server = createRealtimeServer({ feedbackPortalKey: "owner-key" }).server;
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const base = `http://127.0.0.1:${server.address().port}/api/appearance-studio/phone-layout`;
+  try {
+    assert.equal((await fetch(base, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ skin: {} }) })).status, 403);
+    const created = await fetch(base, { method: "POST", headers: { "content-type": "application/json", "x-feedback-portal-key": "owner-key" }, body: JSON.stringify({ skin: { interfaceStyle: "dial" } }) });
+    assert.equal(created.status, 201);
+    const session = await created.json();
+    assert.match(session.id, /^[A-Za-z0-9_-]{12,40}$/);
+    assert.deepEqual((await (await fetch(`${base}/${session.id}`)).json()).skin, { interfaceStyle: "dial" });
+    const updated = await fetch(`${base}/${session.id}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ skin: { interfaceStyle: "button" } }) });
+    assert.equal(updated.status, 200);
+    assert.deepEqual((await updated.json()).skin, { interfaceStyle: "button" });
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});

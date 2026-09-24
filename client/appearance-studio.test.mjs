@@ -47,6 +47,23 @@ test('the center seal and life total can be positioned independently in each con
   assert.match(app, /--appearance-life-number-scale/);
 });
 
+test('the Studio exposes separate safe text sizing controls and collapsible editing groups', () => {
+  for (const label of ['Labels &amp; buttons', 'Seat card text', 'Type &amp; readability', 'Shape &amp; spacing', 'Center readout']) assert.match(html, new RegExp(label));
+  for (const key of ['labelTextScale', 'seatTextScale']) assert.match(studio, new RegExp(`\\b${key}\\b`));
+  assert.match(app, /--appearance-label-text-scale/);
+  assert.match(app, /--appearance-seat-text-scale/);
+  assert.match(html, /class="studio-fold"/);
+});
+
+test('dial artwork can rotate with the dial and the Studio can open a shared phone layout editor', () => {
+  assert.match(studio, /dialArtSpin/);
+  assert.match(studio, /Spin this art with the dial/);
+  assert.match(app, /appearance-dial-art/);
+  assert.match(app, /phoneLayoutSessionId/);
+  assert.match(studio, /Phone Layout Editor/);
+  assert.match(studio, /phone-layout/);
+});
+
 test('the Studio preview preserves the app seal as an absolutely centered layer', () => {
   assert.match(app, /\.counter-readout\{translate:0 var\(--appearance-counter-offset,0\);position:relative;z-index:3\}/);
   assert.doesNotMatch(app, /\.counter-stage>\*:not\(\.appearance-overlay\)/);

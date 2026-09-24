@@ -1315,6 +1315,13 @@ export function createRealtimeServer(options = {}) {
   const maxStreamsPerIp = options.maxStreamsPerIp ?? 12;
   const feedbackPortalKey = options.feedbackPortalKey ?? process.env.FEEDBACK_PORTAL_KEY ?? "";
   const appearanceCatalog = options.appearanceCatalog ?? { read: async () => ({ skins: [], assets: [], selected: "neutral" }), write: async value => value, readAsset: async () => null, writeAsset: async (_id, value) => value, deleteAsset: async () => {} };
+  const phoneLayoutSessions = new Map();
+  const PHONE_LAYOUT_TTL_MS = 2 * 60 * 60 * 1000;
+  const readPhoneLayoutSession = (id) => {
+    const session = phoneLayoutSessions.get(id);
+    if (!session || session.expiresAt < Date.now()) { phoneLayoutSessions.delete(id); throw Object.assign(new Error("That phone layout session has ended. Start a new one in Appearance Studio."), { status: 404, code: "PHONE_LAYOUT_NOT_FOUND" }); }
+    return session;
+  };
   const accountHistory = options.accountHistory ?? null;
   const accountVerifier = options.accountVerifier ?? null;
   const accountIdentity = async (req) => {
@@ -1357,6 +1364,8 @@ export function createRealtimeServer(options = {}) {
       if (req.method === "GET" && url.pathname === "/api/developer/access") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { ok: true }); }
       if (req.method === "GET" && url.pathname === "/api/appearance-studio/catalog") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { catalog: await appearanceCatalog.read() }); }
       if (req.method === "PUT" && url.pathname === "/api/appearance-studio/catalog") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { catalog: await appearanceCatalog.write(await readJson(req, 8 * 1024 * 1024)) }); }
+      if (req.method === "POST" && url.pathname === "/api/appearance-studio/phone-layout") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); const body = await readJson(req, 8 * 1024 * 1024); if (!body?.skin || typeof body.skin !== "object") throw Object.assign(new Error("A Studio skin is required."), { status: 400, code: "INVALID_INPUT" }); const id = randomBytes(12).toString("base64url"); const session = { skin: body.skin, updatedAt: Date.now(), expiresAt: Date.now() + PHONE_LAYOUT_TTL_MS }; phoneLayoutSessions.set(id, session); return json(res, 201, { id, skin: session.skin, expiresAt: session.expiresAt }); }
+      if (parts[0] === "api" && parts[1] === "appearance-studio" && parts[2] === "phone-layout" && /^[A-Za-z0-9_-]{12,40}$/.test(parts[3] || "")) { const session = readPhoneLayoutSession(parts[3]); if (req.method === "GET") return json(res, 200, { skin: session.skin, updatedAt: session.updatedAt, expiresAt: session.expiresAt }); if (req.method === "PUT") { const body = await readJson(req, 8 * 1024 * 1024); if (!body?.skin || typeof body.skin !== "object") throw Object.assign(new Error("A Studio skin is required."), { status: 400, code: "INVALID_INPUT" }); session.skin = body.skin; session.updatedAt = Date.now(); session.expiresAt = Date.now() + PHONE_LAYOUT_TTL_MS; return json(res, 200, { skin: session.skin, updatedAt: session.updatedAt, expiresAt: session.expiresAt }); } }
       if (parts[0] === "api" && parts[1] === "appearance-studio" && parts[2] === "assets" && /^[A-Za-z0-9_-]{4,80}$/.test(parts[3] || "")) { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); if (req.method === "GET") return json(res, 200, { asset: await appearanceCatalog.readAsset(parts[3]) }); if (req.method === "PUT") return json(res, 200, { asset: await appearanceCatalog.writeAsset(parts[3], await readJson(req, 2 * 1024 * 1024)) }); if (req.method === "DELETE") { await appearanceCatalog.deleteAsset(parts[3]); return json(res, 204, {}); } }
       if (req.method === "GET" && parts[0] === "dice-skins" && parts[1] && parts[2] && serveDiceSkin(res, parts[1], parts[2])) return;
       if (req.method === "GET" && url.pathname === "/api/feedback") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { notes: await service.ledger.listFeedback() }); }
