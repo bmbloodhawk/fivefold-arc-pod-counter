@@ -64,6 +64,12 @@ test('dial artwork can rotate with the dial and the Studio can open a shared pho
   assert.match(studio, /phone-layout/);
 });
 
+test('the exact preview and the phone session use the same active layout payload', () => {
+  assert.match(studio, /const exactSkin = buildDevicePreviewSkin\(\)/);
+  assert.match(studio, /skin: buildDevicePreviewSkin\(\)/);
+  assert.match(app, /phone-layout-editor-launcher/);
+});
+
 test('the Studio preview preserves the app seal as an absolutely centered layer', () => {
   assert.match(app, /\.counter-readout\{translate:0 var\(--appearance-counter-offset,0\);position:relative;z-index:3\}/);
   assert.doesNotMatch(app, /\.counter-stage>\*:not\(\.appearance-overlay\)/);

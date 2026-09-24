@@ -126,5 +126,5 @@ async function publishPhoneLayoutSession() { if (!phoneLayoutSession || applying
 const changedBeforePhoneLayout = changed; changed = function() { changedBeforePhoneLayout(); void publishPhoneLayoutSession(); };
 $('#openPhoneLayoutEditor').addEventListener('click', createPhoneLayoutSession); setInterval(syncPhoneLayoutSession, 1200);
 const renderExactPreviewWithDevice = renderExactPreview;
-renderExactPreview = function() { renderExactPreviewWithDevice(); devicePreview.sync(); };
+renderExactPreview = function() { renderExactPreviewWithDevice(); const exactSkin = buildDevicePreviewSkin(); $('#exactPreview').contentWindow?.postMessage({ type: 'fivefold-arc:appearance-skin', skin: exactSkin }, location.origin); devicePreview.sync(); };
 devicePreview.sync();
