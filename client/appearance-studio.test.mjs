@@ -78,6 +78,7 @@ test('Neutral Arc baseline bypasses Studio-only card and background treatments',
   assert.match(studio, /useGameBase: showingBaseline/);
   assert.match(app, /data-appearance-custom="false"/);
   assert.match(app, /customAppearance = !skin\.useGameBase/);
+  assert.match(app, /appearanceUxStyle\.disabled = !customAppearance/);
 });
 
 test('a non-baseline skin can be deleted without allowing Neutral Arc to be removed', () => {
