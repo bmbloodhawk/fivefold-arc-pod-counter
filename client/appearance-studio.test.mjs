@@ -35,6 +35,8 @@ test('Device Preview uses live app iframes with persisted iPhone-first presets',
   assert.match(devicePreview, /Comparison device \$\{index \+ 1\}/);
   assert.match(devicePreview, /Desktop game window/);
   assert.match(devicePreview, /width: 860, height: 900, dpr: 1/);
+  assert.match(devicePreview, /function displayScale/);
+  assert.match(devicePreview, /--sim-layout-width/);
 });
 
 test('button and dial layout values are stored independently in a skin', () => {

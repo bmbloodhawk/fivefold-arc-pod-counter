@@ -67,17 +67,23 @@ export function mountDevicePreview({ primaryFrame, getSkin }) {
     $('#devicePreset').value = state.presetId;
   }
   function dimensions(device, orientation) { return orientation === 'landscape' ? { width: device.height, height: device.width } : device; }
+  function displayScale(width) {
+    const requested = state.zoom === 'fit' ? .75 : Number(state.zoom) / 100;
+    const columns = state.count === 1 || window.innerWidth <= 720 ? 1 : 2;
+    const usableWidth = Math.max(220, ($('#devicePreviewGrid').clientWidth - 36 - ((columns - 1) * 22)) / columns);
+    return Math.min(requested, usableWidth / (width + 20));
+  }
   function createShell(frame, device, slotIndex) {
     const slot = state.slots[slotIndex]; const { width, height } = dimensions(device, slot.orientation); const shell = document.createElement('article');
     shell.className = `sim-device frame-${device.frame}${state.frame ? '' : ' no-frame'} ${slot.orientation}`;
-    shell.style.setProperty('--device-width', `${width}px`); shell.style.setProperty('--device-height', `${height}px`);
-    shell.style.setProperty('--device-scale', state.zoom === 'fit' ? 'var(--fit-scale)' : String(Number(state.zoom) / 100));
+    const scale = displayScale(width); shell.style.setProperty('--device-width', `${width}px`); shell.style.setProperty('--device-height', `${height}px`);
+    shell.style.setProperty('--device-scale', String(scale)); shell.style.setProperty('--sim-layout-width', `${Math.ceil((width + 20) * scale)}px`); shell.style.setProperty('--sim-layout-height', `${Math.ceil((height + 48) * scale)}px`);
     shell.dataset.network = state.network;
     const label = document.createElement('p'); label.className = 'sim-device-label'; label.textContent = `${width} × ${height} · ${device.dpr}× DPR`;
     const screen = document.createElement('div'); screen.className = 'sim-device-screen';
     frame.className = 'exact-preview device-preview-frame'; frame.tabIndex = -1; frame.style.width = `${width}px`; frame.style.height = `${height}px`;
     screen.append(frame); shell.append(label, screen);
-    if (state.safe) { const status = document.createElement('span'); status.className = 'sim-status'; status.textContent = '9:41'; const home = document.createElement('span'); home.className = 'sim-home'; shell.append(status, home); }
+    if (state.safe) { const status = document.createElement('span'); status.className = 'sim-status'; status.textContent = '9:41'; const home = document.createElement('span'); home.className = 'sim-home'; screen.append(status, home); }
     return shell;
   }
   function renderComparisonSetup() {
