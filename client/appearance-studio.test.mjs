@@ -26,8 +26,9 @@ test('Device Preview uses live app iframes with persisted iPhone-first presets',
   assert.match(devicePreview, /Rotate landscape/);
   assert.match(devicePreview, /Safe areas/);
   assert.match(devicePreview, /Each visible shell owns its device and orientation/);
-  assert.match(devicePreview, /Device \$\{slotIndex \+ 1\}/);
   assert.match(devicePreview, /comparisonDevice\.name/);
+  assert.match(devicePreview, /Compare devices/);
+  assert.match(devicePreview, /Comparison device \$\{index \+ 1\}/);
 });
 
 test('button and dial layout values are stored independently in a skin', () => {
