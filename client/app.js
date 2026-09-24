@@ -1245,6 +1245,9 @@ if (appearancePreviewMode) {
   // Preview supplies the selected iOS bottom inset so its live renderer has
   // the same reserved navigation space as the phone it represents.
   const appearanceSafeAreaStyle = document.createElement('style'); appearanceSafeAreaStyle.textContent = 'html.appearance-preview #gameView .mode-nav{padding-bottom:calc(3px + var(--appearance-preview-safe-bottom,env(safe-area-inset-bottom)))}html.appearance-preview .game-shell{padding-bottom:calc(var(--mode-nav-height) + 18px + var(--appearance-preview-safe-bottom,env(safe-area-inset-bottom)))}'; document.head.append(appearanceSafeAreaStyle);
+  // Every Studio scale is centered on the same visual point. Position controls
+  // may deliberately move an item, but changing only its size never does.
+  const appearanceScaleOriginStyle = document.createElement('style'); appearanceScaleOriginStyle.textContent = 'html.appearance-preview #gameView .pod-strip,html.appearance-preview #gameView .counter-readout,html.appearance-preview #gameView .dial-gesture,html.appearance-preview #gameView #turnActions,html.appearance-preview #gameView .adjust-controls,html.appearance-preview #gameView .custom-life-button,html.appearance-preview #gameView .commander-tax-quick,html.appearance-preview #gameView .mode-nav,html.appearance-preview #gameView .counter-sigil,html.appearance-preview #gameView .main-value,html.appearance-preview .appearance-overlay{transform-origin:center center}'; document.head.append(appearanceScaleOriginStyle);
   window.addEventListener('message', event => {
     if (event.origin !== location.origin || event.data?.type !== 'fivefold-arc:appearance-skin') return;
     const skin = event.data.skin; if (!skin) return; activeAppearanceSkin = structuredClone(skin);
