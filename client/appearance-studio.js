@@ -1,4 +1,4 @@
-import { mountDevicePreview } from './device-preview.js?v=1';
+import { mountDevicePreview } from './device-preview.js?v=2';
 const $ = s => document.querySelector(s); const $$ = s => [...document.querySelectorAll(s)];
 const KEY = 'fivefold-arc:appearance-studio'; let developerKey = sessionStorage.getItem('fivefold-arc:developer-key') || '';
 window.addEventListener('message', event => {

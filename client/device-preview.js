@@ -58,7 +58,7 @@ export function mountDevicePreview({ primaryFrame, getSkin }) {
   }
   const deviceForSlot = index => allDevices().find(device => device.id === state.slots[index]?.presetId) || DEVICE_PRESETS[0];
   const save = () => localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  const post = frame => { frame.classList.add('device-preview-frame'); frame.contentWindow?.postMessage({ type: 'fivefold-arc:appearance-skin', skin: { ...getSkin(), previewColorScheme: state.scheme } }, location.origin); };
+  const post = frame => { frame.classList.add('device-preview-frame'); frame.contentWindow?.postMessage({ type: 'fivefold-arc:appearance-skin', skin: { ...getSkin(), previewColorScheme: state.scheme, previewSafeBottom: Number(frame.dataset.previewSafeBottom) || 0 } }, location.origin); };
   function options() {
     const query = state.query.trim().toLowerCase();
     const devices = allDevices().filter(device => (state.category === 'All' || device.category === state.category) && `${device.name} ${device.width} ${device.height}`.toLowerCase().includes(query));
@@ -81,7 +81,7 @@ export function mountDevicePreview({ primaryFrame, getSkin }) {
     shell.dataset.network = state.network;
     const label = document.createElement('p'); label.className = 'sim-device-label'; label.textContent = `${width} × ${height} · ${device.dpr}× DPR`;
     const screen = document.createElement('div'); screen.className = 'sim-device-screen';
-    frame.className = 'exact-preview device-preview-frame'; frame.tabIndex = -1; frame.style.width = `${width}px`; frame.style.height = `${height}px`;
+    frame.className = 'exact-preview device-preview-frame'; frame.tabIndex = -1; frame.style.width = `${width}px`; frame.style.height = `${height}px`; frame.dataset.previewSafeBottom = state.safe && device.category === 'iOS' && slot.orientation === 'portrait' ? '34' : '0';
     screen.append(frame); shell.append(label, screen);
     if (state.safe) { const status = document.createElement('span'); status.className = 'sim-status'; status.textContent = '9:41'; const home = document.createElement('span'); home.className = 'sim-home'; screen.append(status, home); }
     return shell;
