@@ -1182,6 +1182,9 @@ test("shares a temporary Appearance Studio phone layout session without exposing
     assert.equal(created.status, 201);
     const session = await created.json();
     assert.match(session.id, /^[A-Za-z0-9_-]{12,40}$/);
+    const qr = await (await fetch(`${base}/${session.id}/qr`)).json();
+    assert.match(qr.url, new RegExp(`phone-layout=${session.id}`));
+    assert.match(qr.data, /^data:image\/png;base64,/);
     assert.deepEqual((await (await fetch(`${base}/${session.id}`)).json()).skin, { interfaceStyle: "dial" });
     const updated = await fetch(`${base}/${session.id}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ skin: { interfaceStyle: "button" } }) });
     assert.equal(updated.status, 200);
