@@ -10,6 +10,8 @@ const html = await readFile(new URL('appearance-studio.html', root), 'utf8');
 
 test('Appearance Studio uses the isolated live renderer as its visible preview', () => {
   assert.match(html, /<iframe id="exactPreview"[^>]*src="index\.html\?appearance-preview=1"/);
+  assert.match(html, /class="preview-stage legacy-preview" hidden aria-hidden="true"/);
+  assert.match(html, /visible preview is the live game interface/);
   assert.match(studio, /frame\.contentWindow\?\.postMessage\(\{ type: 'fivefold-arc:appearance-skin'/);
   assert.match(studio, /fivefold-arc:appearance-preview-ready/);
   assert.match(app, /appearancePreviewMode = new URLSearchParams\(location\.search\)\.get\('appearance-preview'\) === '1'/);
