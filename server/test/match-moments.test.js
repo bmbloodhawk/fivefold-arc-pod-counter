@@ -33,6 +33,18 @@ test('match moments ignore setup changes and preserve the low-life and comeback 
   assert.equal(personalMatchMoment({ seat: defender, seats, winnerSeatId: 99, seed: 'test' }).category, 'Comeback Kid');
 });
 
+test('life loss is grouped by the active tracked turn, including commander damage', () => {
+  const alex = seat(0, 'Alex');
+  recordMatchMoment(alex, { counter: 'life', delta: -15, lifeBefore: 40, lifeAfter: 25, gameStarted: true, turnKey: 100 });
+  recordMatchMoment(alex, { counter: 'commanderDamage', delta: 5, lifeBefore: 25, lifeAfter: 20, gameStarted: true, turnKey: 100 });
+  assert.equal(alex.matchMoment.largestLifeLossInTurn, 20);
+  assert.equal(alex.matchMoment.lifeAtLargestLossTurnStart, 40);
+  assert.equal(alex.matchMoment.lostHalfLifeInOneTurn, true);
+  recordMatchMoment(alex, { counter: 'life', delta: -20, lifeBefore: 20, lifeAfter: 0, gameStarted: true, turnKey: 200 });
+  assert.equal(alex.matchMoment.largestLifeLossInTurn, 20);
+  assert.equal(alex.matchMoment.lostAllLifeInOneTurn, true);
+});
+
 test('recovery tracking counts only play that continues after a reclaim', () => {
   const alex = seat(0, 'Alex');
   recordMatchMoment(alex, { counter: 'life', delta: 1, lifeAfter: 41, gameStarted: true });

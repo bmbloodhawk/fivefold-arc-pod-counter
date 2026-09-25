@@ -633,6 +633,10 @@ export class RoomService {
         lifeGained: matchMoment.lifeGained || 0,
         lifeGainedAfterLow: matchMoment.lifeGainedAfterLow || 0,
         actionsAfterLow: matchMoment.actionsAfterLow || 0,
+        largestLifeLossInTurn: matchMoment.largestLifeLossInTurn || 0,
+        lifeAtLargestLossTurnStart: matchMoment.lifeAtLargestLossTurnStart || room.config.startingLife,
+        lostHalfLifeInOneTurn: matchMoment.lostHalfLifeInOneTurn ? 1 : 0,
+        lostAllLifeInOneTurn: matchMoment.lostAllLifeInOneTurn ? 1 : 0,
         playerCountAtStart: matchMoment.playerCountAtStart || room.seats.filter((item) => item.claimed).length,
         turnCount: matchMoment.turnCount || 0,
         durationMs: Math.max(0, room.gameResult.decidedAt - (room.turn.gameStartedAt || room.gameResult.decidedAt)),
@@ -871,7 +875,7 @@ export class RoomService {
       const before = seat.counters[counter] ?? 0; seat.counters[counter] = Math.max(minimum, Math.min(999, before + delta)); applied = seat.counters[counter] - before;
     }
     if (counter === "poison" && applied > 0) seat.counterTotals = { ...(seat.counterTotals || {}), poison: (seat.counterTotals?.poison || 0) + applied };
-    recordMatchMoment(seat, { counter, delta: applied, commanderSourceId: input.commanderSourceId, lifeAfter: seat.counters.life, gameStarted: room.turn.gameStarted, isOwnTurn: room.turn.activeSeatId === seat.seatId });
+    recordMatchMoment(seat, { counter, delta: applied, commanderSourceId: input.commanderSourceId, lifeBefore: counter === "commanderDamage" ? seat.counters.life + applied : counter === "life" ? seat.counters.life - applied : seat.counters.life, lifeAfter: seat.counters.life, gameStarted: room.turn.gameStarted, isOwnTurn: room.turn.activeSeatId === seat.seatId, turnKey: room.turn.turnStartedAt });
     recordLastPlayerStanding(room, this.now());
     room.version += 1;
     this.recordLedger(room, "counter_adjusted", seat.seatId, { counter, delta: applied, ...(counter === "commanderDamage" ? { commanderSourceId: input.commanderSourceId } : {}) });
@@ -891,7 +895,7 @@ export class RoomService {
     if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
     const nonlandCount = asInteger(input.nonlandCount, "nonlandCount", 0, 999); const removed = Math.min(nonlandCount, seat.counters.radiation || 0);
     seat.counters.radiation -= removed; seat.counters.life = Math.max(-999, seat.counters.life - nonlandCount);
-    recordMatchMoment(seat, { counter: "life", delta: -nonlandCount, lifeAfter: seat.counters.life, gameStarted: true, isOwnTurn: true }); recordLastPlayerStanding(room, this.now()); room.version += 1;
+    recordMatchMoment(seat, { counter: "life", delta: -nonlandCount, lifeBefore: seat.counters.life + nonlandCount, lifeAfter: seat.counters.life, gameStarted: true, isOwnTurn: true, turnKey: room.turn.turnStartedAt }); recordLastPlayerStanding(room, this.now()); room.version += 1;
     this.recordLedger(room, "radiation_resolved", seatId, { nonlandCount, removed }); this.recordCompletion(room); this.broadcast(room); return { snapshot: this.snapshot(room) };
   }
 

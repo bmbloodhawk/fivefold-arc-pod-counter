@@ -1,8 +1,8 @@
 export function blankMatchMoment(startingLife) {
-  return { lifeGained: 0, lifeLostOnOwnTurn: 0, lowestLife: startingLife, lifeGainedAfterLow: 0, actionsAfterLow: 0, reclaimedDuringGame: false, actionsAfterReclaim: 0, turnsAfterReclaim: 0, playerCountAtStart: null, tableGameNumber: 1, usedLocalD20: false, poisonGained: 0, commanderDamageReceived: 0, commanderDamageBySource: {}, energyGained: 0, radiationGained: 0, turnCount: 0, totalTurnMs: 0 };
+  return { lifeGained: 0, lifeLostOnOwnTurn: 0, lowestLife: startingLife, lifeGainedAfterLow: 0, actionsAfterLow: 0, reclaimedDuringGame: false, actionsAfterReclaim: 0, turnsAfterReclaim: 0, playerCountAtStart: null, tableGameNumber: 1, usedLocalD20: false, poisonGained: 0, commanderDamageReceived: 0, commanderDamageBySource: {}, energyGained: 0, radiationGained: 0, turnCount: 0, totalTurnMs: 0, lifeLossTurnKey: null, lifeLostThisTurn: 0, lifeAtCurrentLossTurnStart: startingLife, largestLifeLossInTurn: 0, lifeAtLargestLossTurnStart: startingLife, lostHalfLifeInOneTurn: false, lostAllLifeInOneTurn: false };
 }
 
-export function recordMatchMoment(seat, { counter, delta, commanderSourceId, lifeAfter, gameStarted, isOwnTurn = false }) {
+export function recordMatchMoment(seat, { counter, delta, commanderSourceId, lifeBefore, lifeAfter, gameStarted, isOwnTurn = false, turnKey = null }) {
   if (!gameStarted || !seat.matchMoment) return;
   const m = seat.matchMoment;
   const priorLowest = m.lowestLife;
@@ -13,6 +13,14 @@ export function recordMatchMoment(seat, { counter, delta, commanderSourceId, lif
       if (commanderSourceId) m.commanderDamageBySource[commanderSourceId] = (m.commanderDamageBySource[commanderSourceId] || 0) + delta;
     }
     m.lowestLife = Math.min(m.lowestLife, lifeAfter);
+  }
+  const lifeLost = counter === 'life' ? Math.max(0, -delta) : counter === 'commanderDamage' ? Math.max(0, delta) : 0;
+  if (lifeLost > 0 && turnKey != null) {
+    if (m.lifeLossTurnKey !== turnKey) { m.lifeLossTurnKey = turnKey; m.lifeLostThisTurn = 0; m.lifeAtCurrentLossTurnStart = lifeBefore; }
+    m.lifeLostThisTurn += lifeLost;
+    if (m.lifeLostThisTurn > m.largestLifeLossInTurn) { m.largestLifeLossInTurn = m.lifeLostThisTurn; m.lifeAtLargestLossTurnStart = m.lifeAtCurrentLossTurnStart; }
+    if (m.lifeAtCurrentLossTurnStart >= 10 && m.lifeLostThisTurn * 2 >= m.lifeAtCurrentLossTurnStart) m.lostHalfLifeInOneTurn = true;
+    if (m.lifeAtCurrentLossTurnStart >= 10 && m.lifeLostThisTurn >= m.lifeAtCurrentLossTurnStart) m.lostAllLifeInOneTurn = true;
   }
   if (counter === 'poison' && delta > 0) m.poisonGained += delta;
   if (counter === 'energy' && delta > 0) m.energyGained += delta;

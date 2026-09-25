@@ -23,8 +23,8 @@ const lifetimeCounterTotals = (games) => Object.fromEntries(COUNTER_TOTAL_KEYS.m
 const achievementRarity = (id) => {
   if (new Set(['phoenix-turn', 'the-full-court', 'all-systems-go', 'the-long-goodbye', 'enduring-legend', 'mythic-run', 'color-wheel', 'wide-table', 'fifty-crowns', 'poisoned-legend', 'infinite-reserve', 'wasteland-legend', 'known-to-legends']).has(id)) return 'legendary';
   if (new Set(['one-life-to-live', 'overflowing-cup', 'one-more-before-bed', 'saga-at-the-table', 'legendary-welcome', 'toxic-tenacity', 'no-seat-left-behind', 'pod-pillar', 'unstoppable', 'armory', 'venom-veteran', 'living-battery', 'irradiated-veteran', 'legend-scarred']).has(id)) return 'epic';
-  if (new Set(['second-wind', 'last-breath', 'table-trilogy', 'deep-into-the-night', 'legend-collector', 'seasoned', 'hot-streak', 'trusted-blade', 'near-crown', 'ten-crowns', 'toxic-regular', 'grid-connected', 'glow-up', 'battle-scarred']).has(id)) return 'rare';
-  if (new Set(['one-is-plenty', 'full-pantry', 'back-at-the-table', 'still-here', 'run-it-back', 'dice-have-spoken', 'settling-in', 'commander-magnet', 'grand-audience', 'irradiated-victory', 'capacitor-discharge', 'round-robin', 'duelist', 'pod-victor', 'full-table', 'crowded-table', 'eightfold-assembly', 'table-regular', 'month-regular', 'first-dose', 'power-cell', 'fallout-shelter', 'marked']).has(id)) return 'uncommon';
+  if (new Set(['one-turn-wipeout', 'second-wind', 'last-breath', 'table-trilogy', 'deep-into-the-night', 'legend-collector', 'seasoned', 'hot-streak', 'trusted-blade', 'near-crown', 'ten-crowns', 'toxic-regular', 'grid-connected', 'glow-up', 'battle-scarred']).has(id)) return 'rare';
+  if (new Set(['half-the-story', 'one-is-plenty', 'full-pantry', 'back-at-the-table', 'still-here', 'run-it-back', 'dice-have-spoken', 'settling-in', 'commander-magnet', 'grand-audience', 'irradiated-victory', 'capacitor-discharge', 'round-robin', 'duelist', 'pod-victor', 'full-table', 'crowded-table', 'eightfold-assembly', 'table-regular', 'month-regular', 'first-dose', 'power-cell', 'fallout-shelter', 'marked']).has(id)) return 'uncommon';
   return 'common';
 };
 
@@ -36,6 +36,8 @@ const achievementsFor = ({ games, decks, bestWinStreak, monthCount, playedColors
   const counters = lifetimeCounterTotals(games);
   const counterChain = (key, tiers) => tiers.map(([id, title, detail, target]) => [id, title, detail, counters[key] >= target]);
     const definitions = [
+    ['half-the-story', 'Half the Story', 'Lost at least half your life during one tracked turn.', games.some(game => game.achievementFacts?.lostHalfLifeInOneTurn === 1)],
+    ['one-turn-wipeout', 'One-Turn Wipeout', 'Lost all the life you had during one tracked turn.', games.some(game => game.achievementFacts?.lostAllLifeInOneTurn === 1)],
     ['hanging-by-a-thread', 'Hanging by a Thread', 'Reached 5 life or less in a saved game.', games.some(game => game.achievementFacts?.lowestLife >= 2 && game.achievementFacts.lowestLife <= 5)],
     ['one-is-plenty', 'One Is Plenty', 'Reached 1 life and recorded another action.', games.some(game => game.achievementFacts?.lowestLife === 1 && game.achievementFacts.actionsAfterLow >= 1)],
     ['second-wind', 'Second Wind', 'Recovered 10 life after reaching 5 life or less.', games.some(game => game.achievementFacts?.lowestLife <= 5 && game.achievementFacts.lifeGainedAfterLow >= 10)],
@@ -165,7 +167,7 @@ export class AccountHistory {
       if (!Number.isInteger(value) || value < 0 || value > 9999) throw new TypeError("Counter totals are invalid");
       return [key, value];
     }));
-    const rawFacts = input.achievementFacts || {}; const factKeys = ["lowestLife", "lifeGained", "lifeGainedAfterLow", "actionsAfterLow", "playerCountAtStart", "turnCount", "durationMs", "commanderSourcesHit", "largestCommanderDamage", "everyOpponentCommanderAt18", "handoffCount", "everyStarterTwoTurns", "everyStarterThreeTurns", "reclaimedDuringGame", "actionsAfterReclaim", "turnsAfterReclaim", "tableGameNumber", "usedLocalD20"];
+    const rawFacts = input.achievementFacts || {}; const factKeys = ["lowestLife", "lifeGained", "lifeGainedAfterLow", "actionsAfterLow", "largestLifeLossInTurn", "lifeAtLargestLossTurnStart", "lostHalfLifeInOneTurn", "lostAllLifeInOneTurn", "playerCountAtStart", "turnCount", "durationMs", "commanderSourcesHit", "largestCommanderDamage", "everyOpponentCommanderAt18", "handoffCount", "everyStarterTwoTurns", "everyStarterThreeTurns", "reclaimedDuringGame", "actionsAfterReclaim", "turnsAfterReclaim", "tableGameNumber", "usedLocalD20"];
     if (!rawFacts || typeof rawFacts !== "object" || Array.isArray(rawFacts) || Object.keys(rawFacts).some(key => !factKeys.includes(key))) throw new TypeError("Achievement facts are invalid");
     const achievementFacts = Object.fromEntries(factKeys.filter(key => rawFacts[key] != null).map(key => { const value = Number(rawFacts[key]); if (!Number.isInteger(value) || value < 0 || value > 9_999_999_999) throw new TypeError("Achievement facts are invalid"); return [key, value]; }));
     const game = { gameId, savedAt: this.now(), tableSize, won, place, outcomeDescription: text(input.outcomeDescription, 160), commanderName: text(input.commanderName, 120), deckId: input.deckId || null, counterTotals, achievementFacts, ...(sourceGameId ? { sourceGameId } : {}) };

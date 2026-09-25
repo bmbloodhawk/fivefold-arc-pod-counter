@@ -48,6 +48,17 @@ test("achievements are earned from saved results and do not reveal unfinished go
   assert.equal("milestones" in summary, false);
 });
 
+test("turn-loss achievements require the recorded life loss and life total from one turn", async () => {
+  const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: (() => { let id = 0; return () => String(++id); })() }); const accountId = await history.ensureAccount("subject");
+  await history.saveGame(accountId, { tableSize: 4, won: false, achievementFacts: { largestLifeLossInTurn: 20, lifeAtLargestLossTurnStart: 40, lostHalfLifeInOneTurn: 1 } });
+  let achievements = new Map((await history.summary(accountId)).achievements.map(achievement => [achievement.id, achievement]));
+  assert.equal(achievements.get("half-the-story").rarity, "uncommon");
+  assert.equal(achievements.has("one-turn-wipeout"), false);
+  await history.saveGame(accountId, { tableSize: 4, won: false, achievementFacts: { largestLifeLossInTurn: 20, lifeAtLargestLossTurnStart: 20, lostHalfLifeInOneTurn: 1, lostAllLifeInOneTurn: 1 } });
+  achievements = new Map((await history.summary(accountId)).achievements.map(achievement => [achievement.id, achievement]));
+  assert.equal(achievements.get("one-turn-wipeout").rarity, "rare");
+});
+
 test("ordinary completed-game moments stay common or uncommon", async () => {
   const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: (() => { let id = 0; return () => String(++id); })() }); const accountId = await history.ensureAccount("subject");
   await history.saveGame(accountId, { tableSize: 8, won: true, achievementFacts: { reclaimedDuringGame: 1, turnsAfterReclaim: 2, lifeGained: 25, playerCountAtStart: 8, everyStarterTwoTurns: 1 }, counterTotals: { energy: 20, radiation: 10 } });
