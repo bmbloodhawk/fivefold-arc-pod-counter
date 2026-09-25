@@ -307,6 +307,7 @@
         <button id="turnSoundPreferencesButton" type="button">My turn sound</button>
         <button id="toggleTouchFeedbackButton" type="button">Touch feedback: on</button>
         <button id="toggleInterfaceStyleButton" type="button">Interface style: Button</button>
+        <button id="leaveTableButton" type="button">Leave table</button>
         <button id="backToSetupButton" type="button">Back to setup</button>
         <button id="resetButton" class="danger-text" type="button">Reset game</button>
       </aside>
@@ -461,6 +462,18 @@
       <p id="achievementSummary">Your game added something new to your chronicle.</p>
       <div id="achievementUnlockList" class="achievement-unlock-list"></div>
       <button value="continue" class="primary-action">Continue</button>
+    </form>
+  </dialog>
+
+  <dialog id="leaveTableDialog">
+    <form method="dialog">
+      <div class="dialog-mark" aria-hidden="true">←</div>
+      <h2>Leave this table?</h2>
+      <p>You will return home on this phone. Your seat stays reserved here so you can rejoin from this device.</p>
+      <div class="dialog-actions">
+        <button type="button" class="secondary-action" onclick="this.closest('dialog').close('cancel')">Stay</button>
+        <button id="confirmLeaveTableButton" value="confirm" class="danger-action">Leave table</button>
+      </div>
     </form>
   </dialog>
 

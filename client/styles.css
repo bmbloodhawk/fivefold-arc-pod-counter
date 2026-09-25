@@ -150,6 +150,8 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .identity-rail { position: absolute; right: 7px; bottom: 5px; left: 7px; height: 4px; border: 1px solid rgb(244 236 217 / .24); background: var(--identity-rail, repeating-linear-gradient(90deg, #4a4640 0 4px, transparent 4px 7px)); }
 .pod-seat .seat-name { display: block; overflow: hidden; color: var(--ink); font-family: Georgia, "Times New Roman", serif; font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-overflow: ellipsis; white-space: nowrap; }
 .pod-seat .seat-life { display: block; margin-top: 5px; font-family: Georgia, serif; font-size: 1.82rem; line-height: .9; }
+.pod-seat.commander-seat-source .seat-life { color: var(--brass); font-family: system-ui, sans-serif; font-size: .62rem; font-weight: 900; letter-spacing: .09em; }
+.pod-seat.commander-seat-damage .seat-life { font-size: clamp(.88rem, 4.5vw, 1.4rem); white-space: nowrap; }
 .pod-seat .seat-state { position: absolute; top: 5px; right: 5px; display: grid; place-items: center; width: 12px; height: 12px; border: 1px solid currentColor; border-radius: 50%; background: #151515; color: var(--muted); font-size: .57rem; font-weight: 900; line-height: 1; }
 .pod-seat .seat-state.connected { color: var(--safe); }
 .pod-seat .seat-state.offline, .pod-seat .seat-state.warning { color: var(--warning); }

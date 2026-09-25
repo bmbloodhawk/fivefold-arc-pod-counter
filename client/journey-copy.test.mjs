@@ -248,6 +248,28 @@ test('commander source selection keeps every source grouped, suggests the active
   assert.equal(commanderSourceSections({ sources, players, defenderDamage: {}, turnSeatId: 'P3', turnTrackingEnabled: false }).suggested.length, 0);
 });
 
+test('commander seat cards identify the selected source and show every other defender\'s source-specific damage', () => {
+  assert.match(app, /function commanderSeatCardValue\(player, source\)/);
+  assert.match(app, /if \(player\.id === source\.ownerPlayerId\) return \{ text: 'SOURCE', state: 'source' \}/);
+  assert.match(app, /text: `CMD \$\{commanderValue\(player, source\.id\)\}`/);
+  assert.match(app, /const commanderSource = state\.mode === 'commander'/);
+  assert.match(styles, /\.pod-seat\.commander-seat-source \.seat-life/);
+  assert.match(styles, /\.pod-seat\.commander-seat-damage \.seat-life/);
+});
+
+test('selecting a saved deck immediately confirms every selected commander identity for create and join', () => {
+  assert.match(app, /const container = joining \? dom\.joinCommanderNames : dom\.createCommanderNames/);
+  assert.match(app, /renderCommanderNameFields\(container, commanderNames\.length, commanderNames\); void confirmUnresolvedCommanderDetails\(container, commanderNames\.length\)/);
+});
+
+test('every player has a confirmed route home that preserves their reclaimable seat', () => {
+  assert.match(html, /id="leaveTableButton"[^>]*>Leave table/);
+  assert.match(html, /id="leaveTableDialog"/);
+  assert.match(html, /Your seat stays reserved here so you can rejoin from this device\./);
+  assert.match(app, /function leaveTable\(\)/);
+  assert.match(app, /dom\.confirmLeaveTableButton\?\.addEventListener\('click', leaveTable\)/);
+});
+
 test('life changes and low-life warnings do not reflow the fixed play surface', () => {
   assert.match(styles, /A changing total must never reflow the play surface/);
   assert.match(styles, /\.main-value \{ display: block; min-width: 3ch; font-feature-settings: "tnum" 1; \}/);
