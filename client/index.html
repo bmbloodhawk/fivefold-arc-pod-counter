@@ -70,14 +70,14 @@
             <legend>How many players?</legend>
             <div id="playerCountChoices" class="segmented dense" role="radiogroup" aria-label="Number of players"></div>
           </fieldset>
-          <p class="field-help setup-fast-path">Four players at 40 life is ready by default; each other player claims an open seat when joining.</p>
+          <p class="field-help setup-fast-path">Defaults: 4 players at 40 life. Other players claim an open seat when joining.</p>
           <button id="createStepOneNext" class="primary-action" type="button">Next: your name</button>
         </section>
         <section class="create-step" data-create-step="2" hidden>
           <p class="eyebrow">STEP 2 OF 4</p>
           <label class="select-field">What should the table call you? <small>(optional)</small>
             <input id="createName" name="name" type="text" autocomplete="name" maxlength="24" placeholder="P1">
-            <small>Leave blank to use P1.</small>
+            <small>Blank uses P1.</small>
           </label>
           <div class="dialog-actions"><button class="secondary-action" data-create-back type="button">Back</button><button id="createStepTwoNext" class="primary-action" type="button">Next: commander</button></div>
         </section>
@@ -90,14 +90,14 @@
               <label><input type="radio" name="commanderCount" value="1" checked><span>1 commander</span></label>
               <label><input type="radio" name="commanderCount" value="2"><span>2 commanders</span></label>
             </div>
-            <small class="field-help">Find the card to add its color identity. You can skip this for now.</small>
+            <small class="field-help">Find the card to add its color identity.</small>
           </fieldset>
           <div id="createCommanderNames" class="commander-name-fields"></div>
           <div class="dialog-actions"><button class="secondary-action" data-create-back type="button">Back</button><button id="createStepThreeSkip" class="secondary-action" type="button">Skip for now</button><button id="createStepThreeNext" class="primary-action" type="button">Continue</button></div>
         </section>
         <section class="create-step" data-create-step="4" hidden>
           <p class="eyebrow">STEP 4 OF 4</p>
-          <p class="field-help">Optional table settings. Leave these at their defaults to create the pod now.</p>
+          <p class="field-help">Extra settings. Defaults are ready to create.</p>
           <div class="setup-options">
           <label class="select-field">Table appearance <small>(everyone sees this unless they choose a personal skin)</small>
             <select id="tableSkin" name="tableSkinId"><option value="">Standard appearance</option></select>
@@ -135,7 +135,7 @@
       <form id="joinCodeForm" class="setup-form">
         <label class="select-field">Pod code
           <input id="podCode" type="text" inputmode="text" autocapitalize="characters" autocomplete="off" maxlength="6" placeholder="e.g. ARC7K2" required>
-          <small>Ask the pod host for the six-character code.</small>
+          <small>Ask the host for the six-character code.</small>
         </label>
         <p id="joinCodeStatus" class="field-help" aria-live="polite"></p>
         <button class="primary-action" type="submit">Find pod</button>
@@ -167,7 +167,7 @@
           <p class="eyebrow">STEP 3 OF 4</p>
           <label class="select-field">What should the table call you? <small>(optional)</small>
             <input id="joinName" name="name" type="text" autocomplete="name" maxlength="24" placeholder="P1">
-            <small>Leave blank to use your seat name.</small>
+            <small>Blank uses your seat name.</small>
           </label>
           <div class="dialog-actions"><button class="secondary-action" data-join-back type="button">Back</button><button id="joinStepThreeNext" class="primary-action" type="button">Next: commander</button></div>
         </section>
@@ -181,7 +181,7 @@
               <label><input type="radio" name="joinCommanderCount" value="1" checked><span>1 commander</span></label>
               <label><input type="radio" name="joinCommanderCount" value="2"><span>2 commanders</span></label>
             </div>
-            <small class="field-help">Find the card to add its color identity. You can skip this for now.</small>
+            <small class="field-help">Find the card to add its color identity.</small>
           </fieldset>
           <div id="joinCommanderNames" class="commander-name-fields"></div>
           <div class="dialog-actions"><button class="secondary-action" data-join-back type="button">Back</button><button class="primary-action" type="submit">Claim this seat</button></div>
@@ -205,13 +205,12 @@
       <p id="coinTossNotice" class="coin-toss-notice" aria-live="polite" hidden></p>
       <p id="victoryNotice" class="victory-notice" aria-live="polite" hidden></p>
       <section id="lobbyControls" class="lobby-controls" aria-live="polite">
-        <p class="lobby-kicker">POD CREATED · INVITE PLAYERS</p>
         <p id="lobbyStatus">Waiting for players to join.</p>
-        <p class="lobby-invite-help">Players open Fivefold Arc, choose <strong>Join a pod</strong>, then enter this code.</p>
+        <p class="lobby-invite-help">Players: choose <strong>Join a pod</strong>, then enter this code.</p>
         <output id="lobbyInviteCode" class="lobby-invite-code" aria-label="Pod code"></output>
         <button id="copyLobbyJoinLinkButton" class="primary-action" type="button">Copy invite link</button>
         <button id="showJoinQrButton" class="secondary-action" type="button">Show join QR</button>
-        <p class="lobby-start-help">Start when 2 or more players are ready. Unclaimed seats stay unused.</p>
+        <p class="lobby-start-help">Start with 2+ ready players. Other seats stay unused.</p>
         <button id="startGameButton" class="primary-action" type="button">Start game · P1 goes first</button>
         <details id="firstPlayerOptions" class="lobby-options">
           <summary>Choose a different first player</summary>
@@ -359,7 +358,7 @@
   <dialog id="customLifeDialog" aria-labelledby="customLifeTitle">
     <form id="customLifeForm" method="dialog">
       <h2 id="customLifeTitle">Custom life change</h2>
-      <p>Enter the life change, then choose whether to add or subtract it.</p>
+      <p>Enter an amount, then add or subtract it.</p>
       <label class="select-field">Amount
         <input id="customLifeAmount" name="amount" type="number" inputmode="numeric" min="1" max="999" step="1" required placeholder="10">
       </label>
@@ -482,7 +481,7 @@
   <dialog id="turnCueDialog" aria-labelledby="turnCueTitle">
     <form id="turnCueForm" method="dialog">
       <h2 id="turnCueTitle">Turn cue</h2>
-      <p>Choose what the active player’s phone should do when a turn is passed.</p>
+      <p>Choose the active player’s cue when a turn is passed.</p>
       <fieldset class="choice-field">
         <legend class="sr-only">Turn cue type</legend>
         <div class="segmented cue-mode-choice" role="radiogroup" aria-label="Turn cue type">
@@ -492,7 +491,7 @@
           <label><input type="radio" name="cueMode" value="both"><span>Both</span></label>
         </div>
       </fieldset>
-      <p class="turn-cue-support"><strong>Vibration support varies.</strong> It may not work in some browsers, including many iPhones, or when phone vibration is disabled. Sound still works when selected.</p>
+      <p class="turn-cue-support"><strong>Vibration support varies.</strong> It may not work in some browsers, including many iPhones, or when disabled. Sound remains available.</p>
       <div class="dialog-actions">
         <button value="cancel" class="secondary-action">Cancel</button>
         <button value="confirm" class="primary-action">Save turn cue</button>
@@ -544,7 +543,7 @@
   <dialog id="joinQrDialog" aria-labelledby="joinQrTitle">
     <form method="dialog">
       <h2 id="joinQrTitle">Join this table</h2>
-      <p>Scan this with another phone’s camera. It opens this pod only; each player still claims or reclaims their own seat.</p>
+      <p>Scan with another phone. It opens this pod; each player still claims or reclaims their own seat.</p>
       <img id="joinQrImage" class="join-qr-image" alt="QR code for joining this table">
       <p id="joinQrCode" class="join-qr-code"></p>
       <div class="dialog-actions join-qr-actions"><button id="shareJoinLinkButton" type="button" class="primary-action">Share link</button><button id="copyJoinLinkButton" type="button" class="secondary-action">Copy link</button><button value="close" class="text-action">Done</button></div>
@@ -554,13 +553,13 @@
   <dialog id="cardCameraDialog" aria-labelledby="cardCameraTitle">
     <form id="cardAdvisorForm" method="dialog" class="card-advisor-dialog">
       <h2 id="cardCameraTitle">Card rules & interaction</h2>
-      <p>Enter card titles for current Oracle text, published rulings, and an established-interaction lookup. If no database match is found, Fivefold Arc offers a clearly labeled best-effort explanation from the current card text.</p>
+      <p>Enter one or two titles for current Oracle text, rulings, and an interaction check. If no database match is found, Fivefold Arc labels its card-text explanation as best effort.</p>
       <label class="select-field">First card title<input id="firstCardTitle" name="firstCardTitle" type="text" maxlength="120" autocomplete="off" placeholder="e.g. Lightning Bolt" required></label>
       <label class="select-field">Second card title <small>(optional)</small><input id="secondCardTitle" name="secondCardTitle" type="text" maxlength="120" autocomplete="off" placeholder="e.g. Spellskite"></label>
       <label class="select-field">Game situation <small>(optional, helps the fallback)</small><textarea id="interactionSituation" name="interactionSituation" rows="3" maxlength="600" placeholder="e.g. Both are on the battlefield; I cast the first card during my main phase."></textarea></label>
       <p id="cardLookupStatus" class="field-help" aria-live="polite"></p>
       <section id="cardLookupResult" class="card-lookup-result" hidden aria-live="polite"></section>
-      <p class="card-camera-privacy">Names are sent only when you select Look up. They are used for this lookup and are not saved by Fivefold Arc. Based on current Oracle text and published rulings—this is not a judge ruling.</p>
+      <p class="card-camera-privacy">Titles are sent only after you select Look up and are not saved. For clarity, this is not a judge ruling; it uses current card text and rulings.</p>
       <div class="dialog-actions card-camera-actions"><button class="primary-action" type="submit">Look up</button><button value="close" class="secondary-action" formnovalidate>Close</button></div>
     </form>
   </dialog>

@@ -59,8 +59,8 @@ test('joining explains the claimed-seat boundary and normalizes the join code', 
 });
 
 test('the host lobby makes sharing the primary next setup action', () => {
-  assert.match(html, /POD CREATED · INVITE PLAYERS/);
-  assert.match(html, /Players open Fivefold Arc, choose <strong>Join a pod<\/strong>, then enter this code\./);
+  assert.doesNotMatch(html, /POD CREATED · INVITE PLAYERS/);
+  assert.match(html, /Players: choose <strong>Join a pod<\/strong>, then enter this code\./);
   assert.match(html, /id="lobbyInviteCode"/);
   assert.match(html, /id="copyLobbyJoinLinkButton"[^>]*>Copy invite link/);
   assert.match(app, /dom\.lobbyInviteCode\.textContent = state\.podCode/);
@@ -79,7 +79,7 @@ test('creating a pod is distinct from starting a game', () => {
   assert.match(html, /STEP 2 OF 4/);
   assert.match(html, /STEP 3 OF 4/);
   assert.match(html, /STEP 4 OF 4/);
-  assert.match(html, /STEP 4 OF 4[\s\S]*?Optional table settings[\s\S]*?Round limit/);
+  assert.match(html, /STEP 4 OF 4[\s\S]*?Extra settings\. Defaults are ready to create\.[\s\S]*?Round limit/);
   assert.match(html, /id="createDeckField" class="select-field" hidden>My deck/);
   assert.match(html, /class="create-step commander-setup-step" data-create-step="3"/);
   assert.match(app, /function sortSetupDecks\(decks\) \{ return \[\.\.\.decks\]\.sort\(\(left, right\) => Number\(right\.favorite\) - Number\(left\.favorite\)/);
@@ -97,7 +97,7 @@ test('creating a pod is distinct from starting a game', () => {
 });
 
 test('the lobby explains its two-player start threshold and what happens to empty seats', () => {
-  assert.match(html, /Start when 2 or more players are ready\. Unclaimed seats stay unused\./);
+  assert.match(html, /Start with 2\+ ready players\. Other seats stay unused\./);
   assert.match(app, /dom\.startGameButton\.disabled = !isHost \|\| claimedPlayers\.length < 2;/);
 });
 
