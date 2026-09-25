@@ -1339,3 +1339,25 @@ dialog:not(#victoryDialog) { max-height:calc(100dvh - 24px); overflow-y:auto; ov
 #gameView[data-interface-style="dial"] > .side-seats .pod-seat .seat-name { position: static; padding-inline: 4px; font-size: clamp(.54rem, 2.7vw, .68rem); }
 #gameView[data-interface-style="dial"] > .side-seats .pod-seat .seat-life { position: static; display: block; margin-top: 5px; padding: 0; font-size: clamp(1.28rem, 6.4vw, 2rem); line-height: .88; }
 @media (max-width: 359px), (max-height: 740px) { #gameView[data-interface-style="dial"] > .side-seats { gap: 5px; margin-bottom: 6px; }#gameView[data-interface-style="dial"] > .side-seats .pod-seat { min-height: 58px; padding: 5px 2px 8px; }#gameView[data-interface-style="dial"] > .side-seats .pod-seat .seat-name { padding-inline: 1px; font-size: .5rem; }#gameView[data-interface-style="dial"] > .side-seats .pod-seat .seat-life { margin-top: 4px; font-size: 1.16rem; } }
+
+/* Phone Dial control stack: every tier has the same small protected gap. */
+@media (max-width: 599px) {
+  #gameView[data-interface-style="dial"] { --dial-control-gap: 6px; --dial-tax-height: 64px; --dial-side-seat-stack: 0px; --dial-source-height: 0px; }
+  #gameView[data-interface-style="dial"][data-dial-side-seat-count="1"],
+  #gameView[data-interface-style="dial"][data-dial-side-seat-count="2"] { --dial-side-seat-stack: 64px; }
+  #gameView[data-interface-style="dial"][data-dial-side-seat-count="3"],
+  #gameView[data-interface-style="dial"][data-dial-side-seat-count="4"] { --dial-side-seat-stack: 134px; }
+  #gameView[data-interface-style="dial"][data-dial-commander-source-height="52"] { --dial-source-height: 52px; }
+  #gameView[data-interface-style="dial"][data-dial-commander-source-height="64"] { --dial-source-height: 64px; }
+  #gameView[data-interface-style="dial"] .commander-tax-quick { position: fixed; z-index: 9; right: 12px; bottom: calc(var(--mode-nav-height) + var(--dial-control-gap) + env(safe-area-inset-bottom)); left: 12px; margin: 0; }
+  #gameView[data-interface-style="dial"] > .side-seats:not([hidden]) { position: fixed; z-index: 9; top: auto; right: 5px; bottom: calc(var(--mode-nav-height) + var(--dial-control-gap) + var(--dial-tax-height) + var(--dial-control-gap) + var(--dial-source-height) + var(--dial-control-gap) + env(safe-area-inset-bottom)); left: 5px; width: auto; margin: 0; }
+  #gameView[data-interface-style="dial"] .turn-actions { position: fixed; z-index: 10; right: 12px; bottom: calc(var(--mode-nav-height) + var(--dial-control-gap) + var(--dial-tax-height) + var(--dial-control-gap) + var(--dial-source-height) + var(--dial-control-gap) + var(--dial-side-seat-stack) + var(--dial-control-gap) + env(safe-area-inset-bottom)); left: 12px; margin: 0; }
+  #gameView[data-interface-style="dial"][data-counter-mode="commander"] > .source-panel { position: fixed; z-index: 11; right: 12px; bottom: calc(var(--mode-nav-height) + var(--dial-control-gap) + var(--dial-tax-height) + var(--dial-control-gap) + env(safe-area-inset-bottom)); left: 12px; width: auto; margin: 0; pointer-events: auto; }
+}
+@media (max-width: 359px), (max-height: 740px) {
+  #gameView[data-interface-style="dial"] { --dial-tax-height: 54px; }
+  #gameView[data-interface-style="dial"][data-dial-side-seat-count="1"],
+  #gameView[data-interface-style="dial"][data-dial-side-seat-count="2"] { --dial-side-seat-stack: 58px; }
+  #gameView[data-interface-style="dial"][data-dial-side-seat-count="3"],
+  #gameView[data-interface-style="dial"][data-dial-side-seat-count="4"] { --dial-side-seat-stack: 121px; }
+}

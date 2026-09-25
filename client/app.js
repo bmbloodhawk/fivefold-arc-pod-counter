@@ -843,10 +843,12 @@ function openCommanderSourceDialog(player) {
   renderCommanderSourceDialog(player); dom.commanderSourceDialog.showModal();
 }
 function renderSources(player) {
+  dom.game.dataset.dialCommanderSourceHeight = '0';
   dom.sourcePanel.hidden = state.mode !== 'commander'; if (dom.sourcePanel.hidden) return; const source = selectedSourceFor(player);
   dom.sourcePanel.classList.remove('source-panel-dense', 'source-panel-turn-clearance');
   const pairedSources = source ? sourcesForDefender(player.id).filter(candidate => candidate.ownerPlayerId === source.ownerPlayerId) : [];
   const hasPair = pairedSources.length === 2;
+  dom.game.dataset.dialCommanderSourceHeight = hasPair ? '64' : '52';
   dom.sourcePanel.classList.toggle('commander-source-pair', hasPair);
   dom.sourcePanel.innerHTML = source ? (hasPair ? pairedSources.map(candidate => {
     const selected = candidate.id === source.id;
