@@ -285,7 +285,7 @@ function renderVictory() {
       dom.personalMatchMomentTitle.textContent = moment.title;
       dom.personalMatchArt.dataset.category = moment.category;
       dom.personalMatchArt.dataset.variant = String(moment.variant || 0);
-      dom.personalMatchArt.style.backgroundImage = `url("${accoladeArtUrl(moment.title)}")`;
+      dom.personalMatchArt.style.backgroundImage = `url("${accoladeArtUrl(moment.art || moment.title)}")`;
       dom.personalMatchMomentLine.textContent = moment.line;
       dom.personalMatchMomentFact.textContent = moment.fact;
       dom.personalMatchMoment.hidden = false;

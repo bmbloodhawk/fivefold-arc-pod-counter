@@ -29,9 +29,9 @@ export function recordTurnMoment(seat, turnLengthMs) {
   seat.matchMoment.totalTurnMs += Math.max(0, turnLengthMs);
 }
 
-function named(seed, titles, line, fact) {
+function named(seed, titles, line, fact, art = titles[0]) {
   const value = [...String(seed)].reduce((sum, character) => sum + character.codePointAt(0), 0);
-  return { category: titles[0], variant: value % titles.length, title: titles[value % titles.length], line, fact };
+  return { category: titles[0], variant: value % titles.length, title: titles[value % titles.length], line, fact, art };
 }
 
 function commanderName(sourceId, seats) {
@@ -60,10 +60,12 @@ function royalThreshold(seat, seats) {
 
 function earnedMatchMoments({ seat, seats, winnerSeatId }) {
   const m = seat.matchMoment || blankMatchMoment(seat.counters.life);
-  const earned = []; const add = (titles, line, fact) => earned.push({ titles, line, fact });
+  const earned = []; const add = (titles, line, fact, art = titles[0]) => earned.push({ titles, line, fact, art });
   if (m.lowestLife === 1) add(['Refused to Die', 'One Is Plenty', 'Barely Breathing'], 'You hit 1 life and kept the game going.', 'Lowest recorded life: 1');
   if (m.lowestLife >= 2 && m.lowestLife <= 5 && m.lifeGained >= 10) add(['Comeback Kid', 'Second Wind', 'Not Today'], 'You climbed back after a close call.', `Lowest life: ${m.lowestLife} · +${m.lifeGained} life gained`);
   if (m.lowestLife >= 2 && m.lowestLife <= 5) add(['Hanging By a Thread', 'Too Close for Comfort', 'Five Alarm Fire'], 'You got dangerously close to the edge.', `Lowest recorded life: ${m.lowestLife}`);
+  if (m.lifeGained >= 25) add(['Second Serving', 'Feast of Life', 'Overflowing Cup'], 'You rebuilt a serious life cushion.', `+${m.lifeGained} life gained`, 'health-potion-hoarder');
+  if (m.reclaimedDuringGame && (m.turnsAfterReclaim >= 2 || m.actionsAfterReclaim >= 3)) add(['Back in the Fight', 'Signal Restored', 'Rejoined the Arc'], 'You recovered your seat and kept the game moving.', `${m.turnsAfterReclaim} turns · ${m.actionsAfterReclaim} actions after reclaim`, 'pod-veteran');
   const [largestCommanderSource, largestCommanderDamage = 0] = Object.entries(m.commanderDamageBySource || {}).reduce((largest, entry) => entry[1] > largest[1] ? entry : largest, ['', 0]);
   if (largestCommanderDamage >= 10) add(['Commander Magnet', 'Marked by Legends', 'A Familiar Foe'], 'One commander kept finding you.', `${largestCommanderDamage} from ${commanderName(largestCommanderSource, seats)}`);
   const distinctCommanders = distinctCommanderCount(seat);
@@ -71,11 +73,17 @@ function earnedMatchMoments({ seat, seats, winnerSeatId }) {
   const totalCommanderDamage = m.commanderDamageReceived;
   const threshold = royalThreshold(seat, seats);
   if (totalCommanderDamage >= threshold && uniqueLeader(seat, seats, (item) => item.matchMoment?.commanderDamageReceived || 0)) add(['Royal Reception', 'Grand Audience', 'All Eyes on You'], 'You took the table\'s heaviest commander attention.', `${totalCommanderDamage} commander damage · ${threshold} needed`);
+  if (distinctCommanders >= 2) add(['Commander Crossfire', 'Under Many Banners', 'Two Fronts'], 'More than one opposing commander found you.', `${distinctCommanders} different commanders dealt damage`, 'legend-collector');
   if (m.lifeLostOnOwnTurn >= 8 && uniqueLeader(seat, seats, (item) => item.matchMoment?.lifeLostOnOwnTurn || 0)) add(['Paid in Blood', 'Life Is a Resource', 'High Stakes'], 'You recorded the most life lost during your own turns.', `${m.lifeLostOnOwnTurn} life lost on your turns`);
+  if (m.poisonGained >= 8) add(['Hazard Pay', 'Toxic Tenacity', 'Venom Tested'], 'You kept going under serious poison pressure.', `${m.poisonGained} poison received`, 'poison-snack');
   if (m.poisonGained >= 5) add(['Poison Snack', 'Toxic Relationship', 'Venom Sommelier'], 'You collected a concerning amount of poison.', `${m.poisonGained} poison received`);
   if (m.lifeGained >= 10) add(['Health Potion Hoarder', 'Second Breakfast', 'Life Insurance'], 'You found your way back up.', `+${m.lifeGained} life gained`);
+  if (m.energyGained >= 10) add(['Power Surge', 'Grid Runner', 'Energy Reserve'], 'You built a substantial energy reserve.', `+${m.energyGained} energy gained`, 'reactor-core');
   if (m.energyGained >= 5) add(['Reactor Core', 'Battery Included', 'Fully Charged'], 'You kept the energy flowing.', `+${m.energyGained} energy gained`);
+  if (m.radiationGained >= 10) add(['Hot Zone', 'Fallout Veteran', 'Bright Side'], 'You endured a heavy radiation count.', `${m.radiationGained} radiation received`, 'glowing-problem');
   if (m.radiationGained >= 5) add(['Glowing Problem', 'Nuclear Option', 'Radiant Citizen'], 'You left the game a little brighter.', `+${m.radiationGained} radiation received`);
+  if (m.usedLocalD20) add(['The Dice Chose', 'Roll Call', 'Fate Decided'], 'The table settled first player with the local d20 roll-off.', 'Local d20 used', 'arc-complete');
+  if (m.tableGameNumber >= 3) add(['Table Trilogy', 'Third Time Around', 'Pod Regulars'], 'You completed another chapter at the same table.', `Game ${m.tableGameNumber} at this table`, 'table-tale');
   const eligible = seats.filter(item => item.matchMoment?.turnCount >= 2);
   const average = m.turnCount ? m.totalTurnMs / m.turnCount : Infinity;
   const fastest = eligible.length ? Math.min(...eligible.map(item => item.matchMoment.totalTurnMs / item.matchMoment.turnCount)) : Infinity;
@@ -100,7 +108,7 @@ export function tableMatchMomentDecisions({ seats, winnerSeatId, seed }) {
     const selectionReason = specific.length && genericWin(item.moments[item.moments.length - 1])
       ? 'Tracked match moment selected over generic win'
       : unused.length ? 'Highest-priority unused eligible accolade' : 'Highest-priority eligible accolade';
-    selected.set(item.seat.seatId, { moment: named(`${seed}:${item.seat.seatId}:${selectedOption.titles[0]}`, selectedOption.titles, selectedOption.line, selectedOption.fact), eligibleCategories: item.moments.map((option) => option.titles[0]), selectionReason });
+    selected.set(item.seat.seatId, { moment: named(`${seed}:${item.seat.seatId}:${selectedOption.titles[0]}`, selectedOption.titles, selectedOption.line, selectedOption.fact, selectedOption.art), eligibleCategories: item.moments.map((option) => option.titles[0]), selectionReason });
   }
   return selected;
 }

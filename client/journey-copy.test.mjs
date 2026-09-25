@@ -349,7 +349,7 @@ test('the confirmed winner is celebrated on every phone with artwork and a tap-t
   assert.match(app, /function accoladeArtUrl\(title\).*assets\/accolades/s);
   assert.match(app, /function winnerArtUrl\(winner, gameKey\).*last-one-standing.*table-monarch.*arc-victor/s);
   assert.match(app, /winnerArtUrl\(winner, key\)/);
-  assert.match(app, /dom\.personalMatchArt\.style\.backgroundImage/);
+  assert.match(app, /accoladeArtUrl\(moment\.art \|\| moment\.title\)/);
   assert.match(html, /id="nextGameButton"[^>]*>Start next game/);
   assert.match(app, /dom\.nextGameButton\.hidden = !result \|\| !winner \|\| !\(state\?\.localSimulation \|\| transport\.seatId === state\?\.hostSeatId\)/);
   assert.match(app, /openResetDialog\(\{ nextGame: true \}\)/);
