@@ -9,6 +9,7 @@ const app = await readFile(new URL('app.js', root), 'utf8');
 const styles = await readFile(new URL('styles.css', root), 'utf8');
 const feedbackPage = await readFile(new URL('feedback.html', root), 'utf8');
 const layoutInvariants = await readFile(new URL('../UI_LAYOUT_INVARIANTS.md', root), 'utf8');
+const newAccoladeAssets = await Promise.all(['second-serving', 'back-in-the-fight', 'commander-crossfire', 'hazard-pay', 'power-surge', 'hot-zone', 'the-dice-chose', 'table-trilogy'].map(name => readFile(new URL(`assets/accolades/${name}.png`, root))));
 
 test('phone layout uses the visible viewport and prevents browser text inflation from changing geometry', () => {
   assert.match(html, /interactive-widget=resizes-content/);
@@ -356,6 +357,11 @@ test('the confirmed winner is celebrated on every phone with artwork and a tap-t
   assert.match(app, /dom\.confirmResetButton\.textContent = nextGame \? 'Start next game' : 'Reset game';/);
   assert.match(styles, /\.personal-match-art \{[\s\S]*background-size: cover/);
   assert.doesNotMatch(styles, /\.personal-match-art \{[^}]*opacity:/);
+});
+
+test('expanded match moments include their own original accolade illustrations', () => {
+  assert.equal(newAccoladeAssets.length, 8);
+  newAccoladeAssets.forEach(asset => assert.ok(asset.length > 1_000_000));
 });
 
 test('achievements follow the personal match accolade and reveal every new rarity only after unlock', () => {
