@@ -61,7 +61,6 @@ function royalThreshold(seat, seats) {
 function earnedMatchMoments({ seat, seats, winnerSeatId }) {
   const m = seat.matchMoment || blankMatchMoment(seat.counters.life);
   const earned = []; const add = (titles, line, fact) => earned.push({ titles, line, fact });
-  if (seat.seatId === winnerSeatId) add(['Last One Standing', 'Table Monarch', 'Arc Victor'], 'The table ran out of answers.', 'Winner');
   if (m.lowestLife === 1) add(['Refused to Die', 'One Is Plenty', 'Barely Breathing'], 'You hit 1 life and kept the game going.', 'Lowest recorded life: 1');
   if (m.lowestLife >= 2 && m.lowestLife <= 5 && m.lifeGained >= 10) add(['Comeback Kid', 'Second Wind', 'Not Today'], 'You climbed back after a close call.', `Lowest life: ${m.lowestLife} · +${m.lifeGained} life gained`);
   if (m.lowestLife >= 2 && m.lowestLife <= 5) add(['Hanging By a Thread', 'Too Close for Comfort', 'Five Alarm Fire'], 'You got dangerously close to the edge.', `Lowest recorded life: ${m.lowestLife}`);
@@ -83,6 +82,7 @@ function earnedMatchMoments({ seat, seats, winnerSeatId }) {
   if (eligible.length >= 2 && average === fastest && eligible.filter(item => item.matchMoment.totalTurnMs / item.matchMoment.turnCount === fastest).length === 1) {
     add(['Speedrunner', 'Lightning Round', 'No Notes'], 'You had the fastest average recorded turn.', `Average turn: ${Math.round(average / 1000)} sec`);
   }
+  if (seat.seatId === winnerSeatId) add(['Last One Standing', 'Table Monarch', 'Arc Victor'], 'The table ran out of answers.', 'Winner');
   return earned.length ? earned : [{ titles: ['Arc Complete', 'Table Tale', 'Pod Veteran'], line: 'Another table, another tale.', fact: 'Match complete' }];
 }
 
@@ -90,9 +90,17 @@ export function tableMatchMomentDecisions({ seats, winnerSeatId, seed }) {
   const candidates = seats.filter((seat) => seat.claimed !== false).map((seat) => ({ seat, moments: earnedMatchMoments({ seat, seats, winnerSeatId }) }));
   const used = new Set(); const selected = new Map();
   for (const item of [...candidates].sort((a, b) => a.moments.length - b.moments.length || a.seat.seatId - b.seat.seatId)) {
-    const firstEligible = item.moments[0]; const selectedOption = item.moments.find((option) => !used.has(option.titles[0])) || firstEligible;
+    const genericWin = (option) => option.titles[0] === 'Last One Standing';
+    const specific = item.moments.filter((option) => !genericWin(option));
+    const pool = specific.length ? specific : item.moments;
+    const unused = pool.filter((option) => !used.has(option.titles[0]));
+    const options = unused.length ? unused : pool;
+    const selectedOption = options[0];
     used.add(selectedOption.titles[0]);
-    selected.set(item.seat.seatId, { moment: named(`${seed}:${item.seat.seatId}:${selectedOption.titles[0]}`, selectedOption.titles, selectedOption.line, selectedOption.fact), eligibleCategories: item.moments.map((option) => option.titles[0]), selectionReason: selectedOption === firstEligible ? "Highest-priority eligible accolade" : "Next eligible accolade chosen to avoid duplicating a table category" });
+    const selectionReason = specific.length && genericWin(item.moments[item.moments.length - 1])
+      ? 'Tracked match moment selected over generic win'
+      : unused.length ? 'Highest-priority unused eligible accolade' : 'Highest-priority eligible accolade';
+    selected.set(item.seat.seatId, { moment: named(`${seed}:${item.seat.seatId}:${selectedOption.titles[0]}`, selectedOption.titles, selectedOption.line, selectedOption.fact), eligibleCategories: item.moments.map((option) => option.titles[0]), selectionReason });
   }
   return selected;
 }

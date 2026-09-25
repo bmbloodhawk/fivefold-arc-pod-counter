@@ -229,7 +229,7 @@ function localLastPlayerStanding() {
 function victoryKey(result) { return result ? `${result.winnerSeatId}:${result.reason}:${result.decidedAt}` : null; }
 function winnerFromResult() { return state?.gameResult ? state.players.find(player => player.id === `P${state.gameResult.winnerSeatId + 1}`) : null; }
 function accoladeArtUrl(title) { return `assets/accolades/${String(title || 'arc-complete').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}.png`; }
-function winnerArtUrl(winner) { const variants = ['last-one-standing', 'table-monarch', 'arc-victor']; const seed = [...String(winner?.id || '')].reduce((total, character) => total + character.codePointAt(0), 0); return `assets/accolades/${variants[seed % variants.length]}.png`; }
+function winnerArtUrl(winner, gameKey) { const variants = ['last-one-standing', 'table-monarch', 'arc-victor']; const seed = [...String(gameKey || winner?.id || '')].reduce((total, character) => total + character.codePointAt(0), 0); return `assets/accolades/${variants[seed % variants.length]}.png`; }
 const achievementRarityLabel = (rarity) => ({ common: 'Common', uncommon: 'Uncommon', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' })[rarity] || 'Common';
 const achievementRarityMark = (rarity) => ({ common: '◇', uncommon: '✦', rare: '✧', epic: '✹', legendary: '✪' })[rarity] || '◇';
 function showAchievementUnlocks(gameKey) {
@@ -274,7 +274,7 @@ function renderVictory() {
     dom.victoryDetail.textContent = declaredDetail
       ? `${youWon ? 'The table declared you the winner' : `${displayName(winner)} was declared the winner`}: ${declaredDetail}`
       : (youWon ? (declared ? 'The table declared you the winner.' : 'You are the last player standing.') : (declared ? `${displayName(winner)} was declared the winner.` : `${displayName(winner)} is the last player standing.`));
-    dom.victoryArt.src = winnerArtUrl(winner);
+    dom.victoryArt.src = winnerArtUrl(winner, key);
     void loadSaveGameDecks();
     // A completed shared-table result is the record of the game. Save it for
     // each signed-in player without relying on them to remember a final tap.

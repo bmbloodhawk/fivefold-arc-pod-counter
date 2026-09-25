@@ -347,7 +347,8 @@ test('the confirmed winner is celebrated on every phone with artwork and a tap-t
   assert.doesNotMatch(styles, /\.victory-art \{[^}]*mix-blend-mode:/);
   assert.match(styles, /\.victory-dialog-content \{[\s\S]*grid-template-rows: 1fr 1fr/);
   assert.match(app, /function accoladeArtUrl\(title\).*assets\/accolades/s);
-  assert.match(app, /function winnerArtUrl\(winner\).*last-one-standing.*table-monarch.*arc-victor/s);
+  assert.match(app, /function winnerArtUrl\(winner, gameKey\).*last-one-standing.*table-monarch.*arc-victor/s);
+  assert.match(app, /winnerArtUrl\(winner, key\)/);
   assert.match(app, /dom\.personalMatchArt\.style\.backgroundImage/);
   assert.match(html, /id="nextGameButton"[^>]*>Start next game/);
   assert.match(app, /dom\.nextGameButton\.hidden = !result \|\| !winner \|\| !\(state\?\.localSimulation \|\| transport\.seatId === state\?\.hostSeatId\)/);

@@ -52,7 +52,25 @@ test('accolade decisions retain eligible categories and the selection reason for
   const decision = decisions.get(0);
   assert.equal(decision.moment.category, 'Last One Standing');
   assert.deepEqual(decision.eligibleCategories, ['Last One Standing']);
-  assert.equal(decision.selectionReason, 'Highest-priority eligible accolade');
+  assert.equal(decision.selectionReason, 'Highest-priority unused eligible accolade');
+});
+
+test('a tracked winner moment outranks the generic win while titles rotate by game', () => {
+  const alex = seat(0, 'Alex'); const sam = seat(1, 'Sam'); const seats = [alex, sam];
+  recordMatchMoment(alex, { counter: 'life', delta: -36, lifeAfter: 4, gameStarted: true });
+  recordMatchMoment(alex, { counter: 'life', delta: 10, lifeAfter: 14, gameStarted: true });
+  const winnerDecision = tableMatchMomentDecisions({ seats, winnerSeatId: 0, seed: 'winner-story' }).get(0);
+  assert.notEqual(winnerDecision.moment.category, 'Last One Standing');
+  assert.equal(winnerDecision.selectionReason, 'Tracked match moment selected over generic win');
+
+  const rotating = seat(0, 'Jordan'); const other = seat(1, 'Casey'); const rotationSeats = [rotating, other];
+  recordMatchMoment(rotating, { counter: 'poison', delta: 5, lifeAfter: 40, gameStarted: true });
+  recordMatchMoment(rotating, { counter: 'energy', delta: 5, lifeAfter: 40, gameStarted: true });
+  const first = tableMatchMomentDecisions({ seats: rotationSeats, winnerSeatId: 99, seed: 'game-a' }).get(0);
+  const second = tableMatchMomentDecisions({ seats: rotationSeats, winnerSeatId: 99, seed: 'game-b' }).get(0);
+  assert.equal(first.moment.category, 'Poison Snack');
+  assert.equal(second.moment.category, 'Poison Snack');
+  assert.notEqual(first.moment.title, second.moment.title);
 });
 
 test('Legend Collector goes only to the unique player hit by the most different commanders', () => {
