@@ -1369,8 +1369,10 @@ dialog:not(#victoryDialog) { max-height:calc(100dvh - 24px); overflow-y:auto; ov
   #gameView[data-interface-style="dial"] { --dial-control-gap: 6px; --dial-tax-height: 64px; --dial-side-seat-stack: 0px; --dial-source-height: 0px; }
   #gameView[data-interface-style="dial"][data-dial-side-seat-count="1"],
   #gameView[data-interface-style="dial"][data-dial-side-seat-count="2"] { --dial-side-seat-stack: 82px; }
+  /* Extra seats are one four-card row in Dial mode, regardless of whether
+     the table has one or four of them. Do not reserve a phantom second row. */
   #gameView[data-interface-style="dial"][data-dial-side-seat-count="3"],
-  #gameView[data-interface-style="dial"][data-dial-side-seat-count="4"] { --dial-side-seat-stack: 170px; }
+  #gameView[data-interface-style="dial"][data-dial-side-seat-count="4"] { --dial-side-seat-stack: 82px; }
   #gameView[data-interface-style="dial"][data-dial-commander-source-height="52"] { --dial-source-height: 52px; }
   #gameView[data-interface-style="dial"][data-dial-commander-source-height="64"] { --dial-source-height: 64px; }
   #gameView[data-interface-style="dial"] .commander-tax-quick { position: fixed; z-index: 9; right: 12px; bottom: calc(var(--mode-nav-height) + var(--dial-control-gap) + env(safe-area-inset-bottom)); left: 12px; margin: 0; }
@@ -1388,7 +1390,7 @@ dialog:not(#victoryDialog) { max-height:calc(100dvh - 24px); overflow-y:auto; ov
   #gameView[data-interface-style="dial"][data-dial-side-seat-count="1"],
   #gameView[data-interface-style="dial"][data-dial-side-seat-count="2"] { --dial-side-seat-stack: 62px; }
   #gameView[data-interface-style="dial"][data-dial-side-seat-count="3"],
-  #gameView[data-interface-style="dial"][data-dial-side-seat-count="4"] { --dial-side-seat-stack: 129px; }
+  #gameView[data-interface-style="dial"][data-dial-side-seat-count="4"] { --dial-side-seat-stack: 62px; }
 }
 
 /* A menu is a temporary modal layer: the first tap outside dismisses it and
