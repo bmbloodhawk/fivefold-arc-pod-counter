@@ -159,7 +159,7 @@ function identityLabel(player) { const colors = playerIdentity(player); return c
 function developerHost() { return Boolean(state && (state.localSimulation || transport.seatId === state.hostSeatId)); }
 function renderDeveloperTools() {
   const visible = developerMode && developerHost();
-  [dom.playtestNotesButton, dom.playtestRecapButton, dom.fieldTestButton, dom.markDevelopmentButton, dom.savedPlaytestsButton, dom.lockDeveloperModeButton].forEach(button => { button.hidden = !visible; });
+  [dom.playtestRecapButton, dom.fieldTestButton, dom.markDevelopmentButton, dom.savedPlaytestsButton, dom.lockDeveloperModeButton].forEach(button => { button.hidden = !visible; });
   dom.quickTestButton.hidden = !developerMode;
   dom.localSimulationField.hidden = !developerMode;
 }

@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=211">
+  <link rel="stylesheet" href="styles.css?v=217">
 </head>
 <body>
   <header class="brand-bar">
@@ -97,14 +97,13 @@
         </section>
         <section class="create-step" data-create-step="4" hidden>
           <p class="eyebrow">STEP 4 OF 4</p>
-          <p class="field-help">Extra settings. Defaults are ready to create.</p>
           <div class="setup-options">
-          <label class="select-field">Table appearance <small>(everyone sees this unless they choose a personal skin)</small>
+          <label class="select-field">Table appearance <small>Shared with the table.</small>
             <select id="tableSkin" name="tableSkinId"><option value="">Standard appearance</option></select>
           </label>
           <label class="select-field">Round limit <small>(optional)</small>
             <input id="roundLimitMinutes" name="roundLimitMinutes" type="number" inputmode="numeric" min="1" max="999" step="1" placeholder="No limit — game time counts up">
-            <small>Enter minutes only for an organizer countdown. It never ends or skips a turn automatically.</small>
+            <small>Organizer countdown only; it never ends a turn.</small>
           </label>
           <fieldset class="choice-field">
             <legend>Starting life</legend>
@@ -290,7 +289,7 @@
         <button id="showJoinQrMenuButton" type="button">Show join QR</button>
         <label id="tableSkinMenuField" class="select-field" hidden>Table appearance <small>Host choice for everyone at this table.</small><select id="tableSkinMenu"><option value="">Standard appearance</option></select></label>
         <button id="cardCameraButton" type="button">Card rules & interaction</button>
-        <button id="playtestNotesButton" type="button" hidden>Playtest notes</button>
+        <button id="playtestNotesButton" type="button" hidden>Send feedback</button>
         <button id="playtestRecapButton" type="button" hidden>Playtest recap</button>
         <button id="viewCelebrationButton" type="button" hidden>View celebration</button>
         <button id="fieldTestButton" type="button" hidden>Record field test</button>
@@ -567,14 +566,14 @@
 
   <dialog id="playtestNotesDialog" aria-labelledby="playtestNotesTitle">
     <form id="playtestNotesForm" method="dialog">
-      <h2 id="playtestNotesTitle">Playtest notes</h2>
-      <p>Share a suggestion while it is fresh. It is saved with your seat and time.</p>
+      <h2 id="playtestNotesTitle">Send feedback</h2>
+      <p>Share an issue or suggestion while it is fresh. It is saved with your seat and time.</p>
       <ol id="playtestNotesList" class="playtest-notes-list"></ol>
-      <label class="select-field">Suggestion for this playtest
-        <textarea id="playtestNoteText" maxlength="500" required placeholder="What worked, what was confusing, or what should change?"></textarea>
+      <label class="select-field">Your feedback
+        <textarea id="playtestNoteText" maxlength="500" required placeholder="What happened, what was confusing, or what should change?"></textarea>
       </label>
       <p id="playtestNoteStatus" class="field-help" aria-live="polite"></p>
-      <div class="dialog-actions"><button value="close" class="secondary-action" formnovalidate>Close</button><button id="savePlaytestNoteButton" class="primary-action" type="submit">Save note</button></div>
+      <div class="dialog-actions"><button value="close" class="secondary-action" formnovalidate>Close</button><button id="savePlaytestNoteButton" class="primary-action" type="submit">Send feedback</button></div>
     </form>
   </dialog>
 

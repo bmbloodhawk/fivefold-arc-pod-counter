@@ -254,6 +254,14 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .setup-options { margin-top: 14px; }
 .setup-options > summary { min-height: 44px; padding: 12px; border: 1px solid var(--line); color: var(--brass); cursor: pointer; font-weight: 800; }
 .setup-options[open] > summary { margin-bottom: 12px; }
+/* Step 4 contains optional settings only. Keep its primary Create action in the
+   initial phone viewport without shrinking the actual inputs or tap targets. */
+.create-step[data-create-step="4"] { gap: 12px; }
+.create-step[data-create-step="4"] .field-help { margin: 0; }
+.create-step[data-create-step="4"] .setup-options { display: grid; gap: 12px; margin: 0; }
+.create-step[data-create-step="4"] .select-field { gap: 5px; }
+.create-step[data-create-step="4"] .segmented { margin-top: 5px; }
+.create-step[data-create-step="4"] .dialog-actions { margin-top: 0; }
 .source-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .source-panel-prompt { grid-column: 1 / -1; margin: 0; color: var(--ink); font-size: .82rem; font-weight: 800; }
 .source-button { min-height: 76px; }
@@ -1218,6 +1226,14 @@ dialog:not(#victoryDialog) { max-height:calc(100dvh - 24px); overflow-y:auto; ov
 
 /* Commander selection sits above the turn control, never inside the dial. */
 #gameView[data-counter-mode="commander"] .counter-context { visibility: hidden; }
+/* Commander seat cards show compact status labels, not life totals. Keep
+   SOURCE and CMD n on one line in the four-card phone strip. */
+#gameView[data-counter-mode="commander"] .pod-strip .pod-seat .seat-life {
+  font-size: clamp(.72rem, 3.8vw, .95rem);
+  letter-spacing: .02em;
+  line-height: 1;
+  white-space: nowrap;
+}
 #gameView[data-counter-mode="commander"] > .source-panel {
   position: relative;
   z-index: 6;
@@ -1275,6 +1291,12 @@ dialog:not(#victoryDialog) { max-height:calc(100dvh - 24px); overflow-y:auto; ov
 #gameView[data-counter-mode="commander"] > .source-panel.commander-source-pair {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
+}
+/* One commander is one clear, full-width source choice. Partners retain the
+   two equal-width choices rendered in A/B order by renderSources(). */
+#gameView[data-counter-mode="commander"] > .source-panel:not(.commander-source-pair) .selected-source-button {
+  grid-column: 1 / -1;
+  width: 100%;
 }
 #gameView[data-counter-mode="commander"] > .source-panel .inline-commander-choice {
   display: grid;
@@ -1336,32 +1358,37 @@ dialog:not(#victoryDialog) { max-height:calc(100dvh - 24px); overflow-y:auto; ov
 
 /* In Dial mode, the extra seats leave the counter clear and form one compact
    row directly above Custom Life. Button mode retains its side-seat layout. */
-#gameView[data-interface-style="dial"] > .side-seats { position: relative; z-index: 3; top: auto; right: auto; left: auto; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; margin: 0 0 8px; gap: 6px; pointer-events: auto; }
-#gameView[data-interface-style="dial"] > .side-seats .pod-seat { position: relative; min-height: 64px; padding: 6px 3px 9px; }
-#gameView[data-interface-style="dial"] > .side-seats .pod-seat .seat-name { position: static; padding-inline: 4px; font-size: clamp(.54rem, 2.7vw, .68rem); }
-#gameView[data-interface-style="dial"] > .side-seats .pod-seat .seat-life { position: static; display: block; margin-top: 5px; padding: 0; font-size: clamp(1.28rem, 6.4vw, 2rem); line-height: .88; }
-@media (max-width: 359px), (max-height: 740px) { #gameView[data-interface-style="dial"] > .side-seats { gap: 5px; margin-bottom: 6px; }#gameView[data-interface-style="dial"] > .side-seats .pod-seat { min-height: 58px; padding: 5px 2px 8px; }#gameView[data-interface-style="dial"] > .side-seats .pod-seat .seat-name { padding-inline: 1px; font-size: .5rem; }#gameView[data-interface-style="dial"] > .side-seats .pod-seat .seat-life { margin-top: 4px; font-size: 1.16rem; } }
+#gameView[data-interface-style="dial"] > .side-seats { position: relative; z-index: 3; top: auto; right: auto; left: auto; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; margin: 0 0 8px; gap: 5px; pointer-events: auto; }
+#gameView[data-interface-style="dial"] > .side-seats .pod-seat { position: relative; min-height: 82px; padding: 9px 4px 12px; }
+#gameView[data-interface-style="dial"] > .side-seats .pod-seat .seat-name { position: static; padding-inline: 0; font-size: .6rem; }
+#gameView[data-interface-style="dial"] > .side-seats .pod-seat .seat-life { position: static; display: block; margin-top: 7px; padding: 0; font-size: 2.25rem; line-height: .9; }
+@media (max-width: 359px), (max-height: 740px) { #gameView[data-interface-style="dial"] > .side-seats { gap: 5px; margin-bottom: 6px; }#gameView[data-interface-style="dial"] > .side-seats .pod-seat { min-height: 62px; padding: 6px 3px 9px; }#gameView[data-interface-style="dial"] > .side-seats .pod-seat .seat-name { padding-inline: 0; font-size: .6rem; }#gameView[data-interface-style="dial"] > .side-seats .pod-seat .seat-life { margin-top: 3px; font-size: 1.72rem; } }
 
 /* Phone Dial control stack: every tier has the same small protected gap. */
 @media (max-width: 599px) {
   #gameView[data-interface-style="dial"] { --dial-control-gap: 6px; --dial-tax-height: 64px; --dial-side-seat-stack: 0px; --dial-source-height: 0px; }
   #gameView[data-interface-style="dial"][data-dial-side-seat-count="1"],
-  #gameView[data-interface-style="dial"][data-dial-side-seat-count="2"] { --dial-side-seat-stack: 64px; }
+  #gameView[data-interface-style="dial"][data-dial-side-seat-count="2"] { --dial-side-seat-stack: 82px; }
   #gameView[data-interface-style="dial"][data-dial-side-seat-count="3"],
-  #gameView[data-interface-style="dial"][data-dial-side-seat-count="4"] { --dial-side-seat-stack: 134px; }
+  #gameView[data-interface-style="dial"][data-dial-side-seat-count="4"] { --dial-side-seat-stack: 170px; }
   #gameView[data-interface-style="dial"][data-dial-commander-source-height="52"] { --dial-source-height: 52px; }
   #gameView[data-interface-style="dial"][data-dial-commander-source-height="64"] { --dial-source-height: 64px; }
   #gameView[data-interface-style="dial"] .commander-tax-quick { position: fixed; z-index: 9; right: 12px; bottom: calc(var(--mode-nav-height) + var(--dial-control-gap) + env(safe-area-inset-bottom)); left: 12px; margin: 0; }
-  #gameView[data-interface-style="dial"] > .side-seats:not([hidden]) { position: fixed; z-index: 9; top: auto; right: 5px; bottom: calc(var(--mode-nav-height) + var(--dial-control-gap) + var(--dial-tax-height) + var(--dial-control-gap) + var(--dial-source-height) + var(--dial-control-gap) + env(safe-area-inset-bottom)); left: 5px; width: auto; margin: 0; }
+  #gameView[data-interface-style="dial"] > .side-seats:not([hidden]) { position: fixed; z-index: 9; top: auto; right: 12px; bottom: calc(var(--mode-nav-height) + var(--dial-control-gap) + var(--dial-tax-height) + var(--dial-control-gap) + var(--dial-source-height) + var(--dial-control-gap) + env(safe-area-inset-bottom)); left: 12px; width: auto; margin: 0; }
   #gameView[data-interface-style="dial"] .turn-actions { position: fixed; z-index: 10; right: 12px; bottom: calc(var(--mode-nav-height) + var(--dial-control-gap) + var(--dial-tax-height) + var(--dial-control-gap) + var(--dial-source-height) + var(--dial-control-gap) + var(--dial-side-seat-stack) + var(--dial-control-gap) + env(safe-area-inset-bottom)); left: 12px; margin: 0; }
+  #gameView[data-interface-style="dial"]:not([data-counter-mode="commander"]) .turn-actions { transform: none; }
+  /* Outside Commander mode, a 2–4 player Dial has neither source choices nor
+     side seats. Keep Pass Turn one small gap above Commander Tax instead of
+     reserving the Commander selector's empty space. */
+  #gameView[data-interface-style="dial"][data-dial-side-seat-count="0"]:not([data-counter-mode="commander"]) .turn-actions { bottom: calc(var(--mode-nav-height) + var(--dial-control-gap) + var(--dial-tax-height) + var(--dial-control-gap) + env(safe-area-inset-bottom)); transform: none; }
   #gameView[data-interface-style="dial"][data-counter-mode="commander"] > .source-panel { position: fixed; z-index: 11; right: 12px; bottom: calc(var(--mode-nav-height) + var(--dial-control-gap) + var(--dial-tax-height) + var(--dial-control-gap) + env(safe-area-inset-bottom)); left: 12px; width: auto; margin: 0; pointer-events: auto; }
 }
 @media (max-width: 359px), (max-height: 740px) {
   #gameView[data-interface-style="dial"] { --dial-tax-height: 54px; }
   #gameView[data-interface-style="dial"][data-dial-side-seat-count="1"],
-  #gameView[data-interface-style="dial"][data-dial-side-seat-count="2"] { --dial-side-seat-stack: 58px; }
+  #gameView[data-interface-style="dial"][data-dial-side-seat-count="2"] { --dial-side-seat-stack: 62px; }
   #gameView[data-interface-style="dial"][data-dial-side-seat-count="3"],
-  #gameView[data-interface-style="dial"][data-dial-side-seat-count="4"] { --dial-side-seat-stack: 121px; }
+  #gameView[data-interface-style="dial"][data-dial-side-seat-count="4"] { --dial-side-seat-stack: 129px; }
 }
 
 /* A menu is a temporary modal layer: the first tap outside dismisses it and

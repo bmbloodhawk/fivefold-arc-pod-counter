@@ -80,7 +80,8 @@ test('creating a pod is distinct from starting a game', () => {
   assert.match(html, /STEP 2 OF 4/);
   assert.match(html, /STEP 3 OF 4/);
   assert.match(html, /STEP 4 OF 4/);
-  assert.match(html, /STEP 4 OF 4[\s\S]*?Extra settings\. Defaults are ready to create\.[\s\S]*?Round limit/);
+  assert.match(html, /STEP 4 OF 4[\s\S]*?Table appearance[\s\S]*?Round limit/);
+  assert.doesNotMatch(html, /Extra settings\. Defaults are ready to create\./);
   assert.match(html, /id="createDeckField" class="select-field" hidden>My deck/);
   assert.match(html, /class="create-step commander-setup-step" data-create-step="3"/);
   assert.match(app, /function sortSetupDecks\(decks\) \{ return \[\.\.\.decks\]\.sort\(\(left, right\) => Number\(right\.favorite\) - Number\(left\.favorite\)/);
@@ -232,8 +233,17 @@ test('commander damage keeps entry compact and moves every source into a grouped
   assert.match(styles, /\.commander-source-dialog \{[\s\S]*height: min\(100dvh, 760px\)/);
   assert.match(styles, /\.commander-source-list \{[\s\S]*overflow-y: auto/);
   assert.match(styles, /\.selected-source-button \{[\s\S]*min-height: 40px/);
+  assert.match(styles, /\.source-panel:not\(\.commander-source-pair\) \.selected-source-button \{[\s\S]*grid-column: 1 \/ -1;[\s\S]*width: 100%;/);
+  assert.match(styles, /\.source-panel\.commander-source-pair \{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(app, /dom\.game\.dataset\.counterMode = state\.mode/);
   assert.match(styles, /\.game-shell\[data-counter-mode="commander"\] #turnActions \{ margin-top: 2px; transform: none; \}/);
+  assert.match(styles, /\[data-interface-style="dial"\]\[data-dial-side-seat-count="0"\]:not\(\[data-counter-mode="commander"\]\) \.turn-actions \{[\s\S]*bottom: calc\(var\(--mode-nav-height\) \+ var\(--dial-control-gap\) \+ var\(--dial-tax-height\) \+ var\(--dial-control-gap\) \+ env\(safe-area-inset-bottom\)\); transform: none;/);
+  assert.match(styles, /\.side-seats \.pod-seat \{ position: relative; min-height: 82px; padding: 9px 4px 12px; \}/);
+  assert.match(styles, /\.side-seats \.pod-seat \{ min-height: 62px; padding: 6px 3px 9px; \}/);
+  assert.match(styles, /data-dial-side-seat-count="1"\],\n  #gameView\[data-interface-style="dial"\]\[data-dial-side-seat-count="2"\] \{ --dial-side-seat-stack: 82px; \}/);
+  assert.match(styles, /#gameView\[data-interface-style="dial"\]:not\(\[data-counter-mode="commander"\]\) \.turn-actions \{ transform: none; \}/);
+  assert.match(styles, /#gameView\[data-interface-style="dial"\] > \.side-seats \{[\s\S]*gap: 5px/);
+  assert.match(styles, /> \.side-seats:not\(\[hidden\]\) \{[\s\S]*right: 12px;[\s\S]*left: 12px;/);
 });
 
 test('commander source selection keeps every source grouped, suggests the active turn, and names unnamed partners', () => {
@@ -256,6 +266,7 @@ test('commander seat cards identify the selected source and show every other def
   assert.match(app, /const commanderSource = state\.mode === 'commander'/);
   assert.match(styles, /\.pod-seat\.commander-seat-source \.seat-life/);
   assert.match(styles, /\.pod-seat\.commander-seat-damage \.seat-life/);
+  assert.match(styles, /#gameView\[data-counter-mode="commander"\] \.pod-strip \.pod-seat \.seat-life \{[\s\S]*font-size: clamp\(\.72rem, 3\.8vw, \.95rem\);[\s\S]*white-space: nowrap;/);
 });
 
 test('selecting a saved deck immediately confirms every selected commander identity for create and join', () => {
@@ -380,6 +391,13 @@ test('private feedback review includes a non-personal insights tab', () => {
   assert.match(feedbackPage, /Automatic metrics come from qualified standard games in Diagnostics/);
   assert.match(feedbackPage, /excludes names, room codes, device identifiers, raw taps, and free-text observations/);
   assert.match(feedbackPage, /\/api\/feedback\/insights/);
+});
+
+test('shared-table players can send bounded feedback without developer access', () => {
+  assert.match(html, /id="playtestNotesButton" type="button" hidden>Send feedback/);
+  assert.match(html, /id="playtestNotesDialog"[\s\S]*?<h2 id="playtestNotesTitle">Send feedback<\/[h2][\s\S]*?id="playtestNoteText" maxlength="500" required[\s\S]*?>Send feedback<\/button>/);
+  assert.match(app, /dom\.playtestNotesButton\.hidden = state\.localSimulation/);
+  assert.doesNotMatch(app, /\[dom\.playtestNotesButton, dom\.playtestRecapButton/);
 });
 
 test('private feedback preserves room and game context for debugging', () => {
