@@ -1363,3 +1363,9 @@ dialog:not(#victoryDialog) { max-height:calc(100dvh - 24px); overflow-y:auto; ov
   #gameView[data-interface-style="dial"][data-dial-side-seat-count="3"],
   #gameView[data-interface-style="dial"][data-dial-side-seat-count="4"] { --dial-side-seat-stack: 121px; }
 }
+
+/* A menu is a temporary modal layer: the first tap outside dismisses it and
+   cannot also hand off a turn or adjust a counter underneath. */
+.game-menu-backdrop { position: fixed; z-index: 59; inset: 0; background: transparent; touch-action: manipulation; }
+#moreButton { z-index: 60; }
+.game-menu { z-index: 61; }

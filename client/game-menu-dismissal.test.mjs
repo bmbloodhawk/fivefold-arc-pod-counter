@@ -3,8 +3,15 @@ import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 
 const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
+const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+const styles = await readFile(new URL('./styles.css', import.meta.url), 'utf8');
 
-test('game menu dismisses on an outside pointer press without treating its button as outside', () => {
+test('game menu uses a protected outside-tap layer above live dial controls', () => {
   assert.match(app, /function closeGameMenu\(\)/);
-  assert.match(app, /document\.addEventListener\('pointerdown', event => \{ if \(dom\.gameMenu\.hidden \|\| dom\.gameMenu\.contains\(event\.target\) \|\| dom\.moreButton\.contains\(event\.target\)\) return; closeGameMenu\(\); \}\)/);
+  assert.match(html, /id="gameMenuBackdrop" class="game-menu-backdrop" hidden/);
+  assert.match(app, /dom\.gameMenuBackdrop\.addEventListener\('pointerdown', event => event\.stopPropagation\(\)\)/);
+  assert.match(app, /dom\.gameMenuBackdrop\.addEventListener\('click', event => \{ event\.preventDefault\(\); event\.stopPropagation\(\); closeGameMenu\(\); \}\)/);
+  assert.match(styles, /\.game-menu-backdrop \{ position: fixed; z-index: 59;/);
+  assert.match(styles, /#moreButton \{ z-index: 60; \}/);
+  assert.match(styles, /\.game-menu \{ z-index: 61; \}/);
 });
