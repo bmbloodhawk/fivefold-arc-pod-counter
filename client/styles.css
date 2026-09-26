@@ -1228,7 +1228,8 @@ dialog:not(#victoryDialog) { max-height:calc(100dvh - 24px); overflow-y:auto; ov
 #gameView[data-counter-mode="commander"] .counter-context { visibility: hidden; }
 /* Commander seat cards show compact status labels, not life totals. Keep
    SOURCE and CMD n on one line in the four-card phone strip. */
-#gameView[data-counter-mode="commander"] .pod-strip .pod-seat .seat-life {
+#gameView[data-counter-mode="commander"] .pod-strip .pod-seat .seat-life,
+#gameView[data-counter-mode="commander"] > .side-seats .pod-seat .seat-life {
   font-size: clamp(.72rem, 3.8vw, .95rem);
   letter-spacing: .02em;
   line-height: 1;

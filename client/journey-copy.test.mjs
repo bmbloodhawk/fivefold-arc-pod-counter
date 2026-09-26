@@ -234,6 +234,7 @@ test('commander damage keeps entry compact and moves every source into a grouped
   assert.match(styles, /\.commander-source-list \{[\s\S]*overflow-y: auto/);
   assert.match(styles, /\.selected-source-button \{[\s\S]*min-height: 40px/);
   assert.match(styles, /\.source-panel:not\(\.commander-source-pair\) \.selected-source-button \{[\s\S]*grid-column: 1 \/ -1;[\s\S]*width: 100%;/);
+  assert.match(styles, /#gameView\[data-counter-mode="commander"\] > \.side-seats \.pod-seat \.seat-life/);
   assert.match(styles, /\.source-panel\.commander-source-pair \{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(app, /dom\.game\.dataset\.counterMode = state\.mode/);
   assert.match(styles, /\.game-shell\[data-counter-mode="commander"\] #turnActions \{ margin-top: 2px; transform: none; \}/);
@@ -268,7 +269,7 @@ test('commander seat cards identify the selected source and show every other def
   assert.match(app, /const commanderSource = state\.mode === 'commander'/);
   assert.match(styles, /\.pod-seat\.commander-seat-source \.seat-life/);
   assert.match(styles, /\.pod-seat\.commander-seat-damage \.seat-life/);
-  assert.match(styles, /#gameView\[data-counter-mode="commander"\] \.pod-strip \.pod-seat \.seat-life \{[\s\S]*font-size: clamp\(\.72rem, 3\.8vw, \.95rem\);[\s\S]*white-space: nowrap;/);
+  assert.match(styles, /#gameView\[data-counter-mode="commander"\] \.pod-strip \.pod-seat \.seat-life,[\s\S]*#gameView\[data-counter-mode="commander"\] > \.side-seats \.pod-seat \.seat-life \{[\s\S]*font-size: clamp\(\.72rem, 3\.8vw, \.95rem\);[\s\S]*white-space: nowrap;/);
 });
 
 test('selecting a saved deck immediately confirms every selected commander identity for create and join', () => {
