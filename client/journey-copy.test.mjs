@@ -459,7 +459,7 @@ test('signed-in accounts keep private deck details and personal history tools', 
   assert.match(app, /More await\./);
   assert.match(styles, /\.achievement-card/);
   assert.match(app, /'Settings'/);
-  assert.match(app, /const profileSettings = \[accountDefaultPlayerCountField/);
+  assert.match(app, /const profileSettings = \[accountPreferredNameField, accountDefaultPlayerCountField/);
   assert.match(app, /emailSignInFields\.hidden = true; accountPassword\.value = '';/);
   assert.match(app, /Deck statistics/);
   assert.match(app, /id="gameHistorySearch"/);
@@ -470,7 +470,7 @@ test('signed-in accounts keep private deck details and personal history tools', 
   assert.match(html, /id="accountDefaultPlayerCount"/);
   assert.match(html, /id="signOutButton"[^>]*>Sign out/);
   assert.match(app, /signOutAccount/);
-  assert.match(app, /const profileSettings = \[accountDefaultPlayerCountField[^\]]*signOutButton\]/);
+  assert.match(app, /const profileSettings = \[accountPreferredNameField[^\]]*signOutButton\]/);
 });
 
 test('completed signed-in games save automatically without a final player action', () => {
