@@ -262,6 +262,14 @@ function renderVictory() {
   dom.victoryNotice.textContent = `${declared ? 'WINNER' : 'LAST PLAYER STANDING'} · ${displayName(winner)}`;
   const actingSeatId = state.localSimulation ? state.activePlayerId : state.ownerPlayerId;
   const key = victoryKey(result);
+  // A phone may be inspecting another seat when the game ends. Return it to
+  // its claimed seat before revealing a personal accolade, so the visible card
+  // and the connection-scoped award always describe the same player.
+  if (key !== shownVictoryKey && !state.localSimulation && state.activePlayerId !== state.ownerPlayerId) {
+    state.activePlayerId = state.ownerPlayerId;
+    render();
+    return;
+  }
   // Give a rapid correction a short grace period before a provisional
   // last-player-standing modal takes over the controls.
   if (result.reason === 'last_player_standing' && lifeChange && Date.now() - (lifeChange.startedAt || 0) < 700) { setTimeout(() => render(), 700); return; }
