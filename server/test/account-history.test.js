@@ -78,6 +78,18 @@ test("ordinary completed-game moments stay common or uncommon", async () => {
   ["full-pantry", "still-here", "irradiated-victory", "capacitor-discharge", "round-robin", "full-table", "eightfold-assembly"].forEach(id => assert.equal(rarities.get(id), "uncommon"));
 });
 
+test("expanded achievement pool recognizes tracked pod, recovery, counter, and commander-pressure moments", async () => {
+  const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: (() => { let id = 0; return () => String(++id); })() }); const accountId = await history.ensureAccount("subject");
+  await history.saveGame(accountId, { tableSize: 5, won: true, counterTotals: { poison: 9, energy: 50, radiation: 25 }, achievementFacts: { lifeGained: 150, lowestLife: 5, lifeGainedAfterLow: 25, playerCountAtStart: 6, everyStarterTwoTurns: 1, everyStarterThreeTurns: 1, everyOpponentCommanderAt10: 1 } });
+  await history.saveGame(accountId, { tableSize: 7, won: true });
+  const rarities = new Map((await history.summary(accountId)).achievements.map(achievement => [achievement.id, achievement.rarity]));
+  ["fivefold-circle", "fivefold-crown", "seven-wonders", "seventh-crown", "second-lap", "six-around", "well-of-life", "high-voltage", "glowing-horizon", "under-siege", "no-quiet-corner", "miracle-work", "fountainhead", "ninth-dose"].forEach(id => assert.equal(rarities.has(id), true));
+  assert.equal(rarities.get("fivefold-crown"), "uncommon");
+  assert.equal(rarities.get("under-siege"), "rare");
+  assert.equal(rarities.get("no-quiet-corner"), "epic");
+  assert.equal(rarities.get("fountainhead"), "legendary");
+});
+
 test("poison achievements add only counters actually gained during saved games", async () => {
   const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: (() => { let id = 0; return () => String(++id); })() }); const accountId = await history.ensureAccount("subject");
   await history.saveGame(accountId, { tableSize: 4, won: false, poisonCounters: 999 }); assert.equal((await history.summary(accountId)).achievements.some(achievement => achievement.id === "poisoned-legend"), false);

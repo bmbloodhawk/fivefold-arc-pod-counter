@@ -21,10 +21,10 @@ const counterTotalsFor = (game) => ({
 });
 const lifetimeCounterTotals = (games) => Object.fromEntries(COUNTER_TOTAL_KEYS.map((key) => [key, games.reduce((total, game) => total + counterTotalsFor(game)[key], 0)]));
 const achievementRarity = (id) => {
-  if (new Set(['phoenix-turn', 'the-full-court', 'all-systems-go', 'the-long-goodbye', 'enduring-legend', 'mythic-run', 'color-wheel', 'wide-table', 'fifty-crowns', 'poisoned-legend', 'infinite-reserve', 'wasteland-legend', 'known-to-legends', 'library-burned', 'impossible-route']).has(id)) return 'legendary';
-  if (new Set(['one-life-to-live', 'overflowing-cup', 'one-more-before-bed', 'saga-at-the-table', 'legendary-welcome', 'toxic-tenacity', 'no-seat-left-behind', 'pod-pillar', 'unstoppable', 'armory', 'venom-veteran', 'living-battery', 'irradiated-veteran', 'legend-scarred', 'lost-in-the-stacks', 'last-chapter', 'alternate-reality']).has(id)) return 'epic';
-  if (new Set(['one-turn-wipeout', 'second-wind', 'last-breath', 'table-trilogy', 'deep-into-the-night', 'legend-collector', 'seasoned', 'hot-streak', 'trusted-blade', 'near-crown', 'ten-crowns', 'toxic-regular', 'grid-connected', 'glow-up', 'battle-scarred']).has(id)) return 'rare';
-  if (new Set(['half-the-story', 'one-is-plenty', 'full-pantry', 'back-at-the-table', 'still-here', 'run-it-back', 'dice-have-spoken', 'settling-in', 'commander-magnet', 'grand-audience', 'irradiated-victory', 'capacitor-discharge', 'round-robin', 'duelist', 'pod-victor', 'full-table', 'crowded-table', 'eightfold-assembly', 'table-regular', 'month-regular', 'first-dose', 'power-cell', 'fallout-shelter', 'marked']).has(id)) return 'uncommon';
+  if (new Set(['phoenix-turn', 'the-full-court', 'all-systems-go', 'the-long-goodbye', 'enduring-legend', 'mythic-run', 'color-wheel', 'wide-table', 'fifty-crowns', 'poisoned-legend', 'infinite-reserve', 'wasteland-legend', 'known-to-legends', 'library-burned', 'impossible-route', 'fountainhead', 'ninth-dose']).has(id)) return 'legendary';
+  if (new Set(['one-life-to-live', 'overflowing-cup', 'one-more-before-bed', 'saga-at-the-table', 'legendary-welcome', 'toxic-tenacity', 'no-seat-left-behind', 'pod-pillar', 'unstoppable', 'armory', 'venom-veteran', 'living-battery', 'irradiated-veteran', 'legend-scarred', 'lost-in-the-stacks', 'last-chapter', 'alternate-reality', 'miracle-work', 'no-quiet-corner']).has(id)) return 'epic';
+  if (new Set(['one-turn-wipeout', 'second-wind', 'last-breath', 'table-trilogy', 'deep-into-the-night', 'legend-collector', 'seasoned', 'hot-streak', 'trusted-blade', 'near-crown', 'ten-crowns', 'toxic-regular', 'grid-connected', 'glow-up', 'battle-scarred', 'second-lap', 'six-around', 'well-of-life', 'high-voltage', 'glowing-horizon', 'under-siege', 'seventh-crown']).has(id)) return 'rare';
+  if (new Set(['half-the-story', 'one-is-plenty', 'full-pantry', 'back-at-the-table', 'still-here', 'run-it-back', 'dice-have-spoken', 'settling-in', 'commander-magnet', 'grand-audience', 'irradiated-victory', 'capacitor-discharge', 'round-robin', 'duelist', 'pod-victor', 'full-table', 'crowded-table', 'eightfold-assembly', 'table-regular', 'month-regular', 'first-dose', 'power-cell', 'fallout-shelter', 'marked', 'fivefold-circle', 'seven-wonders', 'fivefold-crown']).has(id)) return 'uncommon';
   return 'common';
 };
 
@@ -50,7 +50,10 @@ const achievementsFor = ({ games, decks, bestWinStreak, monthCount, playedColors
     ['last-breath', 'Last Breath', 'Won after reaching 5 life or less.', games.some(game => game.won && game.achievementFacts?.lowestLife <= 5)],
     ['one-life-to-live', 'One Life to Live', 'Won after reaching 1 life.', games.some(game => game.won && game.achievementFacts?.lowestLife === 1)],
     ['full-pantry', 'Full Pantry', 'Gained 25 life in one saved game.', games.some(game => game.achievementFacts?.lifeGained >= 25)],
+    ['well-of-life', 'Well of Life', 'Gained 50 life in one saved game.', games.some(game => game.achievementFacts?.lifeGained >= 50)],
     ['overflowing-cup', 'Overflowing Cup', 'Gained 75 life in one saved game.', games.some(game => game.achievementFacts?.lifeGained >= 75)],
+    ['fountainhead', 'Fountainhead', 'Gained 150 life in one saved game.', games.some(game => game.achievementFacts?.lifeGained >= 150)],
+    ['miracle-work', 'Miracle Work', 'Won after recovering 25 life from 5 life or less.', games.some(game => game.won && game.achievementFacts?.lowestLife <= 5 && game.achievementFacts?.lifeGainedAfterLow >= 25)],
     ['back-at-the-table', 'Back at the Table', 'Reclaimed your seat and recorded three more actions.', games.some(game => game.achievementFacts?.reclaimedDuringGame === 1 && game.achievementFacts.actionsAfterReclaim >= 3)],
     ['still-here', 'Still Here', 'Reclaimed your seat and completed two more recorded turns.', games.some(game => game.achievementFacts?.reclaimedDuringGame === 1 && game.achievementFacts.turnsAfterReclaim >= 2)],
     ['run-it-back', 'Run It Back', 'Completed a second game at the same table.', games.some(game => game.achievementFacts?.tableGameNumber >= 2)],
@@ -61,13 +64,20 @@ const achievementsFor = ({ games, decks, bestWinStreak, monthCount, playedColors
     ['commander-magnet', 'Commander Magnet', 'Received 10 commander damage from one commander.', games.some(game => game.achievementFacts?.largestCommanderDamage >= 10)],
     ['grand-audience', 'Grand Audience', 'Received 18 commander damage in one saved game.', games.some(game => game.counterTotals?.commanderDamage >= 18)],
     ['legend-collector', 'Legend Collector', 'Received commander damage from three opposing commanders in one saved game.', games.some(game => game.achievementFacts?.commanderSourcesHit >= 3)],
+    ['under-siege', 'Under Siege', 'Received 10 damage from every opposing commander in a four-or-more-player game.', games.some(game => game.achievementFacts?.everyOpponentCommanderAt10 === 1)],
+    ['no-quiet-corner', 'No Quiet Corner', 'Won after receiving 10 damage from every opposing commander in a four-or-more-player game.', games.some(game => game.won && game.achievementFacts?.everyOpponentCommanderAt10 === 1)],
     ['the-full-court', 'The Full Court', 'Won after receiving 18 damage from every opposing commander in a four-or-more-player game.', games.some(game => game.won && game.achievementFacts?.everyOpponentCommanderAt18 === 1)],
     ['legendary-welcome', 'Legendary Welcome', 'Received commander damage from four opposing commanders in one saved game.', games.some(game => game.achievementFacts?.commanderSourcesHit >= 4)],
     ['toxic-tenacity', 'Toxic Tenacity', 'Won after receiving at least 8 poison in one saved game.', games.some(game => game.won && game.counterTotals?.poison >= 8)],
+    ['ninth-dose', 'Ninth Dose', 'Won after receiving 9 poison in one saved game.', games.some(game => game.won && game.counterTotals?.poison >= 9)],
     ['irradiated-victory', 'Irradiated Victory', 'Won after receiving at least 10 radiation in one saved game.', games.some(game => game.won && game.counterTotals?.radiation >= 10)],
+    ['glowing-horizon', 'Glowing Horizon', 'Received 25 radiation in one saved game.', games.some(game => game.counterTotals?.radiation >= 25)],
     ['capacitor-discharge', 'Capacitor Discharge', 'Gained 20 energy in one saved game.', games.some(game => game.counterTotals?.energy >= 20)],
+    ['high-voltage', 'High Voltage', 'Gained 50 energy in one saved game.', games.some(game => game.counterTotals?.energy >= 50)],
     ['all-systems-go', 'All Systems Go', 'Tracked poison, energy, radiation, and commander damage in one saved game.', games.some(game => game.counterTotals?.poison > 0 && game.counterTotals?.energy > 0 && game.counterTotals?.radiation > 0 && game.counterTotals?.commanderDamage > 0)],
     ['round-robin', 'Round Robin', 'Every player took at least two recorded turns in a four-player game.', games.some(game => game.achievementFacts?.playerCountAtStart >= 4 && game.achievementFacts.everyStarterTwoTurns === 1)],
+    ['second-lap', 'Second Lap', 'Every player took at least three recorded turns in a four-player game.', games.some(game => game.achievementFacts?.playerCountAtStart >= 4 && game.achievementFacts.everyStarterThreeTurns === 1)],
+    ['six-around', 'Six Around', 'Every player took at least two recorded turns in a six-player game.', games.some(game => game.achievementFacts?.playerCountAtStart >= 6 && game.achievementFacts.everyStarterTwoTurns === 1)],
     ['no-seat-left-behind', 'No Seat Left Behind', 'Every player took at least three recorded turns in a six-player game.', games.some(game => game.achievementFacts?.playerCountAtStart >= 6 && game.achievementFacts.everyStarterThreeTurns === 1)],
     ['deep-into-the-night', 'Deep Into the Night', 'Completed a two-hour game with 20 handoffs.', games.some(game => game.achievementFacts?.durationMs >= 7_200_000 && game.achievementFacts.handoffCount >= 20)],
     ['saga-at-the-table', 'Saga at the Table', 'Completed a three-hour four-player game with 36 handoffs.', games.some(game => game.achievementFacts?.playerCountAtStart >= 4 && game.achievementFacts.durationMs >= 10_800_000 && game.achievementFacts.handoffCount >= 36)],
@@ -77,10 +87,14 @@ const achievementsFor = ({ games, decks, bestWinStreak, monthCount, playedColors
     ['first-crown', 'First Crown', 'Recorded your first victory.', wins.length >= 1],
     ['duelist', 'Duelist', 'Won a two-player game.', wins.some(game => game.tableSize === 2)],
     ['pod-victor', 'Pod Victor', 'Won a game with four or more players.', wins.some(game => game.tableSize >= 4)],
+    ['fivefold-crown', 'Fivefold Crown', 'Won a five-player game.', wins.some(game => game.tableSize === 5)],
     ['full-table', 'Full Table', 'Won a game with six or more players.', wins.some(game => game.tableSize >= 6)],
+    ['seventh-crown', 'Seventh Crown', 'Won a seven-player game.', wins.some(game => game.tableSize === 7)],
     ['duo-queue', 'Duo Queue', 'Completed a two-player game.', games.some(game => game.tableSize === 2)],
     ['fourfold-arc', 'Fourfold Arc', 'Completed a four-player game.', games.some(game => game.tableSize === 4)],
+    ['fivefold-circle', 'Fivefold Circle', 'Completed a five-player game.', games.some(game => game.tableSize === 5)],
     ['crowded-table', 'Crowded Table', 'Completed a six-player game.', games.some(game => game.tableSize === 6)],
+    ['seven-wonders', 'Seven Wonders', 'Completed a seven-player game.', games.some(game => game.tableSize === 7)],
     ['eightfold-assembly', 'Eightfold Assembly', 'Completed an eight-player game.', games.some(game => game.tableSize === 8)],
     ['table-regular', 'Table Regular', 'Saved five completed games.', games.length >= 5],
     ['seasoned', 'Seasoned', 'Saved twenty-five completed games.', games.length >= 25],
@@ -187,7 +201,7 @@ export class AccountHistory {
       if (!Number.isInteger(value) || value < 0 || value > 9999) throw new TypeError("Counter totals are invalid");
       return [key, value];
     }));
-    const rawFacts = input.achievementFacts || {}; const factKeys = ["lowestLife", "lifeGained", "lifeGainedAfterLow", "actionsAfterLow", "largestLifeLossInTurn", "lifeAtLargestLossTurnStart", "lostHalfLifeInOneTurn", "lostAllLifeInOneTurn", "wasMilledOut", "millEliminations", "wonByFinalMillOut", "wonByDeclaredAlternateWin", "playerCountAtStart", "turnCount", "durationMs", "commanderSourcesHit", "largestCommanderDamage", "everyOpponentCommanderAt18", "handoffCount", "everyStarterTwoTurns", "everyStarterThreeTurns", "reclaimedDuringGame", "actionsAfterReclaim", "turnsAfterReclaim", "tableGameNumber", "usedLocalD20"];
+    const rawFacts = input.achievementFacts || {}; const factKeys = ["lowestLife", "lifeGained", "lifeGainedAfterLow", "actionsAfterLow", "largestLifeLossInTurn", "lifeAtLargestLossTurnStart", "lostHalfLifeInOneTurn", "lostAllLifeInOneTurn", "wasMilledOut", "millEliminations", "wonByFinalMillOut", "wonByDeclaredAlternateWin", "playerCountAtStart", "turnCount", "durationMs", "commanderSourcesHit", "largestCommanderDamage", "everyOpponentCommanderAt10", "everyOpponentCommanderAt18", "handoffCount", "everyStarterTwoTurns", "everyStarterThreeTurns", "reclaimedDuringGame", "actionsAfterReclaim", "turnsAfterReclaim", "tableGameNumber", "usedLocalD20"];
     if (!rawFacts || typeof rawFacts !== "object" || Array.isArray(rawFacts) || Object.keys(rawFacts).some(key => !factKeys.includes(key))) throw new TypeError("Achievement facts are invalid");
     const achievementFacts = Object.fromEntries(factKeys.filter(key => rawFacts[key] != null).map(key => { const value = Number(rawFacts[key]); if (!Number.isInteger(value) || value < 0 || value > 9_999_999_999) throw new TypeError("Achievement facts are invalid"); return [key, value]; }));
     const game = { gameId, savedAt: this.now(), tableSize, won, place, outcomeDescription: text(input.outcomeDescription, 160), commanderName: text(input.commanderName, 120), deckId: input.deckId || null, counterTotals, achievementFacts, ...(sourceGameId ? { sourceGameId } : {}) };

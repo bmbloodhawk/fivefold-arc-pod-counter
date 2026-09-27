@@ -996,6 +996,7 @@ test("full-court commander facts require every opposing commander at tables of f
   defender.matchMoment.commanderDamageBySource = { "seat-1-commander-a": 18, "seat-2-commander-a": 18, "seat-3-commander-a": 18 };
   defender.matchMoment.commanderDamageReceived = 54;
   table.gameResult = { winnerSeatId: 0, decidedAt: 100_000 };
+  assert.equal(service.personalMatchMoment(created.snapshot.code, host.connectionId).achievementFacts.everyOpponentCommanderAt10, 1);
   assert.equal(service.personalMatchMoment(created.snapshot.code, host.connectionId).achievementFacts.everyOpponentCommanderAt18, 1);
   defender.matchMoment.commanderDamageBySource["seat-3-commander-a"] = 17;
   assert.equal(service.personalMatchMoment(created.snapshot.code, host.connectionId).achievementFacts.everyOpponentCommanderAt18, 0);
