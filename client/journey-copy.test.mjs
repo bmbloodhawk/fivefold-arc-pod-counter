@@ -122,10 +122,12 @@ test('turn cues offer explicit sound and vibration modes with an iPhone support 
 });
 
 test('declaring an alternate winner offers an optional visible reason without a redundant celebration close button', () => {
+  assert.match(html, /id="winnerCondition"[\s\S]*value="alternate_win">Alternate card win/);
   assert.match(html, /id="winnerReason"[^>]*maxlength="160"/);
   assert.match(html, /How did they win\?/);
   assert.doesNotMatch(html, />Close celebration</);
   assert.match(app, /declarationDetail: declarationDetail \|\| null/);
+  assert.match(app, /transport\.declareWinner\(winnerSeatId, declarationDetail, winCondition\)/);
 });
 
 test('the landing page explains the privacy boundary without overclaiming record retention', () => {
@@ -250,6 +252,14 @@ test('commander damage keeps entry compact and moves every source into a grouped
   assert.match(styles, /#gameView\[data-interface-style="dial"\]:not\(\[data-counter-mode="commander"\]\) \.turn-actions \{ transform: none; \}/);
   assert.match(styles, /#gameView\[data-interface-style="dial"\] > \.side-seats \{[\s\S]*gap: 5px/);
   assert.match(styles, /> \.side-seats:not\(\[hidden\]\) \{[\s\S]*right: 12px;[\s\S]*left: 12px;/);
+});
+
+test('the host can record a non-life player elimination without choosing a winner', () => {
+  assert.match(html, /id="eliminatePlayerButton"[^>]*>Mark player eliminated/);
+  assert.match(html, /id="eliminatePlayerReason"/);
+  assert.match(html, /value="milled_out">Milled out/);
+  assert.match(app, /function openEliminatePlayer\(\)/);
+  assert.match(app, /transport\.eliminatePlayer\(targetSeatId, reason, detail\)/);
 });
 
 test('a seated player can update only their own displayed name after the game starts', () => {

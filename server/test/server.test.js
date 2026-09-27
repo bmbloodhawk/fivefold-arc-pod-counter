@@ -914,18 +914,53 @@ describe("authority and convergence", () => {
       method: "POST", connectionId: made.connectionId, body: { baseVersion: eliminated.body.snapshot.version },
     });
     assert.equal(reset.body.snapshot.gameResult, null);
+    const restarted = await call(`/api/rooms/${made.snapshot.code}/start-game`, {
+      method: "POST", connectionId: made.connectionId, body: { baseVersion: reset.body.snapshot.version },
+    });
     const denied = await call(`/api/rooms/${made.snapshot.code}/declare-winner`, {
-      method: "POST", connectionId: playerConnection, body: { baseVersion: reset.body.snapshot.version, winnerSeatId: 1 },
+      method: "POST", connectionId: playerConnection, body: { baseVersion: restarted.body.snapshot.version, winnerSeatId: 1 },
     });
     assert.equal(denied.status, 403);
     const declared = await call(`/api/rooms/${made.snapshot.code}/declare-winner`, {
-      method: "POST", connectionId: made.connectionId, body: { baseVersion: reset.body.snapshot.version, winnerSeatId: 1, declarationDetail: "  Laboratory Maniac  " },
+      method: "POST", connectionId: made.connectionId, body: { baseVersion: restarted.body.snapshot.version, winnerSeatId: 1, winCondition: "alternate_win", declarationDetail: "  Laboratory Maniac  " },
     });
     assert.equal(declared.status, 200);
     assert.equal(declared.body.snapshot.gameResult.winnerSeatId, 1);
     assert.equal(declared.body.snapshot.gameResult.finishingOrder, undefined);
     assert.equal(declared.body.snapshot.gameResult.reason, "declared_winner");
+    assert.equal(declared.body.snapshot.gameResult.winCondition, "alternate_win");
     assert.equal(declared.body.snapshot.gameResult.declarationDetail, "Laboratory Maniac");
+  });
+
+  test("the host can mark a player out for mill or another alternate loss without declaring a multiplayer winner", () => {
+    const service = new RoomService(); const host = service.createConnection(); const made = service.createRoom(host.connectionId, { playerCount: 3, startingLife: 40 });
+    const second = service.createConnection(); const third = service.createConnection();
+    let snapshot = service.claimSeat(made.snapshot.code, second.connectionId, { seatId: 1, name: "Jace" }).snapshot;
+    snapshot = service.claimSeat(made.snapshot.code, third.connectionId, { seatId: 2, name: "Nissa" }).snapshot;
+    snapshot = service.startGame(made.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
+    snapshot = service.eliminatePlayer(made.snapshot.code, host.connectionId, { baseVersion: snapshot.version, targetSeatId: 1, reason: "milled_out" }).snapshot;
+    assert.equal(snapshot.seats[1].alternateElimination.reason, "milled_out");
+    assert.equal(snapshot.gameResult, null);
+    snapshot = service.handoffTurn(made.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
+    assert.equal(snapshot.turn.activeSeatId, 2);
+    snapshot = service.eliminatePlayer(made.snapshot.code, host.connectionId, { baseVersion: snapshot.version, targetSeatId: 2, reason: "alternate_loss", detail: "Test card" }).snapshot;
+    assert.deepEqual(snapshot.gameResult.finishingOrder, [0, 2, 1]);
+    assert.equal(snapshot.gameResult.decisiveAlternateReason, "alternate_loss");
+    assert.throws(() => service.eliminatePlayer(made.snapshot.code, second.connectionId, { baseVersion: snapshot.version, targetSeatId: 0, reason: "milled_out" }), { code: "HOST_ONLY" });
+  });
+
+  test("a final mill-out supplies objective outcome facts to both players", () => {
+    const service = new RoomService(); const host = service.createConnection(); const made = service.createRoom(host.connectionId, { playerCount: 2, startingLife: 40 }); const opponent = service.createConnection();
+    let snapshot = service.claimSeat(made.snapshot.code, opponent.connectionId, { seatId: 1, name: "Jace" }).snapshot;
+    snapshot = service.startGame(made.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
+    snapshot = service.eliminatePlayer(made.snapshot.code, host.connectionId, { baseVersion: snapshot.version, targetSeatId: 1, reason: "milled_out" }).snapshot;
+    assert.equal(snapshot.gameResult.decisiveAlternateReason, "milled_out");
+    assert.equal(service.personalMatchMoment(made.snapshot.code, host.connectionId).achievementFacts.wonByFinalMillOut, 1);
+    assert.equal(service.personalMatchMoment(made.snapshot.code, opponent.connectionId).achievementFacts.wasMilledOut, 1);
+    snapshot = service.resetRoom(made.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
+    snapshot = service.startGame(made.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
+    snapshot = service.declareWinner(made.snapshot.code, host.connectionId, { baseVersion: snapshot.version, winnerSeatId: 0, winCondition: "alternate_win" }).snapshot;
+    assert.equal(service.personalMatchMoment(made.snapshot.code, host.connectionId).achievementFacts.wonByDeclaredAlternateWin, 1);
   });
 });
 

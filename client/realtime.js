@@ -160,16 +160,18 @@ export class RealtimeAdapter extends EventTarget {
   async setTableSkin(tableSkinId) { return this.#hostGameRequest('/table-skin', { tableSkinId: tableSkinId || null }); }
   async setTurnPaused(paused) { return this.#hostGameRequest('/turn-pause', { paused }); }
 
-  async declareWinner(winnerSeatId, declarationDetail = '') {
+  async declareWinner(winnerSeatId, declarationDetail = '', winCondition = 'other_declared') {
     if (this.localMode) return { local: true };
     if (this.status !== 'connected' || !this.snapshot) return { blocked: true };
     const epoch = this.sessionEpoch;
     try {
-      const result = await this.#request(`/api/rooms/${this.roomCode}/declare-winner`, { method: 'POST', authenticated: true, body: { baseVersion: this.snapshot.version, winnerSeatId, declarationDetail } });
+      const result = await this.#request(`/api/rooms/${this.roomCode}/declare-winner`, { method: 'POST', authenticated: true, body: { baseVersion: this.snapshot.version, winnerSeatId, declarationDetail, winCondition } });
       if (!this.#isCurrentSession(epoch)) return { ignored: true };
       this.#acceptSnapshot(result.snapshot, epoch); return result;
     } catch (error) { if (!this.#isCurrentSession(epoch)) return { ignored: true }; return this.#handleConflict(error, epoch); }
   }
+
+  async eliminatePlayer(targetSeatId, reason, detail = '') { return this.#hostGameRequest('/eliminate-player', { targetSeatId, reason, detail }); }
 
   async chooseStartingPlayer(startingSeatId) { return this.#hostGameRequest('/choose-starting-player', startingSeatId === undefined ? {} : { startingSeatId }); }
 

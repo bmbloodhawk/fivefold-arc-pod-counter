@@ -59,6 +59,18 @@ test("turn-loss achievements require the recorded life loss and life total from 
   assert.equal(achievements.get("one-turn-wipeout").rarity, "rare");
 });
 
+test("alternate outcome achievements require structured saved-game facts", async () => {
+  const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: (() => { let id = 0; return () => String(++id); })() }); const accountId = await history.ensureAccount("subject");
+  await history.saveGame(accountId, { tableSize: 4, won: false, achievementFacts: { wasMilledOut: 1 } });
+  await history.saveGame(accountId, { tableSize: 4, won: true, achievementFacts: { millEliminations: 2, wonByFinalMillOut: 1, wonByDeclaredAlternateWin: 1 } });
+  const achievements = new Map((await history.summary(accountId)).achievements.map(achievement => [achievement.id, achievement]));
+  assert.equal(achievements.get("lost-in-the-stacks").rarity, "epic");
+  assert.equal(achievements.get("last-chapter").rarity, "epic");
+  assert.equal(achievements.get("library-burned").rarity, "legendary");
+  assert.equal(achievements.get("alternate-reality").rarity, "epic");
+  assert.equal(achievements.get("impossible-route").rarity, "legendary");
+});
+
 test("ordinary completed-game moments stay common or uncommon", async () => {
   const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: (() => { let id = 0; return () => String(++id); })() }); const accountId = await history.ensureAccount("subject");
   await history.saveGame(accountId, { tableSize: 8, won: true, achievementFacts: { reclaimedDuringGame: 1, turnsAfterReclaim: 2, lifeGained: 25, playerCountAtStart: 8, everyStarterTwoTurns: 1 }, counterTotals: { energy: 20, radiation: 10 } });

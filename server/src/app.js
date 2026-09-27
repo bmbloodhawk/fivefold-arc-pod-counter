@@ -368,7 +368,7 @@ export function createCardInteractionLookup(fetchImpl = fetch, { timeoutMs = COM
   };
 }
 
-function recordLastPlayerStanding(room, now) {
+function recordLastPlayerStanding(room, now, decisiveAlternateReason = null) {
   if (!room.turn.gameStarted) return;
   const claimedSeats = room.seats.filter((seat) => seat.claimed);
   if (claimedSeats.length < 2) return;
@@ -381,7 +381,7 @@ function recordLastPlayerStanding(room, now) {
   // permanently locked on a victory screen. A declared winner remains final.
   if (room.gameResult?.reason === "last_player_standing" && survivors.length !== 1) room.gameResult = null;
   if (!room.gameResult && survivors.length === 1) {
-    room.gameResult = { winnerSeatId: survivors[0].seatId, reason: "last_player_standing", finishingOrder: [survivors[0].seatId, ...room.automaticEliminationOrder.toReversed()], decidedAt: now };
+    room.gameResult = { winnerSeatId: survivors[0].seatId, reason: "last_player_standing", finishingOrder: [survivors[0].seatId, ...room.automaticEliminationOrder.toReversed()], ...(decisiveAlternateReason ? { decisiveAlternateReason } : {}), decidedAt: now };
   }
 }
 function feedbackPromptSeatId(room) { const seats = room.seats.filter(seat => seat.claimed); if (!room.gameResult || !seats.length) return null; const value = [...room.gameId].reduce((total, character) => total + character.codePointAt(0), 0); return value % 3 ? null : seats[value % seats.length].seatId; }
@@ -622,6 +622,7 @@ export class RoomService {
     const commanderDamageBySource = matchMoment.commanderDamageBySource || {};
     const commanderDamage = Object.values(commanderDamageBySource);
     const opposingCommanderSourceIds = commanderSources(room).filter((source) => source.ownerSeatId !== seat.seatId).map((source) => source.id);
+    const millEliminations = room.seats.filter((item) => item.alternateElimination?.reason === "milled_out").length;
     return {
       moment: personalMatchMoment({ seat, seats: room.seats, winnerSeatId: room.gameResult.winnerSeatId, seed: room.gameId }),
       counterTotals: {
@@ -639,6 +640,10 @@ export class RoomService {
         lifeAtLargestLossTurnStart: matchMoment.lifeAtLargestLossTurnStart || room.config.startingLife,
         lostHalfLifeInOneTurn: matchMoment.lostHalfLifeInOneTurn ? 1 : 0,
         lostAllLifeInOneTurn: matchMoment.lostAllLifeInOneTurn ? 1 : 0,
+        wasMilledOut: seat.alternateElimination?.reason === "milled_out" ? 1 : 0,
+        millEliminations,
+        wonByFinalMillOut: room.gameResult.winnerSeatId === seat.seatId && room.gameResult.decisiveAlternateReason === "milled_out" ? 1 : 0,
+        wonByDeclaredAlternateWin: room.gameResult.winnerSeatId === seat.seatId && room.gameResult.winCondition === "alternate_win" ? 1 : 0,
         playerCountAtStart: matchMoment.playerCountAtStart || room.seats.filter((item) => item.claimed).length,
         turnCount: matchMoment.turnCount || 0,
         durationMs: Math.max(0, room.gameResult.decidedAt - (room.turn.gameStartedAt || room.gameResult.decidedAt)),
@@ -912,6 +917,7 @@ export class RoomService {
     for (const seat of room.seats) {
       seat.counters = { life: room.config.startingLife, radiation: 0, poison: 0, energy: 0, generic: 0 };
       seat.counterTotals = { poison: 0 };
+      seat.alternateElimination = null;
       seat.matchMoment = blankMatchMoment(room.config.startingLife);
       seat.commanderDamageReceived = Object.fromEntries(
         Object.keys(seat.commanderDamageReceived).map((sourceId) => [sourceId, 0]),
@@ -968,6 +974,7 @@ export class RoomService {
     const room = this.room(code);
     const { seatId } = this.requireOwner(room, connectionId);
     if (seatId !== room.hostSeatId) throw Object.assign(new Error("Only the host seat may declare a winner"), { status: 403, code: "HOST_ONLY" });
+    if (!room.turn.gameStarted) throw Object.assign(new Error("Start the game before declaring a winner"), { status: 409, code: "GAME_NOT_STARTED", snapshot: this.snapshot(room) });
     if (input.baseVersion !== room.version) {
       throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
     }
@@ -975,9 +982,34 @@ export class RoomService {
     if (!room.seats[winnerSeatId].claimed) throw Object.assign(new Error("A winner must be a claimed seat"), { status: 400, code: "INVALID_INPUT" });
     const declarationDetail = typeof input.declarationDetail === "string" ? input.declarationDetail.normalize("NFC").trim().replace(/\s+/gu, " ") : "";
     if (Array.from(declarationDetail).length > 160 || /[\p{Cc}\p{Cf}]/u.test(declarationDetail)) throw Object.assign(new Error("Winner reason must contain at most 160 printable characters"), { status: 400, code: "INVALID_INPUT" });
-    room.gameResult = { winnerSeatId, reason: "declared_winner", declarationDetail: declarationDetail || null, decidedAt: this.now() };
+    const winCondition = ["alternate_win", "concession", "other_declared"].includes(input.winCondition) ? input.winCondition : "other_declared";
+    room.gameResult = { winnerSeatId, reason: "declared_winner", winCondition, declarationDetail: declarationDetail || null, decidedAt: this.now() };
     room.version += 1;
-    this.recordLedger(room, "winner_declared", seatId, { winnerSeatId, declarationDetail: declarationDetail || null });
+    this.recordLedger(room, "winner_declared", seatId, { winnerSeatId, winCondition, declarationDetail: declarationDetail || null });
+    this.recordCompletion(room);
+    this.broadcast(room);
+    return { snapshot: this.snapshot(room) };
+  }
+
+  eliminatePlayer(code, connectionId, input = {}) {
+    const room = this.room(code);
+    const { seatId } = this.requireOwner(room, connectionId);
+    if (seatId !== room.hostSeatId) throw Object.assign(new Error("Only the host seat may mark a player eliminated"), { status: 403, code: "HOST_ONLY" });
+    if (!room.turn.gameStarted) throw Object.assign(new Error("Start the game before marking an elimination"), { status: 409, code: "GAME_NOT_STARTED", snapshot: this.snapshot(room) });
+    if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
+    const targetSeatId = asInteger(input.targetSeatId, "targetSeatId", 0, room.config.playerCount - 1);
+    const target = room.seats[targetSeatId];
+    if (!target.claimed || seatIsEliminated(target)) throw Object.assign(new Error("Choose a living claimed player"), { status: 400, code: "INVALID_INPUT" });
+    const reason = input.reason === "milled_out" ? "milled_out" : input.reason === "alternate_loss" ? "alternate_loss" : null;
+    if (!reason) throw Object.assign(new Error("Choose an alternate loss reason"), { status: 400, code: "INVALID_INPUT" });
+    const detail = typeof input.detail === "string" ? input.detail.normalize("NFC").trim().replace(/\s+/gu, " ") : "";
+    if (Array.from(detail).length > 160 || /[\p{Cc}\p{Cf}]/u.test(detail)) throw Object.assign(new Error("Elimination detail must contain at most 160 printable characters"), { status: 400, code: "INVALID_INPUT" });
+    target.alternateElimination = { reason, detail: detail || null, decidedAt: this.now() };
+    room.automaticEliminationOrder ||= [];
+    if (!room.automaticEliminationOrder.includes(targetSeatId)) room.automaticEliminationOrder.push(targetSeatId);
+    recordLastPlayerStanding(room, this.now(), reason);
+    room.version += 1;
+    this.recordLedger(room, "player_eliminated", seatId, { targetSeatId, reason, detail: detail || null });
     this.recordCompletion(room);
     this.broadcast(room);
     return { snapshot: this.snapshot(room) };
@@ -1455,6 +1487,7 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "POST" && parts[3] === "table-skin") return json(res, 200, service.setTableSkin(code, connectionId, await readJson(req)));
         if (req.method === "GET" && parts[3] === "saved-playtests") return json(res, 200, await service.hostArchive(code, connectionId));
         if (req.method === "POST" && parts[3] === "declare-winner") return json(res, 200, service.declareWinner(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "eliminate-player") return json(res, 200, service.eliminatePlayer(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "choose-starting-player") return json(res, 200, service.chooseStartingPlayer(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "report-starting-player-roll") return json(res, 200, service.reportStartingPlayerRoll(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "start-game") return json(res, 200, service.startGame(code, connectionId, await readJson(req)));

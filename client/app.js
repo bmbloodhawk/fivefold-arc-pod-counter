@@ -1,4 +1,4 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=76';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=77';
 import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=72';
 import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=114';
 import { connectionPresentation } from './connection-state.js?v=1';
@@ -21,7 +21,7 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const dom = {
   views: $$('.view'), landing: $('#landingView'), create: $('#createView'), join: $('#joinView'), joinSeatView: $('#joinSeatView'), game: $('#gameView'), joinCodeForm: $('#joinCodeForm'), joinCodeStatus: $('#joinCodeStatus'), savedTables: $('#savedTables'), savedTablesList: $('#savedTablesList'), quickTestButton: $('#quickTestButton'), localSimulationField: $('#localSimulationField'),
-  connectionButton: $('#connectionButton'), connectionText: $('#connectionText'), connectionDialog: $('#connectionDialog'), connectionDetail: $('#connectionDetail'), editPlayerNameButton: $('#editPlayerNameButton'), editPlayerNameDialog: $('#editPlayerNameDialog'), editPlayerNameForm: $('#editPlayerNameForm'), editPlayerName: $('#editPlayerName'), leaveTableButton: $('#leaveTableButton'), leaveTableDialog: $('#leaveTableDialog'), confirmLeaveTableButton: $('#confirmLeaveTableButton'),
+  connectionButton: $('#connectionButton'), connectionText: $('#connectionText'), connectionDialog: $('#connectionDialog'), connectionDetail: $('#connectionDetail'), editPlayerNameButton: $('#editPlayerNameButton'), editPlayerNameDialog: $('#editPlayerNameDialog'), editPlayerNameForm: $('#editPlayerNameForm'), editPlayerName: $('#editPlayerName'), eliminatePlayerButton: $('#eliminatePlayerButton'), eliminatePlayerDialog: $('#eliminatePlayerDialog'), eliminatePlayerForm: $('#eliminatePlayerForm'), eliminatePlayerSeat: $('#eliminatePlayerSeat'), eliminatePlayerReason: $('#eliminatePlayerReason'), eliminatePlayerDetail: $('#eliminatePlayerDetail'), leaveTableButton: $('#leaveTableButton'), leaveTableDialog: $('#leaveTableDialog'), confirmLeaveTableButton: $('#confirmLeaveTableButton'),
   playerCountChoices: $('#playerCountChoices'), createName: $('#createName'), joinSeat: $('#joinSeat'), joinName: $('#joinName'), joinSeatClaim: $('#joinSeatClaim'), activeSeat: $('#activeSeat'), localSimulation: $('#localSimulation'), roundLimitMinutes: $('#roundLimitMinutes'), createCommanderNames: $('#createCommanderNames'), joinCommanderNames: $('#joinCommanderNames'), gameCommanderNames: $('#gameCommanderNames'), createDeckField: $('#createDeckField'), createDeck: $('#createDeck'), joinDeckField: $('#joinDeckField'), joinDeck: $('#joinDeck'),
   podStrip: $('#podStrip'), podLabel: $('#podLabel'), commanderIdentityName: $('#commanderIdentityName'), identityHeaderRail: $('#identityHeaderRail'), modeTitle: $('#modeTitle'), mainValue: $('#mainValue'), dialControls: $('#dialControls'), dialGesture: $('#dialGesture'),
   counterContext: $('#counterContext'), statusMessage: $('#statusMessage'), lethalMark: $('#lethalMark'), lethalImage: $('#lethalMark img'), eliminationOutcome: $('#eliminationOutcome'), lifeChangeIndicator: $('#lifeChangeIndicator'), sourcePanel: $('#sourcePanel'), commanderSourceDialog: $('#commanderSourceDialog'), commanderSourceDetail: $('#commanderSourceDetail'), commanderSourceList: $('#commanderSourceList'), inspectionNotice: $('#inspectionNotice'), sideSeats: $('#sideSeats'),
@@ -33,6 +33,7 @@ const dom = {
   cardCameraButton: $('#cardCameraButton'), cardCameraDialog: $('#cardCameraDialog'), cardAdvisorForm: $('#cardAdvisorForm'), firstCardTitle: $('#firstCardTitle'), secondCardTitle: $('#secondCardTitle'), interactionSituation: $('#interactionSituation'), cardLookupStatus: $('#cardLookupStatus'), cardLookupResult: $('#cardLookupResult'), achievementDialog: $('#achievementDialog'), achievementTitle: $('#achievementTitle'), achievementSummary: $('#achievementSummary'), achievementUnlockList: $('#achievementUnlockList'),
   customLifeButton: $('#customLifeButton'), customLifeDialog: $('#customLifeDialog'), customLifeForm: $('#customLifeForm'), customLifeAmount: $('#customLifeAmount'), cancelCustomLifeButton: $('#cancelCustomLifeButton'), radiationDialog: $('#radiationDialog'), radiationForm: $('#radiationForm'), radiationDetail: $('#radiationDetail'), radiationNonlandCount: $('#radiationNonlandCount'), resolveRadiationButton: $('#resolveRadiationButton'), playtestNotesButton: $('#playtestNotesButton'), playtestRecapButton: $('#playtestRecapButton'), fieldTestButton: $('#fieldTestButton'), markDevelopmentButton: $('#markDevelopmentButton'), fieldTestDialog: $('#fieldTestDialog'), fieldTestForm: $('#fieldTestForm'), fieldTestStatus: $('#fieldTestStatus'), savedPlaytestsButton: $('#savedPlaytestsButton'), lockDeveloperModeButton: $('#lockDeveloperModeButton'), developerModeDialog: $('#developerModeDialog'), developerModeForm: $('#developerModeForm'), developerModeKey: $('#developerModeKey'), developerModeStatus: $('#developerModeStatus'), unlockDeveloperModeButton: $('#unlockDeveloperModeButton'), refreshTableButton: $('#refreshTableButton'), playtestNotesDialog: $('#playtestNotesDialog'), playtestNotesForm: $('#playtestNotesForm'), playtestNotesList: $('#playtestNotesList'), playtestNoteText: $('#playtestNoteText'), playtestNoteStatus: $('#playtestNoteStatus'), playtestRecapDialog: $('#playtestRecapDialog'), playtestRecapContent: $('#playtestRecapContent'), savedPlaytestsDialog: $('#savedPlaytestsDialog'), savedPlaytestsContent: $('#savedPlaytestsContent')
 };
+const winnerCondition = $('#winnerCondition');
 const transport = new RealtimeAdapter({ apiBase: apiBaseFromPage() });
 const DIAGNOSTIC_BUILD = '200';
 const reportedDiagnostics = new Set();
@@ -132,7 +133,7 @@ function sourceForSeat(player, slot) {
 function sourcesFromPlayers(players) { return players.flatMap(player => Array.from({ length: player.commanderCount }, (_, index) => sourceForSeat(player, String.fromCharCode(65 + index)))); }
 function blankDamage(sources) { return Object.fromEntries(sources.map(source => [source.id, 0])); }
 function playerTemplate(number, startingLife, commanderCount, sources, commanderNames = [], commanderColors = []) {
-  return { id: `P${number}`, name: `P${number}`, commanderCount, commanderNames: Array.from({ length: commanderCount }, (_, slot) => commanderNames[slot] || ''), commanderColors: Array.from({ length: commanderCount }, (_, slot) => normaliseIdentity(commanderColors[slot])), life: startingLife, poison: 0, commanderDamage: blankDamage(sources), radiation: 0, energy: 0, generic: 0, connectionStatus: 'connected', eliminated: false, lethalCause: null, warning: null };
+  return { id: `P${number}`, name: `P${number}`, commanderCount, commanderNames: Array.from({ length: commanderCount }, (_, slot) => commanderNames[slot] || ''), commanderColors: Array.from({ length: commanderCount }, (_, slot) => normaliseIdentity(commanderColors[slot])), life: startingLife, poison: 0, commanderDamage: blankDamage(sources), radiation: 0, energy: 0, generic: 0, alternateElimination: null, connectionStatus: 'connected', eliminated: false, lethalCause: null, warning: null };
 }
 function createState({ playerCount = 4, startingLife = 40, gameFormat = 'commander', ownerPlayerId = 'P1', ownerName = ownerPlayerId, ownerCommanderCount = 1, ownerCommanderNames = [], ownerCommanderColors = [], roundLimitMinutes = null, tableSkinId = '', localSimulation = true, podCode = 'LOCAL' } = {}) {
   const counts = Array.from({ length: playerCount }, (_, index) => `P${index + 1}` === ownerPlayerId ? ownerCommanderCount : 1);
@@ -197,7 +198,7 @@ function stateFromSnapshot(snapshot) {
   return {
     playerCount: snapshot.config.playerCount, startingLife: snapshot.config.startingLife, gameFormat: snapshot.config.gameFormat || 'commander', roundLimitMinutes: snapshot.config.roundLimitMinutes || null, commanderSources, commanderCastCounts: castCountsFromSnapshot(snapshot, commanderSources), ownerPlayerId, activePlayerId, turnSeatId: `P${turn.activeSeatId + 1}`, turn,
     localSimulation: false, podCode: snapshot.code, version: snapshot.version, hostSeatId: snapshot.hostSeatId, tableSkinId: snapshot.config.tableSkinId || '', sessionKind: snapshot.sessionKind || 'standard', feedbackPromptSeatId: snapshot.feedbackPromptSeatId, lastCoinToss: snapshot.lastCoinToss || null, gameResult: snapshot.gameResult || null, mode: previous?.mode || 'life', selectedSourceId: previous?.selectedSourceId || null,
-    players: snapshot.seats.map(seat => ({ id: `P${seat.seatId + 1}`, name: seat.name, commanderCount: seat.commanderCount === 2 ? 2 : 1, commanderNames: seat.commanderNames || [], commanderColors: (seat.commanderColors || []).map(normaliseIdentity), life: seat.counters.life, poison: seat.counters.poison, poisonReceived: seat.counterTotals?.poison || 0, commanderDamage: damageFromSnapshot(seat, commanderSources), radiation: seat.counters.radiation ?? 0, energy: seat.counters.energy, generic: seat.counters.generic, connectionStatus: seat.connected ? 'connected' : seat.claimed ? 'disconnected' : 'waiting', eliminated: false, lethalCause: null, warning: null }))
+    players: snapshot.seats.map(seat => ({ id: `P${seat.seatId + 1}`, name: seat.name, commanderCount: seat.commanderCount === 2 ? 2 : 1, commanderNames: seat.commanderNames || [], commanderColors: (seat.commanderColors || []).map(normaliseIdentity), life: seat.counters.life, poison: seat.counters.poison, poisonReceived: seat.counterTotals?.poison || 0, commanderDamage: damageFromSnapshot(seat, commanderSources), radiation: seat.counters.radiation ?? 0, energy: seat.counters.energy, generic: seat.counters.generic, alternateElimination: seat.alternateElimination || null, connectionStatus: seat.connected ? 'connected' : seat.claimed ? 'disconnected' : 'waiting', eliminated: false, lethalCause: null, warning: null }))
   };
 }
 function sourcesForDefender(_playerId) { return state.commanderSources; }
@@ -220,7 +221,8 @@ function commanderValue(player, sourceId = state.selectedSourceId) { return play
 function evaluatePlayer(player) {
   const lethalSource = state.commanderSources.find(source => commanderValue(player, source.id) >= 21);
   const warningSource = state.commanderSources.find(source => { const value = commanderValue(player, source.id); return value >= 18 && value <= 20; });
-  if (lethalSource) { player.eliminated = true; player.lethalCause = `${displaySource(lethalSource)} ${commanderValue(player, lethalSource.id)}`; player.eliminationOutcome = { title: 'ELIMINATED', detail: `COMMANDER DAMAGE · ${displaySource(lethalSource)}`, art: 'commander' }; }
+  if (player.alternateElimination) { player.eliminated = true; player.lethalCause = player.alternateElimination.reason; player.eliminationOutcome = { title: 'ELIMINATED', detail: player.alternateElimination.reason === 'milled_out' ? 'MILLED OUT' : player.alternateElimination.detail || 'ALTERNATE GAME LOSS', art: 'life' }; }
+  else if (lethalSource) { player.eliminated = true; player.lethalCause = `${displaySource(lethalSource)} ${commanderValue(player, lethalSource.id)}`; player.eliminationOutcome = { title: 'ELIMINATED', detail: `COMMANDER DAMAGE · ${displaySource(lethalSource)}`, art: 'commander' }; }
   else if (player.poison >= 10) { player.eliminated = true; player.lethalCause = `POISON ${player.poison}`; player.eliminationOutcome = { title: 'ELIMINATED', detail: 'POISON', art: 'poison' }; }
   else if (player.life <= 0) { player.eliminated = true; player.lethalCause = `LIFE ${player.life}`; player.eliminationOutcome = { title: 'ELIMINATED', detail: 'LIFE TOTAL 0', art: 'life' }; }
   else { player.eliminated = false; player.lethalCause = null; player.eliminationOutcome = null; }
@@ -701,7 +703,8 @@ function render() {
   const commanderOwner = state.localSimulation ? activePlayer() : state.players.find(item => item.id === state.ownerPlayerId); const taxPlayer = activePlayer();
   dom.commanderSetupButton.textContent = state.localSimulation ? `${displayName(commanderOwner)} commander setup` : 'My commander setup';
   dom.coinTossButton.disabled = !(transport.status === 'local' || transport.status === 'connected');
-  dom.declareWinnerButton.hidden = !state.localSimulation && transport.seatId !== state.hostSeatId;
+  dom.declareWinnerButton.hidden = !state.turn.gameStarted || (!state.localSimulation && transport.seatId !== state.hostSeatId);
+  dom.eliminatePlayerButton.hidden = !tableHost || !state.turn.gameStarted;
   dom.playtestNotesButton.hidden = state.localSimulation; dom.playtestNotesButton.disabled = transport.status !== 'connected'; dom.refreshTableButton.hidden = state.localSimulation; dom.refreshTableButton.disabled = transport.status !== 'connected';
   dom.playtestRecapButton.hidden = state.localSimulation || transport.seatId !== state.hostSeatId; dom.playtestRecapButton.disabled = transport.status !== 'connected'; dom.savedPlaytestsButton.hidden = state.localSimulation || transport.seatId !== state.hostSeatId; dom.savedPlaytestsButton.disabled = transport.status !== 'connected';
   dom.fieldTestButton.hidden = state.localSimulation || transport.seatId !== state.hostSeatId || !state.turn.gameStarted; dom.fieldTestButton.disabled = transport.status !== 'connected';
@@ -1100,7 +1103,7 @@ function openDeclareWinner() {
   if (!state || (!state.localSimulation && transport.seatId !== state.hostSeatId)) return;
   dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false');
   dom.winnerSeat.innerHTML = state.players.filter(player => player.connectionStatus !== 'waiting').map(player => `<option value="${Number(player.id.slice(1)) - 1}">${escapeHtml(displayPlayer(player))}</option>`).join('');
-  dom.winnerReason.value = '';
+  winnerCondition.value = 'alternate_win'; dom.winnerReason.value = '';
   dom.declareWinnerDialog.showModal();
 }
 function ownPlayer() { return state?.localSimulation ? activePlayer() : state?.players.find(player => player.id === state?.ownerPlayerId); }
@@ -1121,11 +1124,35 @@ async function updatePlayerName() {
     dom.editPlayerNameDialog.close('confirm');
   } catch (error) { showError(error); }
 }
+function openEliminatePlayer() {
+  if (!state) return;
+  const living = state.players.filter(player => player.connectionStatus !== 'waiting' && !player.eliminated);
+  if (living.length < 2) return;
+  closeGameMenu();
+  dom.eliminatePlayerSeat.innerHTML = living.map(player => `<option value="${Number(player.id.slice(1)) - 1}">${escapeHtml(displayPlayer(player))}</option>`).join('');
+  dom.eliminatePlayerReason.value = 'milled_out'; dom.eliminatePlayerDetail.value = '';
+  dom.eliminatePlayerDialog.showModal();
+}
+async function eliminatePlayer() {
+  const targetSeatId = Number(dom.eliminatePlayerSeat.value); const reason = dom.eliminatePlayerReason.value; const detail = dom.eliminatePlayerDetail.value.trim();
+  if (!Number.isInteger(targetSeatId)) return;
+  try {
+    if (state.localSimulation) {
+      const player = state.players[targetSeatId];
+      if (!player || player.eliminated) return;
+      player.alternateElimination = { reason, detail: detail || null }; state.players.forEach(evaluatePlayer); evaluateLocalVictory(); render();
+    } else {
+      const result = await transport.eliminatePlayer(targetSeatId, reason, detail);
+      if (result.conflict) showError(new Error('The table changed first. The latest game state is shown.'));
+    }
+    dom.eliminatePlayerDialog.close('confirm');
+  } catch (error) { showError(error); }
+}
 async function declareWinner() {
-  const form = new FormData(dom.declareWinnerForm); const winnerSeatId = Number(form.get('winnerSeat')); const declarationDetail = String(form.get('winnerReason') || '').trim();
+  const form = new FormData(dom.declareWinnerForm); const winnerSeatId = Number(form.get('winnerSeat')); const winCondition = String(form.get('winnerCondition') || 'other_declared'); const declarationDetail = String(form.get('winnerReason') || '').trim();
   if (!Number.isInteger(winnerSeatId) || !state.players[winnerSeatId]) return;
-  if (state.localSimulation) { state.gameResult = { winnerSeatId, reason: 'declared_winner', declarationDetail: declarationDetail || null, decidedAt: Date.now() }; render(); return; }
-  try { const result = await transport.declareWinner(winnerSeatId, declarationDetail); if (result.conflict) showError(new Error('The table changed first. The latest game state is shown.')); }
+  if (state.localSimulation) { state.gameResult = { winnerSeatId, reason: 'declared_winner', winCondition, declarationDetail: declarationDetail || null, decidedAt: Date.now() }; render(); return; }
+  try { const result = await transport.declareWinner(winnerSeatId, declarationDetail, winCondition); if (result.conflict) showError(new Error('The table changed first. The latest game state is shown.')); }
   catch (error) { showError(error); }
 }
 function showTurnHandoff() {
@@ -1153,7 +1180,7 @@ async function tossCoin({ dialog = true } = {}) {
     } catch (error) { renderConnection('disconnected'); showError(error); return; }
   }
 }
-function closeGameOverlays() { [dom.resetDialog, dom.connectionDialog, dom.leaveTableDialog, dom.coinTossDialog, dom.startingRollDialog, dom.turnCueDialog, dom.turnSoundDialog, dom.customLifeDialog, dom.commanderSourceDialog, dom.commanderCountDialog, dom.commanderTaxDialog, dom.victoryDialog, dom.achievementDialog, dom.declareWinnerDialog, dom.playtestNotesDialog, dom.playtestRecapDialog, dom.savedPlaytestsDialog, dom.cardCameraDialog].forEach(dialog => { if (dialog?.open) dialog.close(); }); }
+function closeGameOverlays() { [dom.resetDialog, dom.connectionDialog, dom.leaveTableDialog, dom.coinTossDialog, dom.startingRollDialog, dom.turnCueDialog, dom.turnSoundDialog, dom.customLifeDialog, dom.commanderSourceDialog, dom.commanderCountDialog, dom.commanderTaxDialog, dom.victoryDialog, dom.achievementDialog, dom.declareWinnerDialog, dom.eliminatePlayerDialog, dom.playtestNotesDialog, dom.playtestRecapDialog, dom.savedPlaytestsDialog, dom.cardCameraDialog].forEach(dialog => { if (dialog?.open) dialog.close(); }); }
 
 async function openCardCamera() {
   dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false');
@@ -1266,6 +1293,8 @@ dom.chooseFirstButton.addEventListener('click', () => chooseStartingPlayer(Numbe
 const syncGameMenuScrollLock = () => { const open = !dom.gameMenu.hidden; dom.gameMenuBackdrop.hidden = !open; document.documentElement.classList.toggle('game-menu-open', open); document.body.classList.toggle('game-menu-open', open); };
 new MutationObserver(syncGameMenuScrollLock).observe(dom.gameMenu, { attributes: true, attributeFilter: ['hidden'] }); syncGameMenuScrollLock();
 function closeGameMenu() { dom.gameMenu.hidden = true; dom.gameMenuBackdrop.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); }
+dom.eliminatePlayerButton.addEventListener('click', openEliminatePlayer);
+dom.eliminatePlayerForm.addEventListener('submit', event => { if (event.submitter?.value === 'confirm') { event.preventDefault(); void eliminatePlayer(); } });
 // Do not remove this layer on pointerdown: on touch devices that would expose
 // the gameplay control before the matching click fires. It must consume the
 // whole tap, then close the menu.
