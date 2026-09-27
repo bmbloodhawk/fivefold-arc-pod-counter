@@ -26,6 +26,21 @@ export async function currentAccountToken() {
   return user ? user.getIdToken() : null;
 }
 
+// Firebase restores persisted credentials asynchronously. Wait for that first
+// state notification before deciding that a freshly opened app is a guest.
+export async function restoredAccountToken() {
+  const { onAuthStateChanged } = await import("https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js");
+  const instance = await firebaseAuth();
+  const user = await new Promise((resolve, reject) => {
+    let unsubscribe;
+    unsubscribe = onAuthStateChanged(instance, account => {
+      unsubscribe?.();
+      resolve(account);
+    }, reject);
+  });
+  return user ? user.getIdToken() : null;
+}
+
 export async function signOutAccount() {
   const { signOut } = await import("https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js");
   await signOut(await firebaseAuth());

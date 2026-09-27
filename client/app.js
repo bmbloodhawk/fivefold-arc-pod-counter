@@ -4,7 +4,7 @@ import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=114';
 import { connectionPresentation } from './connection-state.js?v=1';
 import { createInteractionAdvice } from './card-interaction-advice.js?v=1';
 import { commanderFallbackLabel, commanderSourceSections } from './commander-source-flow.js?v=1';
-import { currentAccountToken, emailAccountToken, googleAccountToken, sendAccountPasswordReset, signOutAccount } from './account-auth.js?v=5';
+import { currentAccountToken, emailAccountToken, googleAccountToken, restoredAccountToken, sendAccountPasswordReset, signOutAccount } from './account-auth.js?v=6';
 
 const appearancePreviewMode = new URLSearchParams(location.search).get('appearance-preview') === '1';
 const appearanceParams = new URLSearchParams(location.search);
@@ -326,6 +326,22 @@ async function finishAccountSignIn(token) {
   const returnTo = pendingSignInReturn; pendingSignInReturn = null;
   if (returnTo?.view === 'join' && $('#podCode').value.trim().toUpperCase() === returnTo.code) { showView(dom.joinSeatView); showJoinStep(returnTo.step); }
   else showView(dom.landing);
+}
+async function restoreSavedAccountSession() {
+  try {
+    const token = await restoredAccountToken();
+    if (!token) return;
+    const response = await fetch('/api/account/preferences', { headers: { authorization: `Bearer ${token}` } });
+    if (!response.ok) return;
+    const preferences = (await response.json()).preferences;
+    applyAccountPreferences(preferences);
+    if (preferences.preferredName) { dom.createName.value ||= preferences.preferredName; dom.joinName.value ||= preferences.preferredName; }
+    const playerDefault = $(`input[name="playerCount"][value="${preferences.defaultPlayerCount || 4}"]`);
+    if (playerDefault) playerDefault.checked = true;
+    dom.roundLimitMinutes.value ||= preferences.defaultRoundLimitMinutes || '';
+    enterApp(true);
+    await loadSetupDecks();
+  } catch { /* A missing, expired, or unavailable account leaves guest play unchanged. */ }
 }
 async function showMyGames() {
   myGamesContent.hidden = true; myGamesStatus.textContent = 'Loading your profile…'; myGamesSignInButton.hidden = true;
@@ -1268,6 +1284,7 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.ser
 const deepJoinCode = new URLSearchParams(location.search).get('join');
 if (!appearancePreviewMode && /^[A-Z0-9]{6}$/i.test(deepJoinCode || '')) openJoinCode(deepJoinCode);
 if (!appearancePreviewMode) { void loadGameDefaultLayout(); void loadPublishedSkinChoices(); }
+if (!appearancePreviewMode) void restoreSavedAccountSession();
 if (appearancePreviewMode) {
   transport.useLocal();
   state = createState({ playerCount: 4, ownerName: 'Mira', podCode: 'STUDIO' });

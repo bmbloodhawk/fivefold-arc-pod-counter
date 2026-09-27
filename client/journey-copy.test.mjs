@@ -6,6 +6,7 @@ import { commanderFallbackLabel, commanderSourceSections } from './commander-sou
 const root = new URL('./', import.meta.url);
 const html = await readFile(new URL('index.html', root), 'utf8');
 const app = await readFile(new URL('app.js', root), 'utf8');
+const accountAuth = await readFile(new URL('account-auth.js', root), 'utf8');
 const styles = await readFile(new URL('styles.css', root), 'utf8');
 const feedbackPage = await readFile(new URL('feedback.html', root), 'utf8');
 const layoutInvariants = await readFile(new URL('../UI_LAYOUT_INVARIANTS.md', root), 'utf8');
@@ -507,6 +508,12 @@ test('email accounts can request a password-reset email', () => {
 test('email autofill does not close the My games dialog', () => {
   assert.match(app, /myGamesDialog\.querySelector\('form'\)\.addEventListener\('submit', event => event\.preventDefault\(\)\);/);
   assert.match(app, /myGamesDialog\.querySelector\('button\[value="close"\]'\)\.addEventListener\('click', \(\) => myGamesDialog\.close\(\)\)/);
+});
+
+test('a saved account session restores before the app offers guest play again', () => {
+  assert.match(accountAuth, /export async function restoredAccountToken\(\)[\s\S]*onAuthStateChanged/);
+  assert.match(app, /async function restoreSavedAccountSession\(\) \{[\s\S]*const token = await restoredAccountToken\(\);[\s\S]*if \(!token\) return;[\s\S]*enterApp\(true\);/);
+  assert.match(app, /if \(!appearancePreviewMode\) void restoreSavedAccountSession\(\);/);
 });
 
 test('a completed account sign-in goes directly to the pod choice without loading the profile', () => {
