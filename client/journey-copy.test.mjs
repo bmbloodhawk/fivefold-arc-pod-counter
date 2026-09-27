@@ -18,7 +18,9 @@ test('phone layout uses the visible viewport and prevents browser text inflation
   assert.match(styles, /--app-viewport-height: 100dvh/);
   assert.match(styles, /min-height: var\(--app-viewport-height\)/);
   assert.match(app, /function syncViewportMetrics\(\)/);
-  assert.match(app, /window\.visualViewport\?\.addEventListener\('resize', syncViewportMetrics/);
+  assert.match(app, /function scheduleViewportMetrics\(\)/);
+  assert.match(app, /window\.visualViewport\?\.addEventListener\('resize', scheduleViewportMetrics/);
+  assert.doesNotMatch(app, /visualViewport\?\.addEventListener\('scroll'/);
 });
 
 test('joining keeps optional commander setup out of the primary claim path', () => {

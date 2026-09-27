@@ -1,4 +1,4 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=75';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=76';
 import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=72';
 import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=114';
 import { connectionPresentation } from './connection-state.js?v=1';
@@ -36,6 +36,7 @@ const dom = {
 const transport = new RealtimeAdapter({ apiBase: apiBaseFromPage() });
 const DIAGNOSTIC_BUILD = '200';
 const reportedDiagnostics = new Set();
+let viewportSyncTimer = null;
 function syncViewportMetrics() {
   const viewport = window.visualViewport;
   const height = Math.max(1, Math.round(viewport?.height || window.innerHeight));
@@ -43,10 +44,13 @@ function syncViewportMetrics() {
   document.documentElement.style.setProperty('--app-viewport-height', `${height}px`);
   document.documentElement.style.setProperty('--app-viewport-width', `${width}px`);
 }
+function scheduleViewportMetrics() {
+  clearTimeout(viewportSyncTimer);
+  viewportSyncTimer = setTimeout(() => { viewportSyncTimer = null; syncViewportMetrics(); }, 120);
+}
 syncViewportMetrics();
-window.addEventListener('resize', syncViewportMetrics, { passive: true });
-window.visualViewport?.addEventListener('resize', syncViewportMetrics, { passive: true });
-window.visualViewport?.addEventListener('scroll', syncViewportMetrics, { passive: true });
+window.addEventListener('resize', scheduleViewportMetrics, { passive: true });
+window.visualViewport?.addEventListener('resize', scheduleViewportMetrics, { passive: true });
 function diagnosticViewport() { return innerWidth <= 360 ? 'compact' : innerWidth <= 600 ? 'phone' : 'wide'; }
 function diagnosticDeviceMemory() { const memory = Number(navigator.deviceMemory); return memory > 8 ? '8plus' : [1, 2, 4, 8].includes(memory) ? String(memory) : 'unknown'; }
 function recordClientDiagnostic(kind) {
@@ -1303,7 +1307,7 @@ dom.viewCelebrationButton.addEventListener('click', () => { shownVictoryKey = nu
 transport.addEventListener('status', event => renderConnection(event.detail)); transport.addEventListener('state', event => { if (event.detail?.seats?.length) { const previousTossKey = coinTossKey(state?.lastCoinToss); const previousRollKey = startingPlayerRollKey(state?.turn?.startingPlayerRoll); const previousTurnKey = state?.turn?.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; state = stateFromSnapshot(event.detail); if (awaitingConfirmedResync && transport.status === 'connected') { awaitingConfirmedResync = false; const presentation = connectionPresentation({ status: 'connected', resynced: true }); dom.syncBanner.textContent = presentation.syncMessage; dom.syncBanner.hidden = false; clearTimeout(syncBannerTimer); syncBannerTimer = setTimeout(() => { dom.syncBanner.hidden = true; }, 5000); } const nextRollKey = startingPlayerRollKey(state.turn.startingPlayerRoll); const nextTurnKey = state.turn.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; if (dom.game.hidden) showView(dom.game); if (nextTurnKey && nextTurnKey !== previousTurnKey && nextTurnKey !== lastTurnHandoffKey) { lastTurnHandoffKey = nextTurnKey; showTurnHandoff(); } if (nextRollKey && nextRollKey !== previousRollKey && nextRollKey !== lastStartingRollKey) { lastStartingRollKey = nextRollKey; showStartingPlayerRoll(state.turn.startingPlayerRoll); } else if (coinTossKey(state.lastCoinToss) && coinTossKey(state.lastCoinToss) !== previousTossKey) { const dialog = coinTossDialogRequested; coinTossDialogRequested = false; showCoinToss(state.lastCoinToss, { dialog }); } else render(); } });
 transport.addEventListener('state', event => { const roomCode = event.detail?.code; if (!roomCode || reportedDiagnostics.has(roomCode)) return; reportedDiagnostics.add(roomCode); setTimeout(() => recordClientDiagnostic('session_started'), 0); });
 transport.addEventListener('state', event => { if (event.detail?.seats?.length) void applySelectedAppearance(); });
-document.addEventListener('visibilitychange', () => recordClientDiagnostic('visibility_changed'));
+document.addEventListener('visibilitychange', () => { recordClientDiagnostic('visibility_changed'); if (document.visibilityState === 'visible') scheduleViewportMetrics(); });
 window.addEventListener('error', () => recordClientDiagnostic('unhandled_error'));
 window.addEventListener('unhandledrejection', () => recordClientDiagnostic('unhandled_error'));
 dom.startingRollCanvas?.addEventListener('webglcontextlost', () => recordClientDiagnostic('webgl_context_lost'));

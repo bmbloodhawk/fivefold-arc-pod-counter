@@ -41,6 +41,42 @@ test('does not emit a second state event for an unchanged snapshot', async () =>
   }
 });
 
+test('snapshot safety polling pauses while an SSE reconnect is pending', async () => {
+  const originals = Object.fromEntries(['fetch', 'EventSource', 'document', 'localStorage', 'setInterval', 'clearInterval'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  const intervals = [];
+  let roomReads = 0;
+  try {
+    globalThis.document = { visibilityState: 'visible' };
+    globalThis.EventSource = FakeEventSource;
+    globalThis.localStorage = { getItem: () => null, setItem: () => {} };
+    globalThis.setInterval = (callback, delay) => { const timer = { callback, delay }; intervals.push(timer); return timer; };
+    globalThis.clearInterval = () => {};
+    globalThis.fetch = async (url, options = {}) => {
+      const path = new URL(url).pathname;
+      if (path === '/api/connections') return response({ connectionId: 'connection-1' });
+      if (path === '/api/rooms' && options.method === 'POST') return response({ snapshot: { code: 'POD123', version: 1 }, seatId: 0, reclaimToken: 'pod-token' });
+      if (path === '/api/rooms/POD123') { roomReads += 1; return response({ snapshot: { code: 'POD123', version: 2 } }); }
+      if (path === '/api/rooms/POD123/client-diagnostics') return response({});
+      throw new Error(`Unexpected request: ${options.method || 'GET'} ${path}`);
+    };
+
+    const { RealtimeAdapter } = await import(new URL(`./realtime.js?reconnect-poll=${Date.now()}`, import.meta.url));
+    const adapter = new RealtimeAdapter({ apiBase: 'https://pod.test' });
+    await adapter.createRoom({ playerCount: 2, startingLife: 40 });
+    const snapshotPoll = intervals.find(timer => timer.delay === 750);
+    assert.ok(snapshotPoll);
+    FakeEventSource.instances.at(-1).emit('error');
+    await snapshotPoll.callback();
+    assert.equal(roomReads, 0);
+    adapter.clearSession();
+  } finally {
+    for (const [key, descriptor] of Object.entries(originals)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else delete globalThis[key];
+    }
+  }
+});
+
 test('a cleared room cannot overwrite a newly created room with late SSE or mutation snapshots', async () => {
   const originals = Object.fromEntries(['fetch', 'EventSource', 'document', 'localStorage'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   let connectionNumber = 0; let roomNumber = 0; let releaseOldMutation;

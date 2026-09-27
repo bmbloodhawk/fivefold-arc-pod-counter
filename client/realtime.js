@@ -263,7 +263,7 @@ export class RealtimeAdapter extends EventTarget {
   #startSnapshotRefresh(epoch) {
     clearInterval(this.snapshotRefreshTimer);
     const refresh = async () => {
-      if (!this.#isCurrentSession(epoch) || !this.roomCode || document.visibilityState === 'hidden') return;
+      if (!this.#isCurrentSession(epoch) || this.status !== 'connected' || !this.roomCode || document.visibilityState === 'hidden') return;
       try {
         // The cache-buster protects this safety net from an intermediary that
         // incorrectly reuses a public room GET despite the server's no-store.
