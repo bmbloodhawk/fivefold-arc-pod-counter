@@ -293,7 +293,8 @@ function synchronizeCommanderState(room) {
 }
 
 function seatIsEliminated(seat) {
-  return seat.counters.life <= 0
+  return Boolean(seat.alternateElimination)
+    || seat.counters.life <= 0
     || seat.counters.poison >= 10
     || Object.values(seat.commanderDamageReceived).some((damage) => damage >= 21);
 }
@@ -453,7 +454,7 @@ export class RoomService {
       commanderCount: seatId === 0 ? commanderCount : 1,
       commanderNames: seatId === 0 ? commanderNames : [""],
       commanderColors: seatId === 0 ? commanderColors : [[]],
-      counters: { life: startingLife, radiation: 0, poison: 0, energy: 0, generic: 0 }, counterTotals: { poison: 0 },
+      counters: { life: startingLife, radiation: 0, poison: 0, energy: 0, generic: 0 }, counterTotals: { poison: 0 }, alternateElimination: null,
       commanderDamageReceived: {},
       commanderCastCounts: {},
       matchMoment: blankMatchMoment(startingLife),
@@ -539,7 +540,7 @@ export class RoomService {
         pausedDurationMs: room.turn.pausedDurationMs ?? 0,
       },
       commanderSources: sources,
-      seats: room.seats.map(({ seatId, name, claimed, ownerConnectionId, commanderCount, commanderNames, commanderColors, counters, counterTotals, commanderDamageReceived, commanderCastCounts }) => ({
+      seats: room.seats.map(({ seatId, name, claimed, ownerConnectionId, commanderCount, commanderNames, commanderColors, counters, counterTotals, commanderDamageReceived, commanderCastCounts, alternateElimination }) => ({
         seatId,
         name,
         claimed,
@@ -551,6 +552,7 @@ export class RoomService {
         counterTotals: { poison: counterTotals?.poison || 0 },
         commanderDamageReceived: { ...commanderDamageReceived },
         commanderCastCounts: { ...commanderCastCounts },
+        alternateElimination: alternateElimination ? { ...alternateElimination } : null,
         nextCommanderTax: Object.fromEntries(
           Object.entries(commanderCastCounts).map(([sourceId, castCount]) => [sourceId, castCount * 2]),
         ),
@@ -1366,6 +1368,7 @@ export function createRealtimeServer(options = {}) {
       const connectionId = req.headers["x-connection-id"];
       if (req.method === "GET" && url.pathname === "/health") return json(res, 200, { ok: true });
       if (req.method === "GET" && url.pathname === "/api/account/history") { const accountId = await account(req); return json(res, 200, { history: await accountHistory.summary(accountId) }); }
+      if (req.method === "GET" && url.pathname === "/api/account/skin-access") { const accountId = await account(req); return json(res, 200, { access: await accountHistory.skinAccess(accountId) }); }
       if (req.method === "GET" && url.pathname === "/api/account/preferences") { const accountId = await account(req); return json(res, 200, { preferences: await accountHistory.preferences(accountId) }); }
       if (req.method === "PUT" && url.pathname === "/api/account/preferences") { const accountId = await account(req); const input = await readJson(req); if (input.personalSkinId) { const catalog = await appearanceCatalog.read(); if (!(catalog.skins || []).some((skin) => skin?.id === input.personalSkinId && skin.status === "Approved")) throw Object.assign(new Error("Choose a published skin."), { status: 400, code: "INVALID_INPUT" }); } return json(res, 200, { preferences: await accountHistory.savePreferences(accountId, input) }); }
       if (req.method === "GET" && url.pathname === "/api/account/export") { const accountId = await account(req); return json(res, 200, { export: await accountHistory.export(accountId) }); }
@@ -1377,6 +1380,7 @@ export function createRealtimeServer(options = {}) {
       if (req.method === "DELETE" && parts[0] === "api" && parts[1] === "account" && parts[2] === "games" && parts[3]) { const accountId = await account(req); await accountHistory.removeGame(accountId, parts[3]); return json(res, 204, {}); }
       if (req.method === "DELETE" && parts[0] === "api" && parts[1] === "account" && parts[2] === "decks" && parts[3]) { const accountId = await account(req); await accountHistory.removeDeck(accountId, parts[3]); return json(res, 204, {}); }
       if (req.method === "GET" && url.pathname === "/api/developer/access") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { ok: true }); }
+      if (req.method === "POST" && url.pathname === "/api/developer/skins/grant") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); const input = await readJson(req); const catalog = await appearanceCatalog.read(); if (!(catalog.skins || []).some(skin => skin?.id === input.skinId && skin.status === "Approved")) throw Object.assign(new Error("Choose a published skin."), { status: 400, code: "INVALID_INPUT" }); return json(res, 200, { grants: await accountHistory.grantSkin(String(input.accountId || ''), String(input.skinId || ''), input.source === 'payment' ? 'payment' : input.source === 'achievement' ? 'achievement' : 'grant') }); }
       if (req.method === "GET" && url.pathname === "/api/appearance-studio/catalog") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { catalog: await appearanceCatalog.read() }); }
       if (req.method === "PUT" && url.pathname === "/api/appearance-studio/catalog") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { catalog: await appearanceCatalog.write(await readJson(req, 8 * 1024 * 1024)) }); }
       if (req.method === "GET" && url.pathname === "/api/game-layout") { const catalog = await appearanceCatalog.read(); return json(res, 200, { layout: catalog.gameDefaultLayout || null }); }

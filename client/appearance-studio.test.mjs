@@ -63,8 +63,13 @@ test('the Studio exposes separate safe text sizing controls and collapsible edit
 
 test('dial artwork can rotate with the dial and the Studio can open a shared phone layout editor', () => {
   assert.match(studio, /dialArtSpin/);
+  assert.match(studio, /layout\.dialArtSpin = true/);
   assert.match(studio, /Spin this art with the dial/);
   assert.match(app, /appearance-dial-art/);
+  assert.match(app, /dial-gesture>\.skin-overlay/);
+  assert.match(app, /dial-gesture>\.appearance-overlay/);
+  assert.match(app, /transform-origin:50% 50%/);
+  assert.match(app, /object-position:center/);
   assert.match(app, /phoneLayoutSessionId/);
   assert.match(studio, /Phone Layout Editor/);
   assert.match(studio, /phone-layout/);
@@ -114,6 +119,26 @@ test('Studio accepts a 20 MB source image and optimizes large assets before savi
   assert.match(studio, /file\.size > 700000 \|\| file\.type === 'image\/svg\+xml' \? await scaleForStudio/);
   assert.match(studio, /placement === 'symbol' \? 256 : 1280/);
   assert.match(studio, /data\.length \* \.75 <= 700000/);
+});
+
+test('Studio makes catalog saves visible and uploads only newly imported artwork', () => {
+  assert.match(html, /id="saveState" role="status" aria-live="polite"/);
+  assert.match(studio, /setCatalogSaving\(true, label\)/);
+  assert.match(studio, /\$\{label\}… artwork \$\{index \+ 1\} of \$\{assets\.length\}/);
+  assert.match(studio, /item\.data && item\.pendingUpload/);
+  assert.match(studio, /pendingUpload: true/);
+  assert.match(studio, /Save failed — try again/);
+  assert.match(studio, /async function saveDraft\(label = 'Saving draft'\)/);
+});
+
+test('Studio makes publish failures prominent and specific', () => {
+  assert.match(html, /id="publishFeedback" class="publish-feedback" role="alert" aria-live="assertive" hidden/);
+  assert.match(studio, /function showPublishFeedback\(title, reason\)/);
+  assert.match(studio, /validate\.requiredFailures = failed/);
+  assert.match(studio, /Cannot publish this skin yet\./);
+  assert.match(studio, /Publishing stopped because the draft could not save\./);
+  assert.match(studio, /Publishing failed\./);
+  assert.match(studio, /saveDraft\('Preparing publish'\)/);
 });
 
 test('the exact preview covers phone sizes and 4, 6, and 8-player tables', () => {

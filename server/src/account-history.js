@@ -145,6 +145,21 @@ export class AccountHistory {
     return accountId;
   }
 
+  async skinAccess(accountId) {
+    const account = (await this.store.read(accountPath(accountId))) || { accountId };
+    const grants = Array.isArray(account.skinEntitlements) ? account.skinEntitlements : [];
+    const history = await this.summary(accountId);
+    return { accountId, grants, achievementIds: history.achievements.map(item => item.id) };
+  }
+
+  async grantSkin(accountId, skinId, source = 'grant') {
+    if (!/^acct_[A-Za-z0-9-]{1,120}$/.test(accountId || '') || !/^[A-Za-z0-9_-]{1,80}$/.test(skinId || '') || !['grant', 'achievement', 'payment'].includes(source)) throw new TypeError('Skin grant is invalid');
+    const account = await this.store.read(accountPath(accountId)); if (!account) throw new TypeError('Account is invalid');
+    const grants = Array.isArray(account.skinEntitlements) ? account.skinEntitlements : [];
+    if (!grants.some(item => item.skinId === skinId)) grants.push({ skinId, source, grantedAt: this.now() });
+    await this.store.write(accountPath(accountId), { ...account, skinEntitlements: grants }); return grants;
+  }
+
   async saveGame(accountId, input = {}) {
     const extra = Object.keys(input).find((key) => !["tableSize", "won", "place", "outcomeDescription", "commanderName", "deckId", "poisonCounters", "counterTotals", "achievementFacts", "sourceGameId"].includes(key));
     if (extra) throw new TypeError(`Game field is not allowed: ${extra}`);

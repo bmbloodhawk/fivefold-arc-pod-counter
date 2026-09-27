@@ -64,14 +64,14 @@ export class RealtimeAdapter extends EventTarget {
     this.#setStatus('local');
   }
 
-  async mutate({ counters, commanderDamageReceived, commanderCount, commanderNames, commanderColors, commanderCastCounts } = {}) {
+  async mutate({ name, counters, commanderDamageReceived, commanderCount, commanderNames, commanderColors, commanderCastCounts } = {}) {
     if (this.localMode) return { local: true };
     if (this.status !== 'connected' || !this.snapshot) return { blocked: true };
     const epoch = this.sessionEpoch;
     try {
       const result = await this.#request(`/api/rooms/${this.roomCode}/me`, {
         method: 'PATCH', authenticated: true,
-        body: { baseVersion: this.snapshot.version, ...(counters && Object.keys(counters).length ? { counters } : {}), ...(commanderDamageReceived && Object.keys(commanderDamageReceived).length ? { commanderDamageReceived } : {}), ...(commanderCount !== undefined ? { commanderCount } : {}), ...(commanderNames !== undefined ? { commanderNames } : {}), ...(commanderColors !== undefined ? { commanderColors } : {}), ...(commanderCastCounts && Object.keys(commanderCastCounts).length ? { commanderCastCounts } : {}) }
+        body: { baseVersion: this.snapshot.version, ...(name !== undefined ? { name } : {}), ...(counters && Object.keys(counters).length ? { counters } : {}), ...(commanderDamageReceived && Object.keys(commanderDamageReceived).length ? { commanderDamageReceived } : {}), ...(commanderCount !== undefined ? { commanderCount } : {}), ...(commanderNames !== undefined ? { commanderNames } : {}), ...(commanderColors !== undefined ? { commanderColors } : {}), ...(commanderCastCounts && Object.keys(commanderCastCounts).length ? { commanderCastCounts } : {}) }
       });
       if (!this.#isCurrentSession(epoch)) return { ignored: true };
       this.#acceptSnapshot(result.snapshot, epoch); return result;

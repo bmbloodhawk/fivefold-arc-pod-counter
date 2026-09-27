@@ -250,6 +250,14 @@ test('commander damage keeps entry compact and moves every source into a grouped
   assert.match(styles, /> \.side-seats:not\(\[hidden\]\) \{[\s\S]*right: 12px;[\s\S]*left: 12px;/);
 });
 
+test('a seated player can update only their own displayed name after the game starts', () => {
+  assert.match(html, /id="editPlayerNameButton"[^>]*>Change my name/);
+  assert.match(html, /id="editPlayerNameDialog"/);
+  assert.match(html, /id="editPlayerName"[^>]*maxlength="24"/);
+  assert.match(app, /function openEditPlayerName\(\)/);
+  assert.match(app, /transport\.mutate\(\{ name \}\)/);
+});
+
 test('commander source selection keeps every source grouped, suggests the active turn, and names unnamed partners', () => {
   const players = Array.from({ length: 8 }, (_, index) => ({ id: `P${index + 1}`, commanderCount: index === 2 ? 2 : 1 }));
   const sources = players.flatMap(player => Array.from({ length: player.commanderCount }, (_, index) => ({ id: `${player.id}-${index + 1}`, ownerPlayerId: player.id, slot: index ? 'B' : 'A' })));
@@ -472,6 +480,8 @@ test('signed-in accounts keep private deck details and personal history tools', 
   assert.match(html, /id="signOutButton"[^>]*>Sign out/);
   assert.match(app, /signOutAccount/);
   assert.match(app, /const profileSettings = \[accountPreferredNameField[^\]]*signOutButton\]/);
+  assert.match(app, /Saved\. \$\{preferredName\} will prefill your name when you create or join a pod\./);
+  assert.match(app, /myGamesStatus\.setAttribute\('role', 'status'\)/);
 });
 
 test('completed signed-in games save automatically without a final player action', () => {

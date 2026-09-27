@@ -297,6 +297,7 @@
         <button id="savedPlaytestsButton" type="button" hidden>Saved playtests</button>
         <button id="lockDeveloperModeButton" type="button" hidden>Lock developer tools</button>
         <button id="refreshTableButton" type="button">Refresh table</button>
+        <button id="editPlayerNameButton" type="button">Change my name</button>
         <button id="declareWinnerButton" type="button">Declare winner</button>
         <button id="commanderSetupButton" type="button">My commander setup</button>
         <button id="pauseTurnButton" type="button" hidden>Pause timers</button>
@@ -461,6 +462,18 @@
       <p id="achievementSummary">Your game added something new to your chronicle.</p>
       <div id="achievementUnlockList" class="achievement-unlock-list"></div>
       <button value="continue" class="primary-action">Continue</button>
+    </form>
+  </dialog>
+
+  <dialog id="editPlayerNameDialog" aria-labelledby="editPlayerNameTitle">
+    <form id="editPlayerNameForm" method="dialog">
+      <h2 id="editPlayerNameTitle">Change my name</h2>
+      <p>This updates your displayed name for everyone at this table.</p>
+      <label class="select-field">Name<input id="editPlayerName" name="name" maxlength="24" autocomplete="name" required></label>
+      <div class="dialog-actions">
+        <button value="cancel" class="secondary-action">Cancel</button>
+        <button value="confirm" class="primary-action">Save name</button>
+      </div>
     </form>
   </dialog>
 
