@@ -130,6 +130,14 @@ test('declaring an alternate winner offers an optional visible reason without a 
   assert.match(app, /transport\.declareWinner\(winnerSeatId, declarationDetail, winCondition\)/);
 });
 
+test('a saved active-pod seat rejoins directly without repeating identity setup', () => {
+  assert.match(html, /A saved seat on this phone rejoins automatically\./);
+  assert.match(app, /const reclaimableSeats = snapshot\.seats\.filter\(seat => seat\.claimed && transport\.hasStoredReclaimToken\(code, seat\.seatId\)\);/);
+  assert.match(app, /dom\.joinCodeStatus\.textContent = `Rejoining \$\{seat\.name \|\| `P\$\{seat\.seatId \+ 1\}`\}…`;/);
+  assert.match(app, /transport\.claimRoom\(\{ code, seatId: seat\.seatId, name: seat\.name, commanderCount: seat\.commanderCount, commanderNames: seat\.commanderNames, commanderColors: seat\.commanderColors \}\)/);
+  assert.match(app, /if \(result\?\.snapshot\) \{ showSharedGame\(result\.snapshot\); return true; \}/);
+});
+
 test('the landing page explains the privacy boundary without overclaiming record retention', () => {
   assert.match(html, /id="signInButton"[^>]*>Sign in/);
   assert.match(html, /id="continueGuestButton"[^>]*>Continue as guest/);

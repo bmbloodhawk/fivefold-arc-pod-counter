@@ -956,9 +956,20 @@ async function refreshJoinSeats() {
     return false;
   }
   dom.joinCodeStatus.textContent = 'Checking pod…';
+  let attemptedSavedSeat = false;
   try {
     const { snapshot } = await transport.inspectRoom(code);
     if ($('#podCode').value.trim().toUpperCase() !== code) return;
+    const reclaimableSeats = snapshot.seats.filter(seat => seat.claimed && transport.hasStoredReclaimToken(code, seat.seatId));
+    // A reclaim token is this phone's proof of ownership. Rejoining should not
+    // look like a new setup: the server keeps the existing name and commander.
+    if (reclaimableSeats.length === 1) {
+      const seat = reclaimableSeats[0];
+      attemptedSavedSeat = true;
+      dom.joinCodeStatus.textContent = `Rejoining ${seat.name || `P${seat.seatId + 1}`}…`;
+      const result = await transport.claimRoom({ code, seatId: seat.seatId, name: seat.name, commanderCount: seat.commanderCount, commanderNames: seat.commanderNames, commanderColors: seat.commanderColors });
+      if (result?.snapshot) { showSharedGame(result.snapshot); return true; }
+    }
     const availableSeats = snapshot.seats.filter(seat => !seat.claimed || transport.hasStoredReclaimToken(code, seat.seatId));
     const openSeatCount = snapshot.seats.filter(seat => !seat.claimed).length;
     dom.joinSeat.innerHTML = availableSeats.length
@@ -967,14 +978,14 @@ async function refreshJoinSeats() {
     dom.joinSeat.disabled = availableSeats.length === 0;
     dom.joinName.placeholder = dom.joinSeat.value || 'No open seat';
     renderJoinSeatClaim();
-    dom.joinCodeStatus.textContent = availableSeats.length ? `${openSeatCount ? `${openSeatCount} open seat${openSeatCount === 1 ? '' : 's'} available.` : 'This pod is full.'}${availableSeats.some(seat => seat.claimed) ? ' Your saved seat can be reclaimed on this device.' : ''}` : 'This pod has no open seats.';
+    dom.joinCodeStatus.textContent = availableSeats.length ? `${openSeatCount ? `${openSeatCount} open seat${openSeatCount === 1 ? '' : 's'} available.` : 'This pod is full.'}${reclaimableSeats.length ? ' Choose which saved seat to reclaim.' : ''}` : 'This pod has no open seats.';
     if (availableSeats.length) { joinGameFormat = snapshot.config.gameFormat || 'commander'; updateFormatSetup(); void loadSetupDecks(); showJoinStep(2); showView(dom.joinSeatView); }
     return availableSeats.length > 0;
   } catch {
     if ($('#podCode').value.trim().toUpperCase() === code) {
       dom.joinSeat.innerHTML = '<option value="">Pod not available</option>';
       dom.joinSeat.disabled = true;
-      dom.joinCodeStatus.textContent = 'Pod not found. Check the code and try again.';
+      dom.joinCodeStatus.textContent = attemptedSavedSeat ? 'Your saved seat could not be rejoined. Try again.' : 'Pod not found. Check the code and try again.';
     }
     return false;
   }
