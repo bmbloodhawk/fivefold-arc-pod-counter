@@ -577,3 +577,12 @@ test('compact actions use the shared button treatment while removals remain dist
   assert.match(styles, /\.text-action, \.back-button \{[\s\S]*border: 1px solid var\(--line\)[\s\S]*text-decoration: none/);
   assert.match(styles, /\.text-action\[data-remove-game\][\s\S]*#deleteAccountButton \{[\s\S]*color: var\(--danger\)/);
 });
+
+test('joining a pod can use an on-device QR scan without changing the join flow', () => {
+  assert.match(html, /id="scanJoinQrButton"[^>]*>Scan join QR code/);
+  assert.match(html, /id="joinQrScannerDialog"/);
+  assert.match(html, /id="joinQrScannerVideo"[^>]*playsinline/);
+  assert.match(app, /import \{ JoinQrScanner \} from '\.\/join-qr-scanner\.js\?v=1';/);
+  assert.match(app, /await openJoinCode\(code\);/);
+  assert.match(app, /dom\.joinQrScannerDialog\.addEventListener\('close', stopJoinQrScanner\);/);
+});

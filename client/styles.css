@@ -1399,3 +1399,12 @@ dialog:not(#victoryDialog) { max-height:calc(100dvh - 24px); overflow-y:auto; ov
 .game-menu-backdrop { position: fixed; z-index: 59; inset: 0; background: transparent; touch-action: manipulation; }
 #moreButton { z-index: 60; }
 .game-menu { z-index: 61; }
+
+/* The camera image remains on-device; this frame simply gives the phone a
+   clear, stable target while it reads the host's join QR code. */
+#joinQrScannerDialog { box-sizing: border-box; width: min(calc(100% - 24px), 460px); max-height: calc(100dvh - 24px); padding: 16px; overflow-y: auto; }
+.join-qr-scanner-dialog { display: grid; gap: 12px; }
+.join-qr-scanner-dialog > p, .join-qr-scanner-dialog h2 { margin: 0; }
+.join-qr-scanner-frame { position: relative; aspect-ratio: 1; overflow: hidden; border: 1px solid var(--brass-dark); border-radius: 8px; background: #070706; }
+.join-qr-scanner-frame video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.join-qr-scanner-guide { position: absolute; inset: 17%; border: 2px solid rgb(241 234 219 / .9); border-radius: 8px; box-shadow: 0 0 0 999px rgb(0 0 0 / .18); pointer-events: none; }
