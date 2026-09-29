@@ -486,6 +486,8 @@ export class RoomService {
       },
       seats,
       playtestNotes: [],
+      recentAccoladeCategories: {},
+      gameAccolades: null,
       gameId: opaque(12),
       ledgerSequence: 0,
       ledgerLastCheckpointAt: startedAt,
@@ -582,7 +584,9 @@ export class RoomService {
       incomplete,
     };
     if (room.gameResult) {
-      const decisions = tableMatchMomentDecisions({ seats: room.seats, winnerSeatId: room.gameResult.winnerSeatId, seed: room.gameId });
+      const decisions = tableMatchMomentDecisions({ seats: room.seats, winnerSeatId: room.gameResult.winnerSeatId, seed: room.gameId, recentCategoriesBySeat: room.recentAccoladeCategories });
+      room.gameAccolades = Object.fromEntries([...decisions].map(([seatId, decision]) => [seatId, decision.moment]));
+      for (const [seatId, decision] of decisions) room.recentAccoladeCategories[seatId] = [decision.moment.category, ...(room.recentAccoladeCategories[seatId] || []).filter((category) => category !== decision.moment.category)].slice(0, 3);
       recap.accolades = room.seats.filter((seat) => seat.claimed).map((seat) => ({ seatId: seat.seatId, name: seat.name, ...decisions.get(seat.seatId) }));
       recap.accoladeCounts = recap.accolades.reduce((counts, selection) => ({ ...counts, [selection.moment.category]: (counts[selection.moment.category] || 0) + 1 }), {});
     }
@@ -624,7 +628,7 @@ export class RoomService {
     const opposingCommanderSourceIds = commanderSources(room).filter((source) => source.ownerSeatId !== seat.seatId).map((source) => source.id);
     const millEliminations = room.seats.filter((item) => item.alternateElimination?.reason === "milled_out").length;
     return {
-      moment: personalMatchMoment({ seat, seats: room.seats, winnerSeatId: room.gameResult.winnerSeatId, seed: room.gameId }),
+      moment: room.gameAccolades?.[seat.seatId] || personalMatchMoment({ seat, seats: room.seats, winnerSeatId: room.gameResult.winnerSeatId, seed: room.gameId }),
       counterTotals: {
         poison: matchMoment.poisonGained || 0,
         energy: matchMoment.energyGained || 0,
@@ -928,7 +932,7 @@ export class RoomService {
       );
     }
     room.lastCoinToss = null;
-    room.gameResult = null; room.automaticEliminationOrder = []; room.quickFeedbackRecordedAt = null;
+    room.gameResult = null; room.gameAccolades = null; room.automaticEliminationOrder = []; room.quickFeedbackRecordedAt = null;
     room.gameId = opaque(12);
     room.tableGameNumber = (room.tableGameNumber || 1) + 1;
     room.ledgerSequence = 0;

@@ -90,7 +90,6 @@ function earnedMatchMoments({ seat, seats, winnerSeatId }) {
   if (m.energyGained >= 5) add(['Reactor Core', 'Battery Included', 'Fully Charged'], 'You kept the energy flowing.', `+${m.energyGained} energy gained`);
   if (m.radiationGained >= 10) add(['Hot Zone', 'Fallout Veteran', 'Bright Side'], 'You endured a heavy radiation count.', `${m.radiationGained} radiation received`, 'hot-zone');
   if (m.radiationGained >= 5) add(['Glowing Problem', 'Nuclear Option', 'Radiant Citizen'], 'You left the game a little brighter.', `+${m.radiationGained} radiation received`);
-  if (m.usedLocalD20) add(['The Dice Chose', 'Roll Call', 'Fate Decided'], 'The table settled first player with the local d20 roll-off.', 'Local d20 used', 'the-dice-chose');
   if (m.tableGameNumber >= 3) add(['Table Trilogy', 'Third Time Around', 'Pod Regulars'], 'You completed another chapter at the same table.', `Game ${m.tableGameNumber} at this table`, 'table-trilogy');
   const eligible = seats.filter(item => item.matchMoment?.turnCount >= 2);
   const average = m.turnCount ? m.totalTurnMs / m.turnCount : Infinity;
@@ -102,7 +101,7 @@ function earnedMatchMoments({ seat, seats, winnerSeatId }) {
   return earned.length ? earned : [{ titles: ['Arc Complete', 'Table Tale', 'Pod Veteran'], line: 'Another table, another tale.', fact: 'Match complete' }];
 }
 
-export function tableMatchMomentDecisions({ seats, winnerSeatId, seed }) {
+export function tableMatchMomentDecisions({ seats, winnerSeatId, seed, recentCategoriesBySeat = {} }) {
   const candidates = seats.filter((seat) => seat.claimed !== false).map((seat) => ({ seat, moments: earnedMatchMoments({ seat, seats, winnerSeatId }) }));
   const used = new Set(); const selected = new Map();
   for (const item of [...candidates].sort((a, b) => a.moments.length - b.moments.length || a.seat.seatId - b.seat.seatId)) {
@@ -110,7 +109,9 @@ export function tableMatchMomentDecisions({ seats, winnerSeatId, seed }) {
     const specific = item.moments.filter((option) => !genericWin(option));
     const pool = specific.length ? specific : item.moments;
     const unused = pool.filter((option) => !used.has(option.titles[0]));
-    const options = unused.length ? unused : pool;
+    const recent = new Set(recentCategoriesBySeat[item.seat.seatId] || []);
+    const fresh = unused.filter((option) => !recent.has(option.titles[0]));
+    const options = fresh.length ? fresh : unused.length ? unused : pool;
     const selectedOption = options[0];
     used.add(selectedOption.titles[0]);
     const selectionReason = specific.length && genericWin(item.moments[item.moments.length - 1])

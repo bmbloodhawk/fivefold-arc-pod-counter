@@ -89,8 +89,15 @@ test('expanded accolades use only recorded game facts and an existing illustrati
   const alex = seat(0, 'Alex'); const sam = seat(1, 'Sam'); const seats = [alex, sam];
   Object.assign(alex.matchMoment, { lifeGained: 25, reclaimedDuringGame: true, turnsAfterReclaim: 2, actionsAfterReclaim: 3, poisonGained: 8, energyGained: 10, radiationGained: 10, usedLocalD20: true, tableGameNumber: 3, commanderDamageBySource: { 'seat-1-commander-a': 5, 'seat-1-commander-b': 5 } });
   const decision = tableMatchMomentDecisions({ seats, winnerSeatId: 99, seed: 'expanded' }).get(0);
-  assert.deepEqual(decision.eligibleCategories, ['Second Serving', 'Back in the Fight', 'Commander Crossfire', 'Hazard Pay', 'Poison Snack', 'Health Potion Hoarder', 'Power Surge', 'Reactor Core', 'Hot Zone', 'Glowing Problem', 'The Dice Chose', 'Table Trilogy']);
+  assert.deepEqual(decision.eligibleCategories, ['Second Serving', 'Back in the Fight', 'Commander Crossfire', 'Hazard Pay', 'Poison Snack', 'Health Potion Hoarder', 'Power Surge', 'Reactor Core', 'Hot Zone', 'Glowing Problem', 'Table Trilogy']);
   assert.equal(decision.moment.art, 'second-serving');
+});
+
+test('recent table accolades are avoided when another meaningful moment is available', () => {
+  const alex = seat(0, 'Alex'); const sam = seat(1, 'Sam');
+  Object.assign(alex.matchMoment, { poisonGained: 5, energyGained: 5 });
+  const decision = tableMatchMomentDecisions({ seats: [alex, sam], winnerSeatId: 99, seed: 'fresh', recentCategoriesBySeat: { 0: ['Poison Snack'] } }).get(0);
+  assert.equal(decision.moment.category, 'Reactor Core');
 });
 
 test('Legend Collector goes only to the unique player hit by the most different commanders', () => {
