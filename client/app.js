@@ -3,7 +3,7 @@ import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=72';
 import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=114';
 import { connectionPresentation } from './connection-state.js?v=1';
 import { createInteractionAdvice } from './card-interaction-advice.js?v=1';
-import { commanderFallbackLabel, commanderSourceSections } from './commander-source-flow.js?v=1';
+import { commanderFallbackLabel } from './commander-source-flow.js?v=1';
 import { currentAccountToken, emailAccountToken, googleAccountToken, restoredAccountToken, sendAccountPasswordReset, signOutAccount } from './account-auth.js?v=6';
 import { JoinQrScanner } from './join-qr-scanner.js?v=1';
 
@@ -585,11 +585,6 @@ function showSharedGame(snapshot) { state = stateFromSnapshot(snapshot); saveTab
 function showError(error) { dom.connectionDetail.textContent = error?.message || 'The pod server could not complete that request.'; dom.connectionDialog.showModal(); }
 function activePlayer() { return state.players.find(player => player.id === state.activePlayerId); }
 function currentValue(player) { const value = state.mode === 'commander' ? commanderValue(player) : player[state.mode]; return state.mode === 'life' && !state.localSimulation && player.id === state.ownerPlayerId ? value + optimisticLifeDelta : value; }
-function commanderSeatCardValue(player, source) {
-  if (!source) return { text: '—', state: 'unselected' };
-  if (player.id === source.ownerPlayerId) return { text: 'SOURCE', state: 'source' };
-  return { text: `CMD ${commanderValue(player, source.id)}`, state: 'damage' };
-}
 function turnPlayer() { return state.players.find(player => player.id === state.turnSeatId); }
 function formatDuration(milliseconds) { const seconds = Math.max(0, Math.floor(milliseconds / 1000)); return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`; }
 function renderTurnFlow() {
@@ -698,7 +693,7 @@ function render() {
   dom.podLabel.textContent = state.podCode === 'LOCAL' ? 'LOCAL POD' : `POD ${state.podCode}`; dom.commanderIdentityName.hidden = !identityNames; dom.commanderIdentityName.textContent = identityNames; dom.identityHeaderRail.style.setProperty('--identity-rail', identityRail(playerIdentity(player)) || 'transparent'); dom.identityHeaderRail.hidden = !playerIdentity(player).length; dom.modeTitle.textContent = state.mode.toUpperCase(); dom.mainValue.value = counterValue; dom.mainValue.classList.toggle('elimination-placeholder', player.eliminated); dom.mainValue.setAttribute('aria-hidden', String(player.eliminated));
   dom.game.style.setProperty('--dial-seal-rotation', `${counterValue * 12}deg`);
   const inspectingSharedSeat = !state.localSimulation && player.id !== state.ownerPlayerId;
-  dom.counterContext.textContent = state.mode === 'commander' ? (source ? `${displayPlayer(player)} HAS RECEIVED DAMAGE FROM ${displaySource(source)}` : `NO OTHER COMMANDERS · ${displayPlayer(player)}`) : `${displayName(player)}${player.id === state.ownerPlayerId ? ' · YOU' : state.localSimulation ? ' · SIMULATED' : ' · READ ONLY'}`;
+  dom.counterContext.textContent = state.mode === 'commander' ? (source ? `${displayPlayer(player)} · DAMAGE FROM ${displaySource(source)}` : `NO OTHER COMMANDERS · ${displayPlayer(player)}`) : `${displayName(player)}${player.id === state.ownerPlayerId ? ' · YOU' : state.localSimulation ? ' · SIMULATED' : ' · READ ONLY'}`;
   dom.inspectionNotice.hidden = !inspectingSharedSeat;
   dom.inspectionNotice.textContent = inspectingSharedSeat ? `VIEWING ${displayPlayer(player)} · READ ONLY ON THIS PHONE` : '';
   dom.lethalMark.hidden = !player.eliminated; dom.eliminationOutcome.hidden = !player.eliminated; if (player.eliminationOutcome) { dom.lethalImage.src = ELIMINATION_ART[player.eliminationOutcome.art] || ELIMINATION_ART.life; dom.eliminationOutcome.querySelector('strong').textContent = player.eliminationOutcome.title; dom.eliminationOutcome.querySelector('span').textContent = player.eliminationOutcome.detail; } const status = player.warning; const lifeChangeOwnsStatusSlot = lifeChange?.playerId === player.id; dom.statusMessage.hidden = !status || lifeChangeOwnsStatusSlot; dom.statusMessage.textContent = status || ''; dom.statusMessage.classList.toggle('lethal', false);
@@ -867,7 +862,6 @@ function renderPodStrip() {
   dom.podStrip.dataset.playerCount = String(state.players.length);
   dom.game.dataset.dialSideSeatCount = interfaceStyle === 'dial' && largePod ? String(state.players.length - 4) : '0';
   dom.game.querySelector('.counter-stage').classList.toggle('has-side-seats', largePod && interfaceStyle !== 'dial');
-  const commanderSource = state.mode === 'commander' ? state.commanderSources.find(source => source.id === state.selectedSourceId) : null;
   const seatMarkup = (player) => {
     const isWaiting = player.connectionStatus === 'waiting';
     const isOffline = player.connectionStatus === 'disconnected';
@@ -876,30 +870,30 @@ function renderPodStrip() {
     // Keep this phone's small seat tile in lockstep with the large value while
     // a batched life tap is awaiting the authoritative server response. Other
     // seats remain strictly server-confirmed.
-    const commanderCard = commanderSeatCardValue(player, commanderSource);
-    const value = isWaiting ? '?' : player.eliminated ? '☠' : state.mode === 'commander' ? commanderCard.text : currentValue(player);
+    // Player cards remain life references in every counter mode. Commander
+    // damage belongs to the selected defender and commander below, not a
+    // second changing perspective across the whole card rail.
+    const value = isWaiting ? '?' : player.eliminated ? '☠' : state.mode === 'commander' ? player.life : currentValue(player);
     const marker = isWaiting ? 'WAITING' : isOffline ? 'OFFLINE' : player.eliminated ? 'ELIMINATED' : player.warning ? 'WARNING' : 'CONNECTED';
     const stateClass = isWaiting ? 'waiting' : isOffline ? 'offline' : player.eliminated ? 'eliminated-state' : player.warning ? 'warning' : 'connected';
     const name = displayName(player); const tileName = `${name}${player.id === state.ownerPlayerId ? ' · YOU' : ''}`;
     const stateSymbol = isWaiting ? '○' : isOffline ? '×' : player.eliminated ? '☠' : player.warning ? '!' : '●';
-    return `<button class="pod-seat ${player.id === state.ownerPlayerId ? 'is-owner' : ''} ${player.id === state.activePlayerId ? 'active' : ''} ${player.id === state.turnSeatId ? 'turn-active' : ''} ${player.eliminated ? 'eliminated' : ''} ${isOffline ? 'disconnected' : ''} ${state.mode === 'commander' ? `commander-seat-${commanderCard.state}` : ''}" data-seat="${player.id}" type="button" aria-label="${escapeHtml(`${displayPlayer(player)}, ${marker}, ${value}. ${identityLabel(player)}`)}"${identityStyle(player)}><span class="seat-name" title="${escapeHtml(displayPlayer(player))}">${escapeHtml(tileName)}</span><span class="seat-life">${value}</span><span class="seat-state ${stateClass}" title="${marker}">${stateSymbol}<span class="sr-only">${marker}</span></span><span class="identity-rail" aria-hidden="true"></span></button>`;
+    return `<button class="pod-seat ${player.id === state.ownerPlayerId ? 'is-owner' : ''} ${player.id === state.activePlayerId ? 'active' : ''} ${player.id === state.turnSeatId ? 'turn-active' : ''} ${player.eliminated ? 'eliminated' : ''} ${isOffline ? 'disconnected' : ''}" data-seat="${player.id}" type="button" aria-label="${escapeHtml(`${displayPlayer(player)}, ${marker}, ${value}. ${identityLabel(player)}`)}"${identityStyle(player)}><span class="seat-name" title="${escapeHtml(displayPlayer(player))}">${escapeHtml(tileName)}</span><span class="seat-life">${value}</span><span class="seat-state ${stateClass}" title="${marker}">${stateSymbol}<span class="sr-only">${marker}</span></span><span class="identity-rail" aria-hidden="true"></span></button>`;
   };
   dom.podStrip.innerHTML = state.players.slice(0, largePod ? 4 : state.players.length).map(seatMarkup).join('');
   dom.sideSeats.hidden = !largePod;
   dom.sideSeats.innerHTML = largePod ? state.players.slice(4).map(seatMarkup).join('') : '';
   $$('[data-seat]').forEach(button => button.addEventListener('click', () => { state.activePlayerId = button.dataset.seat; state.selectedSourceId = null; render(); }));
 }
-function sourceChoiceMarkup(source, player) { const value = commanderValue(player, source.id); const severity = value >= 21 ? 'lethal' : value >= 18 ? 'near' : ''; return `<button class="source-choice ${severity}" data-source-choice="${escapeHtml(source.id)}" type="button"><span><strong>${escapeHtml(sourceChoiceLabel(source))}</strong><small>${escapeHtml(`${sourceOwnerLabel(source)} · ${source.ownerPlayerId}`)}</small></span><em>${value}</em></button>`; }
+function sourceChoiceMarkup(source, player) { const value = commanderValue(player, source.id); const severity = value >= 21 ? 'lethal' : value >= 18 ? 'near' : ''; return `<button class="source-choice ${severity}" data-source-choice="${escapeHtml(source.id)}" type="button"><span><strong>${escapeHtml(sourceChoiceLabel(source))}</strong><small>${escapeHtml(`${displayPlayer(player)} has taken`)}</small></span><em>${value}</em></button>`; }
 function renderCommanderSourceDialog(player) {
-  const sources = sourcesForDefender(player.id); const { suggested, recent, groups } = commanderSourceSections({ sources, players: state.players, defenderDamage: player.commanderDamage, turnSeatId: state.turnSeatId, turnTrackingEnabled: state.turn?.trackingEnabled });
+  const sources = sourcesForDefender(player.id);
   dom.commanderSourceDetail.textContent = `Damage received by ${displayPlayer(player)}`;
-  const section = (title, items, className = '') => items.length ? `<section class="commander-source-section ${className}"><h3>${escapeHtml(title)}</h3>${items.map(source => sourceChoiceMarkup(source, player)).join('')}</section>` : '';
-  dom.commanderSourceList.innerHTML = `${suggested.length ? section(`Suggested · ${sourceOwnerLabel(suggested[0])}'s turn`, suggested, 'suggested') : ''}${section('Recent', recent, 'recent')}<section class="commander-source-section"><h3>All commanders</h3>${groups.map(({ owner, sources: ownerSources }) => `<div class="commander-source-group"><h4>${escapeHtml(displayPlayer(owner))}</h4>${ownerSources.map(source => sourceChoiceMarkup(source, player)).join('')}</div>`).join('')}</section>` || '<p class="field-help">No commander sources are available for this table.</p>';
+  const groups = state.players.map(owner => ({ owner, sources: sources.filter(source => source.ownerPlayerId === owner.id) })).filter(group => group.sources.length);
+  dom.commanderSourceList.innerHTML = groups.length ? `<section class="commander-source-section"><h3>Choose the commander</h3>${groups.map(({ owner, sources: ownerSources }) => `<div class="commander-source-group"><h4>${escapeHtml(displayPlayer(owner))}</h4>${ownerSources.map(source => sourceChoiceMarkup(source, player)).join('')}</div>`).join('')}</section>` : '<p class="field-help">No commander sources are available for this table.</p>';
   $$('[data-source-choice]').forEach(button => button.addEventListener('click', () => { state.selectedSourceId = button.dataset.sourceChoice; dom.commanderSourceDialog.close('selected'); render(); }));
 }
 function openCommanderSourceDialog(player) {
-  const { suggested } = commanderSourceSections({ sources: sourcesForDefender(player.id), players: state.players, defenderDamage: player.commanderDamage, turnSeatId: state.turnSeatId, turnTrackingEnabled: state.turn?.trackingEnabled });
-  if (suggested.length === 1) state.selectedSourceId = suggested[0].id;
   renderCommanderSourceDialog(player); dom.commanderSourceDialog.showModal();
 }
 function renderSources(player) {

@@ -230,16 +230,16 @@ test('commander damage keeps the entry controls independent of source count', ()
   assert.match(styles, /\.source-panel \{ grid-template-columns: 1fr; gap: 4px; margin: 2px 0 7px; \}/);
 });
 
-test('commander damage keeps entry compact and moves every source into a grouped selector', () => {
+test('commander damage keeps one defender context while choosing a source', () => {
   assert.match(html, /id="commanderSourceDialog"/);
   assert.match(html, /id="commanderSourceList"/);
   assert.match(app, /function sourceChoiceLabel\(source\)/);
   assert.match(app, /commanderFallbackLabel\(source, owner\)/);
   assert.match(app, /function openCommanderSourceDialog\(player\)/);
-  assert.match(app, /if \(suggested\.length === 1\) state\.selectedSourceId = suggested\[0\]\.id;/);
-  assert.match(app, /Suggested · \$\{sourceOwnerLabel\(suggested\[0\]\)\}'s turn/);
-  assert.match(app, /section\('Recent', recent/);
-  assert.match(app, /<h3>All commanders<\/h3>/);
+  assert.match(html, /<h2 id="commanderSourceTitle">Choose commander<\/h2>/);
+  assert.match(app, /dom\.commanderSourceDetail\.textContent = `Damage received by \$\{displayPlayer\(player\)\}`;/);
+  assert.match(app, /<h3>Choose the commander<\/h3>/);
+  assert.match(app, /\$\{displayPlayer\(player\)\} has taken/);
   assert.match(app, /data-source-choice=/);
   assert.match(app, /dom\.commanderSourceDialog\.close\('selected'\); render\(\);/);
   assert.match(app, /id="changeCommanderSourceButton"/);
@@ -247,7 +247,6 @@ test('commander damage keeps entry compact and moves every source into a grouped
   assert.match(styles, /\.commander-source-list \{[\s\S]*overflow-y: auto/);
   assert.match(styles, /\.selected-source-button \{[\s\S]*min-height: 40px/);
   assert.match(styles, /\.source-panel:not\(\.commander-source-pair\) \.selected-source-button \{[\s\S]*grid-column: 1 \/ -1;[\s\S]*width: 100%;/);
-  assert.match(styles, /#gameView\[data-counter-mode="commander"\] > \.side-seats \.pod-seat \.seat-life/);
   assert.match(styles, /\.source-panel\.commander-source-pair \{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(app, /dom\.game\.dataset\.counterMode = state\.mode/);
   assert.match(styles, /\.game-shell\[data-counter-mode="commander"\] #turnActions \{ margin-top: 2px; transform: none; \}/);
@@ -278,7 +277,7 @@ test('a seated player can update only their own displayed name after the game st
   assert.match(app, /transport\.mutate\(\{ name \}\)/);
 });
 
-test('commander source selection keeps every source grouped, suggests the active turn, and names unnamed partners', () => {
+test('commander source helpers keep every source grouped and name unnamed partners', () => {
   const players = Array.from({ length: 8 }, (_, index) => ({ id: `P${index + 1}`, commanderCount: index === 2 ? 2 : 1 }));
   const sources = players.flatMap(player => Array.from({ length: player.commanderCount }, (_, index) => ({ id: `${player.id}-${index + 1}`, ownerPlayerId: player.id, slot: index ? 'B' : 'A' })));
   const sections = commanderSourceSections({ sources, players, defenderDamage: { 'P1-1': 4, 'P5-1': 2 }, turnSeatId: 'P3', turnTrackingEnabled: true });
@@ -291,14 +290,10 @@ test('commander source selection keeps every source grouped, suggests the active
   assert.equal(commanderSourceSections({ sources, players, defenderDamage: {}, turnSeatId: 'P3', turnTrackingEnabled: false }).suggested.length, 0);
 });
 
-test('commander seat cards identify the selected source and show every other defender\'s source-specific damage', () => {
-  assert.match(app, /function commanderSeatCardValue\(player, source\)/);
-  assert.match(app, /if \(player\.id === source\.ownerPlayerId\) return \{ text: 'SOURCE', state: 'source' \}/);
-  assert.match(app, /text: `CMD \$\{commanderValue\(player, source\.id\)\}`/);
-  assert.match(app, /const commanderSource = state\.mode === 'commander'/);
-  assert.match(styles, /\.pod-seat\.commander-seat-source \.seat-life/);
-  assert.match(styles, /\.pod-seat\.commander-seat-damage \.seat-life/);
-  assert.match(styles, /#gameView\[data-counter-mode="commander"\] \.pod-strip \.pod-seat \.seat-life,[\s\S]*#gameView\[data-counter-mode="commander"\] > \.side-seats \.pod-seat \.seat-life \{[\s\S]*font-size: clamp\(\.72rem, 3\.8vw, \.95rem\);[\s\S]*white-space: nowrap;/);
+test('commander player cards remain stable life references while the selected defender owns the damage view', () => {
+  assert.match(app, /state\.mode === 'commander' \? player\.life : currentValue\(player\)/);
+  assert.doesNotMatch(app, /function commanderSeatCardValue\(/);
+  assert.doesNotMatch(styles, /\.pod-seat\.commander-seat-source/);
 });
 
 test('selecting a saved deck immediately confirms every selected commander identity for create and join', () => {
