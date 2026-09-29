@@ -69,9 +69,12 @@ function royalThreshold(seat, seats) {
 function earnedMatchMoments({ seat, seats, winnerSeatId }) {
   const m = seat.matchMoment || blankMatchMoment(seat.counters.life);
   const earned = []; const add = (titles, line, fact, art = titles[0]) => earned.push({ titles, line, fact, art });
+  if (m.lowestLife <= 5 && m.lifeGainedAfterLow >= 15) add(['Phoenix Return', 'Ashes to Armor', 'Rise Again'], 'You recovered a major life total after reaching the brink.', `Lowest life: ${m.lowestLife} · +${m.lifeGainedAfterLow} recovered`, 'ember-resilience-v1');
+  if (m.lowestLife <= 5 && m.actionsAfterLow >= 4) add(['One More Turn', 'Still Breathing', 'Back from the Brink'], 'You stayed active after the game nearly got away from you.', `Lowest life: ${m.lowestLife} · ${m.actionsAfterLow} actions after`, 'ember-resilience-v1');
   if (m.lowestLife === 1) add(['Refused to Die', 'One Is Plenty', 'Barely Breathing'], 'You hit 1 life and kept the game going.', 'Lowest recorded life: 1');
   if (m.lowestLife >= 2 && m.lowestLife <= 5 && m.lifeGained >= 10) add(['Comeback Kid', 'Second Wind', 'Not Today'], 'You climbed back after a close call.', `Lowest life: ${m.lowestLife} · +${m.lifeGained} life gained`);
   if (m.lowestLife >= 2 && m.lowestLife <= 5) add(['Hanging By a Thread', 'Too Close for Comfort', 'Five Alarm Fire'], 'You got dangerously close to the edge.', `Lowest recorded life: ${m.lowestLife}`);
+  if (m.lifeGained >= 40) add(['Tidal Shift', 'Deep Reserves', 'Overflow Protocol'], 'You rebuilt far beyond your starting cushion.', `+${m.lifeGained} life gained`, 'ember-resilience-v1');
   if (m.lifeGained >= 25) add(['Second Serving', 'Feast of Life', 'Overflowing Cup'], 'You rebuilt a serious life cushion.', `+${m.lifeGained} life gained`, 'second-serving');
   if (m.reclaimedDuringGame && (m.turnsAfterReclaim >= 2 || m.actionsAfterReclaim >= 3)) add(['Back in the Fight', 'Signal Restored', 'Rejoined the Arc'], 'You recovered your seat and kept the game moving.', `${m.turnsAfterReclaim} turns · ${m.actionsAfterReclaim} actions after reclaim`, 'back-in-the-fight');
   const [largestCommanderSource, largestCommanderDamage = 0] = Object.entries(m.commanderDamageBySource || {}).reduce((largest, entry) => entry[1] > largest[1] ? entry : largest, ['', 0]);
@@ -83,13 +86,22 @@ function earnedMatchMoments({ seat, seats, winnerSeatId }) {
   if (totalCommanderDamage >= threshold && uniqueLeader(seat, seats, (item) => item.matchMoment?.commanderDamageReceived || 0)) add(['Royal Reception', 'Grand Audience', 'All Eyes on You'], 'You took the table\'s heaviest commander attention.', `${totalCommanderDamage} commander damage · ${threshold} needed`);
   if (distinctCommanders >= 2) add(['Commander Crossfire', 'Under Many Banners', 'Two Fronts'], 'More than one opposing commander found you.', `${distinctCommanders} different commanders dealt damage`, 'commander-crossfire');
   if (m.lifeLostOnOwnTurn >= 8 && uniqueLeader(seat, seats, (item) => item.matchMoment?.lifeLostOnOwnTurn || 0)) add(['Paid in Blood', 'Life Is a Resource', 'High Stakes'], 'You recorded the most life lost during your own turns.', `${m.lifeLostOnOwnTurn} life lost on your turns`);
+  if (m.lifeLostOnOwnTurn >= 12 && uniqueLeader(seat, seats, (item) => item.matchMoment?.lifeLostOnOwnTurn || 0)) add(['Held the Line', 'Bloodied but Standing', 'Scarred Survivor'], 'You absorbed a punishing personal cost and stayed in the fight.', `${m.lifeLostOnOwnTurn} life lost on your turns`, 'ember-resilience-v1');
+  if (m.poisonGained >= 9) add(['Ninth Life', 'Poison Proof', 'Venom Defiant'], 'You survived a near-lethal poison count.', `${m.poisonGained} poison received`, 'arc-hazards-v1');
   if (m.poisonGained >= 8) add(['Hazard Pay', 'Toxic Tenacity', 'Venom Tested'], 'You kept going under serious poison pressure.', `${m.poisonGained} poison received`, 'hazard-pay');
   if (m.poisonGained >= 5) add(['Poison Snack', 'Toxic Relationship', 'Venom Sommelier'], 'You collected a concerning amount of poison.', `${m.poisonGained} poison received`);
   if (m.lifeGained >= 10) add(['Health Potion Hoarder', 'Second Breakfast', 'Life Insurance'], 'You found your way back up.', `+${m.lifeGained} life gained`);
   if (m.energyGained >= 10) add(['Power Surge', 'Grid Runner', 'Energy Reserve'], 'You built a substantial energy reserve.', `+${m.energyGained} energy gained`, 'power-surge');
+  if (m.energyGained >= 20) add(['Overflow Charge', 'Capacitor Crown', 'Live Wire'], 'You generated an extraordinary amount of energy.', `+${m.energyGained} energy gained`, 'arc-hazards-v1');
   if (m.energyGained >= 5) add(['Reactor Core', 'Battery Included', 'Fully Charged'], 'You kept the energy flowing.', `+${m.energyGained} energy gained`);
   if (m.radiationGained >= 10) add(['Hot Zone', 'Fallout Veteran', 'Bright Side'], 'You endured a heavy radiation count.', `${m.radiationGained} radiation received`, 'hot-zone');
+  if (m.radiationGained >= 15) add(['Fallout March', 'Radiant Resolve', 'Atomic Composure'], 'You endured extreme radiation pressure.', `${m.radiationGained} radiation received`, 'arc-hazards-v1');
   if (m.radiationGained >= 5) add(['Glowing Problem', 'Nuclear Option', 'Radiant Citizen'], 'You left the game a little brighter.', `+${m.radiationGained} radiation received`);
+  if (m.poisonGained > 0 && m.energyGained > 0 && m.radiationGained > 0) add(['All Systems Lit', 'Threefold Hazard', 'Arc Saturation'], 'Every supported counter pressure found its way to you.', `${m.poisonGained} poison · +${m.energyGained} energy · ${m.radiationGained} radiation`, 'arc-hazards-v1');
+  if (distinctCommanders >= 3) add(['Commander Gauntlet', 'Many Banners', 'Crossfire Veteran'], 'Three or more opposing commanders found you.', `${distinctCommanders} different commanders dealt damage`, 'table-legends-v1');
+  if (m.playerCountAtStart >= 4 && m.turnCount >= 4) add(['Table Anchor', 'Roundkeeper', 'Steady Presence'], 'You held your place through a deep multiplayer battle.', `${m.playerCountAtStart}-player table · ${m.turnCount} turns`, 'table-legends-v1');
+  if (m.turnCount >= 5) add(['Long Haul', 'Fifth Turn', 'Endurance Run'], 'You stayed in for a substantial share of the game.', `${m.turnCount} recorded turns`, 'table-legends-v1');
+  if (m.playerCountAtStart >= 6 && m.turnCount >= 3) add(['Wide Table Veteran', 'Sixfold Stamina', 'Deep Pod'], 'You made your mark at a truly crowded table.', `${m.playerCountAtStart}-player table · ${m.turnCount} turns`, 'table-legends-v1');
   if (m.tableGameNumber >= 3) add(['Table Trilogy', 'Third Time Around', 'Pod Regulars'], 'You completed another chapter at the same table.', `Game ${m.tableGameNumber} at this table`, 'table-trilogy');
   const eligible = seats.filter(item => item.matchMoment?.turnCount >= 2);
   const average = m.turnCount ? m.totalTurnMs / m.turnCount : Infinity;

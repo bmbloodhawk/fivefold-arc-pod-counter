@@ -89,8 +89,23 @@ test('expanded accolades use only recorded game facts and an existing illustrati
   const alex = seat(0, 'Alex'); const sam = seat(1, 'Sam'); const seats = [alex, sam];
   Object.assign(alex.matchMoment, { lifeGained: 25, reclaimedDuringGame: true, turnsAfterReclaim: 2, actionsAfterReclaim: 3, poisonGained: 8, energyGained: 10, radiationGained: 10, usedLocalD20: true, tableGameNumber: 3, commanderDamageBySource: { 'seat-1-commander-a': 5, 'seat-1-commander-b': 5 } });
   const decision = tableMatchMomentDecisions({ seats, winnerSeatId: 99, seed: 'expanded' }).get(0);
-  assert.deepEqual(decision.eligibleCategories, ['Second Serving', 'Back in the Fight', 'Commander Crossfire', 'Hazard Pay', 'Poison Snack', 'Health Potion Hoarder', 'Power Surge', 'Reactor Core', 'Hot Zone', 'Glowing Problem', 'Table Trilogy']);
+  assert.deepEqual(decision.eligibleCategories, ['Second Serving', 'Back in the Fight', 'Commander Crossfire', 'Hazard Pay', 'Poison Snack', 'Health Potion Hoarder', 'Power Surge', 'Reactor Core', 'Hot Zone', 'Glowing Problem', 'All Systems Lit', 'Table Trilogy']);
   assert.equal(decision.moment.art, 'second-serving');
+});
+
+test('new gameplay accolades use already-recorded facts and share their visual families', () => {
+  const alex = seat(0, 'Alex'); const sam = seat(1, 'Sam'); const seats = [alex, sam];
+  Object.assign(alex.matchMoment, {
+    lowestLife: 3, lifeGained: 45, lifeGainedAfterLow: 16, actionsAfterLow: 4, lifeLostOnOwnTurn: 12,
+    poisonGained: 9, energyGained: 20, radiationGained: 15, playerCountAtStart: 6, turnCount: 5,
+    commanderDamageBySource: { 'seat-1-commander-a': 2, 'seat-2-commander-a': 2, 'seat-3-commander-a': 2 },
+  });
+  const decision = tableMatchMomentDecisions({ seats, winnerSeatId: 99, seed: 'new-gameplay' }).get(0);
+  for (const category of ['Phoenix Return', 'One More Turn', 'Tidal Shift', 'Held the Line', 'Ninth Life', 'Overflow Charge', 'Fallout March', 'All Systems Lit', 'Commander Gauntlet', 'Table Anchor', 'Long Haul', 'Wide Table Veteran']) {
+    assert.ok(decision.eligibleCategories.includes(category), `${category} should be eligible`);
+  }
+  assert.equal(decision.moment.category, 'Phoenix Return');
+  assert.equal(decision.moment.art, 'ember-resilience-v1');
 });
 
 test('recent table accolades are avoided when another meaningful moment is available', () => {
