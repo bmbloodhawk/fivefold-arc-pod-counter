@@ -296,9 +296,11 @@ test('commander player cards remain stable life references while the selected de
   assert.doesNotMatch(styles, /\.pod-seat\.commander-seat-source/);
 });
 
-test('selecting a saved deck immediately confirms every selected commander identity for create and join', () => {
+test('selecting a saved deck uses its saved commander colors before any lookup', () => {
   assert.match(app, /const container = joining \? dom\.joinCommanderNames : dom\.createCommanderNames/);
-  assert.match(app, /renderCommanderNameFields\(container, commanderNames\.length, commanderNames\); void confirmUnresolvedCommanderDetails\(container, commanderNames\.length\)/);
+  assert.match(app, /const identities = savedDeckCommanderColors\(deck, commanderNames\.length\)/);
+  assert.match(app, /renderCommanderNameFields\(container, commanderNames\.length, commanderNames, identities\)/);
+  assert.match(app, /if \(identities\.length !== commanderNames\.length\) void confirmUnresolvedCommanderDetails\(container, commanderNames\.length\)/);
 });
 
 test('every player has a confirmed route home that preserves their reclaimable seat', () => {
@@ -512,6 +514,8 @@ test('My decks keeps the editor above saved decks and confirms commander colors'
   assert.match(html, /id="deckCommanderStatus"/);
   assert.match(app, /async function confirmDeckCommanderColors\(\)/);
   assert.match(app, /const cards = await Promise\.all\(names\.map\(lookupCommanderIdentity\)\)/);
+  assert.match(app, /deckCommanderColors = cards\.map\(card => normaliseIdentity\(card\.colors\)\)/);
+  assert.match(app, /commanderColors, name: deckName\.value/);
   assert.match(app, /setDeckColors\(colors\);/);
   assert.match(app, /await confirmDeckCommanderColors\(\);/);
 });

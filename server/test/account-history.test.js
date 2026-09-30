@@ -157,12 +157,14 @@ test("rare counter moments require values recorded in one completed game", async
   ["legendary-welcome", "toxic-tenacity", "irradiated-victory", "capacitor-discharge", "all-systems-go"].forEach(id => assert.equal(ids.has(id), true));
 });
 
-test("saved decks retain one or two commanders as separate values", async () => {
+test("saved decks retain one or two commanders with their separate color identities", async () => {
   const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: () => "pair" }); const accountId = await history.ensureAccount("subject");
-  const deck = await history.createDeck(accountId, { commanderNames: ["Thrasios", "Tymna"], name: "Partners" });
+  const deck = await history.createDeck(accountId, { commanderNames: ["Thrasios", "Tymna"], commanderColors: [["G", "U"], ["W", "B"]], name: "Partners" });
   assert.deepEqual(deck.commanderNames, ["Thrasios", "Tymna"]);
+  assert.deepEqual(deck.commanderColors, [["G", "U"], ["W", "B"]]);
   assert.equal(deck.commanderName, "Thrasios / Tymna");
   await assert.rejects(() => history.createDeck(accountId, { commanderNames: ["A", "B", "C"] }), /Commander names are invalid/);
+  await assert.rejects(() => history.createDeck(accountId, { commanderNames: ["A"], commanderColors: [["Orange"]] }), /Commander colors are invalid/);
 });
 
 test("saved decks retain private colors, notes, favorites, and account preferences", async () => {

@@ -11,6 +11,11 @@ const text = (value, max) => {
   if (!normalized || [...normalized].length > max || /[\p{Cc}\p{Cf}]/u.test(normalized)) throw new TypeError("Text is invalid");
   return normalized;
 };
+const normalizeDeckCommanderColors = (value, count) => {
+  if (value === undefined) return Array.from({ length: count }, () => []);
+  if (!Array.isArray(value) || value.length !== count || value.some(colors => !Array.isArray(colors) || colors.some(color => !["W", "U", "B", "R", "G"].includes(color)))) throw new TypeError("Commander colors are invalid");
+  return value.map(colors => [...new Set(colors)]);
+};
 
 const COUNTER_TOTAL_KEYS = ["poison", "energy", "radiation", "commanderDamage"];
 const counterTotalsFor = (game) => ({
@@ -210,18 +215,19 @@ export class AccountHistory {
   }
 
   async createDeck(accountId, input = {}) {
-    const extra = Object.keys(input).find((key) => !["commanderName", "commanderNames", "name", "colors", "notes", "favorite"].includes(key));
+    const extra = Object.keys(input).find((key) => !["commanderName", "commanderNames", "commanderColors", "name", "colors", "notes", "favorite"].includes(key));
     if (extra) throw new TypeError(`Deck field is not allowed: ${extra}`);
     const rawNames = input.commanderNames ?? [input.commanderName];
     if (!Array.isArray(rawNames) || rawNames.length < 1 || rawNames.length > 2) throw new TypeError("Commander names are invalid");
     const commanderNames = rawNames.map((value) => text(value, 120));
     if (commanderNames.some((name) => !name)) throw new TypeError("Commander name is required");
+    const commanderColors = normalizeDeckCommanderColors(input.commanderColors, commanderNames.length);
     const commanderName = commanderNames.join(" / ");
     const colors = Array.isArray(input.colors) ? [...new Set(input.colors)] : [];
     if (colors.some((color) => !["W", "U", "B", "R", "G"].includes(color))) throw new TypeError("Deck colors are invalid");
     if (input.favorite != null && typeof input.favorite !== "boolean") throw new TypeError("Favorite is invalid");
     const decks = (await this.store.read(decksPath(accountId))) || {}; const deckId = `deck_${this.createId()}`;
-    const deck = { deckId, commanderName, commanderNames, name: text(input.name, 120), colors, notes: text(input.notes, 500), favorite: input.favorite === true, createdAt: this.now(), updatedAt: this.now() };
+    const deck = { deckId, commanderName, commanderNames, commanderColors, name: text(input.name, 120), colors, notes: text(input.notes, 500), favorite: input.favorite === true, createdAt: this.now(), updatedAt: this.now() };
     await this.store.write(decksPath(accountId), { ...decks, [deckId]: deck }); return deck;
   }
 
@@ -232,13 +238,14 @@ export class AccountHistory {
   async updateDeck(accountId, deckId, input = {}) {
     if (!/^deck_[A-Za-z0-9-]{1,80}$/.test(deckId || "")) throw new TypeError("Deck is invalid");
     const decks = (await this.store.read(decksPath(accountId))) || {}; const deck = decks[deckId]; if (!deck) throw new TypeError("Deck is invalid");
-    const extra = Object.keys(input).find(key => !["favorite", "archived", "commanderNames", "name", "colors", "notes"].includes(key)); if (extra) throw new TypeError(`Deck field is not allowed: ${extra}`);
+    const extra = Object.keys(input).find(key => !["favorite", "archived", "commanderNames", "commanderColors", "name", "colors", "notes"].includes(key)); if (extra) throw new TypeError(`Deck field is not allowed: ${extra}`);
     if (input.favorite != null && typeof input.favorite !== "boolean" || input.archived != null && typeof input.archived !== "boolean") throw new TypeError("Deck update is invalid");
     const commanderNames = input.commanderNames === undefined ? deck.commanderNames : input.commanderNames.map(value => text(value, 120));
     if (!Array.isArray(commanderNames) || commanderNames.length < 1 || commanderNames.length > 2 || commanderNames.some(name => !name)) throw new TypeError("Commander names are invalid");
+    const commanderColors = input.commanderColors === undefined ? normalizeDeckCommanderColors(deck.commanderColors, commanderNames.length) : normalizeDeckCommanderColors(input.commanderColors, commanderNames.length);
     const colors = input.colors === undefined ? deck.colors : [...new Set(input.colors)];
     if (!Array.isArray(colors) || colors.some(color => !["W", "U", "B", "R", "G"].includes(color))) throw new TypeError("Deck colors are invalid");
-    const updated = { ...deck, ...input, commanderNames, commanderName: commanderNames.join(" / "), colors, ...(input.name !== undefined ? { name: text(input.name, 120) } : {}), ...(input.notes !== undefined ? { notes: text(input.notes, 500) } : {}), updatedAt: this.now() }; await this.store.write(decksPath(accountId), { ...decks, [deckId]: updated }); return updated;
+    const updated = { ...deck, ...input, commanderNames, commanderColors, commanderName: commanderNames.join(" / "), colors, ...(input.name !== undefined ? { name: text(input.name, 120) } : {}), ...(input.notes !== undefined ? { notes: text(input.notes, 500) } : {}), updatedAt: this.now() }; await this.store.write(decksPath(accountId), { ...decks, [deckId]: updated }); return updated;
   }
 
   async preferences(accountId) { return (await this.store.read(accountPath(accountId)))?.preferences || { preferredName: null, defaultPlayerCount: 4, defaultRoundLimitMinutes: null, interfaceStyle: "button", personalSkinId: null, usePersonalSkin: false }; }
