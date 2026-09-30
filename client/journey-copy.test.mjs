@@ -407,7 +407,7 @@ test('achievements follow the personal match accolade and reveal every new rarit
   assert.match(app, /function showAchievementUnlocks\(gameKey\)/);
   assert.match(app, /unlockedAchievementsByGame\.set\(gameKey, unlockedAchievements\)/);
   assert.match(app, /dom\.victoryDialog\.addEventListener\('close', \(\) => \{ if \(dom\.victoryDialog\.returnValue === 'tap' && !showAchievementUnlocks/);
-  assert.match(app, /data-rarity="\$\{escapeHtml\(achievement\.rarity \|\| 'common'\)\}"/);
+  assert.match(app, /const achievementCardHtml = \(achievement, showNew = false\)/);
   assert.match(app, /unlocked\.map\(achievement =>/);
   assert.match(styles, /\.achievement-card\[data-rarity="legendary"\]/);
   assert.match(styles, /\.achievement-card\[data-rarity="epic"\]/);
@@ -484,7 +484,10 @@ test('signed-in accounts keep private deck details and personal history tools', 
   assert.match(app, /achievement-rarity-tabs/);
   assert.match(app, /data-achievement-rarity-tab/);
   assert.match(app, /\/api\/account\/achievements\/viewed/);
+  assert.match(app, /achievementCardHtml\(achievement, true\)/);
+  assert.match(app, /achievement-card-new/);
   assert.match(styles, /\.achievement-new-mark/);
+  assert.match(styles, /\.achievement-card-new/);
   assert.match(styles, /\.achievement-card/);
   assert.match(app, /'Settings'/);
   assert.match(app, /const profileSettings = \[accountPreferredNameField, accountDefaultPlayerCountField/);
