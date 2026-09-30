@@ -1179,6 +1179,27 @@ test("restores a private recovery record with disconnected seats and token-scope
   assert.throws(() => restarted.mutateOwnSeat(made.snapshot.code, hostConnection.connectionId, { baseVersion: selfCommanderDamage.snapshot.version, commanderCastCounts: { "seat-1-commander-a": 3 } }), { code: "INVALID_INPUT" });
 });
 
+test("restores legacy recovery records without optional commander display fields", async () => {
+  const ledger = new MemoryPlaytestLedger();
+  const original = new RoomService({ ledger });
+  const host = original.createConnection();
+  const made = original.createRoom(host.connectionId, { playerCount: 4, startingLife: 40, commanderNames: ["Atraxa"] });
+  original.adjustOwnSeat(made.snapshot.code, host.connectionId, { counter: "life", delta: -1 });
+  const record = ledger.records.filter((item) => item.kind === "recovery").at(-1).record;
+  for (const seat of record.room.seats) {
+    delete seat.commanderNames;
+    delete seat.commanderColors;
+    delete seat.commanderDamageReceived;
+    delete seat.commanderCastCounts;
+  }
+
+  const restarted = new RoomService({ ledger });
+  const restored = await restarted.restoreRoom(made.snapshot.code, made.hostRecoveryKey);
+  assert.equal(restored.restored, true);
+  assert.equal(restored.snapshot.seats[0].counters.life, 39);
+  assert.deepEqual(restored.snapshot.seats[0].commanderColors, [[]]);
+});
+
 test("batches rapid life taps into one fresh client operation", async () => {
   const jobs = []; const sent = [];
   const batcher = new LifeAdjustmentBatcher({ operationId: () => `operation-${sent.length + 1}-fresh-id`, schedule: (job) => { jobs.push(job); return jobs.length; }, cancel: () => {}, send: (operation) => sent.push(operation) });

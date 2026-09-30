@@ -1282,7 +1282,25 @@ export class RoomService {
       throw Object.assign(new Error("The saved recovery record is invalid"), { status: 422, code: "INVALID_RECOVERY_RECORD" });
     }
     room.hostRecoveryKeyHash = decodedHash(record.hostRecoveryKeyHash);
-    room.seats = room.seats.map((seat) => ({ ...seat, ownerConnectionId: null, tokenHash: seat.tokenHash ? decodedHash(seat.tokenHash) : null, recentOperationIds: new Map() }));
+    // Recovery records can outlive optional Commander display fields added in a
+    // later release. Normalize those legacy seats before deriving sources so a
+    // valid host key can restore an older table instead of crashing.
+    room.seats = room.seats.map((seat) => {
+      const commanderCount = seat.commanderCount === 2 ? 2 : 1;
+      const commanderNames = Array.from({ length: commanderCount }, (_, slot) => typeof seat.commanderNames?.[slot] === "string" ? seat.commanderNames[slot] : "");
+      const commanderColors = Array.from({ length: commanderCount }, (_, slot) => Array.isArray(seat.commanderColors?.[slot]) ? seat.commanderColors[slot].filter((color) => COMMANDER_COLORS.has(color)) : []);
+      return {
+        ...seat,
+        commanderCount,
+        commanderNames,
+        commanderColors,
+        commanderDamageReceived: seat.commanderDamageReceived && typeof seat.commanderDamageReceived === "object" ? seat.commanderDamageReceived : {},
+        commanderCastCounts: seat.commanderCastCounts && typeof seat.commanderCastCounts === "object" ? seat.commanderCastCounts : {},
+        ownerConnectionId: null,
+        tokenHash: seat.tokenHash ? decodedHash(seat.tokenHash) : null,
+        recentOperationIds: new Map(),
+      };
+    });
     room.lastActiveAt = this.now();
     room.version += 1;
     synchronizeCommanderState(room);
