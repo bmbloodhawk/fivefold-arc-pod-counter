@@ -506,6 +506,16 @@ test('signed-in accounts keep private deck details and personal history tools', 
   assert.match(app, /myGamesStatus\.setAttribute\('role', 'status'\)/);
 });
 
+test('My decks keeps the editor above saved decks and confirms commander colors', () => {
+  assert.ok(html.indexOf('id="deckEditor"') < html.indexOf('id="savedDeckList"'));
+  assert.match(html, /id="findDeckColorsButton"/);
+  assert.match(html, /id="deckCommanderStatus"/);
+  assert.match(app, /async function confirmDeckCommanderColors\(\)/);
+  assert.match(app, /const cards = await Promise\.all\(names\.map\(lookupCommanderIdentity\)\)/);
+  assert.match(app, /setDeckColors\(colors\);/);
+  assert.match(app, /await confirmDeckCommanderColors\(\);/);
+});
+
 test('completed signed-in games save automatically without a final player action', () => {
   assert.match(app, /void saveGameToHistory\(\{ automatic: true, gameKey: key \}\);/);
   assert.match(app, /const token = automatic \? await currentAccountToken\(\) : await currentAccountToken\(\) \|\| await googleAccountToken\(\);/);
