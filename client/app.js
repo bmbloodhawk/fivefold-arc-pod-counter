@@ -337,9 +337,19 @@ function applyAccountPreferences(preferences) {
   void applySelectedAppearance();
 }
 async function finishAccountSignIn(token) {
-  const preferencesResponse = await fetch('/api/account/preferences', { headers: { authorization: `Bearer ${token}` } }); if (!preferencesResponse.ok) throw new Error('Your account is not available yet.'); const preferences = (await preferencesResponse.json()).preferences;
-  applyAccountPreferences(preferences); if (preferences.preferredName) { dom.createName.value ||= preferences.preferredName; dom.joinName.value ||= preferences.preferredName; } const playerDefault = $(`input[name="playerCount"][value="${preferences.defaultPlayerCount || 4}"]`); if (playerDefault) playerDefault.checked = true; dom.roundLimitMinutes.value ||= preferences.defaultRoundLimitMinutes || '';
-  enterApp(true); await loadSetupDecks(); myGamesDialog.close();
+  if (!token) throw new Error('Sign-in did not return an account session.');
+  // A valid Firebase session is enough to enter the app. Profile preferences
+  // are optional enrichment and must not throw a Face ID sign-in back to the
+  // guest gate during a brief account-service or network failure.
+  enterApp(true);
+  try {
+    const preferencesResponse = await fetch('/api/account/preferences', { headers: { authorization: `Bearer ${token}` } });
+    if (preferencesResponse.ok) {
+      const preferences = (await preferencesResponse.json()).preferences;
+      applyAccountPreferences(preferences); if (preferences.preferredName) { dom.createName.value ||= preferences.preferredName; dom.joinName.value ||= preferences.preferredName; } const playerDefault = $(`input[name="playerCount"][value="${preferences.defaultPlayerCount || 4}"]`); if (playerDefault) playerDefault.checked = true; dom.roundLimitMinutes.value ||= preferences.defaultRoundLimitMinutes || '';
+    }
+  } catch { /* The signed-in play experience remains available. */ }
+  await loadSetupDecks(); myGamesDialog.close();
   const returnTo = pendingSignInReturn; pendingSignInReturn = null;
   if (returnTo?.view === 'join' && $('#podCode').value.trim().toUpperCase() === returnTo.code) { showView(dom.joinSeatView); showJoinStep(returnTo.step); }
   else showView(dom.landing);
@@ -348,17 +358,18 @@ async function restoreSavedAccountSession() {
   try {
     const token = await restoredAccountToken();
     if (!token) return;
-    const response = await fetch('/api/account/preferences', { headers: { authorization: `Bearer ${token}` } });
-    if (!response.ok) return;
-    const preferences = (await response.json()).preferences;
-    applyAccountPreferences(preferences);
-    if (preferences.preferredName) { dom.createName.value ||= preferences.preferredName; dom.joinName.value ||= preferences.preferredName; }
-    const playerDefault = $(`input[name="playerCount"][value="${preferences.defaultPlayerCount || 4}"]`);
-    if (playerDefault) playerDefault.checked = true;
-    dom.roundLimitMinutes.value ||= preferences.defaultRoundLimitMinutes || '';
     enterApp(true);
+    const response = await fetch('/api/account/preferences', { headers: { authorization: `Bearer ${token}` } });
+    if (response.ok) {
+      const preferences = (await response.json()).preferences;
+      applyAccountPreferences(preferences);
+      if (preferences.preferredName) { dom.createName.value ||= preferences.preferredName; dom.joinName.value ||= preferences.preferredName; }
+      const playerDefault = $(`input[name="playerCount"][value="${preferences.defaultPlayerCount || 4}"]`);
+      if (playerDefault) playerDefault.checked = true;
+      dom.roundLimitMinutes.value ||= preferences.defaultRoundLimitMinutes || '';
+    }
     await loadSetupDecks();
-  } catch { /* A missing, expired, or unavailable account leaves guest play unchanged. */ }
+  } catch { /* A missing or expired Firebase session leaves guest play unchanged. */ }
 }
 async function showMyGames() {
   myGamesContent.hidden = true; myGamesStatus.textContent = 'Loading your profile…'; myGamesSignInButton.hidden = true;
@@ -438,6 +449,15 @@ async function signOut() {
 }
 function enterApp(signedIn = false) { accountChoice.hidden = true; playActions.hidden = false; myGamesButton.setAttribute('aria-disabled', String(!signedIn)); myDecksButton.setAttribute('aria-disabled', String(!signedIn)); accountSignedInStatus.hidden = !signedIn; renderSavedTables(); }
 function openSignIn({ returnToJoin = false } = {}) { pendingSignInReturn = returnToJoin ? { view: 'join', code: $('#podCode').value.trim().toUpperCase(), step: joinStep } : null; myGamesDialog.querySelector('#myGamesTitle').textContent = 'Sign in'; myGamesStatus.textContent = 'Save your profile, games, and decks. Guest play is always available.'; myGamesContent.hidden = true; accountPreferredNameField.hidden = true; accountDefaultPlayerCountField.hidden = true; accountDefaultRoundLimitField.hidden = true; accountPersonalSkinField.hidden = true; accountUsePersonalSkinField.hidden = true; emailSignInFields.hidden = true; accountPassword.value = ''; myGamesSignInButton.hidden = false; emailSignInButton.hidden = false; emailSignInButton.textContent = 'Use email'; emailSignInButton.classList.replace('primary-action', 'secondary-action'); myGamesSignInButton.classList.replace('secondary-action', 'primary-action'); forgotPasswordButton.hidden = true; createAccountButton.hidden = true; saveAccountPreferencesButton.hidden = true; exportAccountButton.hidden = true; deleteAccountButton.hidden = true; signOutButton.hidden = true; myGamesDialog.showModal(); }
+let emailSignInInFlight = false;
+async function signInWithEmailPassword() {
+  if (emailSignInInFlight) return;
+  if (!accountEmail.value || !accountPassword.value) { myGamesStatus.textContent = 'Enter both your email and password to sign in.'; return; }
+  emailSignInInFlight = true;
+  try { myGamesStatus.textContent = 'Signing in…'; await finishAccountSignIn(await emailAccountToken(accountEmail.value, accountPassword.value)); }
+  catch (error) { myGamesStatus.textContent = error?.message || 'Email sign-in did not work.'; }
+  finally { emailSignInInFlight = false; }
+}
 function openMyProfile() { myGamesDialog.showModal(); void showMyGames(); }
 function showView(view) { dom.views.forEach(item => { item.hidden = item !== view; }); window.scrollTo({ top: 0, behavior: 'instant' }); }
 function savedTables() { try { const tables = JSON.parse(localStorage.getItem(SAVED_TABLES_KEY)); return Array.isArray(tables) ? tables.filter(table => /^[A-Z0-9]{6}$/.test(table?.code)).slice(0, 8) : []; } catch { return []; } }
@@ -1327,8 +1347,8 @@ dom.eliminatePlayerForm.addEventListener('submit', event => { if (event.submitte
 dom.gameMenuBackdrop.addEventListener('pointerdown', event => event.stopPropagation());
 dom.gameMenuBackdrop.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); closeGameMenu(); });
 dom.moreButton.addEventListener('click', () => { dom.gameMenu.hidden = !dom.gameMenu.hidden; dom.moreButton.setAttribute('aria-expanded', String(!dom.gameMenu.hidden)); }); dom.coinTossButton.addEventListener('click', () => { closeGameMenu(); tossCoin(); }); dom.editPlayerNameButton.addEventListener('click', openEditPlayerName); dom.editPlayerNameForm.addEventListener('submit', event => { if (event.submitter?.value === 'confirm') { event.preventDefault(); void updatePlayerName(); } }); dom.declareWinnerButton.addEventListener('click', openDeclareWinner); dom.tossAgainButton.addEventListener('click', () => tossCoin()); dom.saveGameButton.addEventListener('click', saveGameToHistory); myGamesButton.addEventListener('click', openMyProfile); myGamesSignInButton.addEventListener('click', async () => { try { myGamesStatus.textContent = 'Signing in…'; await finishAccountSignIn(await googleAccountToken()); } catch (error) { myGamesStatus.textContent = error?.message || 'Sign-in did not work.'; } }); $('#resetButton').addEventListener('click', () => { closeGameMenu(); openResetDialog(); }); dom.confirmResetButton.addEventListener('click', resetGame);
-myGamesDialog.querySelector('form').addEventListener('submit', event => event.preventDefault()); myGamesDialog.querySelector('button[value="close"]').addEventListener('click', () => myGamesDialog.close());
-emailSignInButton.addEventListener('click', async () => { const showingEmailFields = !emailSignInFields.hidden; emailSignInFields.hidden = false; forgotPasswordButton.hidden = false; createAccountButton.hidden = false; emailSignInButton.textContent = 'Sign in with email'; emailSignInButton.classList.replace('secondary-action', 'primary-action'); myGamesSignInButton.classList.replace('primary-action', 'secondary-action'); if (!showingEmailFields) { myGamesStatus.textContent = 'Enter your email and password, then choose Sign in with email.'; accountEmail.focus(); return; } if (!accountEmail.value || !accountPassword.value) { myGamesStatus.textContent = 'Enter both your email and password to sign in.'; return; } try { await finishAccountSignIn(await emailAccountToken(accountEmail.value, accountPassword.value)); } catch (error) { myGamesStatus.textContent = error?.message || 'Email sign-in did not work.'; } });
+myGamesDialog.querySelector('form').addEventListener('submit', event => { event.preventDefault(); if (!event.submitter && !emailSignInFields.hidden && accountEmail.value && accountPassword.value) void signInWithEmailPassword(); }); myGamesDialog.querySelector('button[value="close"]').addEventListener('click', () => myGamesDialog.close());
+emailSignInButton.addEventListener('click', async () => { const showingEmailFields = !emailSignInFields.hidden; emailSignInFields.hidden = false; forgotPasswordButton.hidden = false; createAccountButton.hidden = false; emailSignInButton.textContent = 'Sign in with email'; emailSignInButton.classList.replace('secondary-action', 'primary-action'); myGamesSignInButton.classList.replace('primary-action', 'secondary-action'); if (!showingEmailFields) { myGamesStatus.textContent = 'Enter your email and password, then choose Sign in with email.'; accountEmail.focus(); return; } await signInWithEmailPassword(); });
 forgotPasswordButton.addEventListener('click', async () => { if (!accountEmail.value) { accountEmail.focus(); myGamesStatus.textContent = 'Enter the email address for your account first.'; return; } try { await sendAccountPasswordReset(accountEmail.value); myGamesStatus.textContent = 'Password-reset email sent. Check your inbox and spam folder.'; } catch (error) { myGamesStatus.textContent = error?.message || 'The password-reset email could not be sent.'; } });
 createAccountButton.addEventListener('click', async () => { try { await finishAccountSignIn(await emailAccountToken(accountEmail.value, accountPassword.value, true)); } catch (error) { myGamesStatus.textContent = error?.message || 'Account creation did not work.'; } });
 myDecksButton.addEventListener('click', () => { if (myDecksButton.getAttribute('aria-disabled') === 'true') return openSignIn(); myDecksDialog.showModal(); showMyDecks(); });

@@ -1394,11 +1394,22 @@ export function createRealtimeServer(options = {}) {
       "access-control-allow-methods": "GET,POST,PATCH,DELETE,OPTIONS",
       "access-control-allow-headers": "content-type,x-connection-id,x-feedback-portal-key,authorization",
     };
+    // Keep the event build embeddable only by itself and avoid browser defaults
+    // that can expose structured API responses in an unexpected context. CSP is
+    // intentionally deferred because the app's Firebase popup/import flow needs
+    // an end-to-end browser compatibility pass before it can be made strict.
+    const securityHeaders = {
+      "x-content-type-options": "nosniff",
+      "x-frame-options": "DENY",
+      "referrer-policy": "no-referrer",
+      "permissions-policy": "camera=(self), microphone=(), geolocation=()",
+    };
     if (req.method === "OPTIONS") {
-      res.writeHead(204, cors);
+      res.writeHead(204, { ...cors, ...securityHeaders });
       return res.end();
     }
     Object.entries(cors).forEach(([key, value]) => res.setHeader(key, value));
+    Object.entries(securityHeaders).forEach(([key, value]) => res.setHeader(key, value));
     try {
       const url = new URL(req.url, "http://localhost");
       const parts = url.pathname.split("/").filter(Boolean);
@@ -1523,6 +1534,9 @@ export function createRealtimeServer(options = {}) {
       if (req.method === "GET" && !url.pathname.startsWith("/api/") && await serveStatic(res, staticDir, url.pathname)) return;
       return json(res, 404, errorBody("NOT_FOUND", "Endpoint not found"));
     } catch (error) {
+      // Keep client errors generic, but retain the server-side failure class for
+      // operational diagnosis. Do not log request bodies or credentials here.
+      if (!error?.status) console.error("Fivefold Arc request failed", { method: req.method, path: req.url?.split("?")[0], code: error?.code ?? "INTERNAL_ERROR", message: error instanceof Error ? error.message : String(error) });
       return json(res, error.status ?? 500, errorBody(error.code ?? "INTERNAL_ERROR", error.status ? error.message : "Internal server error", error.snapshot));
     }
   });

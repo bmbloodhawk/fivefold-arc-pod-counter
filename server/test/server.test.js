@@ -39,6 +39,28 @@ async function raw(path) {
   return fetch(`${baseUrl}${path}`);
 }
 
+test("uses explicit CORS and baseline browser security headers when configured", async () => {
+  const eventServer = createRealtimeServer({ allowedOrigin: "https://event.example" }).server;
+  await new Promise((resolve) => eventServer.listen(0, "127.0.0.1", resolve));
+  const eventBaseUrl = `http://127.0.0.1:${eventServer.address().port}`;
+  try {
+    const health = await fetch(`${eventBaseUrl}/health`);
+    assert.equal(health.status, 200);
+    assert.equal(health.headers.get("access-control-allow-origin"), "https://event.example");
+    assert.equal(health.headers.get("x-content-type-options"), "nosniff");
+    assert.equal(health.headers.get("x-frame-options"), "DENY");
+    assert.equal(health.headers.get("referrer-policy"), "no-referrer");
+    assert.equal(health.headers.get("permissions-policy"), "camera=(self), microphone=(), geolocation=()");
+
+    const preflight = await fetch(`${eventBaseUrl}/api/rooms`, { method: "OPTIONS" });
+    assert.equal(preflight.status, 204);
+    assert.equal(preflight.headers.get("access-control-allow-origin"), "https://event.example");
+    assert.equal(preflight.headers.get("x-frame-options"), "DENY");
+  } finally {
+    await new Promise((resolve) => eventServer.close(resolve));
+  }
+});
+
 async function connection() {
   return (await call("/api/connections", { method: "POST" })).body.connectionId;
 }

@@ -534,8 +534,10 @@ test('email accounts can request a password-reset email', () => {
   assert.match(app, /Enter your email and password, then choose Sign in with email\./);
 });
 
-test('email autofill does not close the My games dialog', () => {
-  assert.match(app, /myGamesDialog\.querySelector\('form'\)\.addEventListener\('submit', event => event\.preventDefault\(\)\);/);
+test('email autofill remains in the dialog and can complete sign-in after Face ID', () => {
+  assert.match(app, /myGamesDialog\.querySelector\('form'\)\.addEventListener\('submit', event => \{ event\.preventDefault\(\); if \(!event\.submitter && !emailSignInFields\.hidden && accountEmail\.value && accountPassword\.value\) void signInWithEmailPassword\(\); \}\);/);
+  assert.match(app, /async function signInWithEmailPassword\(\)/);
+  assert.match(app, /if \(emailSignInInFlight\) return;/);
   assert.match(app, /myGamesDialog\.querySelector\('button\[value="close"\]'\)\.addEventListener\('click', \(\) => myGamesDialog\.close\(\)\)/);
 });
 
@@ -543,11 +545,13 @@ test('a saved account session restores before the app offers guest play again', 
   assert.match(accountAuth, /export async function restoredAccountToken\(\)[\s\S]*onAuthStateChanged/);
   assert.match(app, /async function restoreSavedAccountSession\(\) \{[\s\S]*const token = await restoredAccountToken\(\);[\s\S]*if \(!token\) return;[\s\S]*enterApp\(true\);/);
   assert.match(app, /if \(!appearancePreviewMode\) void restoreSavedAccountSession\(\);/);
+  assert.match(app, /if \(!token\) return;\s*enterApp\(true\);\s*const response = await fetch\('\/api\/account\/preferences'/);
 });
 
 test('a completed account sign-in goes directly to the pod choice without loading the profile', () => {
   assert.match(app, /async function finishAccountSignIn\(token\)/);
-  assert.match(app, /enterApp\(true\); await loadSetupDecks\(\); myGamesDialog\.close\(\);/);
+  assert.match(app, /if \(!token\) throw new Error\('Sign-in did not return an account session\.'\);\s*\/\/ A valid Firebase session[\s\S]*?enterApp\(true\);/);
+  assert.match(app, /await loadSetupDecks\(\); myGamesDialog\.close\(\);/);
   assert.match(app, /else showView\(dom\.landing\);/);
   assert.match(app, /finishAccountSignIn\(await googleAccountToken\(\)\)/);
   assert.match(app, /finishAccountSignIn\(await emailAccountToken\(accountEmail\.value, accountPassword\.value\)\)/);
