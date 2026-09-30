@@ -41,7 +41,7 @@ test('does not emit a second state event for an unchanged snapshot', async () =>
   }
 });
 
-test('snapshot safety polling pauses while an SSE reconnect is pending', async () => {
+test('30-second snapshot safety polling pauses while an SSE reconnect is pending', async () => {
   const originals = Object.fromEntries(['fetch', 'EventSource', 'document', 'localStorage', 'setInterval', 'clearInterval'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   const intervals = [];
   let roomReads = 0;
@@ -63,7 +63,7 @@ test('snapshot safety polling pauses while an SSE reconnect is pending', async (
     const { RealtimeAdapter } = await import(new URL(`./realtime.js?reconnect-poll=${Date.now()}`, import.meta.url));
     const adapter = new RealtimeAdapter({ apiBase: 'https://pod.test' });
     await adapter.createRoom({ playerCount: 2, startingLife: 40 });
-    const snapshotPoll = intervals.find(timer => timer.delay === 750);
+    const snapshotPoll = intervals.find(timer => timer.delay === 30_000);
     assert.ok(snapshotPoll);
     FakeEventSource.instances.at(-1).emit('error');
     await snapshotPoll.callback();

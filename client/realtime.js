@@ -1,4 +1,6 @@
 /** HTTP + SSE transport. Shared writes use exact versions and are never queued. */
+const SNAPSHOT_SAFETY_REFRESH_MS = 30_000;
+
 export class RealtimeAdapter extends EventTarget {
   constructor({ apiBase = location.origin } = {}) {
     super();
@@ -274,7 +276,7 @@ export class RealtimeAdapter extends EventTarget {
       } catch { /* The SSE reconnect/heartbeat paths handle connection state. */ }
     };
     void refresh();
-    this.snapshotRefreshTimer = setInterval(() => { void refresh(); }, 750);
+    this.snapshotRefreshTimer = setInterval(() => { void refresh(); }, SNAPSHOT_SAFETY_REFRESH_MS);
   }
 
   #scheduleReconnect(epoch) {
