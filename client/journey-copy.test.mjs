@@ -481,6 +481,10 @@ test('signed-in accounts keep private deck details and personal history tools', 
   assert.match(app, /transport\.getPersonalMatchMoment\(\)/);
   assert.match(app, /counterTotals,/);
   assert.match(app, /More await\./);
+  assert.match(app, /achievement-rarity-tabs/);
+  assert.match(app, /data-achievement-rarity-tab/);
+  assert.match(app, /\/api\/account\/achievements\/viewed/);
+  assert.match(styles, /\.achievement-new-mark/);
   assert.match(styles, /\.achievement-card/);
   assert.match(app, /'Settings'/);
   assert.match(app, /const profileSettings = \[accountPreferredNameField, accountDefaultPlayerCountField/);

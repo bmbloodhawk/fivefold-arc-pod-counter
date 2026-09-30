@@ -268,14 +268,26 @@ export class AccountHistory {
     delete decks[deckId]; await this.store.write(decksPath(accountId), decks); return true;
   }
 
+  async markAchievementRarityViewed(accountId, rarity) {
+    if (!['common', 'uncommon', 'rare', 'epic', 'legendary'].includes(rarity)) throw new TypeError('Achievement rarity is invalid');
+    const account = await this.store.read(accountPath(accountId)); if (!account) throw new TypeError('Account is invalid');
+    const summary = await this.summary(accountId);
+    const seen = new Set(Array.isArray(account.seenAchievementIds) ? account.seenAchievementIds : []);
+    summary.achievements.filter(achievement => achievement.rarity === rarity).forEach(achievement => seen.add(achievement.id));
+    await this.store.write(accountPath(accountId), { ...account, seenAchievementIds: [...seen] });
+    return { rarity, seenAchievementIds: [...seen] };
+  }
+
   async summary(accountId) {
+    const account = (await this.store.read(accountPath(accountId))) || { accountId };
     const games = Object.values((await this.store.read(gamesPath(accountId))) || {}).sort((a, b) => b.savedAt - a.savedAt);
     const wins = games.filter((game) => game.won).length;
     const deckStats = Object.values((await this.store.read(decksPath(accountId))) || {}).map(deck => { const deckGames = games.filter(game => game.deckId === deck.deckId); const deckWins = deckGames.filter(game => game.won).length; return { deckId: deck.deckId, name: deck.name || deck.commanderName, gamesPlayed: deckGames.length, wins: deckWins, winRate: deckGames.length ? deckWins / deckGames.length : null }; });
     const chronologicalGames = [...games].reverse(); let bestWinStreak = 0; let currentWinStreak = 0; chronologicalGames.forEach(game => { currentWinStreak = game.won ? currentWinStreak + 1 : 0; bestWinStreak = Math.max(bestWinStreak, currentWinStreak); });
     const thisMonth = new Date(this.now()); const monthGames = games.filter(game => { const date = new Date(game.savedAt); return date.getFullYear() === thisMonth.getFullYear() && date.getMonth() === thisMonth.getMonth(); });
     const decks = Object.values((await this.store.read(decksPath(accountId))) || {}); const playedColors = new Set(decks.filter(deck => games.some(game => game.deckId === deck.deckId)).flatMap(deck => deck.colors || []));
-    const achievements = achievementsFor({ games, decks, bestWinStreak, monthCount: monthGames.length, playedColors });
+    const seen = new Set(Array.isArray(account.seenAchievementIds) ? account.seenAchievementIds : []);
+    const achievements = achievementsFor({ games, decks, bestWinStreak, monthCount: monthGames.length, playedColors }).map(achievement => ({ ...achievement, isNew: !seen.has(achievement.id) }));
     return { gamesPlayed: games.length, wins, winRate: games.length ? wins / games.length : null, counterTotals: lifetimeCounterTotals(games), recentGames: games.slice(0, 12), games, deckStats, achievements, thisMonth: { gamesPlayed: monthGames.length, wins: monthGames.filter(game => game.won).length } };
   }
 

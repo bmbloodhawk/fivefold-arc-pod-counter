@@ -48,6 +48,17 @@ test("achievements are earned from saved results and do not reveal unfinished go
   assert.equal("milestones" in summary, false);
 });
 
+test("achievement folders keep new entries marked until their rarity is viewed", async () => {
+  const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: (() => { let id = 0; return () => String(++id); })() }); const accountId = await history.ensureAccount("subject");
+  await history.saveGame(accountId, { tableSize: 2, won: true, place: 1 });
+  assert.equal((await history.summary(accountId)).achievements.filter(item => item.rarity === 'common').every(item => item.isNew), true);
+  await history.markAchievementRarityViewed(accountId, 'common');
+  const achievements = await history.summary(accountId);
+  assert.equal(achievements.achievements.filter(item => item.rarity === 'common').every(item => !item.isNew), true);
+  assert.equal(achievements.achievements.filter(item => item.rarity === 'uncommon').every(item => item.isNew), true);
+  await assert.rejects(() => history.markAchievementRarityViewed(accountId, 'mythic'), /rarity is invalid/);
+});
+
 test("turn-loss achievements require the recorded life loss and life total from one turn", async () => {
   const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: (() => { let id = 0; return () => String(++id); })() }); const accountId = await history.ensureAccount("subject");
   await history.saveGame(accountId, { tableSize: 4, won: false, achievementFacts: { largestLifeLossInTurn: 20, lifeAtLargestLossTurnStart: 40, lostHalfLifeInOneTurn: 1 } });
