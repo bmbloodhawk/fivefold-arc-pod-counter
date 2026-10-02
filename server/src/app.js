@@ -887,7 +887,7 @@ export class RoomService {
       const before = seat.counters[counter] ?? 0; seat.counters[counter] = Math.max(minimum, Math.min(999, before + delta)); applied = seat.counters[counter] - before;
     }
     if (counter === "poison" && applied > 0) seat.counterTotals = { ...(seat.counterTotals || {}), poison: (seat.counterTotals?.poison || 0) + applied };
-    recordMatchMoment(seat, { counter, delta: applied, commanderSourceId: input.commanderSourceId, lifeBefore: counter === "commanderDamage" ? seat.counters.life + applied : counter === "life" ? seat.counters.life - applied : seat.counters.life, lifeAfter: seat.counters.life, gameStarted: room.turn.gameStarted, isOwnTurn: room.turn.activeSeatId === seat.seatId, turnKey: room.turn.turnStartedAt });
+    recordMatchMoment(seat, { counter, delta: applied, commanderSourceId: input.commanderSourceId, lifeBefore: counter === "commanderDamage" ? seat.counters.life + applied : counter === "life" ? seat.counters.life - applied : seat.counters.life, lifeAfter: seat.counters.life, gameStarted: room.turn.gameStarted, isOwnTurn: room.turn.activeSeatId === seat.seatId, turnKey: room.turn.turnStartedAt, isCorrection: counter === 'life' && input.isCorrection === true });
     recordLastPlayerStanding(room, this.now());
     room.version += 1;
     this.recordLedger(room, "counter_adjusted", seat.seatId, { counter, delta: applied, ...(counter === "commanderDamage" ? { commanderSourceId: input.commanderSourceId } : {}) });

@@ -1,12 +1,12 @@
 export function blankMatchMoment(startingLife) {
-  return { lifeGained: 0, lifeLostOnOwnTurn: 0, lowestLife: startingLife, lifeGainedAfterLow: 0, actionsAfterLow: 0, reclaimedDuringGame: false, actionsAfterReclaim: 0, turnsAfterReclaim: 0, playerCountAtStart: null, tableGameNumber: 1, usedLocalD20: false, poisonGained: 0, commanderDamageReceived: 0, commanderDamageBySource: {}, energyGained: 0, radiationGained: 0, turnCount: 0, totalTurnMs: 0, lifeLossTurnKey: null, lifeLostThisTurn: 0, lifeAtCurrentLossTurnStart: startingLife, largestLifeLossInTurn: 0, lifeAtLargestLossTurnStart: startingLife, lostHalfLifeInOneTurn: false, lostAllLifeInOneTurn: false };
+  return { startingLife, lifeGained: 0, lifeLostOnOwnTurn: 0, lowestLife: startingLife, lifeGainedAfterLow: 0, actionsAfterLow: 0, reclaimedDuringGame: false, actionsAfterReclaim: 0, turnsAfterReclaim: 0, playerCountAtStart: null, tableGameNumber: 1, usedLocalD20: false, poisonGained: 0, commanderDamageReceived: 0, commanderDamageBySource: {}, energyGained: 0, radiationGained: 0, turnCount: 0, totalTurnMs: 0, lifeLossByTurn: {}, largestLifeLossInTurn: 0, lifeAtLargestLossTurnStart: startingLife, lostHalfLifeInOneTurn: false, lostAllLifeInOneTurn: false };
 }
 
-export function recordMatchMoment(seat, { counter, delta, commanderSourceId, lifeBefore, lifeAfter, gameStarted, isOwnTurn = false, turnKey = null }) {
+export function recordMatchMoment(seat, { counter, delta, commanderSourceId, lifeBefore, lifeAfter, gameStarted, isOwnTurn = false, turnKey = null, isCorrection = false }) {
   if (!gameStarted || !seat.matchMoment) return;
   const m = seat.matchMoment;
   const priorLowest = m.lowestLife;
-  if (counter === 'life') { if (delta > 0) m.lifeGained += delta; if (delta < 0 && isOwnTurn) m.lifeLostOnOwnTurn += -delta; m.lowestLife = Math.min(m.lowestLife, lifeAfter); }
+  if (counter === 'life') { if (delta > 0 && !isCorrection) m.lifeGained += delta; if (delta < 0 && isOwnTurn) m.lifeLostOnOwnTurn += -delta; m.lowestLife = Math.min(m.lowestLife, lifeAfter); }
   if (counter === 'commanderDamage') {
     if (delta > 0) {
       m.commanderDamageReceived += delta;
@@ -14,19 +14,21 @@ export function recordMatchMoment(seat, { counter, delta, commanderSourceId, lif
     }
     m.lowestLife = Math.min(m.lowestLife, lifeAfter);
   }
-  const lifeLost = counter === 'life' ? Math.max(0, -delta) : counter === 'commanderDamage' ? Math.max(0, delta) : 0;
-  if (lifeLost > 0 && turnKey != null) {
-    if (m.lifeLossTurnKey !== turnKey) { m.lifeLossTurnKey = turnKey; m.lifeLostThisTurn = 0; m.lifeAtCurrentLossTurnStart = lifeBefore; }
-    m.lifeLostThisTurn += lifeLost;
-    if (m.lifeLostThisTurn > m.largestLifeLossInTurn) { m.largestLifeLossInTurn = m.lifeLostThisTurn; m.lifeAtLargestLossTurnStart = m.lifeAtCurrentLossTurnStart; }
-    if (m.lifeAtCurrentLossTurnStart >= 10 && m.lifeLostThisTurn * 2 >= m.lifeAtCurrentLossTurnStart) m.lostHalfLifeInOneTurn = true;
-    if (m.lifeAtCurrentLossTurnStart >= 10 && m.lifeLostThisTurn >= m.lifeAtCurrentLossTurnStart) m.lostAllLifeInOneTurn = true;
+  const lifeLossDelta = counter === 'life' ? delta < 0 ? -delta : isCorrection ? -delta : 0 : counter === 'commanderDamage' ? delta : 0;
+  if (lifeLossDelta && turnKey != null) {
+    const key = String(turnKey); m.lifeLossByTurn ||= {};
+    m.lifeLossByTurn[key] = Math.max(0, (m.lifeLossByTurn[key] || 0) + lifeLossDelta);
+    const losses = Object.values(m.lifeLossByTurn);
+    m.largestLifeLossInTurn = Math.max(0, ...losses);
+    m.lifeAtLargestLossTurnStart = m.startingLife;
+    m.lostHalfLifeInOneTurn = losses.some(loss => loss * 2 >= m.startingLife);
+    m.lostAllLifeInOneTurn = losses.some(loss => loss >= m.startingLife);
   }
   if (counter === 'poison' && delta > 0) m.poisonGained += delta;
   if (counter === 'energy' && delta > 0) m.energyGained += delta;
   if (counter === 'radiation' && delta > 0) m.radiationGained += delta;
   if (m.lowestLife < priorLowest) { m.lifeGainedAfterLow = 0; m.actionsAfterLow = 0; }
-  else if (m.lowestLife <= 5) { m.actionsAfterLow += 1; if (counter === 'life' && delta > 0) m.lifeGainedAfterLow += delta; }
+  else if (m.lowestLife <= 5 && !isCorrection) { m.actionsAfterLow += 1; if (counter === 'life' && delta > 0) m.lifeGainedAfterLow += delta; }
   if (m.reclaimedDuringGame) m.actionsAfterReclaim += 1;
 }
 

@@ -33,7 +33,7 @@ test('match moments ignore setup changes and preserve the low-life and comeback 
   assert.equal(personalMatchMoment({ seat: defender, seats, winnerSeatId: 99, seed: 'test' }).category, 'Comeback Kid');
 });
 
-test('life loss is grouped by the active tracked turn, including commander damage', () => {
+test('life loss milestones use net damage in one turn against starting life', () => {
   const alex = seat(0, 'Alex');
   recordMatchMoment(alex, { counter: 'life', delta: -15, lifeBefore: 40, lifeAfter: 25, gameStarted: true, turnKey: 100 });
   recordMatchMoment(alex, { counter: 'commanderDamage', delta: 5, lifeBefore: 25, lifeAfter: 20, gameStarted: true, turnKey: 100 });
@@ -42,7 +42,19 @@ test('life loss is grouped by the active tracked turn, including commander damag
   assert.equal(alex.matchMoment.lostHalfLifeInOneTurn, true);
   recordMatchMoment(alex, { counter: 'life', delta: -20, lifeBefore: 20, lifeAfter: 0, gameStarted: true, turnKey: 200 });
   assert.equal(alex.matchMoment.largestLifeLossInTurn, 20);
+  assert.equal(alex.matchMoment.lostAllLifeInOneTurn, false);
+  recordMatchMoment(alex, { counter: 'life', delta: -20, lifeBefore: 40, lifeAfter: 20, gameStarted: true, turnKey: 300 });
+  recordMatchMoment(alex, { counter: 'life', delta: -20, lifeBefore: 20, lifeAfter: 0, gameStarted: true, turnKey: 300 });
   assert.equal(alex.matchMoment.lostAllLifeInOneTurn, true);
+});
+
+test('rapid life corrections do not count as gain life or damage milestones', () => {
+  const alex = seat(0, 'Alex');
+  recordMatchMoment(alex, { counter: 'life', delta: -20, lifeBefore: 40, lifeAfter: 20, gameStarted: true, turnKey: 100 });
+  recordMatchMoment(alex, { counter: 'life', delta: 11, lifeBefore: 20, lifeAfter: 31, gameStarted: true, turnKey: 100, isCorrection: true });
+  assert.equal(alex.matchMoment.lifeGained, 0);
+  assert.equal(alex.matchMoment.largestLifeLossInTurn, 9);
+  assert.equal(alex.matchMoment.lostHalfLifeInOneTurn, false);
 });
 
 test('recovery tracking counts only play that continues after a reclaim', () => {

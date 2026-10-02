@@ -41,8 +41,8 @@ const achievementsFor = ({ games, decks, bestWinStreak, monthCount, playedColors
   const counters = lifetimeCounterTotals(games);
   const counterChain = (key, tiers) => tiers.map(([id, title, detail, target]) => [id, title, detail, counters[key] >= target]);
     const definitions = [
-    ['half-the-story', 'Half the Story', 'Lost at least half your life during one tracked turn.', games.some(game => game.achievementFacts?.lostHalfLifeInOneTurn === 1)],
-    ['one-turn-wipeout', 'One-Turn Wipeout', 'Lost all the life you had during one tracked turn.', games.some(game => game.achievementFacts?.lostAllLifeInOneTurn === 1)],
+    ['half-the-story', 'Half the Story', 'Lost at least half your starting life during one tracked turn.', games.some(game => game.achievementFacts?.lostHalfLifeInOneTurn === 1)],
+    ['one-turn-wipeout', 'One-Turn Wipeout', 'Lost all your starting life during one tracked turn.', games.some(game => game.achievementFacts?.lostAllLifeInOneTurn === 1)],
     ['lost-in-the-stacks', 'Lost in the Stacks', 'Were marked milled out in a saved game.', games.some(game => game.achievementFacts?.wasMilledOut === 1)],
     ['last-chapter', 'Last Chapter', 'Won after the final opponent was marked milled out.', games.some(game => game.won && game.achievementFacts?.wonByFinalMillOut === 1)],
     ['library-burned', 'Library Burned', 'Won a four-or-more-player game after two opponents were marked milled out.', games.some(game => game.won && game.tableSize >= 4 && game.achievementFacts?.millEliminations >= 2)],

@@ -112,6 +112,7 @@ const unlockedAchievementsByGame = new Map();
 let resolvedRadiationTurnKey = null;
 let selectedDeckId = ''; let setupDecks = []; let joinGameFormat = 'commander'; let savedDecks = []; let editingDeckId = null; let deckCommanderColors = [];
 let optimisticLifeDelta = 0;
+let lifeCorrectionCredit = { amount: 0, expiresAt: 0 };
 let awaitingConfirmedResync = false;
 let syncBannerTimer = null;
 let interfaceStyle = (() => { try { return localStorage.getItem(INTERFACE_STYLE_KEY) === 'dial' ? 'dial' : 'button'; } catch { return 'button'; } })();
@@ -217,6 +218,13 @@ function selectedSourceFor(player) {
     state.selectedSourceId = turnSources[0]?.id || sources[0]?.id || null;
   }
   return sources.find(source => source.id === state.selectedSourceId) || null;
+}
+function lifeAdjustmentIsCorrection(delta) {
+  const now = Date.now();
+  if (now > lifeCorrectionCredit.expiresAt) lifeCorrectionCredit = { amount: 0, expiresAt: 0 };
+  if (delta < 0) { lifeCorrectionCredit = { amount: lifeCorrectionCredit.amount + -delta, expiresAt: now + 5_000 }; return false; }
+  if (delta > 0 && lifeCorrectionCredit.amount) { lifeCorrectionCredit = { amount: Math.max(0, lifeCorrectionCredit.amount - delta), expiresAt: now + 5_000 }; return true; }
+  return false;
 }
 function commanderValue(player, sourceId = state.selectedSourceId) { return player.commanderDamage[sourceId] || 0; }
 function evaluatePlayer(player) {
@@ -1061,11 +1069,12 @@ async function adjust(delta) {
     render(); return;
   }
   if (state.mode === 'life') {
+    const isCorrection = lifeAdjustmentIsCorrection(delta);
     showLifeChange(player.id, delta, previous, previous + delta);
     // Shared life is an atomic server-side delta. Submit each tap immediately
     // so Safari timer/identifier support can never leave a visible local-only
     // total that was not written to the table.
-    try { const result = await transport.adjust({ counter: 'life', delta }); if (!result.blocked && !result.ignored) confirmLifeChange(player.id); }
+    try { const result = await transport.adjust({ counter: 'life', delta, ...(isCorrection ? { isCorrection: true } : {}) }); if (!result.blocked && !result.ignored) confirmLifeChange(player.id); }
     catch (error) { renderConnection('disconnected'); showError(error); }
     return;
   }
@@ -1283,7 +1292,7 @@ function renderConnection(status = transport.status) {
   const presentation = connectionPresentation({ status });
   if (presentation.showOffline) awaitingConfirmedResync = true;
   dom.connectionButton.dataset.state = status; dom.connectionText.textContent = presentation.label; dom.disconnectBanner.hidden = !presentation.showOffline;
-  dom.connectionDetail.textContent = `${presentation.detail}${status === 'connected' && state?.podCode ? ` Pod ${state.podCode}; this phone controls ${state.ownerPlayerId || 'its assigned seat'}.` : ''}`; if (state && !dom.game.hidden) render();
+  dom.connectionDetail.textContent = `${presentation.detail}${status === 'connected' && state?.podCode ? ` Pod ${state.podCode}; this phone controls ${state.ownerPlayerId || 'its assigned seat'}.` : ''}`;
 }
 function saveLocal() { if (appearancePreviewMode || !state || !state.localSimulation) return; try { localStorage.setItem(LOCAL_DEMO_STATE_KEY, JSON.stringify(state)); } catch { /* storage is optional */ } }
 function loadLocal() {
