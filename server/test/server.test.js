@@ -783,6 +783,28 @@ describe("authority and convergence", () => {
     assert.equal(rolling.snapshot.turn.startingPlayerRoll.status, "rolling");
   });
 
+  test("passes first player clockwise after a reset and retains the prior winner as a choice", () => {
+    const service = new RoomService({ now: () => 100_000 });
+    const host = service.createConnection();
+    const created = service.createRoom(host.connectionId, { playerCount: 3, startingLife: 40 });
+    const second = service.createConnection();
+    const secondClaimed = service.claimSeat(created.snapshot.code, second.connectionId, { seatId: 1, name: "Jace" });
+    const third = service.createConnection();
+    const thirdClaimed = service.claimSeat(created.snapshot.code, third.connectionId, { seatId: 2, name: "Liliana" });
+    const selected = service.chooseStartingPlayer(created.snapshot.code, host.connectionId, { baseVersion: thirdClaimed.snapshot.version, startingSeatId: 0 });
+    const started = service.startGame(created.snapshot.code, host.connectionId, { baseVersion: selected.snapshot.version });
+    const declared = service.declareWinner(created.snapshot.code, host.connectionId, { baseVersion: started.snapshot.version, winnerSeatId: 2, winCondition: "life" });
+    const reset = service.resetRoom(created.snapshot.code, host.connectionId, { baseVersion: declared.snapshot.version });
+
+    assert.equal(reset.snapshot.turn.startingPlayerSeatId, 1);
+    assert.equal(reset.snapshot.turn.activeSeatId, 1);
+    assert.equal(reset.snapshot.lastGameWinnerSeatId, 2);
+
+    const winnerFirst = service.chooseStartingPlayer(created.snapshot.code, host.connectionId, { baseVersion: reset.snapshot.version, startingSeatId: reset.snapshot.lastGameWinnerSeatId });
+    assert.equal(winnerFirst.snapshot.turn.startingPlayerSeatId, 2);
+    assert.equal(secondClaimed.snapshot.seats[1].name, "Jace");
+  });
+
   test("tracks an active turn, supports a 15-second owner-only undo, and never auto-advances", async () => {
     let now = 100_000;
     const service = new RoomService({ now: () => now });

@@ -304,6 +304,18 @@ function createStartingPlayerRoll(claimedSeats, selectedAt) {
   return { startedAt: selectedAt, status: "rolling", winnerSeatId: null, rounds: [{ contenderSeatIds, rolls: [] }] };
 }
 
+// A next game should normally pass first-player priority clockwise. Keep this
+// on the server so every connected phone receives the same default.
+function nextClaimedSeatId(seats, afterSeatId) {
+  if (!seats.some((seat) => seat.claimed)) return 0;
+  const start = Number.isInteger(afterSeatId) ? afterSeatId : -1;
+  for (let offset = 1; offset <= seats.length; offset += 1) {
+    const seatId = (start + offset + seats.length) % seats.length;
+    if (seats[seatId]?.claimed) return seatId;
+  }
+  return 0;
+}
+
 // Card titles are requested only after player confirmation. This layer keeps no
 // search cache or persistence and is intentionally separate from rules advice.
 export function createCardLookup(fetchImpl = fetch, { timeoutMs = COMMANDER_LOOKUP_TIMEOUT_MS } = {}) {
@@ -468,6 +480,7 @@ export class RoomService {
       config: { playerCount, startingLife, gameFormat, roundLimitMinutes, tableSkinId: /^[A-Za-z0-9_-]{1,80}$/.test(String(input.tableSkinId || '')) ? String(input.tableSkinId) : null },
       lastCoinToss: null,
       gameResult: null,
+      lastGameWinnerSeatId: null,
       tableGameNumber: 1,
       sessionKind: "standard",
       turn: {
@@ -518,6 +531,7 @@ export class RoomService {
       config: { ...room.config },
       lastCoinToss: room.lastCoinToss ? { ...room.lastCoinToss } : null,
       gameResult: room.gameResult ? { ...room.gameResult } : null,
+      lastGameWinnerSeatId: Number.isInteger(room.lastGameWinnerSeatId) ? room.lastGameWinnerSeatId : null,
       feedbackPromptSeatId: feedbackPromptSeatId(room),
       sessionKind: room.sessionKind || "standard",
       turn: {
@@ -919,6 +933,13 @@ export class RoomService {
       throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
     }
     this.completePlaytest(room, this.now(), { incomplete: !room.gameResult });
+    const previousStartingSeatId = Number.isInteger(room.turn.startingPlayerSeatId)
+      ? room.turn.startingPlayerSeatId
+      : room.turn.activeSeatId;
+    const nextStartingSeatId = nextClaimedSeatId(room.seats, previousStartingSeatId);
+    room.lastGameWinnerSeatId = Number.isInteger(room.gameResult?.winnerSeatId)
+      ? room.gameResult.winnerSeatId
+      : null;
     for (const seat of room.seats) {
       seat.counters = { life: room.config.startingLife, radiation: 0, poison: 0, energy: 0, generic: 0 };
       seat.counterTotals = { poison: 0 };
@@ -940,12 +961,12 @@ export class RoomService {
     room.ledgerCompletedAt = null;
     const cueMode = ["sound", "vibrate", "both"].includes(room.turn.cueMode) ? room.turn.cueMode : "off";
     room.turn = {
-      activeSeatId: 0,
+      activeSeatId: nextStartingSeatId,
       gameStarted: false,
       gameStartedAt: null,
       turnStartedAt: null,
       roundEndsAt: null,
-      startingPlayerSeatId: null,
+      startingPlayerSeatId: nextStartingSeatId,
       startingPlayerRoll: null,
       lastHandoff: null,
       trackingEnabled: true,
