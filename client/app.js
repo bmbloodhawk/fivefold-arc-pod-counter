@@ -5,7 +5,7 @@ import { connectionPresentation } from './connection-state.js?v=1';
 import { createInteractionAdvice } from './card-interaction-advice.js?v=1';
 import { commanderFallbackLabel } from './commander-source-flow.js?v=1';
 import { currentAccountToken, emailAccountToken, googleAccountToken, restoredAccountToken, sendAccountPasswordReset, signOutAccount } from './account-auth.js?v=6';
-import { JoinQrScanner } from './join-qr-scanner.js?v=1';
+import { JoinQrScanner } from './join-qr-scanner.js?v=2';
 
 const appearancePreviewMode = new URLSearchParams(location.search).get('appearance-preview') === '1';
 const appearanceParams = new URLSearchParams(location.search);
@@ -558,7 +558,7 @@ async function openJoinQrScanner() {
     else stopJoinQrScanner();
   } catch (error) {
     stopJoinQrScanner();
-    dom.joinQrScannerStatus.textContent = error?.message || 'Could not open the camera. Enter the six-character pod code instead.';
+    dom.joinQrScannerStatus.textContent = 'Could not open the camera on this browser. Enter the six-character pod code instead.';
   }
 }
 function joinLink() { const url = new URL('./', location.href); url.searchParams.set('join', state.podCode); return url.toString(); }

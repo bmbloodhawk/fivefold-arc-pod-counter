@@ -7,6 +7,10 @@ export function podCodeFromQr(value) {
   } catch { return null; }
 }
 
+function canRetryWithGenericCamera(error) {
+  return error?.name === 'TypeError' || /illegal invocation/i.test(String(error?.message || ''));
+}
+
 // The decoder runs entirely on the current video frame. Nothing from the
 // camera is uploaded or retained after a matching pod code is found.
 export class JoinQrScanner {
@@ -24,7 +28,15 @@ export class JoinQrScanner {
     if (!this.mediaDevices?.getUserMedia) throw new Error('This browser cannot open the camera. Enter the six-character pod code instead.');
     if (typeof this.decoder !== 'function') throw new Error('QR scanning is not available here. Enter the six-character pod code instead.');
     this.stop(video);
-    this.stream = await this.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' } } });
+    try {
+      this.stream = await this.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' } } });
+    } catch (error) {
+      // Some current Android browser builds reject a facing-mode constraint
+      // before opening the camera. Retrying without it still lets the player
+      // select a camera in the browser's normal way.
+      if (!canRetryWithGenericCamera(error)) throw error;
+      this.stream = await this.mediaDevices.getUserMedia({ audio: false, video: true });
+    }
     video.srcObject = this.stream;
     await video.play?.();
     const scan = () => {
