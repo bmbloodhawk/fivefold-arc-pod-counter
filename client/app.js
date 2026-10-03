@@ -102,6 +102,7 @@ function playTurnCue(preview = false) {
 }
 let localStartingRollKey = null;
 let pendingStartingRoll = null;
+let pendingStartingSeatId = null;
 let turnTicker = null;
 let turnUndoTimer = null;
 let lastTurnHandoffKey = null;
@@ -664,16 +665,19 @@ function renderTurnFlow() {
   dom.toggleTouchFeedbackButton.textContent = `Touch feedback: ${touchFeedbackEnabled() ? 'on' : 'off'}`;
   dom.pauseTurnButton.hidden = !isStarted || !isHost || !trackingEnabled;
   if (!isStarted) {
+    const authoritativeSeatId = Number.isInteger(state.turn.startingPlayerSeatId) ? state.turn.startingPlayerSeatId : state.turn.activeSeatId;
+    if (Number.isInteger(pendingStartingSeatId) && !claimedPlayers.some(player => player.id === `P${pendingStartingSeatId + 1}`)) pendingStartingSeatId = null;
+    if (pendingStartingSeatId === state.turn.startingPlayerSeatId) pendingStartingSeatId = null;
     const selected = Number.isInteger(state.turn.startingPlayerSeatId) ? state.players.find(player => player.id === `P${state.turn.startingPlayerSeatId + 1}`) : null;
     const shareCode = state.podCode && state.podCode !== 'LOCAL' ? `Pod ${state.podCode}. ` : '';
-    const firstPlayer = selected || state.players.find(player => player.id === `P${state.turn.activeSeatId + 1}`) || state.players[0];
+    const firstPlayer = selected || state.players.find(player => player.id === `P${authoritativeSeatId + 1}`) || state.players[0];
     dom.lobbyStatus.textContent = selected
       ? `${shareCode}${claimedPlayers.length}/${state.playerCount} players joined. ${displayName(selected)} will go first.`
       : `${shareCode}${claimedPlayers.length}/${state.playerCount} players joined. ${displayName(firstPlayer)} goes first by default.`;
     dom.lobbyInviteCode.textContent = state.podCode && state.podCode !== 'LOCAL' ? state.podCode : '';
     dom.copyLobbyJoinLinkButton.hidden = !canShareJoin || !isHost;
     dom.startingSeat.innerHTML = claimedPlayers.map(player => `<option value="${Number(player.id.slice(1)) - 1}">${escapeHtml(displayPlayer(player))}</option>`).join('');
-    dom.startingSeat.value = String(state.turn.startingPlayerSeatId ?? state.turn.activeSeatId);
+    dom.startingSeat.value = String(pendingStartingSeatId ?? authoritativeSeatId);
     dom.firstPlayerOptions.hidden = !isHost;
     dom.startingSeatField.hidden = !isHost;
     dom.chooseFirstButton.hidden = !isHost;
@@ -681,6 +685,8 @@ function renderTurnFlow() {
     dom.startGameButton.hidden = !isHost;
     dom.startingSeat.disabled = !isHost || claimedPlayers.length < 2;
     dom.chooseFirstButton.disabled = !isHost || claimedPlayers.length < 2;
+    const pendingPlayer = Number.isInteger(pendingStartingSeatId) ? claimedPlayers.find(player => player.id === `P${pendingStartingSeatId + 1}`) : null;
+    dom.chooseFirstButton.textContent = pendingPlayer ? `Use ${displayName(pendingPlayer)} as first player` : 'Use selected first player';
     dom.randomFirstButton.disabled = !isHost || claimedPlayers.length < 2;
     dom.startGameButton.disabled = !isHost || claimedPlayers.length < 2;
     dom.startGameButton.textContent = `Start game · ${displayName(firstPlayer)} goes first`;
@@ -1107,6 +1113,7 @@ async function updateCommanderCastCount(sourceId, delta) {
   catch (error) { renderConnection('disconnected'); showError(error); }
 }
 async function resetGame() {
+  pendingStartingSeatId = null;
   if (transport.status === 'local') { const sources = state.commanderSources; const preservedCueMode = cueMode(state.turn); state.players = state.players.map(player => ({ ...playerTemplate(Number(player.id.slice(1)), state.startingLife, player.commanderCount, sources, player.commanderNames, player.commanderColors), name: player.name, commanderCount: player.commanderCount, commanderNames: player.commanderNames, commanderColors: player.commanderColors })); state.commanderCastCounts = blankDamage(sources); state.lastCoinToss = null; state.gameResult = null; state.turn = { activeSeatId: 0, gameStarted: false, gameStartedAt: null, turnStartedAt: null, roundEndsAt: null, startingPlayerSeatId: null, startingPlayerRoll: null, lastHandoff: null, trackingEnabled: true, cueMode: preservedCueMode, pausedAt: null }; state.turnSeatId = 'P1'; coinTossNotice = null; clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); clearStartingRollTimers(); state.selectedSourceId = null; render(); return; }
   try { const result = await transport.reset(); if (result.conflict) showError(new Error('The table changed first. The latest totals are shown; confirm reset again if it is still needed.')); else { coinTossNotice = null; clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); render(); } } catch (error) { showError(error); }
 }
@@ -1123,6 +1130,8 @@ async function handoffTurn() {
 }
 async function chooseStartingPlayer(startingSeatId = undefined) {
   if (!state || state.turn.gameStarted) return;
+  if (startingSeatId !== undefined) pendingStartingSeatId = startingSeatId;
+  else pendingStartingSeatId = null;
   if (state.localSimulation) {
     const roll = startingSeatId === undefined ? createLocalStartingPlayerRoll(state.players) : null;
     const seatId = roll ? roll.winnerSeatId : startingSeatId;
@@ -1367,7 +1376,7 @@ document.addEventListener('pointerdown', () => prepareTurnCueAudio(false, cueMod
 document.addEventListener('pointerup', event => { const button = event.target.closest('button'); if (!button || button.disabled || button.hidden || !button.getClientRects().length) return; pulseTouchFeedback(); });
 dom.endTurnButton.addEventListener('click', handoffTurn); dom.undoTurnButton.addEventListener('click', undoTurnHandoff); dom.pauseTurnButton.addEventListener('click', toggleTurnPause); dom.toggleTurnTrackingButton.addEventListener('click', toggleTurnTracking); dom.toggleTurnCuesButton.addEventListener('click', openTurnCueDialog); dom.turnCueForm.addEventListener('submit', async event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); const mode = String(new FormData(dom.turnCueForm).get('cueMode') || 'off'); prepareTurnCueAudio(false, mode); if (await setTurnCue(mode)) dom.turnCueDialog.close('confirm'); }); dom.toggleDeviceCuesButton.addEventListener('click', () => { setDeviceTurnCues(!deviceTurnCuesEnabled()); render(); }); dom.toggleTouchFeedbackButton.addEventListener('click', () => { setTouchFeedback(!touchFeedbackEnabled()); render(); });
 dom.turnSoundPreferencesButton.addEventListener('click', openTurnSoundDialog); dom.turnSoundVolume.addEventListener('input', () => { dom.turnSoundVolumeValue.value = `${dom.turnSoundVolume.value}%`; }); dom.previewTurnSoundButton.addEventListener('click', () => { setTurnSound(dom.turnSoundChoice.value, Number(dom.turnSoundVolume.value)); playTurnCue(true); }); dom.turnSoundForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); setTurnSound(dom.turnSoundChoice.value, Number(dom.turnSoundVolume.value)); dom.turnSoundDialog.close('confirm'); render(); }); dom.toggleInterfaceStyleButton.addEventListener('click', () => setInterfaceStyle(interfaceStyle === 'dial' ? 'button' : 'dial', { persistAccount: true }));
-dom.chooseFirstButton.addEventListener('click', () => chooseStartingPlayer(Number(dom.startingSeat.value))); dom.randomFirstButton.addEventListener('click', () => chooseStartingPlayer()); dom.startGameButton.addEventListener('click', startGame);
+dom.startingSeat.addEventListener('change', () => { pendingStartingSeatId = Number(dom.startingSeat.value); renderTurnFlow(); }); dom.chooseFirstButton.addEventListener('click', () => chooseStartingPlayer(pendingStartingSeatId ?? Number(dom.startingSeat.value))); dom.randomFirstButton.addEventListener('click', () => chooseStartingPlayer()); dom.startGameButton.addEventListener('click', startGame);
 const syncGameMenuScrollLock = () => { const open = !dom.gameMenu.hidden; dom.gameMenuBackdrop.hidden = !open; document.documentElement.classList.toggle('game-menu-open', open); document.body.classList.toggle('game-menu-open', open); };
 new MutationObserver(syncGameMenuScrollLock).observe(dom.gameMenu, { attributes: true, attributeFilter: ['hidden'] }); syncGameMenuScrollLock();
 function closeGameMenu() { dom.gameMenu.hidden = true; dom.gameMenuBackdrop.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); }
