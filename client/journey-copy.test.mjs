@@ -269,6 +269,11 @@ test('the host can record a non-life player elimination without choosing a winne
   assert.match(app, /transport\.eliminatePlayer\(targetSeatId, reason, detail\)/);
 });
 
+test('a long Commander warning wraps on phones and a reconnect status does not rebuild the board', () => {
+  assert.match(styles, /\.status-message \{[\s\S]*overflow-wrap: anywhere;[\s\S]*white-space: normal;/);
+  assert.doesNotMatch(app, /dom\.connectionDetail\.textContent = \$\{presentation\.detail\}[\s\S]{0,220}if \(state && !dom\.game\.hidden\) render\(\);/);
+});
+
 test('a seated player can update only their own displayed name after the game starts', () => {
   assert.match(html, /id="editPlayerNameButton"[^>]*>Change my name/);
   assert.match(html, /id="editPlayerNameDialog"/);

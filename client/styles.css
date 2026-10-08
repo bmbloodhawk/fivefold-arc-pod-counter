@@ -1148,6 +1148,16 @@ body.dial-dragging { overflow: hidden; overscroll-behavior: none; }
 }
 .life-change-indicator { min-height: 0; }
 .status-message { bottom: 51px; }
+.status-message.commander-near-lethal {
+  text-overflow: clip;
+  white-space: normal;
+}
+.status-message.commander-near-lethal > span { display: block; }
+.status-message.commander-near-lethal .status-warning-detail {
+  margin-top: 2px;
+  font-size: .78em;
+  letter-spacing: .12em;
+}
 @media (max-width: 359px), (max-height: 740px) {
   .life-change-indicator,
   .status-message { right: 6px; bottom: 40px; left: 6px; font-size: 1.12rem; }
@@ -1252,8 +1262,12 @@ dialog:not(#victoryDialog) { max-height:calc(100dvh - 24px); overflow-y:auto; ov
 #gameView[data-counter-mode="commander"] > .source-panel .selected-source-button strong {
   overflow-wrap: normal;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* Commander names can make a near-lethal warning longer than a phone.
+     Keep the whole warning visible in the existing status area instead of
+     truncating the source name or pushing a control off-screen. */
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
 }
 #gameView[data-counter-mode="commander"] > .source-panel .selected-source-button span > small { display: none; }
 #gameView[data-counter-mode="commander"] > .source-panel .selected-source-button em {
