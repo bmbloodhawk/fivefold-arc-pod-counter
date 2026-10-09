@@ -67,6 +67,10 @@ test('the host lobby makes sharing the primary next setup action', () => {
   assert.match(html, /Players: choose <strong>Join a pod<\/strong>, then enter this code\./);
   assert.match(html, /id="lobbyInviteCode"/);
   assert.match(html, /id="copyLobbyJoinLinkButton"[^>]*>Copy invite link/);
+  assert.ok(
+    html.indexOf('id="lobbyControls"') < html.indexOf('id="podStrip"'),
+    'the invite controls appear before the player seats while the pod is waiting'
+  );
   assert.match(app, /dom\.lobbyInviteCode\.textContent = state\.podCode/);
   assert.match(app, /dom\.copyLobbyJoinLinkButton\.addEventListener\('click', \(\) => copyJoinLink\(dom\.copyLobbyJoinLinkButton\)\)/);
 });
