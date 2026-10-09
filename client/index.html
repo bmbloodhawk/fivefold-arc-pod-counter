@@ -56,7 +56,7 @@
       <h1 id="createTitle">Set the table.</h1>
       <form id="createForm" class="setup-form">
         <section class="create-step" data-create-step="1">
-          <p class="eyebrow">STEP 1 OF 4</p>
+          <p class="eyebrow">STEP 1 OF 5</p>
           <fieldset class="choice-field">
             <legend>Table rules</legend>
             <div class="segmented" role="radiogroup" aria-label="Table rules">
@@ -66,49 +66,6 @@
             </div>
             <small id="gameFormatHelp" class="field-help">40 life with commander damage and commander tax.</small>
           </fieldset>
-          <fieldset class="choice-field">
-            <legend>Players for game one</legend>
-            <div id="playerCountChoices" class="segmented dense" role="radiogroup" aria-label="Number of players"></div>
-          </fieldset>
-          <label class="select-field">Seats available in this pod
-            <select id="seatCapacity" name="seatCapacity"><option value="2">Up to 2 players</option><option value="3">Up to 3 players</option><option value="4" selected>Up to 4 players</option><option value="5">Up to 5 players</option><option value="6">Up to 6 players</option><option value="7">Up to 7 players</option><option value="8">Up to 8 players</option></select>
-            <small>Choose room for players who may join between games. It does not add them to game one.</small>
-          </label>
-          <p class="field-help setup-fast-path">Defaults: 4 players at 40 life. A later player can claim an unused seat during next-game setup.</p>
-          <button id="createStepOneNext" class="primary-action" type="button">Next: your name</button>
-        </section>
-        <section class="create-step" data-create-step="2" hidden>
-          <p class="eyebrow">STEP 2 OF 4</p>
-          <label class="select-field">What should the table call you? <small>(optional)</small>
-            <input id="createName" name="name" type="text" autocomplete="name" maxlength="24" placeholder="P1">
-            <small>Blank uses P1.</small>
-          </label>
-          <div class="dialog-actions"><button class="secondary-action" data-create-back type="button">Back</button><button id="createStepTwoNext" class="primary-action" type="button">Next: commander</button></div>
-        </section>
-        <section class="create-step commander-setup-step" data-create-step="3" hidden>
-          <p class="eyebrow">STEP 3 OF 4</p>
-          <label id="createDeckField" class="select-field" hidden>My deck <small>(optional)</small><select id="createDeck"><option value="">No deck selected</option></select></label>
-          <fieldset class="choice-field">
-            <legend>Your commander <small>(optional)</small></legend>
-            <div class="segmented commander-count-choice" role="radiogroup" aria-label="Number of commanders for your claimed seat">
-              <label><input type="radio" name="commanderCount" value="1" checked><span>1 commander</span></label>
-              <label><input type="radio" name="commanderCount" value="2"><span>2 commanders</span></label>
-            </div>
-            <small class="field-help">Find the card to add its color identity.</small>
-          </fieldset>
-          <div id="createCommanderNames" class="commander-name-fields"></div>
-          <div class="dialog-actions"><button class="secondary-action" data-create-back type="button">Back</button><button id="createStepThreeSkip" class="secondary-action" type="button">Skip for now</button><button id="createStepThreeNext" class="primary-action" type="button">Continue</button></div>
-        </section>
-        <section class="create-step" data-create-step="4" hidden>
-          <p class="eyebrow">STEP 4 OF 4</p>
-          <div class="setup-options">
-          <label class="select-field">Table appearance <small>Shared with the table.</small>
-            <select id="tableSkin" name="tableSkinId"><option value="">Standard appearance</option></select>
-          </label>
-          <label class="select-field">Round limit <small>(optional)</small>
-            <input id="roundLimitMinutes" name="roundLimitMinutes" type="number" inputmode="numeric" min="1" max="999" step="1" placeholder="No limit — game time counts up">
-            <small>Organizer countdown only; it never ends a turn.</small>
-          </label>
           <fieldset class="choice-field">
             <legend>Starting life</legend>
             <div class="segmented" role="radiogroup" aria-label="Starting life">
@@ -120,6 +77,52 @@
           <label id="customStartingLifeField" class="select-field" hidden>Other starting life
             <input id="customStartingLife" name="customStartingLife" type="number" inputmode="numeric" min="1" max="999" step="1" placeholder="e.g. 25">
             <small>Choose any whole number from 1 to 999.</small>
+          </label>
+          <button id="createStepOneNext" class="primary-action" type="button">Next: players</button>
+        </section>
+        <section class="create-step" data-create-step="2" hidden>
+          <p class="eyebrow">STEP 2 OF 5</p>
+          <fieldset class="choice-field">
+            <legend>Players for game one</legend>
+            <div id="playerCountChoices" class="segmented dense" role="radiogroup" aria-label="Number of players"></div>
+          </fieldset>
+          <label class="select-field">Seats available in this pod
+            <select id="seatCapacity" name="seatCapacity"><option value="2">Up to 2 players</option><option value="3">Up to 3 players</option><option value="4" selected>Up to 4 players</option><option value="5">Up to 5 players</option><option value="6">Up to 6 players</option><option value="7">Up to 7 players</option><option value="8">Up to 8 players</option></select>
+            <small>Extra seats can join during next-game setup.</small>
+          </label>
+          <div class="dialog-actions"><button class="secondary-action" data-create-back type="button">Back</button><button id="createStepTwoNext" class="primary-action" type="button">Next: your name</button></div>
+        </section>
+        <section class="create-step" data-create-step="3" hidden>
+          <p class="eyebrow">STEP 3 OF 5</p>
+          <label class="select-field">What should the table call you? <small>(optional)</small>
+            <input id="createName" name="name" type="text" autocomplete="name" maxlength="24" placeholder="P1">
+            <small>Blank uses P1.</small>
+          </label>
+          <div class="dialog-actions"><button class="secondary-action" data-create-back type="button">Back</button><button id="createStepThreeNext" class="primary-action" type="button">Next: commander</button></div>
+        </section>
+        <section class="create-step commander-setup-step" data-create-step="4" hidden>
+          <p class="eyebrow">STEP 4 OF 5</p>
+          <label id="createDeckField" class="select-field" hidden>My deck <small>(optional)</small><select id="createDeck"><option value="">No deck selected</option></select></label>
+          <fieldset class="choice-field">
+            <legend>Your commander <small>(optional)</small></legend>
+            <div class="segmented commander-count-choice" role="radiogroup" aria-label="Number of commanders for your claimed seat">
+              <label><input type="radio" name="commanderCount" value="1" checked><span>1 commander</span></label>
+              <label><input type="radio" name="commanderCount" value="2"><span>2 commanders</span></label>
+            </div>
+            <small class="field-help">Find the card to add its color identity.</small>
+          </fieldset>
+          <div id="createCommanderNames" class="commander-name-fields"></div>
+          <div class="dialog-actions"><button class="secondary-action" data-create-back type="button">Back</button><button id="createStepFourSkip" class="secondary-action" type="button">Skip for now</button><button id="createStepFourNext" class="primary-action" type="button">Continue</button></div>
+        </section>
+        <section class="create-step" data-create-step="5" hidden>
+          <p class="eyebrow">STEP 5 OF 5</p>
+          <div class="setup-options">
+          <label class="select-field">Table appearance <small>Shared with the table.</small>
+            <select id="tableSkin" name="tableSkinId"><option value="">Standard appearance</option></select>
+          </label>
+          <label class="select-field">Round limit <small>(optional)</small>
+            <input id="roundLimitMinutes" name="roundLimitMinutes" type="number" inputmode="numeric" min="1" max="999" step="1" placeholder="No limit — game time counts up">
+            <small>Organizer countdown only; it never ends a turn.</small>
           </label>
           <label id="localSimulationField" class="toggle-field" hidden>
             <input id="localSimulation" type="checkbox">
