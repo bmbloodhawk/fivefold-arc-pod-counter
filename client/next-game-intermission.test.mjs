@@ -23,7 +23,9 @@ test('next-game setup is a distinct ready state with host start controls', () =>
 test('pod setup separates first-game players from future seat capacity', () => {
   assert.match(page, /Players for game one/);
   assert.match(page, /id="seatCapacity" name="seatCapacity"/);
+  for (const capacity of [2, 3, 4, 5, 6, 7, 8]) assert.match(page, new RegExp(`<option value="${capacity}"`));
   assert.match(app, /function syncSeatCapacityChoices\(\)/);
+  assert.match(app, /option\.disabled = Number\(option\.value\) < players/);
   assert.match(app, /const seatCapacity = Number\(form\.get\('seatCapacity'\)\);/);
   assert.match(transport, /async createRoom\(\{ playerCount, seatCapacity = playerCount,/);
 });
