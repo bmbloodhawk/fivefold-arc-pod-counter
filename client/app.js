@@ -713,7 +713,10 @@ function renderTurnFlow() {
   }
   const freezeGameControls = isIntermission || isComplete;
   $('#adjustControls').hidden = freezeGameControls;
-  dom.dialControls.hidden = freezeGameControls || interfaceStyle() !== 'dial';
+  // `interfaceStyle` is the current saved value, not a getter. Calling it
+  // halted rendering in a local simulation just after the visual style was
+  // switched, leaving the menu label and Dial controls stale.
+  dom.dialControls.hidden = freezeGameControls || interfaceStyle !== 'dial';
   dom.showJoinQrButton.hidden = !canShareJoin || !isHost;
   dom.showJoinQrMenuButton.hidden = !canShareJoin || !isHost;
   const trackingEnabled = state.turn.trackingEnabled !== false;

@@ -14,3 +14,8 @@ test('the full visible dial starts a drag without covering the side tap zones', 
   assert.match(app, /event\.target\.closest\('\[data-delta\]'\)/);
   assert.match(app, /dom\.dialControls\.addEventListener\('pointerup',[\s\S]*?\.dial-step\[data-delta\][\s\S]*?void adjust\(Number\(button\.dataset\.delta\)\)/);
 });
+
+test('rendering a Dial simulation reads the saved interface style without invoking it', () => {
+  assert.match(app, /dom\.dialControls\.hidden = freezeGameControls \|\| interfaceStyle !== 'dial';/);
+  assert.doesNotMatch(app, /interfaceStyle\(\)/);
+});
