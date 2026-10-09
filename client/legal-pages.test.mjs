@@ -17,6 +17,6 @@ test('public legal pages explain the current privacy boundary and independent ga
   assert.match(terms, /unofficial companion/);
   assert.match(terms, /not affiliated with, endorsed by, or sponsored by Wizards of the Coast LLC/);
   assert.match(terms, /does not make official game rulings/);
-  assert.match(serviceWorker, /fivefold-arc-v314/);
+  assert.match(serviceWorker, /fivefold-arc-v315/);
   assert.match(serviceWorker, /'\.\/terms\.html'/);
 });
