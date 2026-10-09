@@ -82,6 +82,10 @@ test('connection status does not duplicate the pod code from the waiting lobby',
   assert.doesNotMatch(app, /connectionButton\.addEventListener\('click'/);
 });
 
+test('a successfully created pod cannot be reported as a connection error during rendering', () => {
+  assert.match(app, /result = await transport\.createRoom\([\s\S]*?\);\s*}\s*catch \(error\) \{\s*showError\(error\);\s*return;\s*}\s*showSharedGame\(result\.snapshot\);/);
+});
+
 test('creating a pod is distinct from starting a game', () => {
   assert.match(html, /name="gameFormat" value="commander" checked/);
   assert.match(html, /name="gameFormat" value="casual"/);
