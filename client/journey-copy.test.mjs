@@ -78,6 +78,8 @@ test('the host lobby makes sharing the primary next setup action', () => {
 test('connection status does not duplicate the pod code from the waiting lobby', () => {
   assert.match(app, /dom\.connectionDetail\.textContent = presentation\.detail;/);
   assert.doesNotMatch(app, /Pod \$\{state\.podCode\}; this phone controls/);
+  assert.match(html, /<div id="connectionButton" class="connection-pill" role="status"/);
+  assert.doesNotMatch(app, /connectionButton\.addEventListener\('click'/);
 });
 
 test('creating a pod is distinct from starting a game', () => {
