@@ -5,23 +5,35 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d0d0d">
   <title>Privacy — Fivefold Arc</title>
-  <link rel="stylesheet" href="styles.css?v=183">
+  <link rel="stylesheet" href="styles.css?v=222">
 </head>
 <body>
   <main class="setup-shell">
-    <p class="eyebrow">FIVEFOLD ARC</p>
+    <p class="eyebrow">FIVEFOLD ARC · EFFECTIVE OCTOBER 8, 2026</p>
     <h1>Privacy and your data</h1>
-    <p class="lede">Guest play is available without an account.</p>
+    <p class="lede">Guest play is available without an account. This page explains what this test build handles when you use it.</p>
     <section class="privacy-note">
-      <h2>Saved games and decks</h2>
-      <p>If you choose to sign in and save a game, we store only your game result, table size, selected commander and deck, and any winner reason recorded for that result. Automatic finishing place is saved only when the counter can determine it from eliminations.</p>
-      <p>You can export or permanently delete your saved account data from <strong>My games</strong>. Deletion removes the saved games, decks, and the server-side link to your sign-in identity.</p>
-      <h2>Table data</h2>
-      <p>Your seat recovery credential stays on your phone. Active connected tables may be lost if the test service restarts.</p>
-      <h2>Product measurement</h2>
-      <p>Product measurement is not collecting data in this test build. If it is introduced later, this page will state the limited event categories, retention period, and opt-out before collection begins.</p>
+      <h2>What you can use without an account</h2>
+      <p>You can play as a guest. A pod code, active-table state, player-entered display names, and table choices are used to run that shared table. Your seat recovery credential is stored on your device so that device can reclaim its seat; do not share it.</p>
+      <p>Active test tables are not a backup service and may be lost if the service restarts. Do not use the app to store information you cannot afford to lose.</p>
+
+      <h2>If you sign in</h2>
+      <p>Sign-in is provided through Firebase Authentication. Fivefold Arc uses an opaque account identifier for its saved-data service rather than retaining the sign-in provider’s subject identifier there. Firebase may process the sign-in information needed to authenticate you under its own terms and privacy practices.</p>
+      <p>Your saved account data can include your preferred name, saved decks and private deck notes, personal appearance choices, saved game results, achievements, and any account preferences you choose to save. A saved game can include the table size, selected deck and commander names, recorded outcome, and a winner reason if one was entered.</p>
+
+      <h2>Limited diagnostics and feedback</h2>
+      <p>The test build may record limited technical diagnostics for a table, such as the app build, coarse viewport class, coarse device-memory class, visibility changes, and connection or rendering failure categories. It is designed not to record your IP address, user agent, screen capture, raw taps, card image, password, or full error message. Optional feedback is stored with the table context needed to investigate the report.</p>
+
+      <h2>Card and rules lookups</h2>
+      <p>When you ask the app to look up a commander, card, combo, or scanned card, the text or compact image you submit is sent only to the lookup service needed for that request. Current sources can include Scryfall, Commander Spellbook, and the card-image scanning service. Do not submit personal information in those fields.</p>
+
+      <h2>Deletion and export</h2>
+      <p>From <strong>My profile</strong>, signed-in players can export their saved account data or choose <strong>Delete my account data</strong>. Deletion permanently removes saved games, decks, preferences, and the server-side link to the signed-in account. It cannot restore deleted information or erase records that a third-party sign-in provider keeps for authentication.</p>
+
+      <h2>Children and changes</h2>
+      <p>Fivefold Arc is not directed to children under 13. Do not create an account or submit personal information for a child under 13 through this test build. If data practices materially change, this page will be updated before the new collection is enabled.</p>
     </section>
-    <p><a class="text-action" href="index.html">Back to Fivefold Arc</a></p>
+    <p><a class="text-action" href="terms.html">Terms of use</a> · <a class="text-action" href="index.html">Back to Fivefold Arc</a></p>
   </main>
 </body>
 </html>
