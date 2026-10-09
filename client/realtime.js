@@ -11,11 +11,11 @@ export class RealtimeAdapter extends EventTarget {
     this.status = 'local'; this.localMode = true; this.stopped = false; this.sessionEpoch = 0;
   }
 
-  async createRoom({ playerCount, startingLife, gameFormat = 'commander', commanderCount = 1, commanderNames = Array.from({ length: commanderCount }, () => ''), commanderColors = Array.from({ length: commanderCount }, () => []), name = 'P1', roundLimitMinutes = null, tableSkinId = null }) {
+  async createRoom({ playerCount, seatCapacity = playerCount, startingLife, gameFormat = 'commander', commanderCount = 1, commanderNames = Array.from({ length: commanderCount }, () => ''), commanderColors = Array.from({ length: commanderCount }, () => []), name = 'P1', roundLimitMinutes = null, tableSkinId = null }) {
     const epoch = this.#beginSession();
     try {
       if (!await this.#startConnection(epoch)) return { ignored: true };
-      const result = await this.#request('/api/rooms', { method: 'POST', authenticated: true, body: { playerCount, startingLife, gameFormat, commanderCount, commanderNames, commanderColors, name, ...(roundLimitMinutes ? { roundLimitMinutes } : {}), ...(tableSkinId ? { tableSkinId } : {}) } });
+      const result = await this.#request('/api/rooms', { method: 'POST', authenticated: true, body: { playerCount, seatCapacity, startingLife, gameFormat, commanderCount, commanderNames, commanderColors, name, ...(roundLimitMinutes ? { roundLimitMinutes } : {}), ...(tableSkinId ? { tableSkinId } : {}) } });
       if (!this.#isCurrentSession(epoch)) return { ignored: true };
       this.#adoptSeat(result.snapshot.code, result.seatId, result.reclaimToken, result.snapshot, epoch);
       if (result.hostRecoveryKey) { try { localStorage.setItem(this.#recoveryKey(result.snapshot.code), result.hostRecoveryKey); } catch { /* storage optional */ } }

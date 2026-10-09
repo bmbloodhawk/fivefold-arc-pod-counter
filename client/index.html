@@ -67,10 +67,14 @@
             <small id="gameFormatHelp" class="field-help">40 life with commander damage and commander tax.</small>
           </fieldset>
           <fieldset class="choice-field">
-            <legend>How many players?</legend>
+            <legend>Players for game one</legend>
             <div id="playerCountChoices" class="segmented dense" role="radiogroup" aria-label="Number of players"></div>
           </fieldset>
-          <p class="field-help setup-fast-path">Defaults: 4 players at 40 life. Other players claim an open seat when joining.</p>
+          <label class="select-field">Seats available in this pod
+            <select id="seatCapacity" name="seatCapacity"><option value="4">Up to 4 players</option><option value="6">Up to 6 players</option><option value="8">Up to 8 players</option></select>
+            <small>Choose room for players who may join between games. It does not add them to game one.</small>
+          </label>
+          <p class="field-help setup-fast-path">Defaults: 4 players at 40 life. A later player can claim an unused seat during next-game setup.</p>
           <button id="createStepOneNext" class="primary-action" type="button">Next: your name</button>
         </section>
         <section class="create-step" data-create-step="2" hidden>

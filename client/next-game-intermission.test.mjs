@@ -20,6 +20,14 @@ test('next-game setup is a distinct ready state with host start controls', () =>
   assert.match(transport, /async reorderNextGameSeats\(seatIds\) \{ return this\.\#hostGameRequest\('\/next-game-reorder', \{ seatIds \}\); \}/);
 });
 
+test('pod setup separates first-game players from future seat capacity', () => {
+  assert.match(page, /Players for game one/);
+  assert.match(page, /id="seatCapacity" name="seatCapacity"/);
+  assert.match(app, /function syncSeatCapacityChoices\(\)/);
+  assert.match(app, /const seatCapacity = Number\(form\.get\('seatCapacity'\)\);/);
+  assert.match(transport, /async createRoom\(\{ playerCount, seatCapacity = playerCount,/);
+});
+
 test('achievement reveals wait for the personal match moment dismissal and its save', () => {
   assert.match(app, /const automaticSavePromises = new Map\(\); const dismissedVictoryKeys = new Set\(\);/);
   assert.match(app, /automaticSavePromises\.set\(key, saveGameToHistory\(\{ automatic: true, gameKey: key \}\)\);/);

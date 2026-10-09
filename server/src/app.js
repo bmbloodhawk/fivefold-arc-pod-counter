@@ -462,6 +462,7 @@ export class RoomService {
     if (connection.seatKey) throw Object.assign(new Error("One connection may own only one seat"), { status: 409, code: "CONNECTION_HAS_SEAT" });
     const gameFormat = normalizeGameFormat(input.gameFormat);
     const playerCount = asInteger(input.playerCount, "playerCount", 2, 8);
+    const seatCapacity = input.seatCapacity === undefined ? playerCount : asInteger(input.seatCapacity, "seatCapacity", playerCount, 8);
     const startingLife = asInteger(input.startingLife, "startingLife", gameFormat === "custom" ? 1 : 20, gameFormat === "custom" ? 999 : 40);
     if (gameFormat !== "custom" && ![20, 30, 40].includes(startingLife)) throw Object.assign(new Error("startingLife must be 20, 30, or 40"), { status: 400, code: "INVALID_INPUT" });
     const commanderCount = normalizeCommanderCount(input.commanderCount);
@@ -472,7 +473,7 @@ export class RoomService {
     const code = this.makeJoinCode();
     const reclaimToken = opaque(32);
     const hostRecoveryKey = opaque(32);
-    const seats = Array.from({ length: playerCount }, (_, seatId) => ({
+    const seats = Array.from({ length: seatCapacity }, (_, seatId) => ({
       seatId,
       name: seatId === 0 ? normalizeName(input.name, "P1") : `P${seatId + 1}`,
       claimed: seatId === 0,
@@ -493,7 +494,9 @@ export class RoomService {
       createdAt: startedAt,
       lastActiveAt: startedAt,
       hostSeatId: 0,
-      config: { playerCount, startingLife, gameFormat, roundLimitMinutes, tableSkinId: /^[A-Za-z0-9_-]{1,80}$/.test(String(input.tableSkinId || '')) ? String(input.tableSkinId) : null },
+      // playerCount remains the seat capacity for older clients. The planned
+      // first-game count is informational; gameplay always uses the roster.
+      config: { playerCount: seatCapacity, expectedPlayerCount: playerCount, seatCapacity, startingLife, gameFormat, roundLimitMinutes, tableSkinId: /^[A-Za-z0-9_-]{1,80}$/.test(String(input.tableSkinId || '')) ? String(input.tableSkinId) : null },
       lastCoinToss: null,
       gameResult: null,
       // The table, not an individual phone, owns which seats are in a game.
@@ -528,7 +531,7 @@ export class RoomService {
     };
     synchronizeCommanderState(room);
     this.rooms.set(code, room);
-    this.recordLedger(room, "room_created", 0, { playerCount, startingLife, gameFormat });
+    this.recordLedger(room, "room_created", 0, { playerCount, seatCapacity, startingLife, gameFormat });
     this.productMeasurement.record({ event: "pod_creation_succeeded" });
     connection.seatKey = `${code}:0`;
     return { snapshot: this.snapshot(room), seatId: 0, reclaimToken, hostRecoveryKey };

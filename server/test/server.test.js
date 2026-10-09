@@ -1305,6 +1305,19 @@ test("only a host can set a bounded shared table skin", () => {
   assert.throws(() => service.setTableSkin(created.snapshot.code, host.connectionId, { baseVersion: changed.snapshot.version, tableSkinId: "bad skin" }), { code: "INVALID_INPUT" });
 });
 
+test("a pod can reserve later seats without treating them as game-one players", () => {
+  const service = new RoomService(); const host = service.createConnection();
+  const created = service.createRoom(host.connectionId, { playerCount: 3, seatCapacity: 4, startingLife: 40 });
+  assert.equal(created.snapshot.config.expectedPlayerCount, 3);
+  assert.equal(created.snapshot.config.seatCapacity, 4);
+  assert.equal(created.snapshot.seats.length, 4);
+  const second = service.createConnection(); service.claimSeat(created.snapshot.code, second.connectionId, { seatId: 1, name: "P2" });
+  const third = service.createConnection(); service.claimSeat(created.snapshot.code, third.connectionId, { seatId: 2, name: "P3" });
+  const started = service.startGame(created.snapshot.code, host.connectionId, { baseVersion: service.snapshot(service.room(created.snapshot.code)).version });
+  assert.deepEqual(started.snapshot.lifecycle.seatIds, [0, 1, 2]);
+  assert.equal(started.snapshot.seats[3].claimed, false);
+});
+
 test("keeps a completed game intact while the next-game roster becomes ready", () => {
   const service = new RoomService(); const host = service.createConnection(); const created = service.createRoom(host.connectionId, { playerCount: 3, startingLife: 40 });
   const guest = service.createConnection(); service.claimSeat(created.snapshot.code, guest.connectionId, { seatId: 1, name: "Guest" });
