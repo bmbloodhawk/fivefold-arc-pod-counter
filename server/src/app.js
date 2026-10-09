@@ -399,7 +399,10 @@ function recordLastPlayerStanding(room, now, decisiveAlternateReason = null) {
 }
 function gameSeats(room) {
   const ids = Array.isArray(room.lifecycle?.seatIds) ? room.lifecycle.seatIds : null;
-  return room.seats.filter((seat) => seat.claimed && (!ids || ids.includes(seat.seatId)));
+  if (!ids) return room.seats.filter((seat) => seat.claimed);
+  // Lifecycle order is the physical clockwise table order. Seat ownership is
+  // still stable, so moving a person never transfers their account or deck.
+  return ids.map((seatId) => room.seats[seatId]).filter((seat) => seat?.claimed);
 }
 function resetSeatForNextGame(seat, startingLife) {
   seat.counters = { life: startingLife, radiation: 0, poison: 0, energy: 0, generic: 0 };
@@ -738,8 +741,8 @@ export class RoomService {
     const wasClaimed = seat.claimed;
     let reclaimToken = input.reclaimToken;
     if (!seat.claimed) {
-      if (["playing", "complete", "intermission"].includes(room.lifecycle?.status)) {
-        throw Object.assign(new Error("New seats can join after the host opens the next-game lobby"), { status: 409, code: "GAME_IN_PROGRESS", snapshot: this.snapshot(room) });
+      if (["playing", "complete"].includes(room.lifecycle?.status)) {
+        throw Object.assign(new Error("New seats can join during next-game setup, not while a game is active"), { status: 409, code: "GAME_IN_PROGRESS", snapshot: this.snapshot(room) });
       }
       const name = normalizeName(input.name, seat.name);
       const commanderCount = normalizeCommanderCount(input.commanderCount);
@@ -784,7 +787,7 @@ export class RoomService {
     seat.ownerConnectionId = connectionId;
     connection.seatKey = seatKey;
     synchronizeCommanderState(room);
-    if (!wasClaimed && room.lifecycle?.status === "lobby" && !room.lifecycle.seatIds.includes(seatId)) room.lifecycle.seatIds.push(seatId);
+    if (!wasClaimed && ["lobby", "intermission"].includes(room.lifecycle?.status) && !room.lifecycle.seatIds.includes(seatId)) room.lifecycle.seatIds.push(seatId);
     room.version += 1;
     this.recordLedger(room, seat.claimed && input.reclaimToken ? "seat_reclaimed" : "seat_claimed", seatId, { name: seat.name, commanderCount: seat.commanderCount });
     if (!wasClaimed) {
@@ -1073,6 +1076,21 @@ export class RoomService {
     return { snapshot: this.snapshot(room) };
   }
 
+  reorderNextGameSeats(code, connectionId, input = {}) {
+    const room = this.room(code); const { seatId } = this.requireOwner(room, connectionId);
+    if (seatId !== room.hostSeatId) throw Object.assign(new Error("Only the host can arrange physical table seats"), { status: 403, code: "HOST_ONLY" });
+    if (room.lifecycle?.status !== "intermission") throw Object.assign(new Error("Arrange seats during next-game setup"), { status: 409, code: "NOT_IN_INTERMISSION", snapshot: this.snapshot(room) });
+    if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
+    const proposed = input.seatIds;
+    const expected = room.lifecycle.seatIds;
+    if (!Array.isArray(proposed) || proposed.length !== expected.length || new Set(proposed).size !== proposed.length || proposed.some((id) => !Number.isInteger(id)) || proposed.some((id) => !expected.includes(id))) {
+      throw Object.assign(new Error("Send every next-game seat once when arranging the table"), { status: 400, code: "INVALID_INPUT" });
+    }
+    room.lifecycle.seatIds = [...proposed];
+    room.version += 1; this.recordLedger(room, "next_game_seats_reordered", seatId, { seatIds: room.lifecycle.seatIds }); this.broadcast(room);
+    return { snapshot: this.snapshot(room) };
+  }
+
   eliminatePlayer(code, connectionId, input = {}) {
     const room = this.room(code);
     const { seatId } = this.requireOwner(room, connectionId);
@@ -1127,7 +1145,8 @@ export class RoomService {
     let claimedSeats = gameSeats(room);
     let playerCountAtStart = claimedSeats.length;
     if (room.lifecycle?.status === "intermission") {
-      const readySeats = room.lifecycle.readySeatIds.filter((id) => room.lifecycle.seatIds.includes(id));
+      const readySet = new Set(room.lifecycle.readySeatIds);
+      const readySeats = room.lifecycle.seatIds.filter((id) => readySet.has(id));
       if (readySeats.length < 2) throw Object.assign(new Error("At least two players need to be ready for the next game"), { status: 409, code: "NOT_ENOUGH_READY_PLAYERS", snapshot: this.snapshot(room) });
       room.lifecycle.seatIds = readySeats;
       claimedSeats = gameSeats(room); playerCountAtStart = claimedSeats.length;
@@ -1600,6 +1619,7 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "POST" && parts[3] === "begin-intermission") return json(res, 200, service.beginIntermission(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "next-game-ready") return json(res, 200, service.setNextGameReady(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "next-game-skip") return json(res, 200, service.skipNextGameSeat(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "next-game-reorder") return json(res, 200, service.reorderNextGameSeats(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "coin-toss") return json(res, 200, service.tossCoin(code, connectionId));
         if (req.method === "GET" && parts[3] === "playtest-notes") return json(res, 200, service.listPlaytestNotes(code, connectionId));
         if (req.method === "POST" && parts[3] === "playtest-notes") return json(res, 201, service.addPlaytestNote(code, connectionId, await readJson(req)));

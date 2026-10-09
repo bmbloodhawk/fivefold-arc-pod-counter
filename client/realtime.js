@@ -185,6 +185,7 @@ export class RealtimeAdapter extends EventTarget {
     } catch (error) { if (!this.#isCurrentSession(epoch)) return { ignored: true }; return this.#handleConflict(error, epoch); }
   }
   async skipNextGameSeat(seatId) { return this.#hostGameRequest('/next-game-skip', { seatId }); }
+  async reorderNextGameSeats(seatIds) { return this.#hostGameRequest('/next-game-reorder', { seatIds }); }
 
   async eliminatePlayer(targetSeatId, reason, detail = '') { return this.#hostGameRequest('/eliminate-player', { targetSeatId, reason, detail }); }
 

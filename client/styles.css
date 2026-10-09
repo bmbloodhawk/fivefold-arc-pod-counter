@@ -170,6 +170,8 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .intermission-roster { display: grid; gap: 6px; text-align: left; }
 .intermission-seat { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid rgb(216 174 97 / .25); background: rgb(0 0 0 / .2); }
 .intermission-seat span { display: grid; gap: 2px; }.intermission-seat strong { color: var(--paper); font-size: .82rem; }.intermission-seat small { color: var(--muted); font-size: .7rem; }
+.intermission-actions, .intermission-move { display: flex !important; align-items: center; gap: 5px; }
+.intermission-move .text-action { min-width: 30px; min-height: 30px; padding: 3px 7px; font-size: 1rem; }
 .lobby-controls p { margin: 0 0 2px; color: var(--paper); font-size: .8rem; font-weight: 800; letter-spacing: .04em; }
 .lobby-controls .primary-action, .lobby-controls .secondary-action { min-height: 42px; }
 .lobby-controls .lobby-kicker { color: var(--brass); font-size: .68rem; letter-spacing: .12em; }
