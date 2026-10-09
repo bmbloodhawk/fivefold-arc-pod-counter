@@ -1074,18 +1074,19 @@ button:disabled { cursor: not-allowed; filter: saturate(.45); }
 
 /* Alternate gameplay presentation: the state, mode navigation, and every
    mutation still remain shared; only the routine adjustment surface changes. */
-.dial-controls { position: absolute; z-index: 3; inset: 50% 50% auto auto; display: grid; grid-template-columns: minmax(52px, 1fr) minmax(180px, 255px) minmax(52px, 1fr); align-items: center; width: 100%; min-height: min(79vw, 310px); transform: translate(50%, -50%); touch-action: none; overscroll-behavior: contain; }
+.dial-controls { position: absolute; z-index: 5; inset: 50% 50% auto auto; display: grid; grid-template-columns: minmax(52px, 1fr) minmax(180px, 255px) minmax(52px, 1fr); align-items: center; width: 100%; min-height: min(79vw, 310px); transform: translate(50%, -50%); pointer-events: auto; touch-action: none; overscroll-behavior: contain; }
 /* The seal is the dial: it rotates behind the fixed, readable counter value.
    This transparent element only supplies its drag and keyboard interaction. */
 .dial-gesture {
   position: absolute;
-  z-index: 0;
+  z-index: 2;
   top: 50%;
   left: 50%;
   width: min(79vw, 310px);
   height: min(79vw, 310px);
   border-radius: 50%;
   background: transparent;
+  pointer-events: auto;
   cursor: grab;
   touch-action: none;
   transform: translate(-50%, -50%);
@@ -1093,7 +1094,7 @@ button:disabled { cursor: not-allowed; filter: saturate(.45); }
 }
 .dial-gesture.dragging { cursor: grabbing; }
 .dial-gesture[aria-disabled="true"] { opacity: .42; cursor: not-allowed; }
-.dial-step { position: relative; z-index: 1; align-self: stretch; width: 100%; min-height: 128px; padding: 0; border: 0; background: transparent; color: transparent; cursor: pointer; }
+.dial-step { position: relative; z-index: 1; align-self: stretch; width: 100%; min-height: 128px; padding: 0; border: 0; background: transparent; color: transparent; cursor: pointer; pointer-events: auto; touch-action: manipulation; }
 .dial-step-minus { grid-column: 1; }
 .dial-step-plus { grid-column: 3; }
 .dial-step:not(:disabled):active { background: radial-gradient(ellipse, rgb(216 174 97 / .22), transparent 68%); }

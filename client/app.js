@@ -1494,7 +1494,15 @@ function moveDialDrag(event) {
   while (Math.abs(dialPointer.accumulated) >= 20) { const delta = dialPointer.accumulated > 0 ? 1 : -1; dialPointer.accumulated -= 20 * Math.sign(dialPointer.accumulated); void adjust(delta); }
 }
 function endDialDrag(event) { if (dialPointer && event.pointerId === dialPointer.id) { document.body.classList.remove('dial-dragging'); dom.dialGesture.classList.remove('dragging'); dialPointer = null; } }
-dom.activeSeat.addEventListener('change', () => { state.activePlayerId = dom.activeSeat.value; render(); }); $$('[data-mode]').forEach(button => button.addEventListener('click', () => { state.mode = button.dataset.mode; render(); })); $$('[data-delta]').forEach(button => button.addEventListener('click', () => adjust(Number(button.dataset.delta))));
+dom.activeSeat.addEventListener('change', () => { state.activePlayerId = dom.activeSeat.value; render(); }); $$('[data-mode]').forEach(button => button.addEventListener('click', () => { state.mode = button.dataset.mode; render(); })); $$('.adjust-controls [data-delta]').forEach(button => button.addEventListener('click', () => adjust(Number(button.dataset.delta))));
+// Side zones are part of the Dial's touch surface. Handle pointer release
+// directly instead of depending on every mobile browser to synthesize a click.
+dom.dialControls.addEventListener('pointerup', event => {
+  const button = event.target.closest('.dial-step[data-delta]');
+  if (!button || button.disabled) return;
+  event.preventDefault();
+  void adjust(Number(button.dataset.delta));
+});
 dom.dialGesture.addEventListener('pointerdown', beginDialDrag); dom.dialGesture.addEventListener('pointermove', moveDialDrag); dom.dialGesture.addEventListener('pointerup', endDialDrag); dom.dialGesture.addEventListener('pointercancel', endDialDrag); dom.dialGesture.addEventListener('keydown', event => { if (event.key === 'ArrowUp' || event.key === 'ArrowRight') { event.preventDefault(); void adjust(1); } if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') { event.preventDefault(); void adjust(-1); } });
 accountInterfaceStyle.addEventListener('change', () => setInterfaceStyle(accountInterfaceStyle.value, { persistAccount: true }));
 dom.customLifeButton.addEventListener('click', () => { dom.customLifeAmount.value = ''; dom.customLifeDialog.showModal(); dom.customLifeAmount.focus(); }); dom.cancelCustomLifeButton.addEventListener('click', () => dom.customLifeDialog.close('cancel'));
