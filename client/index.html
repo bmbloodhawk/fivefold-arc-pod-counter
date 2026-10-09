@@ -204,6 +204,14 @@
       <p id="inspectionNotice" class="inspection-notice" role="status" hidden></p>
       <p id="coinTossNotice" class="coin-toss-notice" aria-live="polite" hidden></p>
       <p id="victoryNotice" class="victory-notice" aria-live="polite" hidden></p>
+      <section id="intermissionPanel" class="intermission-panel" hidden aria-live="polite">
+        <p class="eyebrow">GAME COMPLETE</p>
+        <h2 id="intermissionTitle">Set up the next game</h2>
+        <p id="intermissionDetail">Choose your deck, then mark yourself ready.</p>
+        <div id="intermissionRoster" class="intermission-roster"></div>
+        <button id="intermissionReadyButton" class="primary-action" type="button">I’m ready</button>
+        <button id="intermissionStartButton" class="primary-action" type="button" hidden>Start next game</button>
+      </section>
       <section id="lobbyControls" class="lobby-controls" aria-live="polite">
         <p id="lobbyStatus">Waiting for players to join.</p>
         <p class="lobby-invite-help">Players: choose <strong>Join a pod</strong>, then enter this code.</p>

@@ -173,6 +173,19 @@ export class RealtimeAdapter extends EventTarget {
     } catch (error) { if (!this.#isCurrentSession(epoch)) return { ignored: true }; return this.#handleConflict(error, epoch); }
   }
 
+  async beginIntermission() { return this.#hostGameRequest('/begin-intermission'); }
+  async setNextGameReady(ready = true) {
+    if (this.localMode) return { local: true };
+    if (this.status !== 'connected' || !this.snapshot) return { blocked: true };
+    const epoch = this.sessionEpoch;
+    try {
+      const result = await this.#request(`/api/rooms/${this.roomCode}/next-game-ready`, { method: 'POST', authenticated: true, body: { baseVersion: this.snapshot.version, ready } });
+      if (!this.#isCurrentSession(epoch)) return { ignored: true };
+      this.#acceptSnapshot(result.snapshot, epoch); return result;
+    } catch (error) { if (!this.#isCurrentSession(epoch)) return { ignored: true }; return this.#handleConflict(error, epoch); }
+  }
+  async skipNextGameSeat(seatId) { return this.#hostGameRequest('/next-game-skip', { seatId }); }
+
   async eliminatePlayer(targetSeatId, reason, detail = '') { return this.#hostGameRequest('/eliminate-player', { targetSeatId, reason, detail }); }
 
   async chooseStartingPlayer(startingSeatId) { return this.#hostGameRequest('/choose-starting-player', startingSeatId === undefined ? {} : { startingSeatId }); }

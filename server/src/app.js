@@ -382,7 +382,7 @@ export function createCardInteractionLookup(fetchImpl = fetch, { timeoutMs = COM
 
 function recordLastPlayerStanding(room, now, decisiveAlternateReason = null) {
   if (!room.turn.gameStarted) return;
-  const claimedSeats = room.seats.filter((seat) => seat.claimed);
+  const claimedSeats = gameSeats(room);
   if (claimedSeats.length < 2) return;
   const survivors = claimedSeats.filter((seat) => !seatIsEliminated(seat));
   const eliminated = claimedSeats.filter(seatIsEliminated).map((seat) => seat.seatId);
@@ -394,7 +394,20 @@ function recordLastPlayerStanding(room, now, decisiveAlternateReason = null) {
   if (room.gameResult?.reason === "last_player_standing" && survivors.length !== 1) room.gameResult = null;
   if (!room.gameResult && survivors.length === 1) {
     room.gameResult = { winnerSeatId: survivors[0].seatId, reason: "last_player_standing", finishingOrder: [survivors[0].seatId, ...room.automaticEliminationOrder.toReversed()], ...(decisiveAlternateReason ? { decisiveAlternateReason } : {}), decidedAt: now };
+    room.lifecycle.status = "complete";
   }
+}
+function gameSeats(room) {
+  const ids = Array.isArray(room.lifecycle?.seatIds) ? room.lifecycle.seatIds : null;
+  return room.seats.filter((seat) => seat.claimed && (!ids || ids.includes(seat.seatId)));
+}
+function resetSeatForNextGame(seat, startingLife) {
+  seat.counters = { life: startingLife, radiation: 0, poison: 0, energy: 0, generic: 0 };
+  seat.counterTotals = { poison: 0 };
+  seat.alternateElimination = null;
+  seat.matchMoment = blankMatchMoment(startingLife);
+  seat.commanderDamageReceived = Object.fromEntries(Object.keys(seat.commanderDamageReceived).map((sourceId) => [sourceId, 0]));
+  seat.commanderCastCounts = Object.fromEntries(Object.keys(seat.commanderCastCounts).map((sourceId) => [sourceId, 0]));
 }
 function feedbackPromptSeatId(room) { const seats = room.seats.filter(seat => seat.claimed); if (!room.gameResult || !seats.length) return null; const value = [...room.gameId].reduce((total, character) => total + character.codePointAt(0), 0); return value % 3 ? null : seats[value % seats.length].seatId; }
 
@@ -480,6 +493,9 @@ export class RoomService {
       config: { playerCount, startingLife, gameFormat, roundLimitMinutes, tableSkinId: /^[A-Za-z0-9_-]{1,80}$/.test(String(input.tableSkinId || '')) ? String(input.tableSkinId) : null },
       lastCoinToss: null,
       gameResult: null,
+      // The table, not an individual phone, owns which seats are in a game.
+      // This keeps a finished match intact while its players prepare the next.
+      lifecycle: { status: "lobby", seatIds: [0], readySeatIds: [] },
       lastGameWinnerSeatId: null,
       tableGameNumber: 1,
       sessionKind: "standard",
@@ -531,6 +547,7 @@ export class RoomService {
       config: { ...room.config },
       lastCoinToss: room.lastCoinToss ? { ...room.lastCoinToss } : null,
       gameResult: room.gameResult ? { ...room.gameResult } : null,
+      lifecycle: { status: room.lifecycle?.status || (room.turn.gameStarted ? "playing" : "lobby"), seatIds: [...(room.lifecycle?.seatIds || room.seats.filter((seat) => seat.claimed).map((seat) => seat.seatId))], readySeatIds: [...(room.lifecycle?.readySeatIds || [])] },
       lastGameWinnerSeatId: Number.isInteger(room.lastGameWinnerSeatId) ? room.lastGameWinnerSeatId : null,
       feedbackPromptSeatId: feedbackPromptSeatId(room),
       sessionKind: room.sessionKind || "standard",
@@ -721,6 +738,9 @@ export class RoomService {
     const wasClaimed = seat.claimed;
     let reclaimToken = input.reclaimToken;
     if (!seat.claimed) {
+      if (["playing", "complete", "intermission"].includes(room.lifecycle?.status)) {
+        throw Object.assign(new Error("New seats can join after the host opens the next-game lobby"), { status: 409, code: "GAME_IN_PROGRESS", snapshot: this.snapshot(room) });
+      }
       const name = normalizeName(input.name, seat.name);
       const commanderCount = normalizeCommanderCount(input.commanderCount);
       const commanderNames = normalizeCommanderNames(input.commanderNames, commanderCount);
@@ -764,6 +784,7 @@ export class RoomService {
     seat.ownerConnectionId = connectionId;
     connection.seatKey = seatKey;
     synchronizeCommanderState(room);
+    if (!wasClaimed && room.lifecycle?.status === "lobby" && !room.lifecycle.seatIds.includes(seatId)) room.lifecycle.seatIds.push(seatId);
     room.version += 1;
     this.recordLedger(room, seat.claimed && input.reclaimToken ? "seat_reclaimed" : "seat_claimed", seatId, { name: seat.name, commanderCount: seat.commanderCount });
     if (!wasClaimed) {
@@ -833,6 +854,9 @@ export class RoomService {
     if (!commanderCastCounts || typeof commanderCastCounts !== "object" || Array.isArray(commanderCastCounts)) {
       throw Object.assign(new Error("commanderCastCounts must be an object"), { status: 400, code: "INVALID_INPUT" });
     }
+    if (["complete", "intermission"].includes(room.lifecycle?.status) && (Object.keys(counters).length || Object.keys(commander).length || Object.keys(commanderCastCounts).length)) {
+      throw Object.assign(new Error("Counters are locked while this game is complete or being set up"), { status: 409, code: "GAME_NOT_PLAYING", snapshot: this.snapshot(room) });
+    }
     if (input.nextCommanderTax !== undefined) {
       throw Object.assign(new Error("nextCommanderTax is derived from commanderCastCounts and cannot be mutated"), {
         status: 400,
@@ -876,6 +900,7 @@ export class RoomService {
   adjustOwnSeat(code, connectionId, input = {}) {
     const room = this.room(code);
     const { seat } = this.requireOwner(room, connectionId);
+    if (["complete", "intermission"].includes(room.lifecycle?.status)) throw Object.assign(new Error("Counters are locked while this game is complete or being set up"), { status: 409, code: "GAME_NOT_PLAYING", snapshot: this.snapshot(room) });
     const operationId = input.operationId;
     if (operationId !== undefined && (typeof operationId !== "string" || operationId.length < 16 || operationId.length > 128)) {
       throw Object.assign(new Error("operationId must be a client-generated opaque identifier"), { status: 400, code: "INVALID_INPUT" });
@@ -940,20 +965,10 @@ export class RoomService {
     room.lastGameWinnerSeatId = Number.isInteger(room.gameResult?.winnerSeatId)
       ? room.gameResult.winnerSeatId
       : null;
-    for (const seat of room.seats) {
-      seat.counters = { life: room.config.startingLife, radiation: 0, poison: 0, energy: 0, generic: 0 };
-      seat.counterTotals = { poison: 0 };
-      seat.alternateElimination = null;
-      seat.matchMoment = blankMatchMoment(room.config.startingLife);
-      seat.commanderDamageReceived = Object.fromEntries(
-        Object.keys(seat.commanderDamageReceived).map((sourceId) => [sourceId, 0]),
-      );
-      seat.commanderCastCounts = Object.fromEntries(
-        Object.keys(seat.commanderCastCounts).map((sourceId) => [sourceId, 0]),
-      );
-    }
+    for (const seat of room.seats) resetSeatForNextGame(seat, room.config.startingLife);
     room.lastCoinToss = null;
     room.gameResult = null; room.gameAccolades = null; room.automaticEliminationOrder = []; room.quickFeedbackRecordedAt = null;
+    room.lifecycle = { status: "lobby", seatIds: room.seats.filter((seat) => seat.claimed).map((seat) => seat.seatId), readySeatIds: [] };
     room.gameId = opaque(12);
     room.tableGameNumber = (room.tableGameNumber || 1) + 1;
     room.ledgerSequence = 0;
@@ -1005,15 +1020,56 @@ export class RoomService {
       throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
     }
     const winnerSeatId = asInteger(input.winnerSeatId, "winnerSeatId", 0, room.config.playerCount - 1);
-    if (!room.seats[winnerSeatId].claimed) throw Object.assign(new Error("A winner must be a claimed seat"), { status: 400, code: "INVALID_INPUT" });
+    if (!gameSeats(room).some((seat) => seat.seatId === winnerSeatId)) throw Object.assign(new Error("A winner must be in this game"), { status: 400, code: "INVALID_INPUT" });
     const declarationDetail = typeof input.declarationDetail === "string" ? input.declarationDetail.normalize("NFC").trim().replace(/\s+/gu, " ") : "";
     if (Array.from(declarationDetail).length > 160 || /[\p{Cc}\p{Cf}]/u.test(declarationDetail)) throw Object.assign(new Error("Winner reason must contain at most 160 printable characters"), { status: 400, code: "INVALID_INPUT" });
     const winCondition = ["alternate_win", "concession", "other_declared"].includes(input.winCondition) ? input.winCondition : "other_declared";
     room.gameResult = { winnerSeatId, reason: "declared_winner", winCondition, declarationDetail: declarationDetail || null, decidedAt: this.now() };
+    room.lifecycle.status = "complete";
     room.version += 1;
     this.recordLedger(room, "winner_declared", seatId, { winnerSeatId, winCondition, declarationDetail: declarationDetail || null });
     this.recordCompletion(room);
     this.broadcast(room);
+    return { snapshot: this.snapshot(room) };
+  }
+
+  beginIntermission(code, connectionId, input = {}) {
+    const room = this.room(code); const { seatId } = this.requireOwner(room, connectionId);
+    if (seatId !== room.hostSeatId) throw Object.assign(new Error("Only the host can set up the next game"), { status: 403, code: "HOST_ONLY" });
+    if (!room.gameResult || room.lifecycle?.status !== "complete") throw Object.assign(new Error("Finish this game before setting up the next one"), { status: 409, code: "GAME_NOT_COMPLETE", snapshot: this.snapshot(room) });
+    if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
+    const previousStarter = Number.isInteger(room.turn.startingPlayerSeatId) ? room.turn.startingPlayerSeatId : room.turn.activeSeatId;
+    const nextSeatIds = gameSeats(room).map((seat) => seat.seatId);
+    for (const seat of room.seats) resetSeatForNextGame(seat, room.config.startingLife);
+    room.lastGameWinnerSeatId = room.gameResult.winnerSeatId;
+    room.tableGameNumber = (room.tableGameNumber || 1) + 1;
+    room.lifecycle = { status: "intermission", seatIds: nextSeatIds, readySeatIds: [] };
+    const nextStarter = nextSeatIds.find((id) => id > previousStarter) ?? nextSeatIds[0] ?? room.hostSeatId;
+    room.turn = { ...room.turn, activeSeatId: nextStarter, gameStarted: false, gameStartedAt: null, turnStartedAt: null, roundEndsAt: null, startingPlayerSeatId: nextStarter, startingPlayerRoll: null, lastHandoff: null, pausedAt: null, pausedDurationMs: 0 };
+    room.version += 1; this.recordLedger(room, "next_game_setup_started", seatId, { seatIds: nextSeatIds }); this.broadcast(room);
+    return { snapshot: this.snapshot(room) };
+  }
+
+  setNextGameReady(code, connectionId, input = {}) {
+    const room = this.room(code); const { seatId } = this.requireOwner(room, connectionId);
+    if (room.lifecycle?.status !== "intermission" || !room.lifecycle.seatIds.includes(seatId)) throw Object.assign(new Error("This seat is not in next-game setup"), { status: 409, code: "NOT_IN_INTERMISSION", snapshot: this.snapshot(room) });
+    if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
+    const ready = input.ready !== false;
+    room.lifecycle.readySeatIds = ready ? [...new Set([...room.lifecycle.readySeatIds, seatId])] : room.lifecycle.readySeatIds.filter((id) => id !== seatId);
+    room.version += 1; this.recordLedger(room, ready ? "next_game_ready" : "next_game_not_ready", seatId); this.broadcast(room);
+    return { snapshot: this.snapshot(room) };
+  }
+
+  skipNextGameSeat(code, connectionId, input = {}) {
+    const room = this.room(code); const { seatId } = this.requireOwner(room, connectionId);
+    if (seatId !== room.hostSeatId) throw Object.assign(new Error("Only the host can change the next-game roster"), { status: 403, code: "HOST_ONLY" });
+    if (room.lifecycle?.status !== "intermission") throw Object.assign(new Error("Open next-game setup first"), { status: 409, code: "NOT_IN_INTERMISSION", snapshot: this.snapshot(room) });
+    if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
+    const targetSeatId = asInteger(input.seatId, "seatId", 0, room.config.playerCount - 1);
+    if (targetSeatId === room.hostSeatId || !room.lifecycle.seatIds.includes(targetSeatId)) throw Object.assign(new Error("Choose another next-game seat to skip"), { status: 400, code: "INVALID_INPUT" });
+    room.lifecycle.seatIds = room.lifecycle.seatIds.filter((id) => id !== targetSeatId);
+    room.lifecycle.readySeatIds = room.lifecycle.readySeatIds.filter((id) => id !== targetSeatId);
+    room.version += 1; this.recordLedger(room, "next_game_seat_skipped", seatId, { targetSeatId }); this.broadcast(room);
     return { snapshot: this.snapshot(room) };
   }
 
@@ -1047,7 +1103,7 @@ export class RoomService {
     if (seatId !== room.hostSeatId) throw Object.assign(new Error("Only the host seat may choose the starting player"), { status: 403, code: "HOST_ONLY" });
     if (room.turn.gameStarted) throw Object.assign(new Error("The game has already started"), { status: 409, code: "GAME_ALREADY_STARTED", snapshot: this.snapshot(room) });
     if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
-    const claimedSeats = room.seats.filter((seat) => seat.claimed);
+    const claimedSeats = gameSeats(room);
     if (claimedSeats.length < 2) throw Object.assign(new Error("At least two claimed players are needed to choose who goes first"), { status: 409, code: "NOT_ENOUGH_PLAYERS", snapshot: this.snapshot(room) });
     const requestedSeatId = input.startingSeatId;
     const roll = requestedSeatId === undefined ? createStartingPlayerRoll(claimedSeats, this.now()) : null;
@@ -1068,7 +1124,14 @@ export class RoomService {
     if (seatId !== room.hostSeatId) throw Object.assign(new Error("Only the host seat may start the game"), { status: 403, code: "HOST_ONLY" });
     if (room.turn.gameStarted) throw Object.assign(new Error("The game has already started"), { status: 409, code: "GAME_ALREADY_STARTED", snapshot: this.snapshot(room) });
     if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
-    const playerCountAtStart = room.seats.filter((seat) => seat.claimed).length;
+    let claimedSeats = gameSeats(room);
+    let playerCountAtStart = claimedSeats.length;
+    if (room.lifecycle?.status === "intermission") {
+      const readySeats = room.lifecycle.readySeatIds.filter((id) => room.lifecycle.seatIds.includes(id));
+      if (readySeats.length < 2) throw Object.assign(new Error("At least two players need to be ready for the next game"), { status: 409, code: "NOT_ENOUGH_READY_PLAYERS", snapshot: this.snapshot(room) });
+      room.lifecycle.seatIds = readySeats;
+      claimedSeats = gameSeats(room); playerCountAtStart = claimedSeats.length;
+    }
     if (playerCountAtStart < 2) throw Object.assign(new Error("At least two claimed players are needed to start the game"), { status: 409, code: "NOT_ENOUGH_PLAYERS", snapshot: this.snapshot(room) });
     if (room.turn.startingPlayerRoll?.status === "rolling") throw Object.assign(new Error("Wait for every local d20 roll to report before starting the game"), { status: 409, code: "ROLL_IN_PROGRESS", snapshot: this.snapshot(room) });
     const startedAt = this.now();
@@ -1087,6 +1150,9 @@ export class RoomService {
       startingPlayerSeatId: room.turn.startingPlayerSeatId ?? room.turn.activeSeatId,
       lastHandoff: null,
     };
+    room.lifecycle = { status: "playing", seatIds: [...room.lifecycle.seatIds], readySeatIds: [] };
+    room.gameResult = null; room.gameAccolades = null; room.automaticEliminationOrder = []; room.quickFeedbackRecordedAt = null;
+    room.gameId = opaque(12); room.ledgerSequence = 0; room.ledgerLastCheckpointAt = startedAt; room.ledgerCompletedAt = null;
     room.version += 1;
     this.recordLedger(room, "game_started", seatId, { startingSeatId: room.turn.startingPlayerSeatId });
     this.productMeasurement.record({ event: "game_started" });
@@ -1110,8 +1176,8 @@ export class RoomService {
     const previousTurnStartedAt = room.turn.turnStartedAt;
     // Connection status is deliberately not part of turn order: a disconnected
     // player keeps their turn until they reconnect. Only eliminated seats are skipped.
-    const livingClaimedSeats = room.seats.filter((seat) => seat.claimed && !seatIsEliminated(seat));
-    const eligibleSeats = livingClaimedSeats.length ? livingClaimedSeats : room.seats.filter((seat) => seat.claimed);
+    const livingClaimedSeats = gameSeats(room).filter((seat) => !seatIsEliminated(seat));
+    const eligibleSeats = livingClaimedSeats.length ? livingClaimedSeats : gameSeats(room);
     const currentIndex = eligibleSeats.findIndex((seat) => seat.seatId === seatId);
     const toSeatId = eligibleSeats[(currentIndex + 1) % eligibleSeats.length].seatId;
     room.turn = {
@@ -1531,6 +1597,9 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "POST" && parts[3] === "adjust") return json(res, 200, service.adjustOwnSeat(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "resolve-radiation") return json(res, 200, service.resolveRadiation(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "reset") return json(res, 200, service.resetRoom(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "begin-intermission") return json(res, 200, service.beginIntermission(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "next-game-ready") return json(res, 200, service.setNextGameReady(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "next-game-skip") return json(res, 200, service.skipNextGameSeat(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "coin-toss") return json(res, 200, service.tossCoin(code, connectionId));
         if (req.method === "GET" && parts[3] === "playtest-notes") return json(res, 200, service.listPlaytestNotes(code, connectionId));
         if (req.method === "POST" && parts[3] === "playtest-notes") return json(res, 201, service.addPlaytestNote(code, connectionId, await readJson(req)));

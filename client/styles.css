@@ -163,6 +163,13 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .coin-toss-notice { margin: -4px 0 10px; padding: 8px 10px; border: 1px solid var(--brass-dark); background: rgb(216 174 97 / .1); color: var(--brass); font-size: .75rem; font-weight: 900; letter-spacing: .08em; text-align: center; }
 .victory-notice { margin: -4px 0 7px; padding: 8px 10px; border: 1px solid var(--brass); background: linear-gradient(90deg, rgb(216 174 97 / .24), rgb(216 174 97 / .06)); color: var(--paper); font-size: .76rem; font-weight: 900; letter-spacing: .09em; text-align: center; }
 .lobby-controls { display: grid; gap: 7px; margin: 8px 0; padding: 12px; border: 1px solid var(--brass-dark); background: rgb(216 174 97 / .08); text-align: center; }
+.intermission-panel { display: grid; gap: 10px; margin: 8px 0; padding: 14px; border: 1px solid var(--brass); background: linear-gradient(135deg, rgb(216 174 97 / .18), rgb(16 26 20 / .9)); text-align: center; }
+.intermission-panel h2, .intermission-panel p { margin: 0; }
+.intermission-panel h2 { color: var(--paper); font-size: 1.05rem; }
+.intermission-panel > p:not(.eyebrow) { color: var(--muted); font-size: .78rem; line-height: 1.4; }
+.intermission-roster { display: grid; gap: 6px; text-align: left; }
+.intermission-seat { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid rgb(216 174 97 / .25); background: rgb(0 0 0 / .2); }
+.intermission-seat span { display: grid; gap: 2px; }.intermission-seat strong { color: var(--paper); font-size: .82rem; }.intermission-seat small { color: var(--muted); font-size: .7rem; }
 .lobby-controls p { margin: 0 0 2px; color: var(--paper); font-size: .8rem; font-weight: 800; letter-spacing: .04em; }
 .lobby-controls .primary-action, .lobby-controls .secondary-action { min-height: 42px; }
 .lobby-controls .lobby-kicker { color: var(--brass); font-size: .68rem; letter-spacing: .12em; }

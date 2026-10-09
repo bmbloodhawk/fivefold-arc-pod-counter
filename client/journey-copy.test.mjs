@@ -381,7 +381,7 @@ test('touch feedback is local, optional, and never part of game state', () => {
   assert.match(styles, /button \{ touch-action: manipulation;/);
 });
 
-test('the confirmed winner is celebrated on every phone with artwork and a tap-to-exit screen', () => {
+test('the confirmed winner is celebrated on every phone before the host opens next-game setup', () => {
   assert.match(html, /id="victoryDialog"[\s\S]*assets\/victory-seal-v1\.png[\s\S]*id="victoryEyebrow"[\s\S]*id="victoryTapHint"[^>]*>Enjoy the win/);
   assert.match(html, /class="victory-winner-copy"[\s\S]*id="personalMatchMoment"[\s\S]*class="victory-dismissal"/);
   assert.match(app, /if \(key !== shownVictoryKey\)/);
@@ -398,8 +398,8 @@ test('the confirmed winner is celebrated on every phone with artwork and a tap-t
   assert.match(app, /accoladeArtUrl\(moment\.art \|\| moment\.title\)/);
   assert.match(html, /id="nextGameButton"[^>]*>Start next game/);
   assert.match(app, /dom\.nextGameButton\.hidden = !result \|\| !winner \|\| !\(state\?\.localSimulation \|\| transport\.seatId === state\?\.hostSeatId\)/);
-  assert.match(app, /openResetDialog\(\{ nextGame: true \}\)/);
-  assert.match(app, /dom\.confirmResetButton\.textContent = nextGame \? 'Start next game' : 'Reset game';/);
+  assert.match(app, /void beginIntermission\(\);/);
+  assert.match(html, /id="intermissionPanel"[\s\S]*id="intermissionReadyButton"[\s\S]*id="intermissionStartButton"/);
   assert.match(styles, /\.personal-match-art \{[\s\S]*background-size: cover/);
   assert.doesNotMatch(styles, /\.personal-match-art \{[^}]*opacity:/);
 });
@@ -413,7 +413,7 @@ test('achievements follow the personal match accolade and reveal every new rarit
   assert.match(html, /id="achievementDialog"[\s\S]*ACHIEVEMENT UNCOVERED[\s\S]*id="achievementUnlockList"/);
   assert.match(app, /function showAchievementUnlocks\(gameKey\)/);
   assert.match(app, /unlockedAchievementsByGame\.set\(gameKey, unlockedAchievements\)/);
-  assert.match(app, /dom\.victoryDialog\.addEventListener\('close', \(\) => \{ if \(dom\.victoryDialog\.returnValue === 'tap' && !showAchievementUnlocks/);
+  assert.match(app, /dismissedVictoryKeys\.add\(key\); void \(async \(\) => \{ await automaticSavePromises\.get\(key\); if \(!showAchievementUnlocks\(key\)\) openQuickFeedback\(\); \}\)\(\);/);
   assert.match(app, /const achievementCardHtml = \(achievement, showNew = false\)/);
   assert.match(app, /unlocked\.map\(achievement =>/);
   assert.match(styles, /\.achievement-card\[data-rarity="legendary"\]/);
@@ -526,7 +526,7 @@ test('My decks keeps the editor above saved decks and confirms commander colors'
 });
 
 test('completed signed-in games save automatically without a final player action', () => {
-  assert.match(app, /void saveGameToHistory\(\{ automatic: true, gameKey: key \}\);/);
+  assert.match(app, /automaticSavePromises\.set\(key, saveGameToHistory\(\{ automatic: true, gameKey: key \}\)\);/);
   assert.match(app, /const token = automatic \? await currentAccountToken\(\) : await currentAccountToken\(\) \|\| await googleAccountToken\(\);/);
   assert.match(app, /automaticallySavedGameKey = gameKey/);
   assert.match(app, /Game saved automatically/);

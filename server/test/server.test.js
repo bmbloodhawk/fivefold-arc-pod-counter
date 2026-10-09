@@ -1304,3 +1304,28 @@ test("only a host can set a bounded shared table skin", () => {
   assert.equal(changed.snapshot.config.tableSkinId, "other-skin");
   assert.throws(() => service.setTableSkin(created.snapshot.code, host.connectionId, { baseVersion: changed.snapshot.version, tableSkinId: "bad skin" }), { code: "INVALID_INPUT" });
 });
+
+test("keeps a completed game intact while the next-game roster becomes ready", () => {
+  const service = new RoomService(); const host = service.createConnection(); const created = service.createRoom(host.connectionId, { playerCount: 3, startingLife: 40 });
+  const guest = service.createConnection(); service.claimSeat(created.snapshot.code, guest.connectionId, { seatId: 1, name: "Guest" });
+  let snapshot = service.snapshot(service.room(created.snapshot.code));
+  service.startGame(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version });
+  snapshot = service.snapshot(service.room(created.snapshot.code));
+  service.declareWinner(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version, winnerSeatId: 0, winCondition: "other_declared" });
+  snapshot = service.snapshot(service.room(created.snapshot.code));
+  assert.equal(snapshot.lifecycle.status, "complete");
+  service.beginIntermission(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version });
+  snapshot = service.snapshot(service.room(created.snapshot.code));
+  assert.equal(snapshot.lifecycle.status, "intermission");
+  assert.deepEqual(snapshot.lifecycle.seatIds, [0, 1]);
+  assert.equal(snapshot.gameResult.winnerSeatId, 0);
+  service.setNextGameReady(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version, ready: true });
+  snapshot = service.snapshot(service.room(created.snapshot.code));
+  service.setNextGameReady(created.snapshot.code, guest.connectionId, { baseVersion: snapshot.version, ready: true });
+  snapshot = service.snapshot(service.room(created.snapshot.code));
+  service.startGame(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version });
+  snapshot = service.snapshot(service.room(created.snapshot.code));
+  assert.equal(snapshot.lifecycle.status, "playing");
+  assert.deepEqual(snapshot.lifecycle.seatIds, [0, 1]);
+  assert.equal(snapshot.gameResult, null);
+});
