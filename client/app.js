@@ -1400,7 +1400,10 @@ function renderConnection(status = transport.status) {
   const presentation = connectionPresentation({ status });
   if (presentation.showOffline) awaitingConfirmedResync = true;
   dom.connectionButton.dataset.state = status; dom.connectionText.textContent = presentation.label; dom.disconnectBanner.hidden = !presentation.showOffline;
-  dom.connectionDetail.textContent = `${presentation.detail}${status === 'connected' && state?.podCode ? ` Pod ${state.podCode}; this phone controls ${state.ownerPlayerId || 'its assigned seat'}.` : ''}`;
+  // The lobby is the single source for sharing a pod code. This optional
+  // status dialog reports connection health only, so it does not interrupt
+  // the host's invite task with duplicate room information.
+  dom.connectionDetail.textContent = presentation.detail;
 }
 function saveLocal() { if (appearancePreviewMode || !state || !state.localSimulation) return; try { localStorage.setItem(LOCAL_DEMO_STATE_KEY, JSON.stringify(state)); } catch { /* storage is optional */ } }
 function loadLocal() {

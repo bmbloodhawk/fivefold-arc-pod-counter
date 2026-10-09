@@ -75,6 +75,11 @@ test('the host lobby makes sharing the primary next setup action', () => {
   assert.match(app, /dom\.copyLobbyJoinLinkButton\.addEventListener\('click', \(\) => copyJoinLink\(dom\.copyLobbyJoinLinkButton\)\)/);
 });
 
+test('connection status does not duplicate the pod code from the waiting lobby', () => {
+  assert.match(app, /dom\.connectionDetail\.textContent = presentation\.detail;/);
+  assert.doesNotMatch(app, /Pod \$\{state\.podCode\}; this phone controls/);
+});
+
 test('creating a pod is distinct from starting a game', () => {
   assert.match(html, /name="gameFormat" value="commander" checked/);
   assert.match(html, /name="gameFormat" value="casual"/);
