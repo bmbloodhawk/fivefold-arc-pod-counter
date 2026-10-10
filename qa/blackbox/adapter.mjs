@@ -104,6 +104,12 @@ export async function resetPod(podId, connectionId, baseVersion, { expected = 20
   });
 }
 
+export async function roomAction(podId, connectionId, action, body = {}, { expected = 200, raw = false } = {}) {
+  return request(`/api/rooms/${podId}/${action}`, {
+    method: 'POST', connectionId, body, expected, raw,
+  });
+}
+
 export async function openSnapshotStream(podId, connectionId) {
   const controller = new AbortController();
   const response = await fetch(`${baseUrl}/api/rooms/${podId}/events?connectionId=${encodeURIComponent(connectionId)}`, {

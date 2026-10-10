@@ -1493,7 +1493,10 @@ export function createRealtimeServer(options = {}) {
   const allowedOrigin = options.allowedOrigin ?? process.env.ALLOWED_ORIGIN ?? "*";
   const staticDir = options.staticDir ?? null;
   const sseClients = new Map();
-  const maxStreamsPerIp = options.maxStreamsPerIp ?? 12;
+  // A 16-player event can mean four simultaneous four-player pods behind one
+  // venue NAT. Keep abuse protection, but leave enough headroom for every
+  // player to hold their one live table stream.
+  const maxStreamsPerIp = options.maxStreamsPerIp ?? 32;
   const feedbackPortalKey = options.feedbackPortalKey ?? process.env.FEEDBACK_PORTAL_KEY ?? "";
   const appearanceCatalog = options.appearanceCatalog ?? { read: async () => ({ skins: [], assets: [], selected: "neutral", gameDefaultLayout: null }), write: async value => value, readAsset: async () => null, writeAsset: async (_id, value) => value, deleteAsset: async () => {} };
   const phoneLayoutSessions = new Map();
