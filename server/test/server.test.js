@@ -1318,6 +1318,38 @@ test("a pod can reserve later seats without treating them as game-one players", 
   assert.equal(started.snapshot.seats[3].claimed, false);
 });
 
+  test("a first game uses numbered seat order even when later seats join first", () => {
+    const service = new RoomService(); const host = service.createConnection();
+    const created = service.createRoom(host.connectionId, { playerCount: 4, startingLife: 40 });
+    const second = service.createConnection(); const fourth = service.createConnection(); const third = service.createConnection();
+    let snapshot = service.claimSeat(created.snapshot.code, second.connectionId, { seatId: 1, name: "P2" }).snapshot;
+    snapshot = service.claimSeat(created.snapshot.code, fourth.connectionId, { seatId: 3, name: "P4" }).snapshot;
+    snapshot = service.claimSeat(created.snapshot.code, third.connectionId, { seatId: 2, name: "P3" }).snapshot;
+    assert.deepEqual(snapshot.lifecycle.seatIds, [0, 1, 3, 2]);
+
+    snapshot = service.startGame(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
+    assert.deepEqual(snapshot.lifecycle.seatIds, [0, 1, 2, 3]);
+    snapshot = service.handoffTurn(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
+    assert.equal(snapshot.turn.activeSeatId, 1);
+    snapshot = service.handoffTurn(created.snapshot.code, second.connectionId, { baseVersion: snapshot.version }).snapshot;
+    assert.equal(snapshot.turn.activeSeatId, 2);
+  });
+
+test("the host can arrange claimed lobby seats before game one", () => {
+  const service = new RoomService(); const host = service.createConnection();
+  const created = service.createRoom(host.connectionId, { playerCount: 4, startingLife: 40 });
+  const second = service.createConnection(); const third = service.createConnection(); const fourth = service.createConnection();
+  let snapshot = service.claimSeat(created.snapshot.code, second.connectionId, { seatId: 1, name: "P2" }).snapshot;
+  snapshot = service.claimSeat(created.snapshot.code, third.connectionId, { seatId: 2, name: "P3" }).snapshot;
+  snapshot = service.claimSeat(created.snapshot.code, fourth.connectionId, { seatId: 3, name: "P4" }).snapshot;
+  snapshot = service.reorderNextGameSeats(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version, seatIds: [0, 2, 1, 3] }).snapshot;
+  assert.equal(snapshot.lifecycle.seatOrderConfirmed, true);
+  snapshot = service.startGame(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
+  assert.deepEqual(snapshot.lifecycle.seatIds, [0, 2, 1, 3]);
+  snapshot = service.handoffTurn(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
+  assert.equal(snapshot.turn.activeSeatId, 2);
+});
+
 test("keeps a completed game intact while the next-game roster becomes ready", () => {
   const service = new RoomService(); const host = service.createConnection(); const created = service.createRoom(host.connectionId, { playerCount: 3, startingLife: 40 });
   const guest = service.createConnection(); service.claimSeat(created.snapshot.code, guest.connectionId, { seatId: 1, name: "Guest" });
@@ -1335,14 +1367,15 @@ test("keeps a completed game intact while the next-game roster becomes ready", (
   const newPlayer = service.createConnection(); service.claimSeat(created.snapshot.code, newPlayer.connectionId, { seatId: 2, name: "New player" });
   snapshot = service.snapshot(service.room(created.snapshot.code));
   assert.deepEqual(snapshot.lifecycle.seatIds, [0, 1, 2]);
+  assert.deepEqual(snapshot.lifecycle.readySeatIds, [2]);
+  assert.throws(() => service.startGame(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version }), { code: "PLAYERS_NOT_READY" });
+  snapshot = service.snapshot(service.room(created.snapshot.code));
   service.reorderNextGameSeats(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version, seatIds: [0, 2, 1] });
   snapshot = service.snapshot(service.room(created.snapshot.code));
   assert.deepEqual(snapshot.lifecycle.seatIds, [0, 2, 1]);
   service.setNextGameReady(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version, ready: true });
   snapshot = service.snapshot(service.room(created.snapshot.code));
   service.setNextGameReady(created.snapshot.code, guest.connectionId, { baseVersion: snapshot.version, ready: true });
-  snapshot = service.snapshot(service.room(created.snapshot.code));
-  service.setNextGameReady(created.snapshot.code, newPlayer.connectionId, { baseVersion: snapshot.version, ready: true });
   snapshot = service.snapshot(service.room(created.snapshot.code));
   service.startGame(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version });
   snapshot = service.snapshot(service.room(created.snapshot.code));

@@ -1,4 +1,4 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=78';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=79';
 import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=72';
 import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=114';
 import { connectionPresentation } from './connection-state.js?v=1';
@@ -28,7 +28,7 @@ const dom = {
   counterContext: $('#counterContext'), statusMessage: $('#statusMessage'), lethalMark: $('#lethalMark'), lethalImage: $('#lethalMark img'), eliminationOutcome: $('#eliminationOutcome'), lifeChangeIndicator: $('#lifeChangeIndicator'), sourcePanel: $('#sourcePanel'), commanderSourceDialog: $('#commanderSourceDialog'), commanderSourceDetail: $('#commanderSourceDetail'), commanderSourceList: $('#commanderSourceList'), inspectionNotice: $('#inspectionNotice'), sideSeats: $('#sideSeats'),
   activeSeatBar: $('#activeSeatBar'), gameMenu: $('#gameMenu'), gameMenuBackdrop: $('#gameMenuBackdrop'), moreButton: $('#moreButton'), tableSkinMenuField: $('#tableSkinMenuField'), tableSkinMenu: $('#tableSkinMenu'), viewCelebrationButton: $('#viewCelebrationButton'), saveGameButton: $('#saveGameButton'), saveGameDeck: $('#saveGameDeck'),
   disconnectBanner: $('#disconnectBanner'), syncBanner: $('#syncBanner'), coinTossNotice: $('#coinTossNotice'), victoryNotice: $('#victoryNotice'), intermissionPanel: $('#intermissionPanel'), intermissionTitle: $('#intermissionTitle'), intermissionDetail: $('#intermissionDetail'), intermissionRoster: $('#intermissionRoster'), intermissionReadyButton: $('#intermissionReadyButton'), intermissionStartButton: $('#intermissionStartButton'), coinTossButton: $('#coinTossButton'), coinTossDialog: $('#coinTossDialog'), coinTossResult: $('#coinTossResult'), tossAgainButton: $('#tossAgainButton'), resetDialog: $('#resetDialog'), resetTitle: $('#resetTitle'), resetDetail: $('#resetDetail'), confirmResetButton: $('#confirmResetButton'), nextGameButton: $('#nextGameButton'), commanderSetupButton: $('#commanderSetupButton'), backToSetupButton: $('#backToSetupButton'), declareWinnerButton: $('#declareWinnerButton'), declareWinnerDialog: $('#declareWinnerDialog'), declareWinnerForm: $('#declareWinnerForm'), winnerSeat: $('#winnerSeat'), winnerReason: $('#winnerReason'), victoryDialog: $('#victoryDialog'), victoryArt: $('.victory-art'), victoryEyebrow: $('#victoryEyebrow'), victoryTitle: $('#victoryTitle'), victoryDetail: $('#victoryDetail'), personalMatchMoment: $('#personalMatchMoment'), personalMatchArt: $('#personalMatchArt'), personalMatchMomentTitle: $('#personalMatchMomentTitle'), personalMatchMomentLine: $('#personalMatchMomentLine'), personalMatchMomentFact: $('#personalMatchMomentFact'),
-  lobbyControls: $('#lobbyControls'), lobbyStatus: $('#lobbyStatus'), lobbyInviteCode: $('#lobbyInviteCode'), copyLobbyJoinLinkButton: $('#copyLobbyJoinLinkButton'), showJoinQrButton: $('#showJoinQrButton'), showJoinQrMenuButton: $('#showJoinQrMenuButton'), firstPlayerOptions: $('#firstPlayerOptions'), startingSeatField: $('#startingSeatField'), startingSeat: $('#startingSeat'), chooseFirstButton: $('#chooseFirstButton'), winnerFirstButton: $('#winnerFirstButton'), randomFirstButton: $('#randomFirstButton'), startGameButton: $('#startGameButton'), startingRollDialog: $('#startingRollDialog'), startingRollStatus: $('#startingRollStatus'), rollMyD20Button: $('#rollMyD20Button'), startingRollCanvas: $('#startingRollCanvas'), startingRollFinalDice: $('#startingRollFinalDice'), startingRollOverlays: $('#startingRollOverlays'), startingRollLive: $('#startingRollLive'), turnCueDialog: $('#turnCueDialog'), turnCueForm: $('#turnCueForm'), turnSoundDialog: $('#turnSoundDialog'), turnSoundForm: $('#turnSoundForm'), turnSoundChoice: $('#turnSoundChoice'), turnSoundVolume: $('#turnSoundVolume'), turnSoundVolumeValue: $('#turnSoundVolumeValue'), previewTurnSoundButton: $('#previewTurnSoundButton'), turnSoundPreferencesButton: $('#turnSoundPreferencesButton'), turnBanner: $('#turnBanner'), turnLabel: $('#turnLabel'), turnPlayer: $('#turnPlayer'), turnElapsed: $('#turnElapsed'), gameTimer: $('#gameTimer'), lastTurnSummary: $('#lastTurnSummary'), turnActions: $('#turnActions'), endTurnButton: $('#endTurnButton'), undoTurnButton: $('#undoTurnButton'), pauseTurnButton: $('#pauseTurnButton'), toggleTurnTrackingButton: $('#toggleTurnTrackingButton'), toggleTurnCuesButton: $('#toggleTurnCuesButton'), toggleDeviceCuesButton: $('#toggleDeviceCuesButton'), toggleTouchFeedbackButton: $('#toggleTouchFeedbackButton'), turnActionDetail: $('#turnActionDetail'),
+  lobbyControls: $('#lobbyControls'), lobbyStatus: $('#lobbyStatus'), lobbyInviteCode: $('#lobbyInviteCode'), lobbyRoster: $('#lobbyRoster'), copyLobbyJoinLinkButton: $('#copyLobbyJoinLinkButton'), showJoinQrButton: $('#showJoinQrButton'), showJoinQrMenuButton: $('#showJoinQrMenuButton'), firstPlayerOptions: $('#firstPlayerOptions'), startingSeatField: $('#startingSeatField'), startingSeat: $('#startingSeat'), chooseFirstButton: $('#chooseFirstButton'), winnerFirstButton: $('#winnerFirstButton'), randomFirstButton: $('#randomFirstButton'), startGameButton: $('#startGameButton'), nextGameConfirmDialog: $('#nextGameConfirmDialog'), nextGameConfirmForm: $('#nextGameConfirmForm'), nextGameConfirmDetail: $('#nextGameConfirmDetail'), nextGameConfirmRoster: $('#nextGameConfirmRoster'), confirmNextGameStart: $('#confirmNextGameStart'), startingRollDialog: $('#startingRollDialog'), startingRollStatus: $('#startingRollStatus'), rollMyD20Button: $('#rollMyD20Button'), startingRollCanvas: $('#startingRollCanvas'), startingRollFinalDice: $('#startingRollFinalDice'), startingRollOverlays: $('#startingRollOverlays'), startingRollLive: $('#startingRollLive'), turnCueDialog: $('#turnCueDialog'), turnCueForm: $('#turnCueForm'), turnSoundDialog: $('#turnSoundDialog'), turnSoundForm: $('#turnSoundForm'), turnSoundChoice: $('#turnSoundChoice'), turnSoundVolume: $('#turnSoundVolume'), turnSoundVolumeValue: $('#turnSoundVolumeValue'), previewTurnSoundButton: $('#previewTurnSoundButton'), turnSoundPreferencesButton: $('#turnSoundPreferencesButton'), turnBanner: $('#turnBanner'), turnLabel: $('#turnLabel'), turnPlayer: $('#turnPlayer'), turnElapsed: $('#turnElapsed'), gameTimer: $('#gameTimer'), lastTurnSummary: $('#lastTurnSummary'), turnActions: $('#turnActions'), endTurnButton: $('#endTurnButton'), undoTurnButton: $('#undoTurnButton'), pauseTurnButton: $('#pauseTurnButton'), toggleTurnTrackingButton: $('#toggleTurnTrackingButton'), toggleTurnCuesButton: $('#toggleTurnCuesButton'), toggleDeviceCuesButton: $('#toggleDeviceCuesButton'), toggleTouchFeedbackButton: $('#toggleTouchFeedbackButton'), turnActionDetail: $('#turnActionDetail'),
   commanderCountDialog: $('#commanderCountDialog'), commanderCountDetail: $('#commanderCountDetail'), commanderCountForm: $('#commanderCountForm'), saveCommanderCountButton: $('#saveCommanderCountButton'), commanderDeckField: $('#commanderDeckField'), commanderDeck: $('#commanderDeck'), joinQrDialog: $('#joinQrDialog'), joinQrImage: $('#joinQrImage'), joinQrCode: $('#joinQrCode'), shareJoinLinkButton: $('#shareJoinLinkButton'), copyJoinLinkButton: $('#copyJoinLinkButton'),
   commanderTaxQuickButton: $('#commanderTaxQuickButton'), commanderTaxDialog: $('#commanderTaxDialog'), commanderTaxDetail: $('#commanderTaxDetail'), commanderTaxList: $('#commanderTaxList'), toggleInterfaceStyleButton: $('#toggleInterfaceStyleButton'),
   cardCameraButton: $('#cardCameraButton'), cardCameraDialog: $('#cardCameraDialog'), cardAdvisorForm: $('#cardAdvisorForm'), firstCardTitle: $('#firstCardTitle'), secondCardTitle: $('#secondCardTitle'), interactionSituation: $('#interactionSituation'), cardLookupStatus: $('#cardLookupStatus'), cardLookupResult: $('#cardLookupResult'), achievementDialog: $('#achievementDialog'), achievementTitle: $('#achievementTitle'), achievementSummary: $('#achievementSummary'), achievementUnlockList: $('#achievementUnlockList'),
@@ -686,6 +686,23 @@ function renderTurnFlow() {
   const isStarted = Boolean(state.turn.gameStarted) && !isComplete;
   dom.lobbyControls.hidden = isStarted || isIntermission || isComplete;
   dom.intermissionPanel.hidden = !isIntermission;
+  const renderSeatOrder = (container, rosterIds, { intermission = false } = {}) => {
+    const readyIds = state.lifecycle?.readySeatIds || [];
+    const isHost = state.localSimulation || transport.seatId === state.hostSeatId;
+    container.innerHTML = rosterIds.map((seatId, position) => {
+      const player = state.players.find(item => item.id === `P${seatId + 1}`);
+      const ready = readyIds.includes(seatId);
+      const skip = intermission && isHost && seatId !== state.hostSeatId ? `<button type="button" class="text-action" data-skip-next-seat="${seatId}">Remove</button>` : '';
+      const move = isHost ? `<span class="intermission-move"><button type="button" class="text-action" data-move-seat="${seatId}" data-direction="-1" ${position === 0 ? 'disabled' : ''} aria-label="Move ${escapeHtml(displayName(player))} earlier">↑</button><button type="button" class="text-action" data-move-seat="${seatId}" data-direction="1" ${position === rosterIds.length - 1 ? 'disabled' : ''} aria-label="Move ${escapeHtml(displayName(player))} later">↓</button></span>` : '';
+      const status = intermission ? (ready ? 'Ready' : 'Waiting for ready') : 'Table order';
+      return `<div class="intermission-seat"><span><strong>P${position + 1} · ${escapeHtml(displayName(player))}</strong><small>${status}</small></span><span class="intermission-actions">${move}${skip}</span></div>`;
+    }).join('');
+    container.querySelectorAll('[data-skip-next-seat]').forEach(button => button.addEventListener('click', () => void skipNextGameSeat(Number(button.dataset.skipNextSeat))));
+    container.querySelectorAll('[data-move-seat]').forEach(button => button.addEventListener('click', () => void moveNextGameSeat(Number(button.dataset.moveSeat), Number(button.dataset.direction))));
+  };
+  const lobbyRosterIds = state.lifecycle?.seatIds || [];
+  dom.lobbyRoster.hidden = lobbyRosterIds.length < 2 || isIntermission || isComplete;
+  if (!dom.lobbyRoster.hidden) renderSeatOrder(dom.lobbyRoster, lobbyRosterIds);
   if (isIntermission) {
     const rosterIds = state.lifecycle?.seatIds || [];
     const readyIds = state.lifecycle?.readySeatIds || [];
@@ -695,21 +712,14 @@ function renderTurnFlow() {
     dom.intermissionTitle.textContent = 'Set up the next game';
     const openSeats = state.players.filter(player => player.connectionStatus === 'waiting').length;
     dom.intermissionDetail.textContent = `${readyIds.length}/${rosterIds.length} players ready. ${openSeats ? `A new player can join this pod now; then arrange the table to match the real seats.` : 'This pod is full; start a new pod to add another player.'}`;
-    dom.intermissionRoster.innerHTML = rosterIds.map((seatId, position) => {
-      const player = state.players.find(item => item.id === `P${seatId + 1}`);
-      const ready = readyIds.includes(seatId);
-      const skip = isHost && seatId !== state.hostSeatId ? `<button type="button" class="text-action" data-skip-next-seat="${seatId}">Skip next game</button>` : '';
-      const move = isHost ? `<span class="intermission-move"><button type="button" class="text-action" data-move-next-seat="${seatId}" data-direction="-1" ${position === 0 ? 'disabled' : ''} aria-label="Move ${escapeHtml(displayName(player))} earlier">↑</button><button type="button" class="text-action" data-move-next-seat="${seatId}" data-direction="1" ${position === rosterIds.length - 1 ? 'disabled' : ''} aria-label="Move ${escapeHtml(displayName(player))} later">↓</button></span>` : '';
-      return `<div class="intermission-seat"><span><strong>P${position + 1} · ${escapeHtml(displayName(player))}</strong><small>${ready ? 'Ready' : 'Choosing a deck'}</small></span><span class="intermission-actions">${move}${skip}</span></div>`;
-    }).join('');
-    dom.intermissionRoster.querySelectorAll('[data-skip-next-seat]').forEach(button => button.addEventListener('click', () => void skipNextGameSeat(Number(button.dataset.skipNextSeat))));
-    dom.intermissionRoster.querySelectorAll('[data-move-next-seat]').forEach(button => button.addEventListener('click', () => void moveNextGameSeat(Number(button.dataset.moveNextSeat), Number(button.dataset.direction))));
+    renderSeatOrder(dom.intermissionRoster, rosterIds, { intermission: true });
     dom.intermissionReadyButton.hidden = !rosterIds.includes(ownSeatId);
     dom.intermissionReadyButton.textContent = youAreReady ? 'I need to make a change' : 'I’m ready';
     dom.intermissionReadyButton.disabled = !state.localSimulation && transport.status !== 'connected';
     dom.intermissionStartButton.hidden = !isHost;
-    dom.intermissionStartButton.disabled = readyIds.length < 2 || (!state.localSimulation && transport.status !== 'connected');
-    dom.intermissionStartButton.textContent = readyIds.length < 2 ? 'Waiting for 2 ready players' : `Start next game · ${readyIds.length} ready`;
+    const everyoneReady = rosterIds.length >= 2 && rosterIds.every(id => readyIds.includes(id));
+    dom.intermissionStartButton.disabled = !everyoneReady || (!state.localSimulation && transport.status !== 'connected');
+    dom.intermissionStartButton.textContent = everyoneReady ? `Start next game · ${rosterIds.length} players` : `Waiting for every player · ${readyIds.length}/${rosterIds.length} ready`;
   }
   const freezeGameControls = isIntermission || isComplete;
   $('#adjustControls').hidden = freezeGameControls;
@@ -995,7 +1005,13 @@ function renderPodStrip() {
   // Larger pods keep four matched seats in the top rail. Button mode keeps the
   // remaining seats beside the counter; Dial mode places them above Custom Life.
   const rosterIds = state.lifecycle?.seatIds;
-  const visiblePlayers = Array.isArray(rosterIds) && ['playing', 'complete', 'intermission'].includes(state.lifecycle?.status) ? state.players.filter(player => rosterIds.includes(Number(player.id.slice(1)) - 1)) : state.players;
+  const orderedRoster = Array.isArray(rosterIds)
+    ? rosterIds.map(id => state.players.find(player => player.id === `P${id + 1}`)).filter(Boolean)
+    : [];
+  const rosterOnly = ['playing', 'complete', 'intermission'].includes(state.lifecycle?.status);
+  const visiblePlayers = orderedRoster.length
+    ? rosterOnly ? orderedRoster : [...orderedRoster, ...state.players.filter(player => !rosterIds.includes(Number(player.id.slice(1)) - 1))]
+    : state.players;
   const largePod = visiblePlayers.length > 4;
   dom.podStrip.dataset.playerCount = String(visiblePlayers.length);
   dom.game.dataset.dialSideSeatCount = interfaceStyle === 'dial' && largePod ? String(visiblePlayers.length - 4) : '0';
@@ -1295,6 +1311,20 @@ async function moveNextGameSeat(seatId, direction) {
   if (state?.localSimulation) { state.lifecycle.seatIds = order; render(); return; }
   try { const result = await transport.reorderNextGameSeats(order); if (result.conflict) showError(new Error('The table changed first. Check the next-game seating order.')); } catch (error) { showError(error); }
 }
+async function confirmNextGameStart() {
+  if (!state?.lifecycle || state.lifecycle.status !== 'intermission') return;
+  if (!state.localSimulation) {
+    try { await transport.refreshRoom(); } catch (error) { showError(error); return; }
+  }
+  const rosterIds = state.lifecycle.seatIds || [];
+  const readyIds = state.lifecycle.readySeatIds || [];
+  if (rosterIds.length < 2 || !rosterIds.every(id => readyIds.includes(id))) return showError(new Error('Review the next-game roster: every listed player must be ready before starting.'));
+  const players = rosterIds.map(id => state.players.find(player => player.id === `P${id + 1}`)).filter(Boolean);
+  dom.nextGameConfirmDetail.textContent = `You are starting with ${players.length} players in this order.`;
+  dom.nextGameConfirmRoster.innerHTML = players.map((player, index) => `<li>P${index + 1} · ${escapeHtml(displayName(player))}</li>`).join('');
+  dom.confirmNextGameStart.textContent = `Start with ${players.length} players`;
+  dom.nextGameConfirmDialog.showModal();
+}
 function ownPlayer() { return state?.localSimulation ? activePlayer() : state?.players.find(player => player.id === state?.ownerPlayerId); }
 function openEditPlayerName() {
   const player = ownPlayer(); if (!player) return;
@@ -1558,7 +1588,7 @@ dom.backToSetupButton?.addEventListener('click', returnToSetup); dom.leaveTableB
 $$('input[name="gameCommanderCount"]').forEach(input => input.addEventListener('change', () => renderCommanderNameFields(dom.gameCommanderNames, selectedCommanderCount('gameCommanderCount'))));
 dom.commanderCountForm.addEventListener('submit', async event => { if (event.submitter?.value === 'confirm') { event.preventDefault(); const form = new FormData(dom.commanderCountForm); const count = Number(form.get('gameCommanderCount')); dom.saveCommanderCountButton.disabled = true; const { colors, unresolved } = await confirmUnresolvedCommanderDetails(dom.gameCommanderNames, count); if (unresolved.length) { dom.saveCommanderCountButton.textContent = 'Update without colors'; dom.saveCommanderCountButton.disabled = false; return; } const names = commanderNamesFromForm(new FormData(dom.commanderCountForm), count); selectedDeckId = dom.commanderDeck.value || ''; try { sessionStorage.setItem('fivefold-arc:selected-deck', selectedDeckId); } catch {} await updateCommanderSetup(count, names, colors); dom.commanderCountDialog.close('confirm'); } }); dom.declareWinnerForm.addEventListener('submit', event => { if (event.submitter?.value === 'confirm') declareWinner(); });
 dom.nextGameButton.addEventListener('click', event => { event.stopPropagation(); if (dom.victoryDialog.open) dom.victoryDialog.close('next-game'); void beginIntermission(); });
-dom.intermissionReadyButton.addEventListener('click', () => void setNextGameReady()); dom.intermissionStartButton.addEventListener('click', () => void startGame());
+dom.intermissionReadyButton.addEventListener('click', () => void setNextGameReady()); dom.intermissionStartButton.addEventListener('click', () => void confirmNextGameStart()); dom.nextGameConfirmForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); dom.nextGameConfirmDialog.close('confirm'); void startGame(); });
 dom.victoryDialog.addEventListener('click', () => { if (victoryDismissReady && dom.victoryDialog.open) dom.victoryDialog.close('tap'); }); dom.victoryDialog.addEventListener('close', () => { if (dom.victoryDialog.returnValue !== 'tap') return; const key = victoryKey(state?.gameResult); dismissedVictoryKeys.add(key); void (async () => { await automaticSavePromises.get(key); if (!showAchievementUnlocks(key)) openQuickFeedback(); })(); }); dom.achievementDialog.addEventListener('close', () => { unlockedAchievementsByGame.delete(dom.achievementDialog.dataset.gameKey); openQuickFeedback(); });
 $('#quickFeedbackForm').addEventListener('submit', async event => { event.preventDefault(); const response = event.submitter?.value; const until = Date.now() + (response === 'skip' ? 30 : 7) * 24 * 60 * 60 * 1000; localStorage.setItem('fivefold-arc:quick-feedback-until', String(until)); if (response !== 'skip') await transport.recordQuickFeedback({ response }); $('#quickFeedbackDialog').close(); });
 dom.viewCelebrationButton.addEventListener('click', () => { shownVictoryKey = null; dom.gameMenu.hidden = true; renderVictory(); });

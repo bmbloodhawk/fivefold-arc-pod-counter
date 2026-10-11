@@ -14,8 +14,13 @@ test('next-game setup is a distinct ready state with host start controls', () =>
   assert.match(app, /const isIntermission = lifecycleStatus === 'intermission';/);
   assert.match(app, /dom\.intermissionReadyButton\.addEventListener\('click', \(\) => void setNextGameReady\(\)\)/);
   assert.match(app, /dom\.nextGameButton\.addEventListener\('click'.*void beginIntermission\(\)/);
-  assert.match(app, /data-move-next-seat/);
+  assert.match(page, /id="nextGameConfirmDialog"/);
+  assert.match(page, /id="lobbyRoster"/);
+  assert.match(app, /data-move-seat/);
   assert.match(app, /async function moveNextGameSeat\(seatId, direction\)/);
+  assert.match(app, /async function confirmNextGameStart\(\)/);
+  assert.match(app, /await transport\.refreshRoom\(\)/);
+  assert.match(app, /Waiting for every player/);
   assert.match(transport, /async beginIntermission\(\) \{ return this\.\#hostGameRequest\('\/begin-intermission'\); \}/);
   assert.match(transport, /async reorderNextGameSeats\(seatIds\) \{ return this\.\#hostGameRequest\('\/next-game-reorder', \{ seatIds \}\); \}/);
 });

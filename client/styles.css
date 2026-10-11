@@ -174,6 +174,13 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .intermission-seat span { display: grid; gap: 2px; }.intermission-seat strong { color: var(--paper); font-size: .82rem; }.intermission-seat small { color: var(--muted); font-size: .7rem; }
 .intermission-actions, .intermission-move { display: flex !important; align-items: center; gap: 5px; }
 .intermission-move .text-action { min-width: 30px; min-height: 30px; padding: 3px 7px; font-size: 1rem; }
+.confirm-dialog { width: min(92vw, 360px); border: 1px solid var(--brass); background: #151713; color: var(--paper); }
+.confirm-dialog::backdrop { background: rgb(0 0 0 / .7); }
+.confirm-dialog h2, .confirm-dialog p { margin: 0; }
+.confirm-dialog h2 { font-size: 1.15rem; }
+.confirm-dialog > form { display: grid; gap: 12px; }
+.confirm-roster { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.confirm-roster li { padding: 8px 10px; border: 1px solid rgb(216 174 97 / .25); background: rgb(0 0 0 / .2); font-size: .84rem; font-weight: 800; }
 .lobby-controls p { margin: 0 0 2px; color: var(--paper); font-size: .8rem; font-weight: 800; letter-spacing: .04em; }
 .lobby-controls .primary-action, .lobby-controls .secondary-action { min-height: 42px; }
 .lobby-controls .lobby-kicker { color: var(--brass); font-size: .68rem; letter-spacing: .12em; }
@@ -1074,12 +1081,14 @@ button:disabled { cursor: not-allowed; filter: saturate(.45); }
 
 /* Alternate gameplay presentation: the state, mode navigation, and every
    mutation still remain shared; only the routine adjustment surface changes. */
-.dial-controls { position: absolute; z-index: 5; inset: 50% 50% auto auto; display: grid; grid-template-columns: minmax(52px, 1fr) minmax(180px, 255px) minmax(52px, 1fr); align-items: center; width: 100%; min-height: min(79vw, 310px); transform: translate(50%, -50%); pointer-events: auto; touch-action: none; overscroll-behavior: contain; }
+.dial-controls { position: absolute; z-index: 5; inset: 50% 50% auto auto; display: grid; grid-template-columns: minmax(64px, 1fr) minmax(168px, 255px) minmax(64px, 1fr); align-items: center; width: 100%; min-height: min(79vw, 310px); transform: translate(50%, -50%); pointer-events: auto; touch-action: none; overscroll-behavior: contain; }
 /* The seal is the dial: it rotates behind the fixed, readable counter value.
    This transparent element only supplies its drag and keyboard interaction. */
 .dial-gesture {
   position: absolute;
-  z-index: 2;
+  /* The dial remains visible everywhere, but must stay behind the invisible
+     left/right tap zones so a thumb at either edge cannot start a drag. */
+  z-index: 0;
   top: 50%;
   left: 50%;
   width: min(79vw, 310px);
@@ -1129,7 +1138,7 @@ button:disabled { cursor: not-allowed; filter: saturate(.45); }
 }
 body.dial-dragging { overflow: hidden; overscroll-behavior: none; }
 @media (max-width: 359px), (max-height: 740px) {
-  .dial-controls { grid-template-columns: minmax(50px, 1fr) minmax(170px, 196px) minmax(50px, 1fr); width: 100%; }
+  .dial-controls { grid-template-columns: minmax(64px, 1fr) minmax(168px, 196px) minmax(64px, 1fr); width: 100%; }
   .dial-step { min-height: 110px; }
   #gameView[data-interface-style="dial"] .counter-stage { min-height: 300px; margin-top: 12px; padding-top: 20px; }
   #gameView[data-interface-style="dial"] .counter-stage::before,

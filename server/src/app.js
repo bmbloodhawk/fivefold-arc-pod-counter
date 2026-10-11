@@ -501,7 +501,7 @@ export class RoomService {
       gameResult: null,
       // The table, not an individual phone, owns which seats are in a game.
       // This keeps a finished match intact while its players prepare the next.
-      lifecycle: { status: "lobby", seatIds: [0], readySeatIds: [] },
+      lifecycle: { status: "lobby", seatIds: [0], readySeatIds: [], seatOrderConfirmed: false },
       lastGameWinnerSeatId: null,
       tableGameNumber: 1,
       sessionKind: "standard",
@@ -553,7 +553,7 @@ export class RoomService {
       config: { ...room.config },
       lastCoinToss: room.lastCoinToss ? { ...room.lastCoinToss } : null,
       gameResult: room.gameResult ? { ...room.gameResult } : null,
-      lifecycle: { status: room.lifecycle?.status || (room.turn.gameStarted ? "playing" : "lobby"), seatIds: [...(room.lifecycle?.seatIds || room.seats.filter((seat) => seat.claimed).map((seat) => seat.seatId))], readySeatIds: [...(room.lifecycle?.readySeatIds || [])] },
+      lifecycle: { status: room.lifecycle?.status || (room.turn.gameStarted ? "playing" : "lobby"), seatIds: [...(room.lifecycle?.seatIds || room.seats.filter((seat) => seat.claimed).map((seat) => seat.seatId))], readySeatIds: [...(room.lifecycle?.readySeatIds || [])], seatOrderConfirmed: room.lifecycle?.seatOrderConfirmed === true },
       lastGameWinnerSeatId: Number.isInteger(room.lastGameWinnerSeatId) ? room.lastGameWinnerSeatId : null,
       feedbackPromptSeatId: feedbackPromptSeatId(room),
       sessionKind: room.sessionKind || "standard",
@@ -790,7 +790,13 @@ export class RoomService {
     seat.ownerConnectionId = connectionId;
     connection.seatKey = seatKey;
     synchronizeCommanderState(room);
-    if (!wasClaimed && ["lobby", "intermission"].includes(room.lifecycle?.status) && !room.lifecycle.seatIds.includes(seatId)) room.lifecycle.seatIds.push(seatId);
+    if (!wasClaimed && ["lobby", "intermission"].includes(room.lifecycle?.status) && !room.lifecycle.seatIds.includes(seatId)) {
+      room.lifecycle.seatIds.push(seatId);
+      // Completing the join flow means this player has supplied their seat
+      // details and is part of the next game. Do not let a newly claimed seat
+      // be silently discarded just because it joined between games.
+      if (room.lifecycle.status === "intermission") room.lifecycle.readySeatIds = [...new Set([...room.lifecycle.readySeatIds, seatId])];
+    }
     room.version += 1;
     this.recordLedger(room, seat.claimed && input.reclaimToken ? "seat_reclaimed" : "seat_claimed", seatId, { name: seat.name, commanderCount: seat.commanderCount });
     if (!wasClaimed) {
@@ -974,7 +980,7 @@ export class RoomService {
     for (const seat of room.seats) resetSeatForNextGame(seat, room.config.startingLife);
     room.lastCoinToss = null;
     room.gameResult = null; room.gameAccolades = null; room.automaticEliminationOrder = []; room.quickFeedbackRecordedAt = null;
-    room.lifecycle = { status: "lobby", seatIds: room.seats.filter((seat) => seat.claimed).map((seat) => seat.seatId), readySeatIds: [] };
+    room.lifecycle = { status: "lobby", seatIds: room.seats.filter((seat) => seat.claimed).map((seat) => seat.seatId), readySeatIds: [], seatOrderConfirmed: false };
     room.gameId = opaque(12);
     room.tableGameNumber = (room.tableGameNumber || 1) + 1;
     room.ledgerSequence = 0;
@@ -1082,15 +1088,15 @@ export class RoomService {
   reorderNextGameSeats(code, connectionId, input = {}) {
     const room = this.room(code); const { seatId } = this.requireOwner(room, connectionId);
     if (seatId !== room.hostSeatId) throw Object.assign(new Error("Only the host can arrange physical table seats"), { status: 403, code: "HOST_ONLY" });
-    if (room.lifecycle?.status !== "intermission") throw Object.assign(new Error("Arrange seats during next-game setup"), { status: 409, code: "NOT_IN_INTERMISSION", snapshot: this.snapshot(room) });
+    if (!["lobby", "intermission"].includes(room.lifecycle?.status)) throw Object.assign(new Error("Arrange seats before a game starts or during next-game setup"), { status: 409, code: "GAME_IN_PROGRESS", snapshot: this.snapshot(room) });
     if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
     const proposed = input.seatIds;
     const expected = room.lifecycle.seatIds;
     if (!Array.isArray(proposed) || proposed.length !== expected.length || new Set(proposed).size !== proposed.length || proposed.some((id) => !Number.isInteger(id)) || proposed.some((id) => !expected.includes(id))) {
       throw Object.assign(new Error("Send every next-game seat once when arranging the table"), { status: 400, code: "INVALID_INPUT" });
     }
-    room.lifecycle.seatIds = [...proposed];
-    room.version += 1; this.recordLedger(room, "next_game_seats_reordered", seatId, { seatIds: room.lifecycle.seatIds }); this.broadcast(room);
+    room.lifecycle.seatIds = [...proposed]; room.lifecycle.seatOrderConfirmed = true;
+    room.version += 1; this.recordLedger(room, "table_seats_reordered", seatId, { seatIds: room.lifecycle.seatIds }); this.broadcast(room);
     return { snapshot: this.snapshot(room) };
   }
 
@@ -1149,9 +1155,14 @@ export class RoomService {
     let playerCountAtStart = claimedSeats.length;
     if (room.lifecycle?.status === "intermission") {
       const readySet = new Set(room.lifecycle.readySeatIds);
-      const readySeats = room.lifecycle.seatIds.filter((id) => readySet.has(id));
-      if (readySeats.length < 2) throw Object.assign(new Error("At least two players need to be ready for the next game"), { status: 409, code: "NOT_ENOUGH_READY_PLAYERS", snapshot: this.snapshot(room) });
-      room.lifecycle.seatIds = readySeats;
+      const unreadySeats = room.lifecycle.seatIds.filter((id) => !readySet.has(id));
+      if (unreadySeats.length) throw Object.assign(new Error("Wait for every listed player to be ready, or remove them from the next game roster"), { status: 409, code: "PLAYERS_NOT_READY", snapshot: this.snapshot(room) });
+      claimedSeats = gameSeats(room); playerCountAtStart = claimedSeats.length;
+    } else {
+      // Seats can be claimed in any order while a new pod is being set up.
+      // That join order must never become turn order (for example P1, P2,
+      // P4, P3). A first game always proceeds by the visible seat labels.
+      if (!room.lifecycle.seatOrderConfirmed) room.lifecycle.seatIds = claimedSeats.map((seat) => seat.seatId).sort((a, b) => a - b);
       claimedSeats = gameSeats(room); playerCountAtStart = claimedSeats.length;
     }
     if (playerCountAtStart < 2) throw Object.assign(new Error("At least two claimed players are needed to start the game"), { status: 409, code: "NOT_ENOUGH_PLAYERS", snapshot: this.snapshot(room) });

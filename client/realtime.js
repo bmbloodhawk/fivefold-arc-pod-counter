@@ -8,6 +8,7 @@ export class RealtimeAdapter extends EventTarget {
     this.connectionId = null; this.roomCode = null; this.seatId = null;
     this.reclaimToken = null; this.snapshot = null; this.events = null;
     this.heartbeatTimer = null; this.reconnectTimer = null; this.snapshotRefreshTimer = null;
+    this.sseRecoveryInFlight = false;
     this.status = 'local'; this.localMode = true; this.stopped = false; this.sessionEpoch = 0;
   }
 
@@ -263,7 +264,15 @@ export class RealtimeAdapter extends EventTarget {
     events.addEventListener('open', () => { if (this.#isCurrentSession(epoch) && this.events === events) this.#setStatus('connected'); });
     events.addEventListener('snapshot', event => { if (!this.#isCurrentSession(epoch) || this.events !== events) return; try { this.#acceptSnapshot(JSON.parse(event.data), epoch); } catch { if (this.#isCurrentSession(epoch) && this.events === events) this.dispatchEvent(new CustomEvent('protocolerror')); } });
     events.addEventListener('close', () => { if (!this.#isCurrentSession(epoch) || this.events !== events) return; events.close(); this.#scheduleReconnect(epoch); });
-    events.addEventListener('error', () => { if (!this.#isCurrentSession(epoch) || this.events !== events) return; void this.recordClientDiagnostic({ kind: 'sse_error' }).catch(() => {}); events.close(); this.#setStatus('disconnected'); this.#scheduleReconnect(epoch); });
+    events.addEventListener('error', () => {
+      if (!this.#isCurrentSession(epoch) || this.events !== events) return;
+      void this.recordClientDiagnostic({ kind: 'sse_error' }).catch(() => {});
+      events.close(); this.events = null;
+      // Android WebViews and mobile proxies can drop an otherwise healthy SSE
+      // stream. Confirm the ordinary read path first so scoring is not
+      // unnecessarily disabled while we replace only that stream.
+      void this.#recoverSse(epoch);
+    });
   }
 
   #startHeartbeat(epoch) {
@@ -281,7 +290,7 @@ export class RealtimeAdapter extends EventTarget {
   #startSnapshotRefresh(epoch) {
     clearInterval(this.snapshotRefreshTimer);
     const refresh = async () => {
-      if (!this.#isCurrentSession(epoch) || this.status !== 'connected' || !this.roomCode || document.visibilityState === 'hidden') return;
+      if (!this.#isCurrentSession(epoch) || this.status !== 'connected' || this.sseRecoveryInFlight || !this.roomCode || document.visibilityState === 'hidden') return;
       try {
         // The cache-buster protects this safety net from an intermediary that
         // incorrectly reuses a public room GET despite the server's no-store.
@@ -309,6 +318,25 @@ export class RealtimeAdapter extends EventTarget {
       } catch { if (this.#isCurrentSession(epoch)) { this.#setStatus('disconnected'); this.#scheduleReconnect(epoch); } }
     }, 3000);
     this.reconnectTimer = timer;
+  }
+
+  async #recoverSse(epoch) {
+    if (!this.#isCurrentSession(epoch) || this.sseRecoveryInFlight) return;
+    this.sseRecoveryInFlight = true;
+    try {
+      const result = await this.#request(`/api/rooms/${this.roomCode}?refresh=${Date.now()}`);
+      if (!this.#isCurrentSession(epoch)) return;
+      this.#acceptSnapshot(result.snapshot, epoch);
+      this.#subscribe(epoch);
+      this.#setStatus('connected');
+    } catch {
+      if (this.#isCurrentSession(epoch)) {
+        this.#setStatus('disconnected');
+        this.#scheduleReconnect(epoch);
+      }
+    } finally {
+      this.sseRecoveryInFlight = false;
+    }
   }
 
   #acceptSnapshot(snapshot, epoch = this.sessionEpoch) {
@@ -350,7 +378,10 @@ export class RealtimeAdapter extends EventTarget {
   #recoveryKey(code) { return `fivefold-arc:host-recovery:${code}`; }
   #storedToken(code, seatId) { try { return localStorage.getItem(this.#tokenKey(code, seatId)); } catch { return null; } }
   #storedRecoveryKey(code) { try { return localStorage.getItem(this.#recoveryKey(code)); } catch { return null; } }
-  #setStatus(status) { this.status = status; this.dispatchEvent(new CustomEvent('status', { detail: status })); }
+  #setStatus(status) {
+    if (this.status === status) return;
+    this.status = status; this.dispatchEvent(new CustomEvent('status', { detail: status }));
+  }
 }
 
 export function apiBaseFromPage() {
