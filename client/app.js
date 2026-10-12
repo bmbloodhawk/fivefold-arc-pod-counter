@@ -623,7 +623,31 @@ async function lookupCommanderIdentity(name) {
   const response = await fetch(`${apiBaseFromPage()}/api/commander-identity?name=${encodeURIComponent(name)}`);
   const result = await response.json();
   if (!response.ok) throw new Error(result?.error?.message || 'Commander lookup failed.');
-  return { name: String(result.name || name), colors: normaliseIdentity(result.colors) };
+  if (result?.kind === 'exact' && result.card) return { name: String(result.card.name || name), colors: normaliseIdentity(result.card.colors) };
+  if (result?.kind === 'selection' && Array.isArray(result.matches)) {
+    const error = new Error('Choose the card you meant before applying its color identity.');
+    error.matches = result.matches.map(card => ({ name: String(card.name || ''), colors: normaliseIdentity(card.colors) })).filter(card => card.name);
+    throw error;
+  }
+  throw new Error('Commander lookup returned an unexpected result. Enter colors manually or keep without colors.');
+}
+function applyCommanderIdentity(input, status, card) {
+  input.value = card.name;
+  input.dataset.commanderColors = card.colors.join(',');
+  delete input.dataset.commanderLookupFailed;
+  status.textContent = `✓ Confirmed: ${card.colors.join('') || 'Colorless'}`;
+}
+function showCommanderMatchChoices(field, input, status, matches) {
+  field.querySelector('.commander-match-choices')?.remove();
+  const choices = document.createElement('div');
+  choices.className = 'commander-match-choices';
+  choices.innerHTML = `<small>Choose the card you meant:</small>${matches.map((card, index) => `<button type="button" class="secondary-action" data-card-match="${index}">${escapeHtml(card.name)} · ${escapeHtml(card.colors.join('') || 'Colorless')}</button>`).join('')}`;
+  choices.querySelectorAll('[data-card-match]').forEach(button => button.addEventListener('click', () => {
+    applyCommanderIdentity(input, status, matches[Number(button.dataset.cardMatch)]);
+    choices.remove();
+  }));
+  field.append(choices);
+  status.textContent = 'Choose the card you meant before applying its color identity.';
 }
 async function confirmUnresolvedCommanderDetails(container, count) {
   const unresolved = [];
@@ -639,9 +663,9 @@ async function confirmUnresolvedCommanderDetails(container, count) {
       input.dataset.commanderColors = card.colors.join(',');
       if (status) status.textContent = `✓ Confirmed: ${card.colors.join('') || 'Colorless'}`;
     } catch (error) {
-      input.dataset.commanderLookupFailed = 'true';
       unresolved.push(name);
-      if (status) status.textContent = error.message || 'Commander not found. Check the spelling and try again.';
+      if (error.matches?.length && status) showCommanderMatchChoices(input.closest('.commander-identity-field'), input, status, error.matches);
+      else { input.dataset.commanderLookupFailed = 'true'; if (status) status.textContent = error.message || 'Commander not found. Check the spelling and try again.'; }
     }
   }
   return { colors: commanderColorsFromFields(container, count), unresolved };
@@ -662,8 +686,8 @@ function renderCommanderNameFields(container, count, names = [], identities = []
   if (!container) return;
   const current = [...container.querySelectorAll('input[name^="commanderName"]')].map(input => ({ name: input.value, colors: input.dataset.commanderColors || '' }));
   container.innerHTML = Array.from({ length: count }, (_, slot) => { const prior = current[slot]; const colors = normaliseIdentity((prior?.colors || identities[slot] || []).toString().split(',').filter(Boolean)); const name = names[slot] ?? prior?.name ?? ''; const identity = colors.length ? `✓ Confirmed: ${colors.join('')}` : 'Confirm the card to apply its color identity.'; const colorData = colors.length ? ` data-commander-colors="${escapeHtml(colors.join(','))}"` : ''; return `<div class="commander-identity-field"><label class="select-field">Commander ${count === 2 ? slot === 0 ? 'A' : 'B' : ''} name <small>(optional)</small><input name="commanderName${slot}" type="text" maxlength="60" autocomplete="off" placeholder="e.g. Atraxa, Praetors’ Voice" value="${escapeHtml(name)}"${colorData}></label><button class="commander-lookup" data-lookup-commander="${slot}" type="button">Find commander details</button><small class="commander-lookup-status" aria-live="polite">${identity}</small></div>`; }).join('');
-  container.querySelectorAll('input[name^="commanderName"]').forEach(input => input.addEventListener('input', () => { delete input.dataset.commanderColors; const status = input.closest('.commander-identity-field').querySelector('.commander-lookup-status'); status.textContent = 'Name changed. Confirm the card to apply its color identity.'; }));
-  container.querySelectorAll('[data-lookup-commander]').forEach(button => button.addEventListener('click', async () => { const field = button.closest('.commander-identity-field'); const input = field.querySelector('input'); const status = field.querySelector('.commander-lookup-status'); const name = input.value.trim(); if (!name) { input.focus(); return; } button.disabled = true; status.textContent = 'Finding commander…'; try { const card = await lookupCommanderIdentity(name); input.value = card.name; input.dataset.commanderColors = card.colors.join(','); delete input.dataset.commanderLookupFailed; field.querySelector('.commander-manual-colors')?.remove(); status.textContent = `✓ Confirmed: ${card.colors.join('') || 'Colorless'}`; } catch (error) { delete input.dataset.commanderColors; input.dataset.commanderLookupFailed = 'true'; status.textContent = error.message; if (container === dom.createCommanderNames && !field.querySelector('.commander-manual-colors')) { field.insertAdjacentHTML('beforeend', '<div class="commander-manual-colors"><button type="button" class="secondary-action" data-enter-colors>Enter colors manually</button><button type="button" class="text-action" data-skip-colors>Keep without colors</button></div>'); field.querySelector('[data-enter-colors]').addEventListener('click', () => { const chooser = document.createElement('fieldset'); chooser.className = 'commander-color-chooser'; chooser.innerHTML = '<legend>Color identity</legend>W U B R G'.split(' ').map(color => `<label><input type="checkbox" value="${color}">${color}</label>`).join(''); chooser.addEventListener('change', () => { input.dataset.commanderColors = [...chooser.querySelectorAll('input:checked')].map(item => item.value).join(','); status.textContent = `Manual identity: ${input.dataset.commanderColors || 'Colorless'}`; }); field.querySelector('.commander-manual-colors').replaceWith(chooser); }); field.querySelector('[data-skip-colors]').addEventListener('click', () => { status.textContent = 'Kept without a color identity.'; field.querySelector('.commander-manual-colors').remove(); }); } } finally { button.disabled = false; } }));
+  container.querySelectorAll('input[name^="commanderName"]').forEach(input => input.addEventListener('input', () => { delete input.dataset.commanderColors; input.closest('.commander-identity-field').querySelector('.commander-match-choices')?.remove(); const status = input.closest('.commander-identity-field').querySelector('.commander-lookup-status'); status.textContent = 'Name changed. Confirm the card to apply its color identity.'; }));
+  container.querySelectorAll('[data-lookup-commander]').forEach(button => button.addEventListener('click', async () => { const field = button.closest('.commander-identity-field'); const input = field.querySelector('input'); const status = field.querySelector('.commander-lookup-status'); const name = input.value.trim(); if (!name) { input.focus(); return; } button.disabled = true; status.textContent = 'Finding commander…'; try { const card = await lookupCommanderIdentity(name); applyCommanderIdentity(input, status, card); field.querySelector('.commander-manual-colors')?.remove(); } catch (error) { delete input.dataset.commanderColors; if (error.matches?.length) showCommanderMatchChoices(field, input, status, error.matches); else { input.dataset.commanderLookupFailed = 'true'; status.textContent = error.message; if (container === dom.createCommanderNames && !field.querySelector('.commander-manual-colors')) { field.insertAdjacentHTML('beforeend', '<div class="commander-manual-colors"><button type="button" class="secondary-action" data-enter-colors>Enter colors manually</button><button type="button" class="text-action" data-skip-colors>Keep without colors</button></div>'); field.querySelector('[data-enter-colors]').addEventListener('click', () => { const chooser = document.createElement('fieldset'); chooser.className = 'commander-color-chooser'; chooser.innerHTML = '<legend>Color identity</legend>W U B R G'.split(' ').map(color => `<label><input type="checkbox" value="${color}">${color}</label>`).join(''); chooser.addEventListener('change', () => { input.dataset.commanderColors = [...chooser.querySelectorAll('input:checked')].map(item => item.value).join(','); status.textContent = `Manual identity: ${input.dataset.commanderColors || 'Colorless'}`; }); field.querySelector('.commander-manual-colors').replaceWith(chooser); }); field.querySelector('[data-skip-colors]').addEventListener('click', () => { status.textContent = 'Kept without a color identity.'; field.querySelector('.commander-manual-colors').remove(); }); } } } finally { button.disabled = false; } }));
 }
 function selectedCommanderCount(formName) { return Number($(`input[name="${formName}"]:checked`)?.value || 1); }
 function refreshSetupCommanderNames() { renderCommanderNameFields(dom.createCommanderNames, selectedCommanderCount('commanderCount')); renderCommanderNameFields(dom.joinCommanderNames, selectedCommanderCount('joinCommanderCount')); }

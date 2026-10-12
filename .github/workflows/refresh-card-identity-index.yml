@@ -1,0 +1,33 @@
+name: Refresh local card identity index
+
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: card-identity-index-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm run refresh:card-index
+      - name: Commit verified index when card identities changed
+        run: |
+          git diff --quiet -- server/static-data/card-identity-index.json || (
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add server/static-data/card-identity-index.json
+            git commit -m "chore: refresh local card identity index"
+            git push
+          )

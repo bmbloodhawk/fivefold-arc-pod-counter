@@ -46,6 +46,13 @@ test('developer tools stay hidden until a host unlocks them with the protected p
   assert.match(app, /developerMode && developerHost\(\)/);
 });
 
+test('manual card-data refresh remains in the protected developer page and opens the scheduled workflow', () => {
+  assert.match(feedbackPage, /data-tab="card-data"/);
+  assert.match(feedbackPage, /id="cardDataPanel" hidden/);
+  assert.match(feedbackPage, /refresh-card-identity-index\.yml/);
+  assert.match(feedbackPage, /GitHub checks MTGJSON weekly/);
+});
+
 test('updating a pod confirms only entered commander names that have not already been checked', () => {
   assert.match(app, /async function confirmUnresolvedCommanderDetails\(container, count\)/);
   assert.match(app, /input\.dataset\.commanderLookupFailed === 'true'/);

@@ -704,6 +704,9 @@ html.game-menu-open, body.game-menu-open { overflow: hidden; overscroll-behavior
 .card-camera-dialog { display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto auto; gap: 12px; height: 100%; }
 #cardCameraDialog { box-sizing: border-box; width: 100%; max-width: none; height: 100dvh; max-height: 100dvh; margin: 0; padding: calc(14px + env(safe-area-inset-top)) 16px calc(14px + env(safe-area-inset-bottom)); border: 0; border-radius: 0; overflow-x: hidden; overflow-y: auto; }
 #cardCameraDialog h2 { margin: 0; }
+.commander-match-choices { display: grid; gap: 8px; margin-top: 10px; }
+.commander-match-choices small { color: var(--muted, #b8ae9e); }
+.commander-match-choices button { text-align: left; }
 .card-camera-frame { position: relative; min-height: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: #070706; }
 .card-camera-frame video, .card-camera-frame img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .card-camera-frame img { position: absolute; inset: 0; }

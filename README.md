@@ -26,6 +26,12 @@ Open `http://localhost:8787`. Phones on the same Wi-Fi can use the computer's LA
 
 Run automated server tests with `npm test`. Run the adversarial live suite using the instructions in `qa/README.md`.
 
+## Local card identity lookup
+
+Commander setup uses the deployed `server/static-data/card-identity-index.json` file for card-name and color-identity lookup, so tournament setup does not make live Scryfall requests. It includes all named cards; it does not decide whether a card is a legal commander.
+
+The GitHub Actions workflow in `.github/workflows/refresh-card-identity-index.yml` checks for updates weekly. It verifies MTGJSON's published SHA-256 checksum, writes and commits a new snapshot only when the card identities actually differ, and lets the normal GitHub-connected deployment process release that snapshot. The private Developer Assets page contains the manual control for an urgent refresh; it opens the same workflow in GitHub, where an authorized repository user can run it. `npm run refresh:card-index` remains the local developer command for testing a proposed snapshot before a release.
+
 ## Remote-house test route
 
 The prepared `render.yaml` describes a single free Render web service. It serves both the interface and ephemeral realtime rooms over HTTPS. Deployment requires a Git repository and a Render account; account creation, provider authorization, and accepting provider terms are intentionally not performed by this project.
