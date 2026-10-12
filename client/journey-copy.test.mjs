@@ -53,6 +53,13 @@ test('manual card-data refresh remains in the protected developer page and opens
   assert.match(feedbackPage, /GitHub checks MTGJSON weekly/);
 });
 
+test('switching a deck during next-game commander setup applies that deck’s commanders', () => {
+  assert.match(app, /let selectedDeckId = ''; let setupDecks = \[\]; let commanderDecks = \[\];/);
+  assert.match(app, /commanderDecks = decks;/);
+  assert.match(app, /dom\.commanderDeck\.addEventListener\('change', event => \{/);
+  assert.match(app, /renderCommanderNameFields\(dom\.gameCommanderNames, commanderNames\.length, commanderNames, identities\)/);
+});
+
 test('updating a pod confirms only entered commander names that have not already been checked', () => {
   assert.match(app, /async function confirmUnresolvedCommanderDetails\(container, count\)/);
   assert.match(app, /input\.dataset\.commanderLookupFailed === 'true'/);

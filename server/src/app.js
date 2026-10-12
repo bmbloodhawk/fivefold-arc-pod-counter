@@ -278,9 +278,7 @@ function synchronizeCommanderState(room) {
     }
     const previous = seat.commanderDamageReceived;
     seat.commanderDamageReceived = Object.fromEntries(
-      sources
-        .filter((source) => source.ownerSeatId !== seat.seatId || (previous[source.id] || 0) > 0)
-        .map((source) => [source.id, Object.hasOwn(previous, source.id) ? previous[source.id] : 0]),
+      sources.map((source) => [source.id, Object.hasOwn(previous, source.id) ? previous[source.id] : 0]),
     );
     const previousCastCounts = seat.commanderCastCounts;
     seat.commanderCastCounts = Object.fromEntries(
@@ -930,8 +928,9 @@ export class RoomService {
       if (!allowed.has(sourceId)) {
         throw Object.assign(new Error("Commander damage may reference only a claimed seat's active commander source"), { status: 400, code: "INVALID_INPUT" });
       }
-      applied = Math.max(-seat.commanderDamageReceived[sourceId], delta);
-      seat.commanderDamageReceived[sourceId] += applied;
+      const previousDamage = seat.commanderDamageReceived[sourceId] ?? 0;
+      applied = Math.max(-previousDamage, delta);
+      seat.commanderDamageReceived[sourceId] = previousDamage + applied;
       seat.counters.life = Math.max(-999, Math.min(999, seat.counters.life - applied));
     } else {
       const minimum = counter === "life" ? -999 : 0;

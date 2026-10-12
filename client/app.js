@@ -112,7 +112,7 @@ const automaticSavePromises = new Map(); const dismissedVictoryKeys = new Set();
 let pendingSignInReturn = null;
 const unlockedAchievementsByGame = new Map();
 let resolvedRadiationTurnKey = null;
-let selectedDeckId = ''; let setupDecks = []; let joinGameFormat = 'commander'; let savedDecks = []; let editingDeckId = null; let deckCommanderColors = [];
+let selectedDeckId = ''; let setupDecks = []; let commanderDecks = []; let joinGameFormat = 'commander'; let savedDecks = []; let editingDeckId = null; let deckCommanderColors = [];
 let optimisticLifeDelta = 0;
 let lifeCorrectionCredit = { amount: 0, expiresAt: 0 };
 let awaitingConfirmedResync = false;
@@ -286,7 +286,7 @@ async function loadSaveGameDecks() {
   try { const token = await currentAccountToken(); if (!token) return; const response = await fetch('/api/account/decks', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) return; const { decks } = await response.json(); dom.saveGameDeck.innerHTML = `<option value="">No deck selected</option>${decks.map(deck => `<option value="${escapeHtml(deck.deckId)}">${escapeHtml([deck.commanderName, deck.name].filter(Boolean).join(' · '))}</option>`).join('')}`; } catch { /* Saving a game remains available without a deck. */ }
 }
 async function loadCommanderDecks() {
-  try { const token = await currentAccountToken(); if (!token) return; const response = await fetch('/api/account/decks', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) return; const { decks } = await response.json(); dom.commanderDeck.innerHTML = `<option value="">No deck selected</option>${decks.map(deck => `<option value="${escapeHtml(deck.deckId)}">${escapeHtml([deck.commanderName, deck.name].filter(Boolean).join(' · '))}</option>`).join('')}`; dom.commanderDeck.value = selectedDeckId; dom.commanderDeckField.hidden = false; } catch { /* Deck choice remains optional. */ }
+  try { const token = await currentAccountToken(); if (!token) return; const response = await fetch('/api/account/decks', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) return; const { decks } = await response.json(); commanderDecks = decks; dom.commanderDeck.innerHTML = `<option value="">No deck selected</option>${decks.map(deck => `<option value="${escapeHtml(deck.deckId)}">${escapeHtml([deck.commanderName, deck.name].filter(Boolean).join(' · '))}</option>`).join('')}`; dom.commanderDeck.value = selectedDeckId; dom.commanderDeckField.hidden = false; } catch { /* Deck choice remains optional. */ }
 }
 function sortSetupDecks(decks) { return [...decks].sort((left, right) => Number(right.favorite) - Number(left.favorite) || String(left.name || left.commanderName || '').localeCompare(String(right.name || right.commanderName || ''), undefined, { sensitivity: 'base' })); }
 async function loadSetupDecks() {
@@ -1496,6 +1496,17 @@ $('#createPodButton').addEventListener('click', () => { selectedDeckId = ''; try
 $('#joinSignInDeckButton').addEventListener('click', () => openSignIn({ returnToJoin: true }));
 function selectSetupDeck(event) { selectedDeckId = event.currentTarget.value || ''; try { sessionStorage.setItem('fivefold-arc:selected-deck', selectedDeckId); } catch {} if (selectedDeckId && (event.currentTarget === dom.createDeck || event.currentTarget === dom.joinDeck)) { const deck = setupDecks.find(item => item.deckId === selectedDeckId); const commanderNames = deck?.commanderNames?.length ? deck.commanderNames : [deck?.commanderName].filter(Boolean); const joining = event.currentTarget === dom.joinDeck; if (commanderNames.length) { const container = joining ? dom.joinCommanderNames : dom.createCommanderNames; const identities = savedDeckCommanderColors(deck, commanderNames.length); $(`input[name="${joining ? 'joinCommanderCount' : 'commanderCount'}"][value="${commanderNames.length}"]`).checked = true; renderCommanderNameFields(container, commanderNames.length, commanderNames, identities); if (identities.length !== commanderNames.length) void confirmUnresolvedCommanderDetails(container, commanderNames.length); } } }
 dom.createDeck.addEventListener('change', selectSetupDeck); dom.joinDeck.addEventListener('change', selectSetupDeck);
+dom.commanderDeck.addEventListener('change', event => {
+  selectedDeckId = event.currentTarget.value || '';
+  try { sessionStorage.setItem('fivefold-arc:selected-deck', selectedDeckId); } catch {}
+  const deck = commanderDecks.find(item => item.deckId === selectedDeckId);
+  const commanderNames = deck?.commanderNames?.length ? deck.commanderNames : [deck?.commanderName].filter(Boolean);
+  if (!commanderNames.length) return;
+  const identities = savedDeckCommanderColors(deck, commanderNames.length);
+  $(`input[name="gameCommanderCount"][value="${commanderNames.length}"]`).checked = true;
+  renderCommanderNameFields(dom.gameCommanderNames, commanderNames.length, commanderNames, identities);
+  if (identities.length !== commanderNames.length) void confirmUnresolvedCommanderDetails(dom.gameCommanderNames, commanderNames.length);
+});
 $$('input[name="deckCommanderCount"]').forEach(input => input.addEventListener('change', () => { const paired = Number(input.value) === 2; deckCommanderNameTwoField.hidden = !paired; if (!paired) deckCommanderNameTwo.value = ''; deckCommanderColors = []; deckCommanderStatus.textContent = 'Commander count changed. Find colors again to update the deck identity.'; }));
 document.addEventListener('pointerdown', touchLocalDemo);
 document.addEventListener('keydown', touchLocalDemo);

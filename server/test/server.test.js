@@ -121,7 +121,10 @@ describe("room configuration and claims", () => {
     assert.equal(made.snapshot.seats.length, 8);
     assert.equal(made.snapshot.seats[0].counters.life, 30);
     assert.equal(made.snapshot.seats[0].commanderCount, 2);
-    assert.deepEqual(made.snapshot.seats[0].commanderDamageReceived, {});
+    assert.deepEqual(made.snapshot.seats[0].commanderDamageReceived, {
+      "seat-0-commander-a": 0,
+      "seat-0-commander-b": 0,
+    });
     assert.deepEqual(made.snapshot.seats[0].commanderCastCounts, {
       "seat-0-commander-a": 0,
       "seat-0-commander-b": 0,
@@ -278,10 +281,15 @@ describe("room configuration and claims", () => {
       { id: "seat-1-commander-b", label: "Jace B", ownerSeatId: 1 },
     ]);
     assert.deepEqual(claimed.body.snapshot.seats[0].commanderDamageReceived, {
+      "seat-0-commander-a": 0,
       "seat-1-commander-a": 0,
       "seat-1-commander-b": 0,
     });
-    assert.deepEqual(claimed.body.snapshot.seats[1].commanderDamageReceived, { "seat-0-commander-a": 0 });
+    assert.deepEqual(claimed.body.snapshot.seats[1].commanderDamageReceived, {
+      "seat-0-commander-a": 0,
+      "seat-1-commander-a": 0,
+      "seat-1-commander-b": 0,
+    });
     assert.deepEqual(claimed.body.snapshot.seats[1].commanderCastCounts, {
       "seat-1-commander-a": 0,
       "seat-1-commander-b": 0,
@@ -322,6 +330,7 @@ describe("authority and convergence", () => {
       { id: "seat-1-commander-b", label: "Alex B", ownerSeatId: 1 },
     ]);
     assert.deepEqual(Object.keys(renamed.body.snapshot.seats[0].commanderDamageReceived), [
+      "seat-0-commander-a",
       "seat-1-commander-a",
       "seat-1-commander-b",
     ]);
@@ -412,8 +421,14 @@ describe("authority and convergence", () => {
       { id: "seat-0-commander-a", label: "P1", ownerSeatId: 0 },
       { id: "seat-1-commander-a", label: "P2", ownerSeatId: 1 },
     ]);
-    assert.deepEqual(hostSingle.body.snapshot.seats[1].commanderDamageReceived, { "seat-0-commander-a": 5 });
-    assert.deepEqual(hostSingle.body.snapshot.seats[0].commanderDamageReceived, { "seat-1-commander-a": 4 });
+    assert.deepEqual(hostSingle.body.snapshot.seats[1].commanderDamageReceived, {
+      "seat-0-commander-a": 5,
+      "seat-1-commander-a": 0,
+    });
+    assert.deepEqual(hostSingle.body.snapshot.seats[0].commanderDamageReceived, {
+      "seat-0-commander-a": 0,
+      "seat-1-commander-a": 4,
+    });
 
     const playerPartners = await call(`/api/rooms/${made.snapshot.code}/me`, {
       method: "PATCH",
@@ -422,10 +437,15 @@ describe("authority and convergence", () => {
     });
     assert.equal(playerPartners.status, 200);
     assert.deepEqual(playerPartners.body.snapshot.seats[0].commanderDamageReceived, {
+      "seat-0-commander-a": 0,
       "seat-1-commander-a": 4,
       "seat-1-commander-b": 0,
     });
-    assert.deepEqual(playerPartners.body.snapshot.seats[1].commanderDamageReceived, { "seat-0-commander-a": 5 });
+    assert.deepEqual(playerPartners.body.snapshot.seats[1].commanderDamageReceived, {
+      "seat-0-commander-a": 5,
+      "seat-1-commander-a": 0,
+      "seat-1-commander-b": 0,
+    });
 
     const stale = await call(`/api/rooms/${made.snapshot.code}/me`, {
       method: "PATCH",
@@ -1158,6 +1178,28 @@ test("treats repeated life operation IDs as one adjustment", async () => {
   assert.equal(first.status, 200); assert.equal(retry.status, 200);
   assert.equal(retry.body.deduplicated, true);
   assert.equal(retry.body.snapshot.seats[0].counters.life, 37);
+});
+
+test("tracks self-commander damage without corruption and eliminates only at 21", () => {
+  const service = new RoomService();
+  const host = service.createConnection();
+  const made = service.createRoom(host.connectionId, { playerCount: 2, startingLife: 40, commanderNames: ["Atraxa"] });
+  const guest = service.createConnection();
+  const claimed = service.claimSeat(made.snapshot.code, guest.connectionId, { seatId: 1, name: "Jace", commanderNames: ["Krenko"] });
+  service.startGame(made.snapshot.code, host.connectionId, { baseVersion: claimed.snapshot.version });
+
+  let result = service.adjustOwnSeat(made.snapshot.code, host.connectionId, { counter: "commanderDamage", commanderSourceId: "seat-0-commander-a", delta: 1 });
+  assert.equal(result.snapshot.seats[0].commanderDamageReceived["seat-0-commander-a"], 1);
+  assert.equal(result.snapshot.seats[0].counters.life, 39);
+  assert.equal(result.snapshot.gameResult, null);
+
+  result = service.adjustOwnSeat(made.snapshot.code, host.connectionId, { counter: "commanderDamage", commanderSourceId: "seat-0-commander-a", delta: 19 });
+  assert.equal(result.snapshot.seats[0].commanderDamageReceived["seat-0-commander-a"], 20);
+  assert.equal(result.snapshot.gameResult, null);
+
+  result = service.adjustOwnSeat(made.snapshot.code, host.connectionId, { counter: "commanderDamage", commanderSourceId: "seat-0-commander-a", delta: 1 });
+  assert.equal(result.snapshot.seats[0].commanderDamageReceived["seat-0-commander-a"], 21);
+  assert.equal(result.snapshot.gameResult?.winnerSeatId, 1);
 });
 
 test("bounds commander lookups and never turns an outage into a colorless result", async () => {
