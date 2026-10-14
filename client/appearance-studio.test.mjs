@@ -8,12 +8,15 @@ const devicePreview = await readFile(new URL('device-preview.js', root), 'utf8')
 const app = await readFile(new URL('app.js', root), 'utf8');
 const html = await readFile(new URL('appearance-studio.html', root), 'utf8');
 
-test('Appearance Studio uses the isolated live renderer as its visible preview', () => {
+test('Appearance Studio uses the isolated live renderer and a visible blocked-iframe fallback', () => {
   assert.match(html, /<iframe id="exactPreview"[^>]*src="index\.html\?appearance-preview=1"/);
   assert.match(html, /class="preview-stage legacy-preview" hidden aria-hidden="true"/);
   assert.match(html, /visible preview is the live game interface/);
   assert.match(studio, /frame\.contentWindow\?\.postMessage\(\{ type: 'fivefold-arc:appearance-skin'/);
   assert.match(studio, /fivefold-arc:appearance-preview-ready/);
+  assert.match(studio, /function useCompatibilityPreview\(\)/);
+  assert.match(studio, /window\.setTimeout\(useCompatibilityPreview, 2200\)/);
+  assert.match(studio, /function markExactPreviewReady\(\)/);
   assert.match(app, /appearancePreviewMode = new URLSearchParams\(location\.search\)\.get\('appearance-preview'\) === '1'/);
   assert.match(app, /event\.origin !== location\.origin \|\| event\.data\?\.type !== 'fivefold-arc:appearance-skin'/);
   assert.match(app, /window\.parent\.postMessage\(\{ type: 'fivefold-arc:appearance-preview-ready' \}, location\.origin\)/);

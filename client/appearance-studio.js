@@ -1,8 +1,23 @@
 import { mountDevicePreview } from './device-preview.js?v=2';
 const $ = s => document.querySelector(s); const $$ = s => [...document.querySelectorAll(s)];
 const KEY = 'fivefold-arc:appearance-studio'; let developerKey = sessionStorage.getItem('fivefold-arc:developer-key') || '';
+let exactPreviewFallbackTimer = 0;
+function useCompatibilityPreview() {
+  document.body.dataset.previewFallback = 'true';
+  const legacy = $('.legacy-preview');
+  if (legacy) { legacy.hidden = false; legacy.setAttribute('aria-hidden', 'false'); }
+  const note = $('#compareNote');
+  if (note) note.innerHTML = 'Showing the <strong>compatibility preview</strong> because this browser blocked the embedded live game. Your edits are still safe; open Studio in a standard browser to use the exact live renderer.';
+}
+function markExactPreviewReady() {
+  clearTimeout(exactPreviewFallbackTimer);
+  document.body.dataset.previewFallback = 'false';
+  const legacy = $('.legacy-preview');
+  if (legacy) { legacy.hidden = true; legacy.setAttribute('aria-hidden', 'true'); }
+  renderExactPreview();
+}
 window.addEventListener('message', event => {
-  if (event.origin === location.origin && event.data?.type === 'fivefold-arc:appearance-preview-ready') renderExactPreview();
+  if (event.origin === location.origin && event.data?.type === 'fivefold-arc:appearance-preview-ready') markExactPreviewReady();
 });
 const icons = { life: '♥', commander: '♜', radiation: '☢', poison: '☠', energy: 'ϟ', generic: '◇' };
 const labels = { life: 'Life', commander: 'Commander damage', radiation: 'Radiation', poison: 'Poison', energy: 'Energy', generic: 'Generic counters' };
@@ -97,6 +112,7 @@ const podPreviewControl = document.createElement('div'); podPreviewControl.class
 const modePreviewControl = document.createElement('div'); modePreviewControl.className = 'segmented'; modePreviewControl.setAttribute('role', 'group'); modePreviewControl.setAttribute('aria-label', 'Preview counter mode'); modePreviewControl.innerHTML = Object.entries(labels).map(([mode, label]) => `<button data-preview-mode="${mode}" class="${mode === previewMode ? 'selected' : ''}" type="button">${label}</button>`).join(''); $('.preview-toolbar').append(modePreviewControl); $$('[data-preview-mode]').forEach(button => button.addEventListener('click', () => { previewMode = button.dataset.previewMode; previewModeIndex = Object.keys(icons).indexOf(previewMode); $$('[data-preview-mode]').forEach(item => item.classList.toggle('selected', item === button)); renderPreview(); }));
 $('#exactPreview').addEventListener('load', renderExactPreview); $('#runPreflightButton').addEventListener('click', runPreflight); renderPreview();
 const exactPreviewPlacementStyle = document.createElement('style'); exactPreviewPlacementStyle.textContent = '.preview-area{display:flex;flex-direction:column;align-items:center}.preview-toolbar,.compare-note{width:100%;flex:none}.preview-stage{display:contents}.exact-preview{flex:none;margin:16px 0}'; document.head.append(exactPreviewPlacementStyle);
+const exactPreviewFallbackStyle = document.createElement('style'); exactPreviewFallbackStyle.textContent = 'body[data-preview-fallback="true"] .device-preview-panel{display:none}body[data-preview-fallback="true"] .preview-stage.legacy-preview{display:grid;place-items:center;min-height:680px;padding:30px}body[data-preview-fallback="true"] .legacy-preview .phone-preview{display:block}@media(max-width:720px){body[data-preview-fallback="true"] .preview-stage.legacy-preview{min-height:720px;padding:20px 8px}}'; document.head.append(exactPreviewFallbackStyle);
 const backgroundArtControlsStyle = document.createElement('style'); backgroundArtControlsStyle.textContent = '.background-art-controls{display:grid;gap:8px;margin-top:10px}.background-art-controls label{display:grid!important;grid-template-columns:1fr auto;gap:5px;margin:0!important;font-size:.68rem!important}.background-art-controls output{color:#d8b36b}.background-art-controls input{grid-column:1/-1;width:100%;min-height:auto;margin:0;padding:0}'; document.head.append(backgroundArtControlsStyle);
 const buttonControlsStyle = document.createElement('style'); buttonControlsStyle.textContent = '.preview-end-turn{border-color:color-mix(in srgb,var(--accent) calc(var(--button-border,70) * 1%),transparent);background:color-mix(in srgb,var(--accent) calc(var(--button-opacity,100) * 1%),transparent);backdrop-filter:blur(calc(var(--button-blur,0) * 1px))}.preview-adjust button{border-color:color-mix(in srgb,#58574f calc(var(--life-button-border,70) * 1%),transparent);background:color-mix(in srgb,var(--surface) calc(var(--life-button-opacity,100) * 1%),transparent);backdrop-filter:blur(calc(var(--life-button-blur,0) * 1px))}'; document.head.append(buttonControlsStyle);
 function applyButtonControls(skin) { const root = $('#previewScreen'); ['button','lifeButton','customLife','commanderTax'].forEach(prefix => { const css = prefix.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`); root.style.setProperty(`--${css}-opacity`, skin[`${prefix}Opacity`]); root.style.setProperty(`--${css}-blur`, skin[`${prefix}Blur`]); root.style.setProperty(`--${css}-border`, skin[`${prefix}Border`]); }); }
@@ -151,6 +167,7 @@ const buildDevicePreviewSkin = () => {
   const layout = activeModeLayout(skin);
   return { ...skin, ...layout, useGameBase: showingBaseline || skin.id === 'neutral', previewState, previewMode, previewPlayers, backgroundData: asset(skin.backgroundAsset), sealData: asset(skin.sealAsset), symbolData: Object.fromEntries(Object.keys(icons).map(key => [key, asset(skin.symbolAssets?.[key])])), overlayData: Object.fromEntries(Object.entries(layout.overlays || {}).map(([slot, id]) => [slot, asset(id)])) };
 };
+exactPreviewFallbackTimer = window.setTimeout(useCompatibilityPreview, 2200);
 const devicePreview = mountDevicePreview({ primaryFrame: $('#exactPreview'), getSkin: buildDevicePreviewSkin });
 const phoneLayoutControl = document.createElement('section'); phoneLayoutControl.className = 'phone-layout-control'; phoneLayoutControl.innerHTML = '<strong>Phone Layout Editor</strong><p>Open this draft on your iPhone and adjust the live game there.</p><button type="button" id="openPhoneLayoutEditor">Create phone link</button><div id="phoneLayoutLink" hidden></div>'; $('#uxStudioPanel').insertBefore(phoneLayoutControl, $('#uxStudioPanel').querySelector('details:last-child'));
 let phoneLayoutSession = null, phoneLayoutUpdatedAt = 0, applyingPhoneLayout = false;
