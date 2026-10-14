@@ -46,6 +46,13 @@ test('button and dial layout values are stored independently in a skin', () => {
   assert.match(studio, /const layout = activeModeLayout\(skin\)/);
 });
 
+test('supported layout regions stay bounded and keep functional structure locked', () => {
+  assert.match(studio, /placement\.x = Math\.min\(32, Math\.max\(-32/);
+  assert.match(studio, /placement\.y = Math\.min\(36, Math\.max\(-36/);
+  assert.match(studio, /placement\.scale = Math\.min\(115, Math\.max\(85/);
+  assert.match(studio, /cannot be hidden, reordered, or made unreachable/);
+});
+
 test('the center seal and life total can be positioned independently in each control layout', () => {
   for (const label of ['Center seal size', 'Center seal left\/right', 'Life total size', 'Life total left\/right']) assert.match(html, new RegExp(label));
   for (const key of ['centerSealScale', 'centerSealOffsetX', 'centerSealOffsetY', 'lifeNumberScale', 'lifeNumberOffsetX', 'lifeNumberOffsetY']) assert.match(studio, new RegExp(`\\b${key}\\b`));
@@ -59,6 +66,13 @@ test('the Studio exposes separate safe text sizing controls and collapsible edit
   assert.match(app, /--appearance-label-text-scale/);
   assert.match(app, /--appearance-seat-text-scale/);
   assert.match(html, /class="studio-fold"/);
+});
+
+test('player-card spacing is bounded per supported control layout', () => {
+  assert.match(studio, /Player-card gap/);
+  assert.match(studio, /layout\.seatGap = Math\.min\(16, Math\.max\(4/);
+  assert.match(app, /--appearance-seat-gap/);
+  assert.match(app, /\.pod-strip\{gap:var\(--appearance-seat-gap,8px\)\}/);
 });
 
 test('dial artwork can rotate with the dial and the Studio can open a shared phone layout editor', () => {
@@ -185,4 +199,78 @@ test('Studio preflight checks the exact-app matrix without saving or publishing 
   assert.match(studio, /Real-device touch and table-distance review still need a playtest/);
   const preflight = studio.match(/async function runPreflight\(\)[\s\S]*?\nfunction renderExactPreview/)?.[0] || '';
   assert.doesNotMatch(preflight, /saveDraft\(|publish\(/);
+});
+
+test('Studio foundation provides bounded undo redo and portable catalog validation', () => {
+  assert.match(html, /id="undoButton"/);
+  assert.match(html, /id="redoButton"/);
+  assert.match(html, /id="exportCatalogButton"/);
+  assert.match(html, /id="validateCatalogButton"/);
+  assert.match(studio, /const APPEARANCE_CATALOG_SCHEMA_VERSION = 1/);
+  assert.match(studio, /const DRAFT_HISTORY_LIMIT = 60/);
+  assert.match(studio, /function recordDraftHistory\(\)/);
+  assert.match(studio, /function restoreDraftHistory\(index\)/);
+  assert.match(studio, /function inspectCatalogBackup\(value\)/);
+  assert.match(studio, /Catalog export downloaded/);
+});
+
+test('Studio maintains semantic appearance tokens while preserving legacy skin fields', () => {
+  assert.match(studio, /const APPEARANCE_TOKEN_SCHEMA_VERSION = 1/);
+  assert.match(studio, /const tokenColorFields =/);
+  assert.match(studio, /function normalizeAppearanceTokens\(skin\)/);
+  assert.match(studio, /tokens\.color\[token\]/);
+  assert.match(studio, /tokens\.typography\.family/);
+  assert.match(studio, /tokens\.components\[prefix\]/);
+  assert.match(studio, /function materializeAppearanceSkin\(skin\)/);
+  assert.match(studio, /renderExactPreview\(\); devicePreview\.sync\(\);/);
+});
+
+test('Studio exposes bounded semantic state color and global typography controls', () => {
+  for (const id of ['stateSuccess', 'stateWarning', 'stateDanger', 'focusColor', 'fontWeight', 'lineHeight', 'letterSpacing', 'textTransform', 'labelAlignment', 'textEffect']) assert.match(studio, new RegExp(`id=\\"${id}\\"`));
+  assert.match(studio, /State colors &amp; global type/);
+  assert.match(studio, /function renderSemanticTokens\(\)/);
+  assert.match(app, /--appearance-font-weight/);
+  assert.match(app, /--appearance-line-height/);
+  assert.match(app, /--appearance-letter-spacing/);
+  assert.match(app, /--appearance-text-transform/);
+  assert.match(app, /--appearance-label-alignment/);
+  assert.match(app, /--appearance-text-shadow/);
+  assert.match(app, /--focus-ring/);
+});
+
+test('Studio supports only named component color overrides with resets', () => {
+  for (const component of ['endTurn', 'lifeButtons', 'playerCards', 'navigation']) assert.match(studio, new RegExp(`\\b${component}\\b`));
+  assert.match(studio, /Component colors/);
+  assert.match(studio, /function normalizeComponentColors\(skin\)/);
+  assert.match(studio, /data-component-color-reset/);
+  assert.match(app, /appearance-end-turn-background/);
+  assert.match(app, /appearance-life-buttons-background/);
+  assert.match(app, /appearance-player-cards-background/);
+  assert.match(app, /appearance-navigation-background/);
+});
+
+test('Studio presets affect only the unsaved visual draft and remain undoable', () => {
+  assert.match(studio, /const appearancePresets =/);
+  for (const preset of ['neutral', 'highContrast', 'midnightGlass']) assert.match(studio, new RegExp(`\\b${preset}\\b`));
+  assert.match(studio, /Visual presets/);
+  assert.match(studio, /Apply a visual starting point to this unsaved draft/);
+  assert.match(studio, /Object\.assign\(draft, clone\(preset\.values\)\)/);
+  assert.match(studio, /Undo restores the exact prior draft/);
+});
+
+test('component token contrast is required before publishing', () => {
+  assert.match(studio, /const validateWithBaseChecks = validate/);
+  assert.match(studio, /componentChecks = Object\.entries\(componentColorDefaults\)/);
+  assert.match(studio, /text remains readable/);
+  assert.match(studio, /contrast\(colors\.text, colors\.background\) >= 4\.5/);
+});
+
+test('saved skin versions are bounded and restore only into an unsaved draft', () => {
+  assert.match(studio, /const SKIN_VERSION_LIMIT = 12/);
+  assert.match(studio, /function recordSavedSkinVersion\(skin, label\)/);
+  assert.match(studio, /recordSavedSkinVersion\(savedSkin, label\)/);
+  assert.match(studio, /recordSavedSkinVersion\(skin, 'Published'\)/);
+  assert.match(studio, /Restore to draft/);
+  assert.match(studio, /only this unsaved visual draft/);
+  assert.match(studio, /versions, status \}/);
 });
