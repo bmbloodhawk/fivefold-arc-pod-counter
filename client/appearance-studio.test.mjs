@@ -17,8 +17,11 @@ test('Appearance Studio uses the isolated live renderer and recovers blocked emb
   assert.match(studio, /function showExactPreviewRecovery\(\)/);
   assert.match(studio, /window\.setTimeout\(showExactPreviewRecovery, 2200\)/);
   assert.match(studio, /function markExactPreviewReady\(\)/);
-  assert.match(studio, /Create exact phone preview/);
+  assert.match(studio, /Use the exact browser preview/);
   assert.match(studio, /exactPreviewRecoveryLink/);
+  assert.match(studio, /Open fast browser preview/);
+  assert.match(studio, /fivefold-arc:phone-layout-sync/);
+  assert.match(app, /new BroadcastChannel\(`fivefold-arc:phone-layout:\$\{phoneLayoutSessionId\}`\)/);
   assert.match(app, /appearancePreviewMode = new URLSearchParams\(location\.search\)\.get\('appearance-preview'\) === '1'/);
   assert.match(app, /event\.origin !== location\.origin \|\| event\.data\?\.type !== 'fivefold-arc:appearance-skin'/);
   assert.match(app, /window\.parent\.postMessage\(\{ type: 'fivefold-arc:appearance-preview-ready' \}, location\.origin\)/);
@@ -90,7 +93,7 @@ test('dial artwork can rotate with the dial and the Studio can open a shared pho
   assert.match(app, /transform-origin:50% 50%/);
   assert.match(app, /object-position:center/);
   assert.match(app, /phoneLayoutSessionId/);
-  assert.match(studio, /Phone Layout Editor/);
+  assert.match(studio, /Open fast browser preview/);
   assert.match(studio, /phone-layout/);
 });
 
