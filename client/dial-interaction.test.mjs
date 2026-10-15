@@ -20,3 +20,12 @@ test('rendering a Dial simulation reads the saved interface style without invoki
   assert.match(app, /dom\.dialControls\.hidden = freezeGameControls \|\| interfaceStyle !== 'dial';/);
   assert.doesNotMatch(app, /interfaceStyle\(\)/);
 });
+
+test('visible Dial layers use one shared center while the life total gets only an optical lift', () => {
+  assert.match(styles, /#gameView\[data-interface-style="dial"\] \{ --dial-center-y: 48%; \}/);
+  assert.match(styles, /counter-stage::after \{ transform: translate\(-50%, -50%\) rotate/);
+  assert.match(styles, /counter-sigil \{[\s\S]*transform: translate\(-50%, -50%\) rotate/);
+  assert.match(styles, /counter-stage::after \{ top: var\(--dial-center-y\); \}/);
+  assert.match(styles, /dial-controls \{ top: var\(--dial-center-y\); \}/);
+  assert.match(styles, /counter-readout \.main-value \{ position: absolute; top: var\(--dial-center-y\); left: 50%;[\s\S]*translate\(-50%, calc\(-50% - 6px\)\)/);
+});
