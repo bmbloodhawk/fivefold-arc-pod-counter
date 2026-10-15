@@ -97,6 +97,14 @@ test('dial artwork can rotate with the dial and the Studio can open a shared pho
   assert.match(studio, /phone-layout/);
 });
 
+test('dial artwork keeps its full canvas for the overlay to frame', () => {
+  assert.match(app, /skin-overlay\{position:absolute;inset:0;z-index:2;[\s\S]*pointer-events:none;/);
+  assert.match(app, /appearance-overlay\{position:absolute;inset:0;z-index:2;[\s\S]*pointer-events:none;/);
+  assert.match(app, /dial-gesture\{position:relative;overflow:visible;transform-origin:50% 50%\}/);
+  assert.match(app, /dial-gesture>\.skin-overlay\{border-radius:0;object-fit:contain;object-position:center;/);
+  assert.match(app, /dial-gesture>\.appearance-overlay\{border-radius:0;object-fit:contain;object-position:center;/);
+});
+
 test('the exact preview and the phone session use the same active layout payload', () => {
   assert.match(studio, /const exactSkin = buildDevicePreviewSkin\(\)/);
   assert.match(studio, /skin: buildDevicePreviewSkin\(\)/);
