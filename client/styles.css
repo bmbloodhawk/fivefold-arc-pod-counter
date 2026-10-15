@@ -1120,7 +1120,7 @@ button:disabled { cursor: not-allowed; filter: saturate(.45); }
 #gameView[data-interface-style="dial"] .main-value { font-size: clamp(6.8rem, 32vw, 10rem); }
 /* Every visible Dial layer shares one geometric center. The life number gets
    only a small optical lift; it is no longer independently laid out. */
-#gameView[data-interface-style="dial"] { --dial-center-y: 48%; }
+#gameView[data-interface-style="dial"] { --dial-center-y: calc(48% + 5px); }
 #gameView[data-interface-style="dial"] .counter-stage::before,
 #gameView[data-interface-style="dial"] .counter-stage::after { transform: translate(-50%, -50%) rotate(var(--dial-seal-rotation, 0deg)); transition: transform 180ms cubic-bezier(.2, .8, .2, 1); }
 #gameView[data-interface-style="dial"] .counter-sigil { z-index: 2; width: min(65vw, 255px); opacity: .68; transform: translate(-50%, -50%) rotate(var(--dial-seal-rotation, 0deg)); transition: transform 180ms cubic-bezier(.2, .8, .2, 1); }

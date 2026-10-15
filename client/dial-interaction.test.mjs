@@ -23,7 +23,7 @@ test('rendering a Dial simulation reads the saved interface style without invoki
 });
 
 test('visible Dial layers use one shared center while the life total gets only an optical lift', () => {
-  assert.match(styles, /#gameView\[data-interface-style="dial"\] \{ --dial-center-y: 48%; \}/);
+  assert.match(styles, /#gameView\[data-interface-style="dial"\] \{ --dial-center-y: calc\(48% \+ 5px\); \}/);
   assert.match(styles, /counter-stage::after \{ transform: translate\(-50%, -50%\) rotate/);
   assert.match(styles, /counter-sigil \{[\s\S]*transform: translate\(-50%, -50%\) rotate/);
   assert.match(styles, /counter-stage::after \{ top: var\(--dial-center-y\); \}/);
