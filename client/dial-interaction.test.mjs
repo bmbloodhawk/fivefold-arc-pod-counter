@@ -4,6 +4,7 @@ import test from 'node:test';
 
 const styles = fs.readFileSync(new URL('./styles.css', import.meta.url), 'utf8');
 const app = fs.readFileSync(new URL('./app.js', import.meta.url), 'utf8');
+const index = fs.readFileSync(new URL('./index.html', import.meta.url), 'utf8');
 
 test('the full visible dial starts a drag without covering the side tap zones', () => {
   assert.match(styles, /\.dial-controls \{ position: absolute; z-index: 5;[\s\S]*pointer-events: auto; touch-action: none;/);
@@ -28,4 +29,9 @@ test('visible Dial layers use one shared center while the life total gets only a
   assert.match(styles, /counter-stage::after \{ top: var\(--dial-center-y\); \}/);
   assert.match(styles, /dial-controls \{ top: var\(--dial-center-y\); \}/);
   assert.match(styles, /counter-readout \.main-value \{ position: absolute; top: var\(--dial-center-y\); left: 50%;[\s\S]*translate\(-50%, calc\(-50% - 6px\)\)/);
+});
+
+test('the tracked mode label is centered by its visible lettering', () => {
+  assert.match(index, /<p class="counter-mode"><span id="modeTitle">LIFE<\/span><\/p>/);
+  assert.match(styles, /\.counter-mode > #modeTitle \{ margin-right: -\.16em; \}/);
 });
