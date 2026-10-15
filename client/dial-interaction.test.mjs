@@ -33,5 +33,5 @@ test('visible Dial layers use one shared center while the life total gets only a
 
 test('the tracked mode label is centered by its visible lettering', () => {
   assert.match(index, /<p class="counter-mode"><span id="modeTitle">LIFE<\/span><\/p>/);
-  assert.match(styles, /\.counter-mode > #modeTitle \{ margin-right: -\.16em; \}/);
+  assert.match(styles, /\.counter-mode > #modeTitle \{ margin-right: -\.16em; margin-left: \.16em; \}/);
 });

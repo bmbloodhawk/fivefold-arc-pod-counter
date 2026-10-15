@@ -213,7 +213,7 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .counter-stage::before { content: ""; position: absolute; z-index: 0; top: 52%; left: 50%; width: min(80vw, 318px); aspect-ratio: 1; transform: translate(-50%, -43%); background: var(--identity-seal, transparent); -webkit-mask: radial-gradient(circle, transparent 0 46%, #000 47% 51%, transparent 52% 58%, #000 59% 62%, transparent 63%); mask: radial-gradient(circle, transparent 0 46%, #000 47% 51%, transparent 52% 58%, #000 59% 62%, transparent 63%); opacity: .9; pointer-events: none; }
 .counter-stage > * { position: relative; z-index: 1; }
 .counter-mode { display: flex; align-items: center; width: 100%; gap: 12px; margin: 0; color: var(--brass); font-family: Georgia, "Times New Roman", serif; font-size: 1.45rem; font-weight: 500; letter-spacing: .16em; transform: translateY(52px); }
-.counter-mode > #modeTitle { margin-right: -.16em; }
+.counter-mode > #modeTitle { margin-right: -.16em; margin-left: .16em; }
 .counter-mode::before, .counter-mode::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, #5e5037); }.counter-mode::after { background: linear-gradient(90deg, #5e5037, transparent); }
 .main-value { margin-top: 0; font-family: Georgia, serif; font-size: clamp(8rem, 38vw, 12rem); line-height: .68; font-variant-numeric: tabular-nums; text-shadow: 0 3px 28px rgb(216 174 97 / .22); }
 .life-change-indicator { min-width: 116px; margin-top: 18px; padding: 6px 12px; border: 1px solid var(--brass-dark); border-radius: 5px; background: #1f1a12; color: var(--brass); font-family: Georgia, serif; font-size: .78rem; font-weight: 700; letter-spacing: .09em; text-align: center; }
