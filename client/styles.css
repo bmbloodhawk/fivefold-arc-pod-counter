@@ -1130,7 +1130,7 @@ button:disabled { cursor: not-allowed; filter: saturate(.45); }
 #gameView[data-interface-style="dial"] .dial-controls { top: var(--dial-center-y); }
 #gameView[data-interface-style="dial"] .counter-readout { position: absolute; inset: 0; display: block; min-height: 0; padding: 0; transform: none; }
 #gameView[data-interface-style="dial"] .counter-readout .main-value { position: absolute; top: var(--dial-center-y); left: 50%; margin: 0; transform: translate(-50%, calc(-50% - 6px)); }
-#gameView[data-interface-style="dial"] .counter-readout .counter-mode { position: absolute; top: calc(var(--dial-center-y) - min(22vw, 88px)); right: 0; left: 0; margin: 0; transform: none; }
+#gameView[data-interface-style="dial"] .counter-readout .counter-mode { position: absolute; top: calc(var(--dial-center-y) - min(22vw, 88px)); left: 50%; width: 100%; margin: 0; transform: translateX(-50%); }
 #gameView[data-interface-style="dial"] .counter-readout .counter-context { position: absolute; top: calc(var(--dial-center-y) + min(20vw, 70px)); right: 0; left: 0; margin: 0; transform: none; }
 #gameView[data-interface-style="dial"] .turn-actions { margin-top: 52px; }
 /* Dial controls use the bottom tab bar as their anchor. Commander Tax stays

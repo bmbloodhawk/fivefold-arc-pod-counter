@@ -34,4 +34,5 @@ test('visible Dial layers use one shared center while the life total gets only a
 test('the tracked mode label is centered by its visible lettering', () => {
   assert.match(index, /<p class="counter-mode"><span id="modeTitle">LIFE<\/span><\/p>/);
   assert.match(styles, /\.counter-mode > #modeTitle \{ margin-right: -\.16em; margin-left: \.16em; \}/);
+  assert.match(styles, /#gameView\[data-interface-style="dial"\] \.counter-readout \.counter-mode \{ position: absolute; top: calc\(var\(--dial-center-y\) - min\(22vw, 88px\)\); left: 50%; width: 100%; margin: 0; transform: translateX\(-50%\); \}/);
 });
