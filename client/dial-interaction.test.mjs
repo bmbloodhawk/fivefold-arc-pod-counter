@@ -19,6 +19,7 @@ test('the full visible dial starts a drag without covering the side tap zones', 
 
 test('rendering a Dial simulation reads the saved interface style without invoking it', () => {
   assert.match(app, /dom\.dialControls\.hidden = freezeGameControls \|\| interfaceStyle !== 'dial';/);
+  assert.match(app, /localStorage\.getItem\(INTERFACE_STYLE_KEY\) === 'button' \? 'button' : 'dial'/);
   assert.doesNotMatch(app, /interfaceStyle\(\)/);
 });
 

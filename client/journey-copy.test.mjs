@@ -409,6 +409,7 @@ test('touch feedback is local, optional, and never part of game state', () => {
   assert.match(styles, /Shared tactile visual response/);
   assert.match(styles, /Routine game taps must not be interpreted as browser double-tap zooms/);
   assert.match(styles, /button \{ touch-action: manipulation;/);
+  assert.match(styles, /#gameView\[data-counter-mode="commander"\] \{ touch-action: manipulation; \}/);
 });
 
 test('the confirmed winner is celebrated on every phone before the host opens next-game setup', () => {

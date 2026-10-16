@@ -1281,6 +1281,7 @@ dialog:not(#victoryDialog) { max-height:calc(100dvh - 24px); overflow-y:auto; ov
 /* Commander selection sits above the turn control, never inside the dial. */
 /* Commander damage has one visible context: the selected player and the
    selected commander. Player cards remain stable life references. */
+#gameView[data-counter-mode="commander"] { touch-action: manipulation; }
 #gameView[data-counter-mode="commander"] > .source-panel {
   position: relative;
   z-index: 6;
