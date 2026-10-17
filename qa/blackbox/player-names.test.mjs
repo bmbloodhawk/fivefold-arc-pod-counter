@@ -138,8 +138,8 @@ live('duplicate display names never replace stable seat and commander identity',
   })).snapshot;
   assert.equal(seat(state, 1).commanderCastCounts[sourceId(1, 'b')], 2);
   assert.equal(seat(state, 0).commanderDamageReceived[sourceId(1)], 7);
-  assert.equal(seat(state, 0).commanderDamageReceived[sourceId(0)] === undefined, true,
-    'duplicate names must not confuse own and opposing source IDs');
+  assert.equal(seat(state, 0).commanderDamageReceived[sourceId(0)], 0,
+    'duplicate names must keep own and opposing commander sources distinct');
 });
 
 live('rename changes presentation only and preserves source IDs, ownership, damage, and casts', async () => {

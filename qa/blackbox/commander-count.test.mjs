@@ -28,12 +28,11 @@ function assertCommanderShape(state, counts) {
   assert.deepEqual(state.commanderSources, expectedSources(counts));
   assert.deepEqual(state.seats.map(value => value.commanderCount), counts);
   for (const defender of state.seats) {
-    const expectedIds = state.commanderSources
-      .filter(source => source.ownerSeatId !== defender.seatId)
-      .map(source => source.id)
-      .sort();
+    // A commander can damage its owner when another player controls it, so
+    // every defender tracks every active commander source, including their own.
+    const expectedIds = state.commanderSources.map(source => source.id).sort();
     assert.deepEqual(Object.keys(defender.commanderDamageReceived).sort(), expectedIds,
-      `P${defender.seatId + 1} must see exactly the other players' commander sources`);
+      `P${defender.seatId + 1} must track every active commander source`);
   }
 }
 
