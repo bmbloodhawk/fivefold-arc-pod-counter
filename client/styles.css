@@ -1463,3 +1463,5 @@ dialog:not(#victoryDialog) { max-height:calc(100dvh - 24px); overflow-y:auto; ov
 .join-qr-scanner-frame { position: relative; aspect-ratio: 1; overflow: hidden; border: 1px solid var(--brass-dark); border-radius: 8px; background: #070706; }
 .join-qr-scanner-frame video { display: block; width: 100%; height: 100%; object-fit: cover; }
 .join-qr-scanner-guide { position: absolute; inset: 17%; border: 2px solid rgb(241 234 219 / .9); border-radius: 8px; box-shadow: 0 0 0 999px rgb(0 0 0 / .18); pointer-events: none; }
+.join-qr-camera-fallback { display: block; box-sizing: border-box; text-align: center; }
+.join-qr-camera-fallback input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }

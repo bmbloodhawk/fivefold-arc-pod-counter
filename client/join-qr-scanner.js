@@ -11,14 +11,35 @@ function canRetryWithGenericCamera(error) {
   return ['TypeError', 'OverconstrainedError'].includes(error?.name) || /illegal invocation/i.test(String(error?.message || ''));
 }
 
+async function readImagePixels(file) {
+  if (!(file instanceof Blob)) throw new Error('Choose a photo from your phone camera.');
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    await new Promise((resolve, reject) => {
+      image.onload = resolve;
+      image.onerror = () => reject(new Error('That photo could not be read. Try taking it again.'));
+      image.src = objectUrl;
+    });
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    return { data: context.getImageData(0, 0, canvas.width, canvas.height).data, width: canvas.width, height: canvas.height };
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 // The decoder runs entirely on the current video frame. Nothing from the
 // camera is uploaded or retained after a matching pod code is found.
 export class JoinQrScanner {
-  constructor({ mediaDevices = globalThis.navigator?.mediaDevices, decoder = globalThis.jsQR, requestFrame = globalThis.requestAnimationFrame, cancelFrame = globalThis.cancelAnimationFrame } = {}) {
+  constructor({ mediaDevices = globalThis.navigator?.mediaDevices, decoder = globalThis.jsQR, requestFrame = globalThis.requestAnimationFrame, cancelFrame = globalThis.cancelAnimationFrame, imageReader = readImagePixels } = {}) {
     this.mediaDevices = mediaDevices;
     this.decoder = decoder;
     this.requestFrame = requestFrame;
     this.cancelFrame = cancelFrame;
+    this.imageReader = imageReader;
     this.stream = null;
     this.frame = null;
     this.canvas = null;
@@ -43,7 +64,12 @@ export class JoinQrScanner {
     video.autoplay = true;
     video.playsInline = true;
     video.srcObject = this.stream;
-    await video.play?.();
+    try {
+      await video.play?.();
+    } catch (error) {
+      this.stop(video);
+      throw error;
+    }
     const scan = () => {
       if (!this.stream) return;
       if (video.videoWidth && video.videoHeight) {
@@ -63,6 +89,12 @@ export class JoinQrScanner {
       this.frame = this.requestFrame(scan);
     };
     this.frame = this.requestFrame(scan);
+  }
+
+  async scanImageFile(file) {
+    if (typeof this.decoder !== 'function') throw new Error('QR scanning is not available here. Enter the six-character pod code instead.');
+    const { data, width, height } = await this.imageReader(file);
+    return podCodeFromQr(this.decoder(data, width, height, { inversionAttempts: 'attemptBoth' })?.data);
   }
 
   stop(video) {

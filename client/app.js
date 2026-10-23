@@ -21,7 +21,7 @@ const ELIMINATION_ART = { life: 'assets/elimination-skull-v1.png', poison: 'asse
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const dom = {
-  views: $$('.view'), landing: $('#landingView'), create: $('#createView'), join: $('#joinView'), joinSeatView: $('#joinSeatView'), game: $('#gameView'), joinCodeForm: $('#joinCodeForm'), joinCodeStatus: $('#joinCodeStatus'), scanJoinQrButton: $('#scanJoinQrButton'), joinQrScannerDialog: $('#joinQrScannerDialog'), joinQrScannerVideo: $('#joinQrScannerVideo'), joinQrScannerStatus: $('#joinQrScannerStatus'), savedTables: $('#savedTables'), savedTablesList: $('#savedTablesList'), quickTestButton: $('#quickTestButton'), localSimulationField: $('#localSimulationField'),
+  views: $$('.view'), landing: $('#landingView'), create: $('#createView'), join: $('#joinView'), joinSeatView: $('#joinSeatView'), game: $('#gameView'), joinCodeForm: $('#joinCodeForm'), joinCodeStatus: $('#joinCodeStatus'), scanJoinQrButton: $('#scanJoinQrButton'), joinQrScannerDialog: $('#joinQrScannerDialog'), joinQrScannerVideo: $('#joinQrScannerVideo'), joinQrScannerStatus: $('#joinQrScannerStatus'), joinQrCameraFallback: $('#joinQrCameraFallback'), joinQrCameraInput: $('#joinQrCameraInput'), savedTables: $('#savedTables'), savedTablesList: $('#savedTablesList'), quickTestButton: $('#quickTestButton'), localSimulationField: $('#localSimulationField'),
   connectionButton: $('#connectionButton'), connectionText: $('#connectionText'), connectionDialog: $('#connectionDialog'), connectionDetail: $('#connectionDetail'), editPlayerNameButton: $('#editPlayerNameButton'), editPlayerNameDialog: $('#editPlayerNameDialog'), editPlayerNameForm: $('#editPlayerNameForm'), editPlayerName: $('#editPlayerName'), eliminatePlayerButton: $('#eliminatePlayerButton'), eliminatePlayerDialog: $('#eliminatePlayerDialog'), eliminatePlayerForm: $('#eliminatePlayerForm'), eliminatePlayerSeat: $('#eliminatePlayerSeat'), eliminatePlayerReason: $('#eliminatePlayerReason'), eliminatePlayerDetail: $('#eliminatePlayerDetail'), leaveTableButton: $('#leaveTableButton'), leaveTableDialog: $('#leaveTableDialog'), confirmLeaveTableButton: $('#confirmLeaveTableButton'),
   playerCountChoices: $('#playerCountChoices'), seatCapacity: $('#seatCapacity'), createName: $('#createName'), joinSeat: $('#joinSeat'), joinName: $('#joinName'), joinSeatClaim: $('#joinSeatClaim'), activeSeat: $('#activeSeat'), localSimulation: $('#localSimulation'), roundLimitMinutes: $('#roundLimitMinutes'), createCommanderNames: $('#createCommanderNames'), joinCommanderNames: $('#joinCommanderNames'), gameCommanderNames: $('#gameCommanderNames'), createDeckField: $('#createDeckField'), createDeck: $('#createDeck'), joinDeckField: $('#joinDeckField'), joinDeck: $('#joinDeck'),
   podStrip: $('#podStrip'), podLabel: $('#podLabel'), commanderIdentityName: $('#commanderIdentityName'), identityHeaderRail: $('#identityHeaderRail'), modeTitle: $('#modeTitle'), mainValue: $('#mainValue'), dialControls: $('#dialControls'), dialGesture: $('#dialGesture'),
@@ -576,6 +576,7 @@ async function openJoinCode(code) {
 }
 let joinQrScanner = null;
 function stopJoinQrScanner() { joinQrScanner?.stop(dom.joinQrScannerVideo); }
+function showJoinQrCameraFallback(show) { dom.joinQrCameraFallback.hidden = !show; }
 function joinQrCameraErrorMessage(error) {
   if (error?.name === 'NotAllowedError') return 'Camera permission is blocked. Allow camera access for this site, then try again.';
   if (error?.name === 'NotReadableError') return 'The camera is busy in another app or browser tab. Close it there, then try again.';
@@ -585,6 +586,7 @@ function joinQrCameraErrorMessage(error) {
 }
 async function openJoinQrScanner() {
   dom.joinQrScannerStatus.textContent = 'Opening the rear camera…';
+  showJoinQrCameraFallback(false);
   if (!dom.joinQrScannerDialog.open) dom.joinQrScannerDialog.showModal();
   joinQrScanner ||= new JoinQrScanner();
   try {
@@ -597,7 +599,26 @@ async function openJoinQrScanner() {
     else stopJoinQrScanner();
   } catch (error) {
     stopJoinQrScanner();
-    dom.joinQrScannerStatus.textContent = joinQrCameraErrorMessage(error);
+    dom.joinQrScannerStatus.textContent = `${joinQrCameraErrorMessage(error)} Use your phone camera instead.`;
+    showJoinQrCameraFallback(true);
+  }
+}
+async function readJoinQrCameraPhoto(event) {
+  const [photo] = event.currentTarget.files || [];
+  event.currentTarget.value = '';
+  if (!photo) return;
+  dom.joinQrScannerStatus.textContent = 'Reading the camera photo…';
+  try {
+    joinQrScanner ||= new JoinQrScanner();
+    const code = await joinQrScanner.scanImageFile(photo);
+    if (!code) {
+      dom.joinQrScannerStatus.textContent = 'No Fivefold Arc join code was found in that photo. Try again with the code inside the frame.';
+      return;
+    }
+    if (dom.joinQrScannerDialog.open) dom.joinQrScannerDialog.close('scanned');
+    await openJoinCode(code);
+  } catch (error) {
+    dom.joinQrScannerStatus.textContent = error?.message || 'That photo could not be read. Try taking it again.';
   }
 }
 function joinLink() { const url = new URL('./', location.href); url.searchParams.set('join', state.podCode); return url.toString(); }
@@ -1500,6 +1521,7 @@ $('#createStepOneNext').addEventListener('click', () => showCreateStep(2)); $('#
 $('#joinStepTwoNext').addEventListener('click', () => { if (/^P[1-8]$/.test(dom.joinSeat.value)) showJoinStep(3); }); $('#joinStepThreeNext').addEventListener('click', () => showJoinStep(4)); $$('[data-join-back]').forEach(button => button.addEventListener('click', () => showJoinStep(Math.max(2, joinStep - 1))));
 signInButton.addEventListener('click', openSignIn); continueGuestButton.addEventListener('click', enterApp);
 $('#createPodButton').addEventListener('click', () => showView(dom.create)); $('#joinPodButton').addEventListener('click', () => { showView(dom.join); dom.joinCodeStatus.textContent = ''; }); $('#changePodButton').addEventListener('click', () => showView(dom.join)); $$('[data-back]').forEach(button => button.addEventListener('click', () => { renderSavedTables(); showView(dom.landing); })); $('#podCode').addEventListener('input', event => { event.currentTarget.value = event.currentTarget.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); }); $('#joinSeat').addEventListener('change', () => { dom.joinName.placeholder = dom.joinSeat.value; renderJoinSeatClaim(); }); dom.joinCodeForm.addEventListener('submit', async event => { event.preventDefault(); await refreshJoinSeats(); }); dom.scanJoinQrButton.addEventListener('click', () => void openJoinQrScanner()); dom.joinQrScannerDialog.addEventListener('close', stopJoinQrScanner); $$('input[name="commanderCount"], input[name="joinCommanderCount"]').forEach(input => input.addEventListener('change', refreshSetupCommanderNames)); $$('input[name="gameFormat"]').forEach(input => input.addEventListener('change', () => { if (selectedGameFormat() === 'casual') { $('input[name="startingLife"][value="20"]').checked = true; $('input[name="playerCount"][value="2"]').checked = true; } updateFormatSetup(); }));
+dom.joinQrCameraInput.addEventListener('change', event => void readJoinQrCameraPhoto(event));
 $('#quickTestButton').addEventListener('click', () => { const saved = loadLocal(); if (saved) { transport.useLocal(); state = saved; showView(dom.game); render(); } else beginLocalGame({}); });
 $('#createPodButton').addEventListener('click', () => void loadSetupDecks()); $('#joinPodButton').addEventListener('click', () => void loadSetupDecks());
 $('#createPodButton').addEventListener('click', () => { selectedDeckId = ''; try { sessionStorage.removeItem('fivefold-arc:selected-deck'); } catch {} dom.createDeck.value = ''; });

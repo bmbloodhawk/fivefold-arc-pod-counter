@@ -614,6 +614,7 @@
       <p>Point your rear camera at the host’s Fivefold Arc QR code. The code is read on this phone and opens the pod automatically.</p>
       <div class="join-qr-scanner-frame"><video id="joinQrScannerVideo" autoplay muted playsinline></video><span class="join-qr-scanner-guide" aria-hidden="true"></span></div>
       <p id="joinQrScannerStatus" class="field-help" role="status">Opening camera…</p>
+      <label id="joinQrCameraFallback" class="secondary-action join-qr-camera-fallback" hidden><input id="joinQrCameraInput" type="file" accept="image/*" capture="environment">Use phone camera instead</label>
       <button id="cancelJoinQrScanButton" class="secondary-action" value="cancel">Cancel</button>
     </form>
   </dialog>
