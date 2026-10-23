@@ -5,7 +5,7 @@ import { connectionPresentation } from './connection-state.js?v=1';
 import { createInteractionAdvice } from './card-interaction-advice.js?v=1';
 import { commanderFallbackLabel } from './commander-source-flow.js?v=1';
 import { currentAccountToken, emailAccountToken, googleAccountToken, restoredAccountToken, sendAccountPasswordReset, signOutAccount } from './account-auth.js?v=6';
-import { JoinQrScanner } from './join-qr-scanner.js?v=2';
+import { JoinQrScanner } from './join-qr-scanner.js?v=3';
 
 const appearancePreviewMode = new URLSearchParams(location.search).get('appearance-preview') === '1';
 const appearanceParams = new URLSearchParams(location.search);
@@ -576,6 +576,13 @@ async function openJoinCode(code) {
 }
 let joinQrScanner = null;
 function stopJoinQrScanner() { joinQrScanner?.stop(dom.joinQrScannerVideo); }
+function joinQrCameraErrorMessage(error) {
+  if (error?.name === 'NotAllowedError') return 'Camera permission is blocked. Allow camera access for this site, then try again.';
+  if (error?.name === 'NotReadableError') return 'The camera is busy in another app or browser tab. Close it there, then try again.';
+  if (error?.name === 'NotFoundError') return 'No camera is available to this browser. Enter the six-character pod code instead.';
+  if (error?.name === 'OverconstrainedError') return 'This phone could not select a usable camera. Enter the six-character pod code instead.';
+  return 'Could not open the camera on this browser. Enter the six-character pod code instead.';
+}
 async function openJoinQrScanner() {
   dom.joinQrScannerStatus.textContent = 'Opening the rear camera…';
   if (!dom.joinQrScannerDialog.open) dom.joinQrScannerDialog.showModal();
@@ -590,7 +597,7 @@ async function openJoinQrScanner() {
     else stopJoinQrScanner();
   } catch (error) {
     stopJoinQrScanner();
-    dom.joinQrScannerStatus.textContent = 'Could not open the camera on this browser. Enter the six-character pod code instead.';
+    dom.joinQrScannerStatus.textContent = joinQrCameraErrorMessage(error);
   }
 }
 function joinLink() { const url = new URL('./', location.href); url.searchParams.set('join', state.podCode); return url.toString(); }

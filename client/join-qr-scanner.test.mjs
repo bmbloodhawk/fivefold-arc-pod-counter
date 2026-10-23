@@ -34,3 +34,30 @@ test('the QR scanner retries without a camera-facing constraint after an Android
   assert.equal(video.srcObject, stream);
   scanner.stop(video);
 });
+
+test('the QR scanner retries with the default camera when rear-camera selection is overconstrained', async () => {
+  const requested = [];
+  const stream = { getTracks: () => [] };
+  const mediaDevices = {
+    async getUserMedia(constraints) {
+      requested.push(constraints);
+      if (requested.length === 1) {
+        const error = new Error('Rear camera unavailable');
+        error.name = 'OverconstrainedError';
+        throw error;
+      }
+      return stream;
+    },
+  };
+  const video = { srcObject: null, videoWidth: 0, videoHeight: 0, play: async () => {} };
+  const scanner = new JoinQrScanner({ mediaDevices, decoder: () => null, requestFrame: () => 1, cancelFrame: () => {} });
+
+  await scanner.start(video, () => {});
+
+  assert.deepEqual(requested, [
+    { audio: false, video: { facingMode: { ideal: 'environment' } } },
+    { audio: false, video: true },
+  ]);
+  assert.equal(video.srcObject, stream);
+  scanner.stop(video);
+});

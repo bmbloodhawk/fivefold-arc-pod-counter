@@ -8,7 +8,7 @@ export function podCodeFromQr(value) {
 }
 
 function canRetryWithGenericCamera(error) {
-  return error?.name === 'TypeError' || /illegal invocation/i.test(String(error?.message || ''));
+  return ['TypeError', 'OverconstrainedError'].includes(error?.name) || /illegal invocation/i.test(String(error?.message || ''));
 }
 
 // The decoder runs entirely on the current video frame. Nothing from the
@@ -37,6 +37,11 @@ export class JoinQrScanner {
       if (!canRetryWithGenericCamera(error)) throw error;
       this.stream = await this.mediaDevices.getUserMedia({ audio: false, video: true });
     }
+    // iOS Safari treats these as video-element properties, not just markup
+    // attributes, when a camera stream is attached after opening a dialog.
+    video.muted = true;
+    video.autoplay = true;
+    video.playsInline = true;
     video.srcObject = this.stream;
     await video.play?.();
     const scan = () => {
