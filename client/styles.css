@@ -1095,8 +1095,9 @@ button:disabled { cursor: not-allowed; filter: saturate(.45); }
   z-index: 0;
   top: 50%;
   left: 50%;
-  width: min(79vw, 310px);
-  height: min(79vw, 310px);
+  /* Larger invisible pickup area; the visible seal/ring remains unchanged. */
+  width: min(88vw, 346px);
+  height: min(88vw, 346px);
   border-radius: 50%;
   background: transparent;
   pointer-events: auto;
