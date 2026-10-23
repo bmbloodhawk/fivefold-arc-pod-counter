@@ -47,6 +47,7 @@ test('developer tools stay hidden until a host unlocks them with the protected p
   assert.match(app, /const developerMenuVisible = developerMode && developerHost\(\);/);
   assert.match(app, /dom\.playtestRecapButton\.hidden = !developerMenuVisible;/);
   assert.match(app, /dom\.savedPlaytestsButton\.hidden = !developerMenuVisible;/);
+  assert.match(app, /dom\.fieldTestButton\.hidden = !developerMenuVisible \|\| state\.localSimulation \|\| !state\.turn\.gameStarted;/);
   assert.match(app, /dom\.markDevelopmentButton\.hidden = !developerMenuVisible;/);
 });
 

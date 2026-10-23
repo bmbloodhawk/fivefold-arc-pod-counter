@@ -895,7 +895,7 @@ function render() {
   dom.eliminatePlayerButton.hidden = !tableHost || !state.turn.gameStarted;
   dom.playtestNotesButton.hidden = state.localSimulation; dom.playtestNotesButton.disabled = transport.status !== 'connected'; dom.refreshTableButton.hidden = state.localSimulation; dom.refreshTableButton.disabled = transport.status !== 'connected';
   dom.playtestRecapButton.hidden = !developerMenuVisible; dom.playtestRecapButton.disabled = transport.status !== 'connected'; dom.savedPlaytestsButton.hidden = !developerMenuVisible; dom.savedPlaytestsButton.disabled = transport.status !== 'connected';
-  dom.fieldTestButton.hidden = state.localSimulation || transport.seatId !== state.hostSeatId || !state.turn.gameStarted; dom.fieldTestButton.disabled = transport.status !== 'connected';
+  dom.fieldTestButton.hidden = !developerMenuVisible || state.localSimulation || !state.turn.gameStarted; dom.fieldTestButton.disabled = transport.status !== 'connected';
   dom.markDevelopmentButton.hidden = !developerMenuVisible; dom.markDevelopmentButton.disabled = transport.status !== 'connected'; dom.markDevelopmentButton.textContent = state.sessionKind === 'development' ? 'Mark standard table' : 'Mark development run';
   renderCommanderTaxQuick(taxPlayer, inspectingSharedSeat);
   if (dom.backToSetupButton) dom.backToSetupButton.hidden = !canReturnToSetup();
