@@ -19,6 +19,13 @@ test('the enlarged dial drag target remains beneath the fixed-size side tap zone
   assert.match(app, /dom\.dialControls\.addEventListener\('pointerup',[\s\S]*?\.dial-step\[data-delta\][\s\S]*?void adjust\(Number\(button\.dataset\.delta\)\)/);
 });
 
+test('side tap zones show restrained plus and minus affordances without changing their labels', () => {
+  assert.match(index, /dial-step-minus[^>]*aria-label="Decrease counter by one"><span class="dial-step-label" aria-hidden="true">−<\/span>/);
+  assert.match(index, /dial-step-plus[^>]*aria-label="Increase counter by one"><span class="dial-step-label" aria-hidden="true">\+<\/span>/);
+  assert.match(styles, /\.dial-step-label \{[\s\S]*font-size: 1\.5rem;[\s\S]*opacity: \.48;/);
+  assert.match(styles, /\.dial-step:not\(:disabled\):active \.dial-step-label,[\s\S]*\.dial-step:focus-visible \.dial-step-label \{[\s\S]*opacity: 1;/);
+});
+
 test('rendering a Dial simulation reads the saved interface style without invoking it', () => {
   assert.match(app, /dom\.dialControls\.hidden = freezeGameControls \|\| interfaceStyle !== 'dial';/);
   assert.match(app, /localStorage\.getItem\(INTERFACE_STYLE_KEY\) === 'button' \? 'button' : 'dial'/);

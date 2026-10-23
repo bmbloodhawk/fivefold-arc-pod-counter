@@ -1109,9 +1109,12 @@ button:disabled { cursor: not-allowed; filter: saturate(.45); }
 .dial-gesture.dragging { cursor: grabbing; }
 .dial-gesture[aria-disabled="true"] { opacity: .42; cursor: not-allowed; }
 .dial-step { position: relative; z-index: 1; align-self: stretch; width: 100%; min-height: 128px; padding: 0; border: 0; background: transparent; color: transparent; cursor: pointer; pointer-events: auto; touch-action: manipulation; }
+.dial-step-label { color: var(--brass); font-family: Georgia, "Times New Roman", serif; font-size: 1.5rem; font-weight: 500; line-height: 1; opacity: .48; transition: color 120ms ease, opacity 120ms ease, text-shadow 120ms ease; }
 .dial-step-minus { grid-column: 1; }
 .dial-step-plus { grid-column: 3; }
 .dial-step:not(:disabled):active { background: radial-gradient(ellipse, rgb(216 174 97 / .22), transparent 68%); }
+.dial-step:not(:disabled):active .dial-step-label,
+.dial-step:focus-visible .dial-step-label { color: var(--ink); opacity: 1; text-shadow: 0 0 12px rgb(216 174 97 / .6); }
 .dial-step:disabled { opacity: .42; }
 #gameView[data-interface-style="dial"] .adjust-controls { display: none; }
 #gameView[data-interface-style="dial"] .custom-life-button { display: none; }
