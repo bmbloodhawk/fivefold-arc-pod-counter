@@ -883,6 +883,7 @@ function render() {
   dom.customLifeButton.hidden = gameFrozen || state.mode !== 'life' || interfaceStyle === 'dial'; dom.customLifeButton.disabled = !mutationsEnabled;
   dom.toggleInterfaceStyleButton.textContent = `Interface style: ${interfaceStyle === 'dial' ? 'Dial' : 'Button'}`;
   const tableHost = state.localSimulation || transport.seatId === state.hostSeatId;
+  const developerMenuVisible = developerMode && developerHost();
   dom.tableSkinMenuField.hidden = !tableHost;
   if (tableHost) { dom.tableSkinMenu.innerHTML = `<option value="">Standard appearance</option>${publishedSkins.map(skin => `<option value="${escapeHtml(skin.id)}">${escapeHtml(skin.name)}</option>`).join('')}`; dom.tableSkinMenu.value = state.tableSkinId || ''; dom.tableSkinMenu.disabled = !state.localSimulation && transport.status !== 'connected'; }
   renderLifeChange(player);
@@ -893,9 +894,9 @@ function render() {
   dom.declareWinnerButton.hidden = !state.turn.gameStarted || (!state.localSimulation && transport.seatId !== state.hostSeatId);
   dom.eliminatePlayerButton.hidden = !tableHost || !state.turn.gameStarted;
   dom.playtestNotesButton.hidden = state.localSimulation; dom.playtestNotesButton.disabled = transport.status !== 'connected'; dom.refreshTableButton.hidden = state.localSimulation; dom.refreshTableButton.disabled = transport.status !== 'connected';
-  dom.playtestRecapButton.hidden = state.localSimulation || transport.seatId !== state.hostSeatId; dom.playtestRecapButton.disabled = transport.status !== 'connected'; dom.savedPlaytestsButton.hidden = state.localSimulation || transport.seatId !== state.hostSeatId; dom.savedPlaytestsButton.disabled = transport.status !== 'connected';
+  dom.playtestRecapButton.hidden = !developerMenuVisible; dom.playtestRecapButton.disabled = transport.status !== 'connected'; dom.savedPlaytestsButton.hidden = !developerMenuVisible; dom.savedPlaytestsButton.disabled = transport.status !== 'connected';
   dom.fieldTestButton.hidden = state.localSimulation || transport.seatId !== state.hostSeatId || !state.turn.gameStarted; dom.fieldTestButton.disabled = transport.status !== 'connected';
-  dom.markDevelopmentButton.hidden = state.localSimulation || transport.seatId !== state.hostSeatId; dom.markDevelopmentButton.disabled = transport.status !== 'connected'; dom.markDevelopmentButton.textContent = state.sessionKind === 'development' ? 'Mark standard table' : 'Mark development run';
+  dom.markDevelopmentButton.hidden = !developerMenuVisible; dom.markDevelopmentButton.disabled = transport.status !== 'connected'; dom.markDevelopmentButton.textContent = state.sessionKind === 'development' ? 'Mark standard table' : 'Mark development run';
   renderCommanderTaxQuick(taxPlayer, inspectingSharedSeat);
   if (dom.backToSetupButton) dom.backToSetupButton.hidden = !canReturnToSetup();
   saveLocal();
