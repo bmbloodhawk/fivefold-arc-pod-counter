@@ -283,9 +283,9 @@ test('commander damage keeps one defender context while choosing a source', () =
   assert.match(styles, /\[data-interface-style="dial"\]\[data-dial-side-seat-count="0"\]:not\(\[data-counter-mode="commander"\]\) \.turn-actions \{[\s\S]*bottom: calc\(var\(--mode-nav-height\) \+ var\(--dial-control-gap\) \+ var\(--dial-tax-height\) \+ var\(--dial-control-gap\) \+ env\(safe-area-inset-bottom\)\); transform: none;/);
   assert.match(styles, /\.side-seats \.pod-seat \{ position: relative; min-height: 82px; padding: 9px 4px 12px; \}/);
   assert.match(styles, /\.side-seats \.pod-seat \{ min-height: 62px; padding: 6px 3px 9px; \}/);
-  assert.match(styles, /data-dial-side-seat-count="1"\],\n  #gameView\[data-interface-style="dial"\]\[data-dial-side-seat-count="2"\] \{ --dial-side-seat-stack: 82px; \}/);
-  assert.match(styles, /data-dial-side-seat-count="3"\],\n  #gameView\[data-interface-style="dial"\]\[data-dial-side-seat-count="4"\] \{ --dial-side-seat-stack: 82px; \}/);
-  assert.match(styles, /data-dial-side-seat-count="3"\],\n  #gameView\[data-interface-style="dial"\]\[data-dial-side-seat-count="4"\] \{ --dial-side-seat-stack: 62px; \}/);
+  assert.match(styles, /data-dial-side-seat-count="1"\],\r?\n  #gameView\[data-interface-style="dial"\]\[data-dial-side-seat-count="2"\] \{ --dial-side-seat-stack: 82px; \}/);
+  assert.match(styles, /data-dial-side-seat-count="3"\],\r?\n  #gameView\[data-interface-style="dial"\]\[data-dial-side-seat-count="4"\] \{ --dial-side-seat-stack: 82px; \}/);
+  assert.match(styles, /data-dial-side-seat-count="3"\],\r?\n  #gameView\[data-interface-style="dial"\]\[data-dial-side-seat-count="4"\] \{ --dial-side-seat-stack: 62px; \}/);
   assert.match(styles, /#gameView\[data-interface-style="dial"\]:not\(\[data-counter-mode="commander"\]\) \.turn-actions \{ transform: none; \}/);
   assert.match(styles, /#gameView\[data-interface-style="dial"\] > \.side-seats \{[\s\S]*gap: 5px/);
   assert.match(styles, /> \.side-seats:not\(\[hidden\]\) \{[\s\S]*right: 12px;[\s\S]*left: 12px;/);
