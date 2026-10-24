@@ -940,6 +940,27 @@ describe("authority and convergence", () => {
     assert.equal(snapshot.turn.activeSeatId, 3);
   });
 
+  test("an active player eliminated during their turn hands off to the next living seat in table order", () => {
+    const service = new RoomService();
+    const host = service.createConnection();
+    const created = service.createRoom(host.connectionId, { playerCount: 4, startingLife: 40 });
+    const second = service.createConnection();
+    const third = service.createConnection();
+    const fourth = service.createConnection();
+    let snapshot = service.claimSeat(created.snapshot.code, second.connectionId, { seatId: 1, name: "Jace" }).snapshot;
+    snapshot = service.claimSeat(created.snapshot.code, third.connectionId, { seatId: 2, name: "Nissa" }).snapshot;
+    snapshot = service.claimSeat(created.snapshot.code, fourth.connectionId, { seatId: 3, name: "Kaya" }).snapshot;
+    const room = service.room(created.snapshot.code);
+    room.lifecycle = { ...room.lifecycle, seatIds: [2, 0, 3, 1], seatOrderConfirmed: true };
+    snapshot = service.chooseStartingPlayer(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version, startingSeatId: 0 }).snapshot;
+    snapshot = service.startGame(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
+    snapshot = service.adjustOwnSeat(created.snapshot.code, host.connectionId, { counter: "life", delta: -40 }).snapshot;
+    snapshot = service.handoffTurn(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
+
+    assert.equal(snapshot.turn.activeSeatId, 3);
+    assert.equal(snapshot.turn.lastHandoff.fromSeatId, 0);
+  });
+
   test("applies concurrent live counter deltas without a stale-version re-entry error", async () => {
     const made = await room();
     const playerConnection = await connection();
