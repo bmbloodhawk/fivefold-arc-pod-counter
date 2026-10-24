@@ -658,3 +658,9 @@ test('joining a pod can use an on-device QR scan without changing the join flow'
   assert.match(app, /await openJoinCode\(code\);/);
   assert.match(app, /dom\.joinQrScannerDialog\.addEventListener\('close', stopJoinQrScanner\);/);
 });
+
+test('opening the current table removes an older QR join code before a refresh can reopen it', () => {
+  assert.match(app, /function clearDeepJoinCode\(\) \{/);
+  assert.match(app, /url\.searchParams\.delete\('join'\);/);
+  assert.match(app, /function showSharedGame\(snapshot\) \{ clearDeepJoinCode\(\);/);
+});

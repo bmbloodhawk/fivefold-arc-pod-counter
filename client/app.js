@@ -722,7 +722,13 @@ function renderCommanderNameFields(container, count, names = [], identities = []
 function selectedCommanderCount(formName) { return Number($(`input[name="${formName}"]:checked`)?.value || 1); }
 function refreshSetupCommanderNames() { renderCommanderNameFields(dom.createCommanderNames, selectedCommanderCount('commanderCount')); renderCommanderNameFields(dom.joinCommanderNames, selectedCommanderCount('joinCommanderCount')); }
 function beginLocalGame(config) { transport.useLocal(); state = { ...createState(config), localDemoLastInteractionAt: Date.now() }; showView(dom.game); render(); }
-function showSharedGame(snapshot) { state = stateFromSnapshot(snapshot); saveTable(); renderSavedTables(); showView(dom.game); render(); void applySelectedAppearance(); }
+function clearDeepJoinCode() {
+  const url = new URL(location.href);
+  if (!url.searchParams.has('join')) return;
+  url.searchParams.delete('join');
+  history.replaceState(history.state, '', url);
+}
+function showSharedGame(snapshot) { clearDeepJoinCode(); state = stateFromSnapshot(snapshot); saveTable(); renderSavedTables(); showView(dom.game); render(); void applySelectedAppearance(); }
 function showError(error) { dom.connectionDetail.textContent = error?.message || 'The pod server could not complete that request.'; dom.connectionDialog.showModal(); }
 function activePlayer() { return state.players.find(player => player.id === state.activePlayerId); }
 function currentValue(player) { const value = state.mode === 'commander' ? commanderValue(player) : player[state.mode]; return state.mode === 'life' && !state.localSimulation && player.id === state.ownerPlayerId ? value + optimisticLifeDelta : value; }
