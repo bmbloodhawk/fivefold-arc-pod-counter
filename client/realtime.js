@@ -8,7 +8,7 @@ export class RealtimeAdapter extends EventTarget {
     this.connectionId = null; this.roomCode = null; this.seatId = null;
     this.reclaimToken = null; this.snapshot = null; this.events = null;
     this.heartbeatTimer = null; this.reconnectTimer = null; this.snapshotRefreshTimer = null;
-    this.sseRecoveryInFlight = false;
+    this.sseRecoveryInFlight = false; this.resumePromise = null;
     this.status = 'local'; this.localMode = true; this.stopped = false; this.sessionEpoch = 0;
   }
 
@@ -40,6 +40,19 @@ export class RealtimeAdapter extends EventTarget {
     const result = await this.inspectRoom(this.roomCode);
     if (result.snapshot) this.#acceptSnapshot(result.snapshot);
     return result;
+  }
+
+  /** Re-establish one confirmed connection after a phone returns to the foreground. */
+  resume() {
+    if (this.localMode || this.stopped || !this.roomCode || document.visibilityState === 'hidden') return Promise.resolve({ ignored: true });
+    if (this.resumePromise) return this.resumePromise;
+    if (this.sseRecoveryInFlight) return Promise.resolve({ recovering: true });
+    clearTimeout(this.reconnectTimer); this.reconnectTimer = null;
+    const epoch = this.sessionEpoch;
+    let resume;
+    resume = this.#resumeSession(epoch).finally(() => { if (this.resumePromise === resume) this.resumePromise = null; });
+    this.resumePromise = resume;
+    return resume;
   }
 
   async claimRoom({ code, seatId, name, commanderCount = 1, commanderNames = Array.from({ length: commanderCount }, () => ''), commanderColors = Array.from({ length: commanderCount }, () => []) }) {
@@ -300,6 +313,23 @@ export class RealtimeAdapter extends EventTarget {
     };
     void refresh();
     this.snapshotRefreshTimer = setInterval(() => { void refresh(); }, SNAPSHOT_SAFETY_REFRESH_MS);
+  }
+
+  async #resumeSession(epoch) {
+    try {
+      if (!await this.#startConnection(epoch)) return { ignored: true };
+      const result = await this.#request(`/api/rooms/${this.roomCode}/claim`, { method: 'POST', authenticated: true, body: { seatId: this.seatId, reclaimToken: this.reclaimToken } });
+      if (!this.#isCurrentSession(epoch)) return { ignored: true };
+      this.#acceptSnapshot(result.snapshot, epoch);
+      this.#subscribe(epoch); this.#startHeartbeat(epoch); this.#startSnapshotRefresh(epoch); this.#setStatus('connected');
+      return { resumed: true, snapshot: result.snapshot };
+    } catch {
+      if (this.#isCurrentSession(epoch)) {
+        this.events?.close(); this.events = null;
+        this.#setStatus('disconnected'); this.#scheduleReconnect(epoch);
+      }
+      return { reconnecting: true };
+    }
   }
 
   #scheduleReconnect(epoch) {

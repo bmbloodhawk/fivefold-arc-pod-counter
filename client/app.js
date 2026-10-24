@@ -910,11 +910,7 @@ function render() {
   renderCoinTossNotice();
   renderVictory();
   renderCommanderTaxDialog();
-  const playerCanMutate = state.localSimulation || player.id === state.ownerPlayerId;
-  const gameFrozen = ['complete', 'intermission'].includes(state.lifecycle?.status);
-  const mutationsEnabled = !gameFrozen && playerCanMutate && (transport.status === 'local' || transport.status === 'connected') && (state.mode !== 'commander' || Boolean(source)); $$('[data-delta]').forEach(button => { button.disabled = !mutationsEnabled; });
-  dom.dialControls.hidden = interfaceStyle !== 'dial' || gameFrozen; dom.dialGesture.setAttribute('aria-valuenow', String(counterValue)); dom.dialGesture.setAttribute('aria-valuetext', `${counterValue} ${state.mode}`); dom.dialGesture.setAttribute('aria-disabled', String(!mutationsEnabled)); dom.dialGesture.tabIndex = mutationsEnabled ? 0 : -1;
-  dom.customLifeButton.hidden = gameFrozen || state.mode !== 'life' || interfaceStyle === 'dial'; dom.customLifeButton.disabled = !mutationsEnabled;
+  renderMutationAvailability();
   dom.toggleInterfaceStyleButton.textContent = `Interface style: ${interfaceStyle === 'dial' ? 'Dial' : 'Button'}`;
   const tableHost = state.localSimulation || transport.seatId === state.hostSeatId;
   const developerMenuVisible = developerMode && developerHost();
@@ -948,6 +944,24 @@ function renderLifeChange(player) {
     ? `${safetyStatus} · ${sign}${Math.abs(lifeChange.delta)} LIFE`
     : `${sign}${Math.abs(lifeChange.delta)} LIFE · ${lifeChange.from} → ${lifeChange.to}${lifeChange.confirmed ? ' · SYNCED JUST NOW' : ''}`;
   dom.lifeChangeIndicator.classList.toggle('negative', lifeChange.delta < 0);
+}
+function renderMutationAvailability() {
+  if (!state || dom.game.hidden) return;
+  const player = activePlayer();
+  if (!player) return;
+  const source = state.mode === 'commander' ? selectedSourceFor(player) : null;
+  const counterValue = currentValue(player);
+  const playerCanMutate = state.localSimulation || player.id === state.ownerPlayerId;
+  const gameFrozen = ['complete', 'intermission'].includes(state.lifecycle?.status);
+  const mutationsEnabled = !gameFrozen && playerCanMutate && (transport.status === 'local' || transport.status === 'connected') && (state.mode !== 'commander' || Boolean(source));
+  $$('[data-delta]').forEach(button => { button.disabled = !mutationsEnabled; });
+  dom.dialControls.hidden = interfaceStyle !== 'dial' || gameFrozen;
+  dom.dialGesture.setAttribute('aria-valuenow', String(counterValue));
+  dom.dialGesture.setAttribute('aria-valuetext', `${counterValue} ${state.mode}`);
+  dom.dialGesture.setAttribute('aria-disabled', String(!mutationsEnabled));
+  dom.dialGesture.tabIndex = mutationsEnabled ? 0 : -1;
+  dom.customLifeButton.hidden = gameFrozen || state.mode !== 'life' || interfaceStyle === 'dial';
+  dom.customLifeButton.disabled = !mutationsEnabled;
 }
 function showLifeChange(playerId, delta, from, to, { confirmed = false } = {}) {
   if (!delta) return;
@@ -1665,10 +1679,10 @@ dom.intermissionReadyButton.addEventListener('click', () => void setNextGameRead
 dom.victoryDialog.addEventListener('click', () => { if (victoryDismissReady && dom.victoryDialog.open) dom.victoryDialog.close('tap'); }); dom.victoryDialog.addEventListener('close', () => { if (dom.victoryDialog.returnValue !== 'tap') return; const key = victoryKey(state?.gameResult); dismissedVictoryKeys.add(key); void (async () => { await automaticSavePromises.get(key); if (!showAchievementUnlocks(key)) openQuickFeedback(); })(); }); dom.achievementDialog.addEventListener('close', () => { unlockedAchievementsByGame.delete(dom.achievementDialog.dataset.gameKey); openQuickFeedback(); });
 $('#quickFeedbackForm').addEventListener('submit', async event => { event.preventDefault(); const response = event.submitter?.value; const until = Date.now() + (response === 'skip' ? 30 : 7) * 24 * 60 * 60 * 1000; localStorage.setItem('fivefold-arc:quick-feedback-until', String(until)); if (response !== 'skip') await transport.recordQuickFeedback({ response }); $('#quickFeedbackDialog').close(); });
 dom.viewCelebrationButton.addEventListener('click', () => { shownVictoryKey = null; dom.gameMenu.hidden = true; renderVictory(); });
-transport.addEventListener('status', event => renderConnection(event.detail)); transport.addEventListener('state', event => { if (event.detail?.seats?.length) { const previousTossKey = coinTossKey(state?.lastCoinToss); const previousRollKey = startingPlayerRollKey(state?.turn?.startingPlayerRoll); const previousTurnKey = state?.turn?.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; state = stateFromSnapshot(event.detail); if (awaitingConfirmedResync && transport.status === 'connected') { awaitingConfirmedResync = false; const presentation = connectionPresentation({ status: 'connected', resynced: true }); dom.syncBanner.textContent = presentation.syncMessage; dom.syncBanner.hidden = false; clearTimeout(syncBannerTimer); syncBannerTimer = setTimeout(() => { dom.syncBanner.hidden = true; }, 5000); } const nextRollKey = startingPlayerRollKey(state.turn.startingPlayerRoll); const nextTurnKey = state.turn.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; if (dom.game.hidden) showView(dom.game); if (nextTurnKey && nextTurnKey !== previousTurnKey && nextTurnKey !== lastTurnHandoffKey) { lastTurnHandoffKey = nextTurnKey; showTurnHandoff(); } if (nextRollKey && nextRollKey !== previousRollKey && nextRollKey !== lastStartingRollKey) { lastStartingRollKey = nextRollKey; showStartingPlayerRoll(state.turn.startingPlayerRoll); } else if (coinTossKey(state.lastCoinToss) && coinTossKey(state.lastCoinToss) !== previousTossKey) { const dialog = coinTossDialogRequested; coinTossDialogRequested = false; showCoinToss(state.lastCoinToss, { dialog }); } else render(); } });
+transport.addEventListener('status', event => { renderConnection(event.detail); renderMutationAvailability(); }); transport.addEventListener('state', event => { if (event.detail?.seats?.length) { const previousTossKey = coinTossKey(state?.lastCoinToss); const previousRollKey = startingPlayerRollKey(state?.turn?.startingPlayerRoll); const previousTurnKey = state?.turn?.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; state = stateFromSnapshot(event.detail); if (awaitingConfirmedResync && transport.status === 'connected') { awaitingConfirmedResync = false; const presentation = connectionPresentation({ status: 'connected', resynced: true }); dom.syncBanner.textContent = presentation.syncMessage; dom.syncBanner.hidden = false; clearTimeout(syncBannerTimer); syncBannerTimer = setTimeout(() => { dom.syncBanner.hidden = true; }, 5000); } const nextRollKey = startingPlayerRollKey(state.turn.startingPlayerRoll); const nextTurnKey = state.turn.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; if (dom.game.hidden) showView(dom.game); if (nextTurnKey && nextTurnKey !== previousTurnKey && nextTurnKey !== lastTurnHandoffKey) { lastTurnHandoffKey = nextTurnKey; showTurnHandoff(); } if (nextRollKey && nextRollKey !== previousRollKey && nextRollKey !== lastStartingRollKey) { lastStartingRollKey = nextRollKey; showStartingPlayerRoll(state.turn.startingPlayerRoll); } else if (coinTossKey(state.lastCoinToss) && coinTossKey(state.lastCoinToss) !== previousTossKey) { const dialog = coinTossDialogRequested; coinTossDialogRequested = false; showCoinToss(state.lastCoinToss, { dialog }); } else render(); } });
 transport.addEventListener('state', event => { const roomCode = event.detail?.code; if (!roomCode || reportedDiagnostics.has(roomCode)) return; reportedDiagnostics.add(roomCode); setTimeout(() => recordClientDiagnostic('session_started'), 0); });
 transport.addEventListener('state', event => { if (event.detail?.seats?.length) void applySelectedAppearance(); });
-document.addEventListener('visibilitychange', () => { recordClientDiagnostic('visibility_changed'); if (document.visibilityState === 'visible') scheduleViewportMetrics(); });
+document.addEventListener('visibilitychange', () => { recordClientDiagnostic('visibility_changed'); if (document.visibilityState === 'visible') { scheduleViewportMetrics(); void transport.resume(); } });
 window.addEventListener('error', () => recordClientDiagnostic('unhandled_error'));
 window.addEventListener('unhandledrejection', () => recordClientDiagnostic('unhandled_error'));
 dom.startingRollCanvas?.addEventListener('webglcontextlost', () => recordClientDiagnostic('webgl_context_lost'));
