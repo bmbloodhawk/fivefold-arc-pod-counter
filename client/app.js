@@ -53,6 +53,28 @@ function scheduleViewportMetrics() {
 syncViewportMetrics();
 window.addEventListener('resize', scheduleViewportMetrics, { passive: true });
 window.visualViewport?.addEventListener('resize', scheduleViewportMetrics, { passive: true });
+// Some mobile browsers still honor double-tap zoom despite `touch-action` on
+// page-level elements. Prevent only the second tap when it lands on the same
+// nearby target, leaving single taps, scroll gestures, and pinch zoom intact.
+let lastTouchEnd = null;
+document.addEventListener('touchend', event => {
+  if (event.touches.length || event.changedTouches.length !== 1) return;
+  const touch = event.changedTouches[0];
+  const element = event.target instanceof Element ? event.target : null;
+  const target = element?.closest('button, a, input, select, textarea, [role="slider"]') || element;
+  const now = Date.now();
+  const isRapidRepeat = lastTouchEnd
+    && now - lastTouchEnd.at < 350
+    && Math.hypot(touch.clientX - lastTouchEnd.x, touch.clientY - lastTouchEnd.y) < 28
+    && target === lastTouchEnd.target;
+  if (isRapidRepeat) {
+    if (event.cancelable) event.preventDefault();
+    lastTouchEnd = null;
+    return;
+  }
+  lastTouchEnd = { at: now, x: touch.clientX, y: touch.clientY, target };
+}, { capture: true, passive: false });
+document.addEventListener('dblclick', event => event.preventDefault(), { capture: true });
 function diagnosticViewport() { return innerWidth <= 360 ? 'compact' : innerWidth <= 600 ? 'phone' : 'wide'; }
 function diagnosticDeviceMemory() { const memory = Number(navigator.deviceMemory); return memory > 8 ? '8plus' : [1, 2, 4, 8].includes(memory) ? String(memory) : 'unknown'; }
 function recordClientDiagnostic(kind) {

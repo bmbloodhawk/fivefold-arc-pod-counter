@@ -23,6 +23,13 @@ test('phone layout uses the visible viewport and prevents browser text inflation
   assert.doesNotMatch(app, /visualViewport\?\.addEventListener\('scroll'/);
 });
 
+test('double taps cannot trigger browser zoom anywhere in the counter while pinch zoom remains available', () => {
+  assert.match(styles, /html \{[\s\S]*touch-action: manipulation/);
+  assert.doesNotMatch(html, /user-scalable=no|maximum-scale=1/);
+  assert.match(app, /document\.addEventListener\('touchend',[\s\S]*?event\.preventDefault\(\);[\s\S]*?capture: true, passive: false/);
+  assert.match(app, /document\.addEventListener\('dblclick', event => event\.preventDefault\(\), \{ capture: true \}\)/);
+});
+
 test('joining keeps optional commander setup out of the primary claim path', () => {
   assert.match(html, /STEP 2 OF 4/);
   assert.match(html, /STEP 3 OF 4/);
