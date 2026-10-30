@@ -19,6 +19,10 @@ test('a waiting release can be refreshed only at a confirmed safe boundary', () 
   assert.equal(refreshIsAllowed({ lifecycle: 'intermission', connectionStatus: 'connected' }), true);
   assert.equal(refreshIsAllowed({ lifecycle: 'lobby', connectionStatus: 'connected' }), true);
   assert.equal(refreshIsAllowed({ lifecycle: null, connectionStatus: 'idle' }), true);
+  assert.deepEqual(releaseUpdatePresentation({ waiting: true, lifecycle: null, connectionStatus: 'idle' }), {
+    kind: 'ready',
+    message: 'A new version is ready. Refresh when convenient.'
+  });
 });
 
 test('no waiting worker means no update notice', () => {

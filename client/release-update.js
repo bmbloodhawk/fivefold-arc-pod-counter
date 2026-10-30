@@ -7,7 +7,7 @@ export function refreshIsAllowed({ lifecycle, connectionStatus }) {
 
 export function releaseUpdatePresentation({ waiting, lifecycle, connectionStatus }) {
   if (!waiting) return { kind: 'hidden', message: '' };
-  if (refreshIsAllowed({ lifecycle, connectionStatus })) return { kind: 'ready', message: 'This game is complete. Refresh when you are ready to use the update.' };
+  if (refreshIsAllowed({ lifecycle, connectionStatus })) return { kind: 'ready', message: lifecycle ? 'This game is complete. Refresh when you are ready to use the update.' : 'A new version is ready. Refresh when convenient.' };
   return { kind: 'deferred', message: 'An update is ready and will wait until this game is over.' };
 }
 
