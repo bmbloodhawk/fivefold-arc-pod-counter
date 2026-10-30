@@ -13,7 +13,7 @@ Success means a waiting update is never allowed to interrupt live scoring or alt
 - A completed result is not by itself permission to force refresh; the user may defer until they reach a safe boundary.
 - A fresh `?join=CODE` QR link is an explicit target and has priority over stored recovery state. It is removed after a successful join.
 - A normal client update must be protocol-compatible with clients still in a game on the prior release.
-- The present server stores active rooms only in memory. A server deployment/restart can end an active room; this specification does not claim to solve that separate availability limit.
+- When Firebase service-account settings are configured, the server persists each active room as a versioned `live-rooms/{POD_CODE}` record and conditionally commits it before broadcasting. A restart can then load the current authoritative record for ordinary reclaim. The existing in-memory mode remains available for local development, but is not restart-safe.
 
 ## Required behavior
 
@@ -100,6 +100,6 @@ const result = await transport.claimRoom({ code: target.code, seatId: target.sea
 - The update indicator introduces no page scroll or counter-stage resize at 320px.
 - All existing and new automated tests pass.
 
-## Open decision
+## Production activation decision
 
-The client implementation can safely defer normal client updates, but a live server deployment can still delete in-memory rooms. Before any release process changes, decide whether to enforce an operational no-deploy-during-live-games rule or fund durable room persistence/rolling deployment.
+The durable store and deferred-worker code are implemented locally. Before treating a live deployment as restart-safe, explicitly approve Firebase credential/rule verification and a controlled Render handoff test. See `SAFE_RELEASE_OPERATIONS.md`; no production configuration or deployment is changed by this implementation.
