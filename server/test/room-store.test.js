@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { FirebaseRoomStore, MemoryRoomStore } from "../src/room-store.js";
+import { RoomService } from "../src/app.js";
 
 test("memory room store rejects a stale durable version without replacing the room", async () => {
   const store = new MemoryRoomStore();
@@ -45,4 +46,19 @@ test("Firebase room store returns the current room on an ETag conflict", async (
   const result = await store.compareAndSwap("ARC123", 3, { schemaVersion: 1, code: "ARC123", version: 4 });
 
   assert.deepEqual(result, { committed: false, room: { schemaVersion: 1, code: "ARC123", version: 4 } });
+});
+
+test("a new server instance loads a durable room and accepts the existing seat reclaim token", async () => {
+  const store = new MemoryRoomStore();
+  const original = new RoomService({ roomStore: store });
+  const host = original.createConnection();
+  const created = await original.createRoomDurably(host.connectionId, { playerCount: 2, startingLife: 40 });
+  await original.mutateDurably(created.snapshot.code, () => original.adjustOwnSeat(created.snapshot.code, host.connectionId, { counter: "life", delta: -3 }));
+
+  const restarted = new RoomService({ roomStore: store });
+  const reconnected = restarted.createConnection();
+  const reclaimed = await restarted.mutateDurably(created.snapshot.code, () => restarted.claimSeat(created.snapshot.code, reconnected.connectionId, { seatId: 0, reclaimToken: created.reclaimToken }));
+
+  assert.equal(reclaimed.snapshot.seats[0].counters.life, 37);
+  assert.equal(reclaimed.snapshot.seats[0].connected, true);
 });
