@@ -14,6 +14,15 @@ test("memory room store rejects a stale durable version without replacing the ro
   assert.deepEqual(stale.room.seats, [{ seatId: 0 }]);
 });
 
+test("memory room store deletes only the durable version it inspected", async () => {
+  const store = new MemoryRoomStore();
+  await store.create({ schemaVersion: 1, code: "ARC123", version: 3, seats: [] });
+
+  assert.equal((await store.delete("ARC123", 2)).deleted, false);
+  assert.equal((await store.delete("ARC123", 3)).deleted, true);
+  assert.equal(await store.read("ARC123"), null);
+});
+
 test("Firebase room store writes with the ETag returned by its latest read", async () => {
   const calls = [];
   const store = new FirebaseRoomStore({
@@ -61,4 +70,31 @@ test("a new server instance loads a durable room and accepts the existing seat r
 
   assert.equal(reclaimed.snapshot.seats[0].counters.life, 37);
   assert.equal(reclaimed.snapshot.seats[0].connected, true);
+});
+
+test("an expired durable room cannot be revived after a server restart", async () => {
+  let now = 10_000;
+  const store = new MemoryRoomStore();
+  const original = new RoomService({ roomStore: store, now: () => now, roomTtlMs: 100 });
+  const host = original.createConnection();
+  const created = await original.createRoomDurably(host.connectionId, { playerCount: 2, startingLife: 40 });
+
+  now += 101;
+  const restarted = new RoomService({ roomStore: store, now: () => now, roomTtlMs: 100 });
+  await assert.rejects(() => restarted.loadDurableRoom(created.snapshot.code), { code: "ROOM_NOT_FOUND", status: 404 });
+  assert.equal(await store.read(created.snapshot.code), null);
+});
+
+test("host recovery reads the durable room before falling back to the legacy recovery ledger", async () => {
+  const store = new MemoryRoomStore();
+  const original = new RoomService({ roomStore: store });
+  const host = original.createConnection();
+  const created = await original.createRoomDurably(host.connectionId, { playerCount: 2, startingLife: 40 });
+  await original.mutateDurably(created.snapshot.code, () => original.adjustOwnSeat(created.snapshot.code, host.connectionId, { counter: "life", delta: -4 }));
+
+  const restarted = new RoomService({ roomStore: store });
+  const restored = await restarted.restoreRoom(created.snapshot.code, created.hostRecoveryKey);
+
+  assert.equal(restored.restored, false);
+  assert.equal(restored.snapshot.seats[0].counters.life, 36);
 });

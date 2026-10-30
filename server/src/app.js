@@ -574,6 +574,12 @@ export class RoomService {
     if (!this.roomStore) return this.room(code);
     const record = await this.roomStore.read(code);
     if (!record) throw Object.assign(new Error("Room not found or expired"), { status: 404, code: "ROOM_NOT_FOUND" });
+    const lastActiveAt = Number(record.room?.room?.lastActiveAt);
+    if (Number.isFinite(lastActiveAt) && this.now() - lastActiveAt > this.roomTtlMs) {
+      await this.roomStore.delete(record.code, record.version);
+      this.rooms.delete(record.code);
+      throw Object.assign(new Error("Room not found or expired"), { status: 404, code: "ROOM_NOT_FOUND" });
+    }
     const room = this.hydrateDurableRecord(record);
     room.lastActiveAt = this.now();
     return room;
@@ -1476,6 +1482,15 @@ export class RoomService {
     const code = String(roomCode || "").toUpperCase();
     if (this.rooms.has(code)) return { snapshot: this.snapshot(this.room(code)), restored: false };
     if (typeof hostRecoveryKey !== "string") throw Object.assign(new Error("A host recovery key is required"), { status: 403, code: "HOST_RECOVERY_REQUIRED" });
+    if (this.roomStore) {
+      const durable = await this.roomStore.read(code);
+      if (durable) {
+        const durableHash = durable.room?.hostRecoveryKeyHash ? decodedHash(durable.room.hostRecoveryKeyHash) : null;
+        if (!tokenMatches(hostRecoveryKey, durableHash)) throw Object.assign(new Error("The host recovery key did not match this room"), { status: 403, code: "HOST_RECOVERY_DENIED" });
+        const room = await this.loadDurableRoom(code);
+        return { snapshot: this.snapshot(room), restored: false };
+      }
+    }
     const record = await this.ledger.readRecovery(code);
     if (!record?.room || !tokenMatches(hostRecoveryKey, decodedHash(record.hostRecoveryKeyHash))) {
       throw Object.assign(new Error("The host recovery key did not match this room"), { status: 403, code: "HOST_RECOVERY_DENIED" });
