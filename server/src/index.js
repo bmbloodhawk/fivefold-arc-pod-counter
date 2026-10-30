@@ -15,11 +15,16 @@ const ledger = createPlaytestLedgerFromEnv();
 const roomStore = process.env.FIREBASE_DATABASE_URL && process.env.FIREBASE_SERVICE_ACCOUNT_EMAIL && process.env.FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY
   ? new FirebaseRoomStore({ databaseUrl: process.env.FIREBASE_DATABASE_URL, accessToken: () => ledger.accessToken() })
   : null;
+const roomStoreReady = async () => {
+  if (!roomStore) return true;
+  try { await roomStore.verifyAccess(); return true; }
+  catch (error) { console.error(`Durable room store is unavailable: ${error.message}`); return false; }
+};
 const appearanceCatalog = createAppearanceCatalogFromEnv({ path: resolve(fileURLToPath(new URL("../data/appearance-studio-catalog.json", import.meta.url))) });
 const derivedProjectId = /^https:\/\/([a-z0-9-]+)-default-rtdb\./.exec(process.env.FIREBASE_DATABASE_URL || "")?.[1];
 const accountVerifier = createFirebaseIdTokenVerifierFromEnv({ ...process.env, FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID || derivedProjectId });
 const accountHistory = accountVerifier && process.env.FIREBASE_DATABASE_URL && process.env.FIREBASE_SERVICE_ACCOUNT_EMAIL && process.env.FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY ? new AccountHistory({ store: ledger }) : null;
-const { server, service } = createRealtimeServer({ staticDir, ledger, roomStore, appearanceCatalog, accountVerifier, accountHistory, lookupCommanderIdentity: createLocalCommanderIdentityLookup(cardIdentityIndex) });
+const { server, service } = createRealtimeServer({ staticDir, ledger, roomStore, roomStoreReady, appearanceCatalog, accountVerifier, accountHistory, lookupCommanderIdentity: createLocalCommanderIdentityLookup(cardIdentityIndex) });
 const sweepTimer = setInterval(() => service.sweep(), 30_000);
 sweepTimer.unref();
 

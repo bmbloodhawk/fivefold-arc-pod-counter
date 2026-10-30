@@ -61,6 +61,18 @@ test("uses explicit CORS and baseline browser security headers when configured",
   }
 });
 
+test("health stays not-ready when configured durable room storage is unavailable", async () => {
+  const eventServer = createRealtimeServer({ roomStoreReady: async () => false }).server;
+  await new Promise((resolve) => eventServer.listen(0, "127.0.0.1", resolve));
+  try {
+    const response = await fetch(`http://127.0.0.1:${eventServer.address().port}/health`);
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), { ok: false, roomStore: "unavailable" });
+  } finally {
+    await new Promise((resolve) => eventServer.close(resolve));
+  }
+});
+
 async function connection() {
   return (await call("/api/connections", { method: "POST" })).body.connectionId;
 }

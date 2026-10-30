@@ -1604,6 +1604,7 @@ export class RoomService {
 
 export function createRealtimeServer(options = {}) {
   const service = options.service ?? new RoomService(options);
+  const roomStoreReady = options.roomStoreReady ?? (async () => true);
   const lookupCommanderIdentity = options.lookupCommanderIdentity ?? createCommanderIdentityLookup(options.fetchImpl);
   const lookupCard = options.lookupCard ?? createCardLookup(options.fetchImpl);
   const lookupCardInteraction = options.lookupCardInteraction ?? createCardInteractionLookup(options.fetchImpl);
@@ -1661,7 +1662,10 @@ export function createRealtimeServer(options = {}) {
       const url = new URL(req.url, "http://localhost");
       const parts = url.pathname.split("/").filter(Boolean);
       const connectionId = req.headers["x-connection-id"];
-      if (req.method === "GET" && url.pathname === "/health") return json(res, 200, { ok: true });
+      if (req.method === "GET" && url.pathname === "/health") {
+        const ready = await roomStoreReady();
+        return json(res, ready ? 200 : 503, ready ? { ok: true, roomStore: service.roomStore ? "ready" : "disabled" } : { ok: false, roomStore: "unavailable" });
+      }
       if (req.method === "GET" && url.pathname === "/api/account/history") { const accountId = await account(req); return json(res, 200, { history: await accountHistory.summary(accountId) }); }
       if (req.method === "POST" && url.pathname === "/api/account/achievements/viewed") { const accountId = await account(req); const input = await readJson(req); return json(res, 200, { viewed: await accountHistory.markAchievementRarityViewed(accountId, input?.rarity) }); }
       if (req.method === "GET" && url.pathname === "/api/account/skin-access") { const accountId = await account(req); return json(res, 200, { access: await accountHistory.skinAccess(accountId) }); }
