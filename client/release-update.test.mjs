@@ -9,6 +9,10 @@ test('a waiting release stays deferred during active or reconnecting play', () =
   });
   assert.equal(refreshIsAllowed({ lifecycle: 'playing', connectionStatus: 'connected' }), false);
   assert.equal(refreshIsAllowed({ lifecycle: 'intermission', connectionStatus: 'reconnecting' }), false);
+  assert.deepEqual(releaseUpdatePresentation({ waiting: true, lifecycle: 'complete', connectionStatus: 'connected' }), {
+    kind: 'deferred',
+    message: 'An update is ready. Review the result, then move to next-game setup.'
+  });
 });
 
 test('a waiting release can be refreshed only at a confirmed safe boundary', () => {

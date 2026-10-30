@@ -617,7 +617,13 @@ async function reclaimLastActiveTable(target) {
     const seat = snapshot.seats[target.seatId];
     if (!seat?.claimed || !transport.hasStoredReclaimToken(target.code, target.seatId)) throw Object.assign(new Error('Your saved seat is no longer available.'), { code: 'RECLAIM_UNAVAILABLE' });
     const result = await transport.claimRoom({ code: target.code, seatId: target.seatId, name: seat.name, commanderCount: seat.commanderCount, commanderNames: seat.commanderNames, commanderColors: seat.commanderColors });
-    if (result?.snapshot) showSharedGame(result.snapshot);
+    if (result?.snapshot) {
+      showSharedGame(result.snapshot);
+      dom.syncBanner.textContent = 'Reconnected to your latest table.';
+      dom.syncBanner.hidden = false;
+      clearTimeout(syncBannerTimer);
+      syncBannerTimer = setTimeout(() => { dom.syncBanner.hidden = true; }, 5000);
+    }
   } catch (error) {
     if (error?.status === 404 || error?.code === 'RECLAIM_UNAVAILABLE') clearLastActiveTable(localStorage);
     renderSavedTables(); showView(dom.landing);
