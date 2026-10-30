@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { releaseUpdatePresentation, refreshIsAllowed } from './release-update.js';
+import { releaseUpdatePresentation, refreshIsAllowed, watchForReleaseUpdate } from './release-update.js';
 
 test('a waiting release stays deferred during active or reconnecting play', () => {
   assert.deepEqual(releaseUpdatePresentation({ waiting: true, lifecycle: 'playing', connectionStatus: 'connected' }), {
@@ -31,4 +31,17 @@ test('a waiting release can be refreshed only at a confirmed safe boundary', () 
 
 test('no waiting worker means no update notice', () => {
   assert.deepEqual(releaseUpdatePresentation({ waiting: false, lifecycle: 'playing', connectionStatus: 'connected' }), { kind: 'hidden', message: '' });
+});
+
+test('the coordinator refuses to reload a playing table even when a worker is waiting', async () => {
+  const registration = new EventTarget();
+  registration.waiting = { state: 'installed' };
+  const serviceWorker = { register: async () => registration };
+  const controller = await watchForReleaseUpdate({ serviceWorker, onChange: () => {} });
+  let reloads = 0;
+
+  assert.equal(controller.refreshAtSafeBoundary({ lifecycle: 'playing', connectionStatus: 'connected', reload: () => { reloads += 1; } }), false);
+  assert.equal(reloads, 0);
+  assert.equal(controller.refreshAtSafeBoundary({ lifecycle: 'intermission', connectionStatus: 'connected', reload: () => { reloads += 1; } }), true);
+  assert.equal(reloads, 1);
 });
