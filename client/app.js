@@ -6,6 +6,7 @@ import { createInteractionAdvice } from './card-interaction-advice.js?v=1';
 import { commanderFallbackLabel } from './commander-source-flow.js?v=1';
 import { currentAccountToken, emailAccountToken, googleAccountToken, restoredAccountToken, sendAccountPasswordReset, signOutAccount } from './account-auth.js?v=6';
 import { JoinQrScanner } from './join-qr-scanner.js?v=3';
+import { clearLastActiveTable, saveLastActiveTable, startupTableTarget } from './active-table-recovery.js?v=1';
 
 const appearancePreviewMode = new URLSearchParams(location.search).get('appearance-preview') === '1';
 const appearanceParams = new URLSearchParams(location.search);
@@ -544,6 +545,7 @@ function saveTable() {
   if (!state || state.localSimulation || !/^[A-Z0-9]{6}$/.test(state.podCode)) return;
   const entry = { code: state.podCode, seatId: transport.seatId, name: displayName(state.players.find(player => player.id === state.ownerPlayerId)), isHost: transport.seatId === state.hostSeatId, lastUsedAt: Date.now() };
   try { localStorage.setItem(SAVED_TABLES_KEY, JSON.stringify([entry, ...savedTables().filter(table => table.code !== entry.code || table.seatId !== entry.seatId)].slice(0, 8))); } catch { /* Storage is optional; reclaim remains available when the browser can retain it. */ }
+  saveLastActiveTable(localStorage, { code: entry.code, seatId: entry.seatId, updatedAt: entry.lastUsedAt });
 }
 function latestRecoverableHostPodCode() {
   const recoverableCodes = new Set(transport.hostRecoveryPodCodes());
@@ -595,6 +597,19 @@ async function openJoinCode(code) {
   const normalizedCode = String(code || '').toUpperCase();
   if (!/^[A-Z0-9]{6}$/.test(normalizedCode)) return;
   showView(dom.join); $('#podCode').value = normalizedCode; dom.joinCodeStatus.textContent = 'Finding your table…'; await refreshJoinSeats();
+}
+async function reclaimLastActiveTable(target) {
+  showView(dom.join); $('#podCode').value = target.code; dom.joinCodeStatus.textContent = 'Reconnecting to your latest table…';
+  try {
+    const { snapshot } = await transport.inspectRoom(target.code);
+    const seat = snapshot.seats[target.seatId];
+    if (!seat?.claimed || !transport.hasStoredReclaimToken(target.code, target.seatId)) throw Object.assign(new Error('Your saved seat is no longer available.'), { code: 'RECLAIM_UNAVAILABLE' });
+    const result = await transport.claimRoom({ code: target.code, seatId: target.seatId, name: seat.name, commanderCount: seat.commanderCount, commanderNames: seat.commanderNames, commanderColors: seat.commanderColors });
+    if (result?.snapshot) showSharedGame(result.snapshot);
+  } catch (error) {
+    if (error?.status === 404 || error?.code === 'RECLAIM_UNAVAILABLE') clearLastActiveTable(localStorage);
+    renderSavedTables(); showView(dom.landing);
+  }
 }
 let joinQrScanner = null;
 function stopJoinQrScanner() { joinQrScanner?.stop(dom.joinQrScannerVideo); }
@@ -1626,7 +1641,7 @@ function beginDialDrag(event) {
   dialPointer = { id: event.pointerId, angle: dialAngle(event), accumulated: 0 }; document.body.classList.add('dial-dragging'); dom.dialGesture.classList.add('dragging'); dom.dialGesture.setPointerCapture?.(event.pointerId); event.preventDefault();
 }
 function leaveTable() {
-  closeGameOverlays(); clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); clearStartingRollTimers(); clearInterval(turnTicker); dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); state = null; transport.clearSession(); renderSavedTables(); showView(dom.landing);
+  clearLastActiveTable(localStorage); closeGameOverlays(); clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); clearStartingRollTimers(); clearInterval(turnTicker); dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); state = null; transport.clearSession(); renderSavedTables(); showView(dom.landing);
 }
 function moveDialDrag(event) {
   if (!dialPointer || event.pointerId !== dialPointer.id) return;
@@ -1701,7 +1716,7 @@ dom.intermissionReadyButton.addEventListener('click', () => void setNextGameRead
 dom.victoryDialog.addEventListener('click', () => { if (victoryDismissReady && dom.victoryDialog.open) dom.victoryDialog.close('tap'); }); dom.victoryDialog.addEventListener('close', () => { if (dom.victoryDialog.returnValue !== 'tap') return; const key = victoryKey(state?.gameResult); dismissedVictoryKeys.add(key); void (async () => { await automaticSavePromises.get(key); if (!showAchievementUnlocks(key)) openQuickFeedback(); })(); }); dom.achievementDialog.addEventListener('close', () => { unlockedAchievementsByGame.delete(dom.achievementDialog.dataset.gameKey); openQuickFeedback(); });
 $('#quickFeedbackForm').addEventListener('submit', async event => { event.preventDefault(); const response = event.submitter?.value; const until = Date.now() + (response === 'skip' ? 30 : 7) * 24 * 60 * 60 * 1000; localStorage.setItem('fivefold-arc:quick-feedback-until', String(until)); if (response !== 'skip') await transport.recordQuickFeedback({ response }); $('#quickFeedbackDialog').close(); });
 dom.viewCelebrationButton.addEventListener('click', () => { shownVictoryKey = null; dom.gameMenu.hidden = true; renderVictory(); });
-transport.addEventListener('status', event => { renderConnection(event.detail); renderMutationAvailability(); }); transport.addEventListener('state', event => { if (event.detail?.seats?.length) { const previousTossKey = coinTossKey(state?.lastCoinToss); const previousRollKey = startingPlayerRollKey(state?.turn?.startingPlayerRoll); const previousTurnKey = state?.turn?.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; state = stateFromSnapshot(event.detail); if (awaitingConfirmedResync && transport.status === 'connected') { awaitingConfirmedResync = false; const presentation = connectionPresentation({ status: 'connected', resynced: true }); dom.syncBanner.textContent = presentation.syncMessage; dom.syncBanner.hidden = false; clearTimeout(syncBannerTimer); syncBannerTimer = setTimeout(() => { dom.syncBanner.hidden = true; }, 5000); } const nextRollKey = startingPlayerRollKey(state.turn.startingPlayerRoll); const nextTurnKey = state.turn.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; if (dom.game.hidden) showView(dom.game); if (nextTurnKey && nextTurnKey !== previousTurnKey && nextTurnKey !== lastTurnHandoffKey) { lastTurnHandoffKey = nextTurnKey; showTurnHandoff(); } if (nextRollKey && nextRollKey !== previousRollKey && nextRollKey !== lastStartingRollKey) { lastStartingRollKey = nextRollKey; showStartingPlayerRoll(state.turn.startingPlayerRoll); } else if (coinTossKey(state.lastCoinToss) && coinTossKey(state.lastCoinToss) !== previousTossKey) { const dialog = coinTossDialogRequested; coinTossDialogRequested = false; showCoinToss(state.lastCoinToss, { dialog }); } else render(); } });
+transport.addEventListener('status', event => { renderConnection(event.detail); renderMutationAvailability(); }); transport.addEventListener('state', event => { if (event.detail?.seats?.length) { const previousTossKey = coinTossKey(state?.lastCoinToss); const previousRollKey = startingPlayerRollKey(state?.turn?.startingPlayerRoll); const previousTurnKey = state?.turn?.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; state = stateFromSnapshot(event.detail); saveTable(); if (awaitingConfirmedResync && transport.status === 'connected') { awaitingConfirmedResync = false; const presentation = connectionPresentation({ status: 'connected', resynced: true }); dom.syncBanner.textContent = presentation.syncMessage; dom.syncBanner.hidden = false; clearTimeout(syncBannerTimer); syncBannerTimer = setTimeout(() => { dom.syncBanner.hidden = true; }, 5000); } const nextRollKey = startingPlayerRollKey(state.turn.startingPlayerRoll); const nextTurnKey = state.turn.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; if (dom.game.hidden) showView(dom.game); if (nextTurnKey && nextTurnKey !== previousTurnKey && nextTurnKey !== lastTurnHandoffKey) { lastTurnHandoffKey = nextTurnKey; showTurnHandoff(); } if (nextRollKey && nextRollKey !== previousRollKey && nextRollKey !== lastStartingRollKey) { lastStartingRollKey = nextRollKey; showStartingPlayerRoll(state.turn.startingPlayerRoll); } else if (coinTossKey(state.lastCoinToss) && coinTossKey(state.lastCoinToss) !== previousTossKey) { const dialog = coinTossDialogRequested; coinTossDialogRequested = false; showCoinToss(state.lastCoinToss, { dialog }); } else render(); } });
 transport.addEventListener('state', event => { const roomCode = event.detail?.code; if (!roomCode || reportedDiagnostics.has(roomCode)) return; reportedDiagnostics.add(roomCode); setTimeout(() => recordClientDiagnostic('session_started'), 0); });
 transport.addEventListener('state', event => { if (event.detail?.seats?.length) void applySelectedAppearance(); });
 document.addEventListener('visibilitychange', () => { recordClientDiagnostic('visibility_changed'); if (document.visibilityState === 'visible') { scheduleViewportMetrics(); void transport.resume(); } });
@@ -1711,7 +1726,9 @@ dom.startingRollCanvas?.addEventListener('webglcontextlost', () => recordClientD
 transport.addEventListener('protocolerror', () => recordClientDiagnostic('protocol_error'));
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js').catch(() => {});
 const deepJoinCode = new URLSearchParams(location.search).get('join');
-if (!appearancePreviewMode && /^[A-Z0-9]{6}$/i.test(deepJoinCode || '')) openJoinCode(deepJoinCode);
+const initialTableTarget = appearancePreviewMode ? null : startupTableTarget({ queryJoinCode: deepJoinCode, localStorage });
+if (initialTableTarget?.kind === 'join') void openJoinCode(initialTableTarget.code);
+else if (initialTableTarget?.kind === 'reclaim') void reclaimLastActiveTable(initialTableTarget);
 if (!appearancePreviewMode) { void loadGameDefaultLayout(); void loadPublishedSkinChoices(); }
 if (!appearancePreviewMode) void restoreSavedAccountSession();
 if (appearancePreviewMode) {
