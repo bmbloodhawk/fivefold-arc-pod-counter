@@ -20,6 +20,10 @@ export function clearLastActiveTable(localStorage) {
   try { localStorage.removeItem(LAST_ACTIVE_TABLE_KEY); } catch { /* Storage is optional. */ }
 }
 
+export function shouldClearLastActiveTable(error) {
+  return error?.status === 404 || error?.code === 'RECLAIM_UNAVAILABLE';
+}
+
 export function startupTableTarget({ queryJoinCode, localStorage }) {
   const code = String(queryJoinCode || '').toUpperCase();
   if (/^[A-Z0-9]{6}$/.test(code)) return { kind: 'join', code };

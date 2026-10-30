@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { clearLastActiveTable, readLastActiveTable, saveLastActiveTable, startupTableTarget } from './active-table-recovery.js';
+import { clearLastActiveTable, readLastActiveTable, saveLastActiveTable, shouldClearLastActiveTable, startupTableTarget } from './active-table-recovery.js';
 
 function storage() {
   const values = new Map();
@@ -30,4 +30,10 @@ test('explicit leave clears the automatic reclaim target', () => {
 
   assert.equal(readLastActiveTable(localStorage), null);
   assert.equal(startupTableTarget({ queryJoinCode: '', localStorage }), null);
+});
+
+test('temporary recovery failures retain the latest table while confirmed-gone tables clear it', () => {
+  assert.equal(shouldClearLastActiveTable({ message: 'Network request failed' }), false);
+  assert.equal(shouldClearLastActiveTable({ status: 404 }), true);
+  assert.equal(shouldClearLastActiveTable({ code: 'RECLAIM_UNAVAILABLE' }), true);
 });

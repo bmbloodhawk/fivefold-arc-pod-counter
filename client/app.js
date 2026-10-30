@@ -6,7 +6,7 @@ import { createInteractionAdvice } from './card-interaction-advice.js?v=1';
 import { commanderFallbackLabel } from './commander-source-flow.js?v=1';
 import { currentAccountToken, emailAccountToken, googleAccountToken, restoredAccountToken, sendAccountPasswordReset, signOutAccount } from './account-auth.js?v=6';
 import { JoinQrScanner } from './join-qr-scanner.js?v=3';
-import { clearLastActiveTable, saveLastActiveTable, startupTableTarget } from './active-table-recovery.js?v=1';
+import { clearLastActiveTable, saveLastActiveTable, shouldClearLastActiveTable, startupTableTarget } from './active-table-recovery.js?v=1';
 import { releaseUpdatePresentation, watchForReleaseUpdate } from './release-update.js?v=1';
 
 const appearancePreviewMode = new URLSearchParams(location.search).get('appearance-preview') === '1';
@@ -625,7 +625,7 @@ async function reclaimLastActiveTable(target) {
       syncBannerTimer = setTimeout(() => { dom.syncBanner.hidden = true; }, 5000);
     }
   } catch (error) {
-    if (error?.status === 404 || error?.code === 'RECLAIM_UNAVAILABLE') clearLastActiveTable(localStorage);
+    if (shouldClearLastActiveTable(error)) clearLastActiveTable(localStorage);
     renderSavedTables(); showView(dom.landing);
   }
 }
