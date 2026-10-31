@@ -515,7 +515,7 @@ export class RoomService {
         startingPlayerRoll: null,
         lastHandoff: null,
         trackingEnabled: true,
-        cueMode: "off",
+        cueMode: "sound",
         pausedAt: null,
         pausedDurationMs: 0,
       },
@@ -656,7 +656,7 @@ export class RoomService {
         } : null,
         lastHandoff: room.turn.lastHandoff ? { ...room.turn.lastHandoff } : null,
         trackingEnabled: room.turn.trackingEnabled !== false,
-        cueMode: ["sound", "vibrate", "both"].includes(room.turn.cueMode) ? room.turn.cueMode : "off",
+        cueMode: ["off", "sound", "vibrate", "both"].includes(room.turn.cueMode) ? room.turn.cueMode : "sound",
         pausedAt: room.turn.pausedAt ?? null,
         pausedDurationMs: room.turn.pausedDurationMs ?? 0,
       },
@@ -1069,7 +1069,7 @@ export class RoomService {
     room.ledgerSequence = 0;
     room.ledgerLastCheckpointAt = this.now();
     room.ledgerCompletedAt = null;
-    const cueMode = ["sound", "vibrate", "both"].includes(room.turn.cueMode) ? room.turn.cueMode : "off";
+    const cueMode = ["off", "sound", "vibrate", "both"].includes(room.turn.cueMode) ? room.turn.cueMode : "sound";
     room.turn = {
       activeSeatId: nextStartingSeatId,
       gameStarted: false,

@@ -114,6 +114,13 @@ test("keeps an attached SSE stream alive with an ignored comment and clears it o
 });
 
 describe("room configuration and claims", () => {
+  test("new pods use a single-ding turn cue unless the host changes it", () => {
+    const service = new RoomService();
+    const host = service.createConnection();
+    const created = service.createRoom(host.connectionId, { playerCount: 2, startingLife: 40 });
+    assert.equal(created.snapshot.turn.cueMode, "sound");
+  });
+
   test("keeps Oracle lookup available when supporting rulings are absent", async () => {
     const lookup = createCardLookup(async (url) => ({
       ok: true,

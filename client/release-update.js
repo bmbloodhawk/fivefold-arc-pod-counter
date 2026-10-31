@@ -1,4 +1,4 @@
-export const RELEASE_ID = '2026-10-30-safe-reclaim-3';
+export const RELEASE_ID = '2026-10-30-safe-reclaim-4';
 
 export function refreshIsAllowed({ lifecycle, connectionStatus }) {
   if (connectionStatus === 'reconnecting' || connectionStatus === 'connecting') return false;
