@@ -457,7 +457,7 @@
     </form>
   </dialog>
 
-  <dialog id="victoryDialog" aria-labelledby="victoryTitle">
+  <dialog id="victoryDialog" data-stage="winner" aria-labelledby="victoryTitle">
     <form method="dialog" class="victory-dialog-content">
       <img class="victory-art" src="assets/victory-seal-v1.png" alt="" aria-hidden="true">
       <div class="victory-dialog-copy">
@@ -476,8 +476,7 @@
         <div class="victory-dismissal">
           <p id="victoryTapHint" class="victory-tap-hint">Enjoy the win</p>
           <select id="saveGameDeck" hidden aria-label="Deck for this saved game"><option value="">No deck selected</option></select>
-          <button id="saveGameButton" type="button" class="secondary-action">Save this game</button>
-          <button id="nextGameButton" type="button" class="primary-action" hidden>Start next game</button>
+          <button id="saveGameButton" type="button" hidden>Save this game</button>
         </div>
       </div>
     </form>

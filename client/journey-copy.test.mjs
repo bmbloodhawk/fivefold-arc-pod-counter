@@ -426,24 +426,25 @@ test('touch feedback is local, optional, and never part of game state', () => {
   assert.match(styles, /#gameView\[data-counter-mode="commander"\] \{ touch-action: manipulation; \}/);
 });
 
-test('the confirmed winner is celebrated on every phone before the host opens next-game setup', () => {
+test('the confirmed winner, personal accolade, and next-game setup are separate stages', () => {
   assert.match(html, /id="victoryDialog"[\s\S]*assets\/victory-seal-v1\.png[\s\S]*id="victoryEyebrow"[\s\S]*id="victoryTapHint"[^>]*>Enjoy the win/);
   assert.match(html, /class="victory-winner-copy"[\s\S]*id="personalMatchMoment"[\s\S]*class="victory-dismissal"/);
   assert.match(app, /if \(key !== shownVictoryKey\)/);
-  assert.match(app, /if \(!result \|\| !winner\) \{ shownVictoryKey = null; if \(dom\.victoryDialog\.open\) dom\.victoryDialog\.close\('game-reset'\); return; \}/);
+  assert.match(app, /if \(!result \|\| !winner\) \{ shownVictoryKey = null; victoryStage = 'winner';/);
   assert.match(app, /const youWon = winner\.id === actingSeatId/);
   assert.match(app, /victoryDismissReady && dom\.victoryDialog\.open/);
   assert.match(styles, /\.victory-art \{[\s\S]*object-position: center 31%/);
   assert.doesNotMatch(styles, /\.victory-art \{[^}]*opacity:/);
   assert.doesNotMatch(styles, /\.victory-art \{[^}]*mix-blend-mode:/);
-  assert.match(styles, /\.victory-dialog-content \{[\s\S]*grid-template-rows: 1fr 1fr/);
+  assert.match(styles, /#victoryDialog \{[\s\S]*height: var\(--app-viewport-height\)/);
+  assert.match(styles, /#victoryDialog\[data-stage="accolade"\] \.victory-winner-copy \{ display: none;/);
   assert.match(app, /function accoladeArtUrl\(title\).*assets\/accolades/s);
   assert.match(app, /function winnerArtUrl\(winner, gameKey\).*last-one-standing.*table-monarch.*arc-victor/s);
   assert.match(app, /winnerArtUrl\(winner, key\)/);
   assert.match(app, /accoladeArtUrl\(moment\.art \|\| moment\.title\)/);
-  assert.match(html, /id="nextGameButton"[^>]*>Start next game/);
-  assert.match(app, /dom\.nextGameButton\.hidden = !result \|\| !winner \|\| !\(state\?\.localSimulation \|\| transport\.seatId === state\?\.hostSeatId\)/);
-  assert.match(app, /void beginIntermission\(\);/);
+  assert.doesNotMatch(html, /id="nextGameButton"/);
+  assert.match(app, /function finishEndGameFlow\(key\)/);
+  assert.match(app, /if \(!showAchievementUnlocks\(key\)\) void beginIntermission\(\);/);
   assert.match(html, /id="intermissionPanel"[\s\S]*id="intermissionReadyButton"[\s\S]*id="intermissionStartButton"/);
   assert.match(styles, /\.personal-match-art \{[\s\S]*background-size: cover/);
   assert.doesNotMatch(styles, /\.personal-match-art \{[^}]*opacity:/);
@@ -454,11 +455,12 @@ test('expanded match moments include their own original accolade illustrations',
   newAccoladeAssets.forEach(asset => assert.ok(asset.length > 1_000_000));
 });
 
-test('achievements follow the personal match accolade and reveal every new rarity only after unlock', () => {
+test('achievements follow the personal match accolade before the ready screen', () => {
   assert.match(html, /id="achievementDialog"[\s\S]*ACHIEVEMENT UNCOVERED[\s\S]*id="achievementUnlockList"/);
   assert.match(app, /function showAchievementUnlocks\(gameKey\)/);
   assert.match(app, /unlockedAchievementsByGame\.set\(gameKey, unlockedAchievements\)/);
-  assert.match(app, /dismissedVictoryKeys\.add\(key\); void \(async \(\) => \{ await automaticSavePromises\.get\(key\); if \(!showAchievementUnlocks\(key\)\) openQuickFeedback\(\); \}\)\(\);/);
+  assert.match(app, /function advanceEndGameFlow\(key\)/);
+  assert.match(app, /dom\.achievementDialog\.addEventListener\('close'.*void beginIntermission\(\)/);
   assert.match(app, /const achievementCardHtml = \(achievement, showNew = false\)/);
   assert.match(app, /unlocked\.map\(achievement =>/);
   assert.match(styles, /\.achievement-card\[data-rarity="legendary"\]/);

@@ -13,7 +13,6 @@ test('next-game setup is a distinct ready state with host start controls', () =>
   assert.match(page, /id="intermissionReadyButton"/);
   assert.match(app, /const isIntermission = lifecycleStatus === 'intermission';/);
   assert.match(app, /dom\.intermissionReadyButton\.addEventListener\('click', \(\) => void setNextGameReady\(\)\)/);
-  assert.match(app, /dom\.nextGameButton\.addEventListener\('click'.*void beginIntermission\(\)/);
   assert.match(page, /id="nextGameConfirmDialog"/);
   assert.match(page, /id="lobbyRoster"/);
   assert.match(app, /data-move-seat/);
@@ -35,8 +34,15 @@ test('pod setup separates first-game players from future seat capacity', () => {
   assert.match(transport, /async createRoom\(\{ playerCount, seatCapacity = playerCount,/);
 });
 
-test('achievement reveals wait for the personal match moment dismissal and its save', () => {
+test('the end-game flow uses distinct winner, accolade, achievement, and ready stages', () => {
   assert.match(app, /const automaticSavePromises = new Map\(\); const dismissedVictoryKeys = new Set\(\);/);
   assert.match(app, /automaticSavePromises\.set\(key, saveGameToHistory\(\{ automatic: true, gameKey: key \}\)\);/);
-  assert.match(app, /dismissedVictoryKeys\.add\(key\); void \(async \(\) => \{ await automaticSavePromises\.get\(key\); if \(!showAchievementUnlocks\(key\)\) openQuickFeedback\(\); \}\)\(\);/);
+  assert.match(app, /function advanceEndGameFlow\(key\)/);
+  assert.match(app, /victoryStage === 'winner'/);
+  assert.match(app, /victoryStage = 'accolade';/);
+  assert.match(app, /if \(!showAchievementUnlocks\(key\)\) void beginIntermission\(\);/);
+  assert.match(app, /dom\.achievementDialog\.addEventListener\('close'.*void beginIntermission\(\)/);
+  assert.match(page, /id="victoryDialog"[^>]*data-stage/);
+  assert.match(page, /id="personalMatchMoment"/);
+  assert.doesNotMatch(page, /id="nextGameButton"/);
 });
