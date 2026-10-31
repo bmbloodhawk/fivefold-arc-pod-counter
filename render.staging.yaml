@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: fivefold-arc-pod-counter-staging
+    runtime: node
+    plan: free
+    branch: staging
+    autoDeploy: true
+    buildCommand: npm install --prefix server
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 24.x
+      - key: ALLOWED_ORIGIN
+        value: https://fivefold-arc-pod-counter-staging.onrender.com
+      - key: APP_ENV
+        value: staging

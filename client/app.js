@@ -51,6 +51,14 @@ function scheduleViewportMetrics() {
   viewportSyncTimer = setTimeout(() => { viewportSyncTimer = null; syncViewportMetrics(); }, 120);
 }
 syncViewportMetrics();
+const stagingHostname = 'fivefold-arc-pod-counter-staging.onrender.com';
+if (location.hostname === stagingHostname) {
+  const banner = document.createElement('p');
+  banner.className = 'staging-environment-banner';
+  banner.setAttribute('role', 'status');
+  banner.textContent = 'TEST ENVIRONMENT — changes here do not affect the public app';
+  document.body.prepend(banner);
+}
 window.addEventListener('resize', scheduleViewportMetrics, { passive: true });
 window.visualViewport?.addEventListener('resize', scheduleViewportMetrics, { passive: true });
 // Some mobile browsers still honor double-tap zoom despite `touch-action` on
