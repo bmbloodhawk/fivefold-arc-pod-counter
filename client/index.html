@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=237">
+  <link rel="stylesheet" href="styles.css?v=235">
 </head>
 <body>
   <header class="brand-bar">
@@ -21,11 +21,6 @@
       <span id="connectionText">Local simulation</span>
     </div>
   </header>
-  <div id="releaseUpdateNotice" class="release-update-notice" role="status" aria-live="polite" hidden>
-    <span id="releaseUpdateMessage"></span>
-    <button id="releaseUpdateRefreshButton" type="button" class="text-action" hidden>Refresh now</button>
-    <button id="releaseUpdateDismissButton" type="button" class="release-update-dismiss" aria-label="Dismiss update notice">×</button>
-  </div>
 
   <main>
     <section id="landingView" class="view setup-shell" aria-labelledby="welcomeTitle">
@@ -107,7 +102,7 @@
         </section>
         <section class="create-step commander-setup-step" data-create-step="4" hidden>
           <p class="eyebrow">STEP 4 OF 5</p>
-          <label id="createDeckField" class="select-field" hidden>My deck <small>(optional)</small><input id="createDeckSearch" type="search" autocomplete="off" placeholder="Search commander, deck, or colors"><select id="createDeck"><option value="">No deck selected</option></select></label>
+          <label id="createDeckField" class="select-field" hidden>My deck <small>(optional)</small><select id="createDeck"><option value="">No deck selected</option></select></label>
           <fieldset class="choice-field">
             <legend>Your commander <small>(optional)</small></legend>
             <div class="segmented commander-count-choice" role="radiogroup" aria-label="Number of commanders for your claimed seat">
@@ -185,7 +180,7 @@
         </section>
         <section class="join-step" data-join-step="4" hidden>
           <p class="eyebrow">STEP 4 OF 4</p>
-          <label id="joinDeckField" class="select-field" hidden>My deck <small>(optional)</small><input id="joinDeckSearch" type="search" autocomplete="off" placeholder="Search commander, deck, or colors"><select id="joinDeck"><option value="">No deck selected</option></select></label>
+          <label id="joinDeckField" class="select-field" hidden>My deck <small>(optional)</small><select id="joinDeck"><option value="">No deck selected</option></select></label>
           <button id="joinSignInDeckButton" class="secondary-action" type="button">Sign in to use a saved deck</button>
           <fieldset class="choice-field">
             <legend>Your commander <small>(optional)</small></legend>
@@ -201,33 +196,6 @@
       </form>
     </section>
 
-    <section id="lobbyView" class="view setup-shell lobby-view" hidden aria-labelledby="lobbyTitle">
-      <p class="eyebrow">POD LOBBY</p>
-      <div class="lobby-title-hold"><h1 id="lobbyTitle">Gather your table.</h1><button id="lobbyDeveloperHoldButton" type="button" aria-label="Open developer tools" hidden></button></div>
-      <p id="lobbySeatStatus" class="lobby-seat-status" role="status"></p>
-      <section id="lobbyControls" class="lobby-controls" aria-live="polite">
-        <p id="lobbyStatus">Waiting for players to join.</p>
-        <p class="lobby-invite-help">Players: choose <strong>Join a pod</strong>, then enter this code.</p>
-        <output id="lobbyInviteCode" class="lobby-invite-code" aria-label="Pod code"></output>
-        <button id="copyLobbyJoinLinkButton" class="primary-action" type="button">Copy invite link</button>
-        <button id="showJoinQrButton" class="secondary-action" type="button">Show join QR</button>
-        <div id="lobbyRoster" class="intermission-roster" hidden></div>
-        <p class="lobby-start-help">Start with 2+ ready players. Other seats stay unused.</p>
-        <button id="startGameButton" class="primary-action" type="button">Start game · P1 goes first</button>
-        <details id="firstPlayerOptions" class="lobby-options">
-          <summary>Choose a different first player</summary>
-          <label id="startingSeatField" class="select-field">First player
-            <select id="startingSeat"></select>
-          </label>
-          <button id="chooseFirstButton" class="secondary-action" type="button">Use selected first player</button>
-          <button id="winnerFirstButton" class="secondary-action" type="button" hidden>Winner goes first</button>
-          <button id="randomFirstButton" class="secondary-action" type="button">Roll d20 for first player</button>
-        </details>
-        <button id="lobbyBackToSetupButton" class="text-action" type="button" hidden>Developer: back to setup</button>
-        <button id="lobbyLeaveTableButton" class="text-action" type="button">Leave this pod</button>
-      </section>
-    </section>
-
     <section id="gameView" class="view game-shell" hidden aria-labelledby="modeTitle">
       <div class="game-topline">
         <div class="game-identity"><span id="podLabel" class="pod-label">LOCAL POD</span><span id="commanderIdentityName" class="commander-identity-name" hidden></span><span id="identityHeaderRail" class="identity-header-rail" aria-hidden="true"></span></div>
@@ -238,6 +206,7 @@
         <span aria-hidden="true">!</span><p><strong>Offline — showing confirmed table state</strong><br>Shared counter changes are paused. Nothing entered here will be queued or synced later.</p>
       </div>
       <div id="syncBanner" class="sync-banner" role="status" hidden></div>
+
       <p id="inspectionNotice" class="inspection-notice" role="status" hidden></p>
       <p id="coinTossNotice" class="coin-toss-notice" aria-live="polite" hidden></p>
       <p id="victoryNotice" class="victory-notice" aria-live="polite" hidden></p>
@@ -258,6 +227,25 @@
           <div class="dialog-actions"><button class="secondary-action" value="cancel" type="submit">Back</button><button id="confirmNextGameStart" class="primary-action" value="confirm" type="submit">Start game</button></div>
         </form>
       </dialog>
+      <section id="lobbyControls" class="lobby-controls" aria-live="polite">
+        <p id="lobbyStatus">Waiting for players to join.</p>
+        <p class="lobby-invite-help">Players: choose <strong>Join a pod</strong>, then enter this code.</p>
+        <output id="lobbyInviteCode" class="lobby-invite-code" aria-label="Pod code"></output>
+        <button id="copyLobbyJoinLinkButton" class="primary-action" type="button">Copy invite link</button>
+        <button id="showJoinQrButton" class="secondary-action" type="button">Show join QR</button>
+        <div id="lobbyRoster" class="intermission-roster" hidden></div>
+        <p class="lobby-start-help">Start with 2+ ready players. Other seats stay unused.</p>
+        <button id="startGameButton" class="primary-action" type="button">Start game · P1 goes first</button>
+        <details id="firstPlayerOptions" class="lobby-options">
+          <summary>Choose a different first player</summary>
+          <label id="startingSeatField" class="select-field">First player
+            <select id="startingSeat"></select>
+          </label>
+          <button id="chooseFirstButton" class="secondary-action" type="button">Use selected first player</button>
+          <button id="winnerFirstButton" class="secondary-action" type="button" hidden>Winner goes first</button>
+          <button id="randomFirstButton" class="secondary-action" type="button">Roll d20 for first player</button>
+        </details>
+      </section>
       <section id="podStrip" class="pod-strip" aria-label="Pod life totals"></section>
       <section id="turnBanner" class="turn-banner" aria-live="polite">
         <p id="turnLabel">P1'S TURN</p>
@@ -342,11 +330,10 @@
         <button id="commanderSetupButton" type="button">My commander setup</button>
         <button id="pauseTurnButton" type="button" hidden>Pause timers</button>
         <button id="toggleTurnTrackingButton" type="button" hidden>Turn tracking: on</button>
-        <button id="toggleTurnCuesButton" type="button" hidden>Turn cue: single ding</button>
+        <button id="toggleTurnCuesButton" type="button" hidden>Turn cue: off</button>
         <button id="toggleDeviceCuesButton" type="button">My turn cue: on</button>
         <button id="turnSoundPreferencesButton" type="button">My turn sound</button>
         <button id="toggleTouchFeedbackButton" type="button">Touch feedback: on</button>
-        <button id="toggleScreenAwakeButton" type="button" hidden>Keep screen awake: on</button>
         <button id="toggleInterfaceStyleButton" type="button">Interface style: Button</button>
         <button id="leaveTableButton" type="button">Leave table</button>
         <button id="backToSetupButton" type="button">Back to setup</button>
@@ -449,7 +436,7 @@
         </div>
       </fieldset>
       <div id="gameCommanderNames" class="commander-name-fields"></div>
-      <label id="commanderDeckField" class="select-field" hidden>My deck <small>(optional)</small><input id="commanderDeckSearch" type="search" autocomplete="off" placeholder="Search commander, deck, or colors"><select id="commanderDeck"><option value="">No deck selected</option></select></label>
+      <label id="commanderDeckField" class="select-field" hidden>My deck <small>(optional)</small><select id="commanderDeck"><option value="">No deck selected</option></select></label>
       <div class="dialog-actions">
         <button value="cancel" class="secondary-action">Cancel</button>
         <button id="saveCommanderCountButton" value="confirm" class="primary-action">Update this pod</button>
@@ -479,26 +466,19 @@
           <h2 id="victoryTitle">Victory</h2>
           <p id="victoryDetail">You are the last player standing.</p>
         </section>
-        <div class="victory-dismissal">
-          <p id="victoryTapHint" class="victory-tap-hint">Enjoy the win</p>
-          <select id="saveGameDeck" hidden aria-label="Deck for this saved game"><option value="">No deck selected</option></select>
-          <button id="saveGameButton" type="button" class="secondary-action">Save this game</button>
-        </div>
-      </div>
-    </form>
-  </dialog>
-
-  <dialog id="personalMatchMomentDialog" aria-labelledby="personalMatchMomentTitle">
-    <form method="dialog" class="victory-dialog-content">
-      <div class="victory-dialog-copy">
-        <section id="personalMatchMoment" class="personal-match-moment" aria-live="polite">
+        <section id="personalMatchMoment" class="personal-match-moment" hidden aria-live="polite">
           <div id="personalMatchArt" class="personal-match-art" aria-hidden="true"></div>
           <p class="eyebrow">YOUR MATCH MOMENT</p>
           <strong id="personalMatchMomentTitle"></strong>
           <span id="personalMatchMomentLine"></span>
           <small id="personalMatchMomentFact"></small>
         </section>
-        <div class="victory-dismissal"><p class="victory-tap-hint">Tap anywhere to continue</p></div>
+        <div class="victory-dismissal">
+          <p id="victoryTapHint" class="victory-tap-hint">Enjoy the win</p>
+          <select id="saveGameDeck" hidden aria-label="Deck for this saved game"><option value="">No deck selected</option></select>
+          <button id="saveGameButton" type="button" class="secondary-action">Save this game</button>
+          <button id="nextGameButton" type="button" class="primary-action" hidden>Start next game</button>
+        </div>
       </div>
     </form>
   </dialog>
@@ -510,18 +490,6 @@
       <p id="achievementSummary">Your game added something new to your chronicle.</p>
       <div id="achievementUnlockList" class="achievement-unlock-list"></div>
       <button value="continue" class="primary-action">Continue</button>
-    </form>
-  </dialog>
-
-  <dialog id="postGameDialog" aria-labelledby="postGameTitle">
-    <form method="dialog" class="post-game-dialog-content">
-      <p class="eyebrow">GAME COMPLETE</p>
-      <h2 id="postGameTitle">What’s next?</h2>
-      <p id="postGameDetail">Choose whether to set up another game or leave this table.</p>
-      <div class="dialog-actions">
-        <button id="postGameNextGameButton" type="button" class="primary-action">Set up next game</button>
-        <button id="postGameLeaveTableButton" type="button" class="secondary-action">Leave table</button>
-      </div>
     </form>
   </dialog>
 
@@ -702,6 +670,6 @@
   <dialog id="myDecksDialog" aria-labelledby="myDecksTitle"><form method="dialog"><h2 id="myDecksTitle">My decks</h2><p id="myDecksStatus">Sign in to keep private deck notes.</p><section id="deckEditor" aria-labelledby="deckEditorTitle"><h3 id="deckEditorTitle">Add a deck</h3><fieldset class="choice-field"><legend>Commanders</legend><div class="segmented commander-count-choice"><label><input type="radio" name="deckCommanderCount" value="1" checked><span>1 commander</span></label><label><input type="radio" name="deckCommanderCount" value="2"><span>2 commanders</span></label></div></fieldset><label class="select-field">Commander 1<input id="deckCommanderName" maxlength="120" autocomplete="off" placeholder="e.g. Atraxa, Praetors’ Voice"></label><label id="deckCommanderNameTwoField" class="select-field" hidden>Commander 2<input id="deckCommanderNameTwo" maxlength="120" autocomplete="off" placeholder="e.g. Tymna the Weaver"></label><button id="findDeckColorsButton" type="button" class="secondary-action">Find commander colors</button><small id="deckCommanderStatus" class="commander-lookup-status" aria-live="polite">We’ll also check the commander colors when you save.</small><fieldset class="choice-field"><legend>Deck colors <small>(checked from your commander when found)</small></legend><label><input name="deckColors" type="checkbox" value="W"> White</label><label><input name="deckColors" type="checkbox" value="U"> Blue</label><label><input name="deckColors" type="checkbox" value="B"> Black</label><label><input name="deckColors" type="checkbox" value="R"> Red</label><label><input name="deckColors" type="checkbox" value="G"> Green</label></fieldset><label class="select-field">Deck name <small>(optional)</small><input id="deckName" maxlength="120" autocomplete="off" placeholder="e.g. Poison counters"></label><label class="select-field">Private notes <small>(optional)</small><textarea id="deckNotes" maxlength="500" placeholder="A reminder for yourself"></textarea></label><label class="select-field"><input id="deckFavorite" type="checkbox"> Favorite this deck</label><div class="dialog-actions"><button id="myDecksSignInButton" type="button" class="secondary-action">Sign in with Google</button><button id="createDeckButton" type="button" class="primary-action">Save deck</button><button value="close" class="secondary-action">Close</button></div></section><section id="savedDeckList" aria-labelledby="savedDeckListTitle"><h3 id="savedDeckListTitle">Saved decks</h3><div id="myDecksContent" hidden></div></section></form></dialog>
 
   <script src="vendor/jsqr.js?v=1"></script>
-  <script type="module" src="app.js?v=277"></script>
+  <script type="module" src="app.js?v=264"></script>
 </body>
 </html>

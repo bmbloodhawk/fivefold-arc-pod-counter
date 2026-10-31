@@ -61,18 +61,6 @@ test("uses explicit CORS and baseline browser security headers when configured",
   }
 });
 
-test("health stays not-ready when configured durable room storage is unavailable", async () => {
-  const eventServer = createRealtimeServer({ roomStoreReady: async () => false }).server;
-  await new Promise((resolve) => eventServer.listen(0, "127.0.0.1", resolve));
-  try {
-    const response = await fetch(`http://127.0.0.1:${eventServer.address().port}/health`);
-    assert.equal(response.status, 503);
-    assert.deepEqual(await response.json(), { ok: false, roomStore: "unavailable" });
-  } finally {
-    await new Promise((resolve) => eventServer.close(resolve));
-  }
-});
-
 async function connection() {
   return (await call("/api/connections", { method: "POST" })).body.connectionId;
 }
@@ -88,39 +76,7 @@ async function room(config = {}) {
   return { connectionId, ...created.body };
 }
 
-test("keeps an attached SSE stream alive with an ignored comment and clears it on detach", () => {
-  const originalSetInterval = globalThis.setInterval;
-  const originalClearInterval = globalThis.clearInterval;
-  const timers = []; const cleared = [];
-  globalThis.setInterval = (callback, delay) => { const timer = { callback, delay }; timers.push(timer); return timer; };
-  globalThis.clearInterval = (timer) => { cleared.push(timer); };
-  try {
-    const service = new RoomService();
-    const connection = service.createConnection();
-    const created = service.createRoom(connection.connectionId, { playerCount: 2, startingLife: 40 });
-    const writes = []; const stream = { writableEnded: false, destroyed: false, write: value => writes.push(value) };
-    const detach = service.attachStream({ room: service.room(created.snapshot.code), connection: service.getConnection(connection.connectionId) }, stream);
-
-    assert.equal(timers.length, 1);
-    assert.equal(timers[0].delay, 15_000);
-    timers[0].callback();
-    assert.ok(writes.some(value => value === ': keepalive\n\n'));
-    detach();
-    assert.deepEqual(cleared, [timers[0]]);
-  } finally {
-    globalThis.setInterval = originalSetInterval;
-    globalThis.clearInterval = originalClearInterval;
-  }
-});
-
 describe("room configuration and claims", () => {
-  test("new pods use a single-ding turn cue unless the host changes it", () => {
-    const service = new RoomService();
-    const host = service.createConnection();
-    const created = service.createRoom(host.connectionId, { playerCount: 2, startingLife: 40 });
-    assert.equal(created.snapshot.turn.cueMode, "sound");
-  });
-
   test("keeps Oracle lookup available when supporting rulings are absent", async () => {
     const lookup = createCardLookup(async (url) => ({
       ok: true,
@@ -1332,24 +1288,11 @@ test("restores legacy recovery records without optional commander display fields
 test("batches rapid life taps into one fresh client operation", async () => {
   const jobs = []; const sent = [];
   const batcher = new LifeAdjustmentBatcher({ operationId: () => `operation-${sent.length + 1}-fresh-id`, schedule: (job) => { jobs.push(job); return jobs.length; }, cancel: () => {}, send: (operation) => sent.push(operation) });
-  batcher.add(-1, { isCorrection: false }); batcher.add(-5, { isCorrection: false });
+  batcher.add(-1); batcher.add(-5);
   await batcher.flush();
-  assert.deepEqual(sent, [{ delta: -6, operationId: "operation-1-fresh-id", isCorrection: false }]);
-  batcher.add(1, { isCorrection: true }); await batcher.flush();
+  assert.deepEqual(sent, [{ delta: -6, operationId: "operation-1-fresh-id" }]);
+  batcher.add(1); await batcher.flush();
   assert.equal(sent[1].operationId, "operation-2-fresh-id");
-  assert.equal(sent[1].isCorrection, true);
-});
-
-test("sends an immediate life correction separately from pending damage", async () => {
-  const sent = [];
-  const batcher = new LifeAdjustmentBatcher({ operationId: () => `operation-${sent.length + 1}`, schedule: () => 1, cancel: () => {}, send: (operation) => sent.push(operation) });
-  batcher.add(-1, { isCorrection: false });
-  batcher.add(1, { isCorrection: true });
-  await batcher.flush();
-  assert.deepEqual(sent, [
-    { delta: -1, operationId: "operation-1", isCorrection: false },
-    { delta: 1, operationId: "operation-2", isCorrection: true }
-  ]);
 });
 
 test("uses a compatible life operation ID when randomUUID is unavailable", () => {

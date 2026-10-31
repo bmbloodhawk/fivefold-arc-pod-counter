@@ -27,16 +27,6 @@ export class MemoryRoomStore {
     this.rooms.set(normalized, clone(nextRoom));
     return { committed: true, room: clone(nextRoom) };
   }
-
-  async delete(code, expectedVersion) {
-    const normalized = String(code).toUpperCase();
-    const current = this.rooms.get(normalized) || null;
-    if (!current || current.version !== expectedVersion) return { deleted: false, room: clone(current) };
-    this.rooms.delete(normalized);
-    return { deleted: true, room: null };
-  }
-
-  async verifyAccess() { return true; }
 }
 
 export class FirebaseRoomStore {
@@ -81,24 +71,5 @@ export class FirebaseRoomStore {
     if (response.status === 412) return { committed: false, room };
     if (!response.ok) throw new Error(`Firebase room write failed (${response.status})`);
     return { committed: true, room };
-  }
-
-  async delete(code, expectedVersion) {
-    const { room: current, tag } = await this.#readWithTag(code);
-    if (!current || current.version !== expectedVersion) return { deleted: false, room: current };
-    const response = await this.fetch(this.#url(code), {
-      method: "PUT",
-      headers: await this.#headers({ "content-type": "application/json", "if-match": tag || "null_etag" }),
-      body: "null",
-    });
-    const room = await response.json();
-    if (response.status === 412) return { deleted: false, room };
-    if (!response.ok) throw new Error(`Firebase room delete failed (${response.status})`);
-    return { deleted: true, room: null };
-  }
-
-  async verifyAccess() {
-    await this.#readWithTag("__room_store_probe__");
-    return true;
   }
 }

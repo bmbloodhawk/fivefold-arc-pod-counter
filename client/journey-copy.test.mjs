@@ -46,19 +46,11 @@ test('joining keeps optional commander setup out of the primary claim path', () 
 test('developer tools stay hidden until a host unlocks them with the protected portal key', () => {
   assert.match(html, /id="quickTestButton"[^>]*hidden/);
   assert.match(html, /id="localSimulationField"[^>]*hidden/);
-  assert.match(html, /id="lobbyBackToSetupButton"[^>]*hidden/);
   assert.match(html, /id="developerModeDialog"/);
   assert.match(app, /const DEVELOPER_MODE_KEY = 'fivefold-arc:developer-mode';/);
   assert.match(app, /\/api\/developer\/access/);
   assert.match(app, /dom\.podLabel\.addEventListener\('pointerdown'/);
-  assert.match(html, /id="lobbyDeveloperHoldButton"[^>]*aria-label="Open developer tools"/);
-  assert.match(app, /const lobbyDeveloperHoldTarget = \$\('#lobbyDeveloperHoldButton'\)/);
-  assert.match(app, /lobbyDeveloperHoldTarget\.addEventListener\('pointerdown'/);
-  assert.match(app, /const beginDeveloperHold = event => \{ event\.preventDefault\(\);/);
-  assert.match(app, /lobbyDeveloperHoldTarget\.addEventListener\('contextmenu', event => event\.preventDefault\(\)\)/);
   assert.match(app, /developerMode && developerHost\(\)/);
-  assert.match(app, /lobbyBackToSetupButton\.hidden = !visible;/);
-  assert.match(app, /lobbyDeveloperHoldTarget\.hidden = !developerHost\(\) \|\| developerMode;/);
   assert.match(app, /const developerMenuVisible = developerMode && developerHost\(\);/);
   assert.match(app, /dom\.playtestRecapButton\.hidden = !developerMenuVisible;/);
   assert.match(app, /dom\.savedPlaytestsButton\.hidden = !developerMenuVisible;/);
@@ -75,7 +67,7 @@ test('manual card-data refresh remains in the protected developer page and opens
 
 test('switching a deck during next-game commander setup applies that deck’s commanders', () => {
   assert.match(app, /let selectedDeckId = ''; let setupDecks = \[\]; let commanderDecks = \[\];/);
-  assert.match(app, /commanderDecks = sortSetupDecks\(decks\);/);
+  assert.match(app, /commanderDecks = decks;/);
   assert.match(app, /dom\.commanderDeck\.addEventListener\('change', event => \{/);
   assert.match(app, /renderCommanderNameFields\(dom\.gameCommanderNames, commanderNames\.length, commanderNames, identities\)/);
 });
@@ -138,7 +130,7 @@ test('creating a pod is distinct from starting a game', () => {
   assert.match(html, /id="createDeckField" class="select-field" hidden>My deck/);
   assert.match(html, /class="create-step commander-setup-step" data-create-step="4"/);
   assert.match(app, /function sortSetupDecks\(decks\) \{ return \[\.\.\.decks\]\.sort\(\(left, right\) => Number\(right\.favorite\) - Number\(left\.favorite\)/);
-  assert.match(app, /refreshSetupDeckPickers\(\); \[dom\.createDeck, dom\.joinDeck\]\.forEach\(select => \{ select\.value = ''; \}\)/);
+  assert.match(app, /\[dom\.createDeck, dom\.joinDeck\]\.forEach\(select => \{ select\.innerHTML = options; select\.value = ''; \}\)/);
   assert.match(html, /name="deckCommanderCount" value="2"/);
   assert.match(styles, /\.setup-form:has\(\.commander-setup-step:not\(\[hidden\]\)\) \{ margin-top: 16px; \}/);
   assert.match(styles, /\.commander-setup-step \.dialog-actions \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); gap: 6px; margin-top: 8px; \}/);
@@ -434,26 +426,24 @@ test('touch feedback is local, optional, and never part of game state', () => {
   assert.match(styles, /#gameView\[data-counter-mode="commander"\] \{ touch-action: manipulation; \}/);
 });
 
-test('the completed-game flow separates winner, accolade, and next-step choice', () => {
+test('the confirmed winner is celebrated on every phone before the host opens next-game setup', () => {
   assert.match(html, /id="victoryDialog"[\s\S]*assets\/victory-seal-v1\.png[\s\S]*id="victoryEyebrow"[\s\S]*id="victoryTapHint"[^>]*>Enjoy the win/);
-  assert.match(html, /id="personalMatchMomentDialog"[\s\S]*id="personalMatchMoment"[\s\S]*Tap anywhere to continue/);
-  assert.match(html, /id="postGameDialog"[\s\S]*id="postGameNextGameButton"[\s\S]*id="postGameLeaveTableButton"/);
+  assert.match(html, /class="victory-winner-copy"[\s\S]*id="personalMatchMoment"[\s\S]*class="victory-dismissal"/);
   assert.match(app, /if \(key !== shownVictoryKey\)/);
   assert.match(app, /if \(!result \|\| !winner\) \{ shownVictoryKey = null; if \(dom\.victoryDialog\.open\) dom\.victoryDialog\.close\('game-reset'\); return; \}/);
   assert.match(app, /const youWon = winner\.id === actingSeatId/);
-  assert.match(app, /const advanceRewardDialog = \(dialog, action\)/);
-  assert.match(app, /advanceRewardDialog\(dom\.victoryDialog, \(\) => \{ const key = victoryKey\(state\?\.gameResult\); dismissedVictoryKeys\.add\(key\); void showPersonalMatchMoment\(key\); \}\);/);
+  assert.match(app, /victoryDismissReady && dom\.victoryDialog\.open/);
   assert.match(styles, /\.victory-art \{[\s\S]*object-position: center 31%/);
   assert.doesNotMatch(styles, /\.victory-art \{[^}]*opacity:/);
   assert.doesNotMatch(styles, /\.victory-art \{[^}]*mix-blend-mode:/);
-  assert.match(styles, /\.victory-dialog-content \{[\s\S]*min-height: 100dvh/);
-  assert.match(styles, /#victoryDialog,#personalMatchMomentDialog \{[\s\S]*width: 100vw/);
+  assert.match(styles, /\.victory-dialog-content \{[\s\S]*grid-template-rows: 1fr 1fr/);
   assert.match(app, /function accoladeArtUrl\(title\).*assets\/accolades/s);
   assert.match(app, /function winnerArtUrl\(winner, gameKey\).*last-one-standing.*table-monarch.*arc-victor/s);
   assert.match(app, /winnerArtUrl\(winner, key\)/);
   assert.match(app, /accoladeArtUrl\(moment\.art \|\| moment\.title\)/);
-  assert.doesNotMatch(html, /id="nextGameButton"/);
-  assert.match(app, /dom\.postGameNextGameButton\.addEventListener\('click', \(\) => \{ dom\.postGameDialog\.close\('next-game'\); void beginIntermission\(\); \}\);/);
+  assert.match(html, /id="nextGameButton"[^>]*>Start next game/);
+  assert.match(app, /dom\.nextGameButton\.hidden = !result \|\| !winner \|\| !\(state\?\.localSimulation \|\| transport\.seatId === state\?\.hostSeatId\)/);
+  assert.match(app, /void beginIntermission\(\);/);
   assert.match(html, /id="intermissionPanel"[\s\S]*id="intermissionReadyButton"[\s\S]*id="intermissionStartButton"/);
   assert.match(styles, /\.personal-match-art \{[\s\S]*background-size: cover/);
   assert.doesNotMatch(styles, /\.personal-match-art \{[^}]*opacity:/);
@@ -464,13 +454,11 @@ test('expanded match moments include their own original accolade illustrations',
   newAccoladeAssets.forEach(asset => assert.ok(asset.length > 1_000_000));
 });
 
-test('achievements follow the personal match accolade before an explicit next-step choice', () => {
+test('achievements follow the personal match accolade and reveal every new rarity only after unlock', () => {
   assert.match(html, /id="achievementDialog"[\s\S]*ACHIEVEMENT UNCOVERED[\s\S]*id="achievementUnlockList"/);
   assert.match(app, /function showAchievementUnlocks\(gameKey\)/);
-  assert.match(app, /function localPersonalMatchMoment\(\)/);
   assert.match(app, /unlockedAchievementsByGame\.set\(gameKey, unlockedAchievements\)/);
-  assert.match(app, /async function continueAfterRewards\(gameKey\) \{[\s\S]*await automaticSavePromises\.get\(gameKey\);[\s\S]*if \(!showAchievementUnlocks\(gameKey\)\) showPostGameChoices\(\);/);
-  assert.match(app, /dom\.achievementDialog\.addEventListener\('close', \(\) => \{ unlockedAchievementsByGame\.delete\(dom\.achievementDialog\.dataset\.gameKey\); showPostGameChoices\(\); \}\);/);
+  assert.match(app, /dismissedVictoryKeys\.add\(key\); void \(async \(\) => \{ await automaticSavePromises\.get\(key\); if \(!showAchievementUnlocks\(key\)\) openQuickFeedback\(\); \}\)\(\);/);
   assert.match(app, /const achievementCardHtml = \(achievement, showNew = false\)/);
   assert.match(app, /unlocked\.map\(achievement =>/);
   assert.match(styles, /\.achievement-card\[data-rarity="legendary"\]/);
@@ -572,10 +560,6 @@ test('signed-in accounts keep private deck details and personal history tools', 
 
 test('My decks keeps the editor above saved decks and confirms commander colors', () => {
   assert.ok(html.indexOf('id="deckEditor"') < html.indexOf('id="savedDeckList"'));
-  assert.match(app, /input\.id = 'myDeckSearch'/);
-  assert.match(html, /id="createDeckSearch"/);
-  assert.match(html, /id="joinDeckSearch"/);
-  assert.match(html, /id="commanderDeckSearch"/);
   assert.match(html, /id="findDeckColorsButton"/);
   assert.match(html, /id="deckCommanderStatus"/);
   assert.match(app, /async function confirmDeckCommanderColors\(\)/);
@@ -584,9 +568,6 @@ test('My decks keeps the editor above saved decks and confirms commander colors'
   assert.match(app, /commanderColors, name: deckName\.value/);
   assert.match(app, /setDeckColors\(colors\);/);
   assert.match(app, /await confirmDeckCommanderColors\(\);/);
-  assert.match(app, /function filterDecks\(decks, query\)/);
-  assert.match(app, /filterDeckSelect\(dom\.createDeck, deckSearch\.create, setupDecks\)/);
-  assert.match(app, /filterDeckSelect\(dom\.joinDeck, deckSearch\.join, setupDecks\)/);
 });
 
 test('completed signed-in games save automatically without a final player action', () => {

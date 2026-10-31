@@ -6,9 +6,6 @@ import { createInteractionAdvice } from './card-interaction-advice.js?v=1';
 import { commanderFallbackLabel } from './commander-source-flow.js?v=1';
 import { currentAccountToken, emailAccountToken, googleAccountToken, restoredAccountToken, sendAccountPasswordReset, signOutAccount } from './account-auth.js?v=6';
 import { JoinQrScanner } from './join-qr-scanner.js?v=3';
-import { clearLastActiveTable, saveLastActiveTable, shouldClearLastActiveTable, startupTableTarget } from './active-table-recovery.js?v=1';
-import { releaseUpdatePresentation, watchForReleaseUpdate } from './release-update.js?v=2';
-import { GameWakeLock } from './game-wake-lock.js?v=1';
 
 const appearancePreviewMode = new URLSearchParams(location.search).get('appearance-preview') === '1';
 const appearanceParams = new URLSearchParams(location.search);
@@ -24,25 +21,21 @@ const ELIMINATION_ART = { life: 'assets/elimination-skull-v1.png', poison: 'asse
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const dom = {
-  views: $$('.view'), landing: $('#landingView'), create: $('#createView'), join: $('#joinView'), joinSeatView: $('#joinSeatView'), lobby: $('#lobbyView'), game: $('#gameView'), joinCodeForm: $('#joinCodeForm'), joinCodeStatus: $('#joinCodeStatus'), scanJoinQrButton: $('#scanJoinQrButton'), joinQrScannerDialog: $('#joinQrScannerDialog'), joinQrScannerVideo: $('#joinQrScannerVideo'), joinQrScannerStatus: $('#joinQrScannerStatus'), joinQrCameraFallback: $('#joinQrCameraFallback'), joinQrCameraInput: $('#joinQrCameraInput'), savedTables: $('#savedTables'), savedTablesList: $('#savedTablesList'), quickTestButton: $('#quickTestButton'), localSimulationField: $('#localSimulationField'),
+  views: $$('.view'), landing: $('#landingView'), create: $('#createView'), join: $('#joinView'), joinSeatView: $('#joinSeatView'), game: $('#gameView'), joinCodeForm: $('#joinCodeForm'), joinCodeStatus: $('#joinCodeStatus'), scanJoinQrButton: $('#scanJoinQrButton'), joinQrScannerDialog: $('#joinQrScannerDialog'), joinQrScannerVideo: $('#joinQrScannerVideo'), joinQrScannerStatus: $('#joinQrScannerStatus'), joinQrCameraFallback: $('#joinQrCameraFallback'), joinQrCameraInput: $('#joinQrCameraInput'), savedTables: $('#savedTables'), savedTablesList: $('#savedTablesList'), quickTestButton: $('#quickTestButton'), localSimulationField: $('#localSimulationField'),
   connectionButton: $('#connectionButton'), connectionText: $('#connectionText'), connectionDialog: $('#connectionDialog'), connectionDetail: $('#connectionDetail'), editPlayerNameButton: $('#editPlayerNameButton'), editPlayerNameDialog: $('#editPlayerNameDialog'), editPlayerNameForm: $('#editPlayerNameForm'), editPlayerName: $('#editPlayerName'), eliminatePlayerButton: $('#eliminatePlayerButton'), eliminatePlayerDialog: $('#eliminatePlayerDialog'), eliminatePlayerForm: $('#eliminatePlayerForm'), eliminatePlayerSeat: $('#eliminatePlayerSeat'), eliminatePlayerReason: $('#eliminatePlayerReason'), eliminatePlayerDetail: $('#eliminatePlayerDetail'), leaveTableButton: $('#leaveTableButton'), leaveTableDialog: $('#leaveTableDialog'), confirmLeaveTableButton: $('#confirmLeaveTableButton'),
   playerCountChoices: $('#playerCountChoices'), seatCapacity: $('#seatCapacity'), createName: $('#createName'), joinSeat: $('#joinSeat'), joinName: $('#joinName'), joinSeatClaim: $('#joinSeatClaim'), activeSeat: $('#activeSeat'), localSimulation: $('#localSimulation'), roundLimitMinutes: $('#roundLimitMinutes'), createCommanderNames: $('#createCommanderNames'), joinCommanderNames: $('#joinCommanderNames'), gameCommanderNames: $('#gameCommanderNames'), createDeckField: $('#createDeckField'), createDeck: $('#createDeck'), joinDeckField: $('#joinDeckField'), joinDeck: $('#joinDeck'),
   podStrip: $('#podStrip'), podLabel: $('#podLabel'), commanderIdentityName: $('#commanderIdentityName'), identityHeaderRail: $('#identityHeaderRail'), modeTitle: $('#modeTitle'), mainValue: $('#mainValue'), dialControls: $('#dialControls'), dialGesture: $('#dialGesture'),
   counterContext: $('#counterContext'), statusMessage: $('#statusMessage'), lethalMark: $('#lethalMark'), lethalImage: $('#lethalMark img'), eliminationOutcome: $('#eliminationOutcome'), lifeChangeIndicator: $('#lifeChangeIndicator'), sourcePanel: $('#sourcePanel'), commanderSourceDialog: $('#commanderSourceDialog'), commanderSourceDetail: $('#commanderSourceDetail'), commanderSourceList: $('#commanderSourceList'), inspectionNotice: $('#inspectionNotice'), sideSeats: $('#sideSeats'),
   activeSeatBar: $('#activeSeatBar'), gameMenu: $('#gameMenu'), gameMenuBackdrop: $('#gameMenuBackdrop'), moreButton: $('#moreButton'), tableSkinMenuField: $('#tableSkinMenuField'), tableSkinMenu: $('#tableSkinMenu'), viewCelebrationButton: $('#viewCelebrationButton'), saveGameButton: $('#saveGameButton'), saveGameDeck: $('#saveGameDeck'),
-  disconnectBanner: $('#disconnectBanner'), syncBanner: $('#syncBanner'), releaseUpdateNotice: $('#releaseUpdateNotice'), releaseUpdateMessage: $('#releaseUpdateMessage'), releaseUpdateRefreshButton: $('#releaseUpdateRefreshButton'), releaseUpdateDismissButton: $('#releaseUpdateDismissButton'), coinTossNotice: $('#coinTossNotice'), victoryNotice: $('#victoryNotice'), intermissionPanel: $('#intermissionPanel'), intermissionTitle: $('#intermissionTitle'), intermissionDetail: $('#intermissionDetail'), intermissionRoster: $('#intermissionRoster'), intermissionReadyButton: $('#intermissionReadyButton'), intermissionStartButton: $('#intermissionStartButton'), coinTossButton: $('#coinTossButton'), coinTossDialog: $('#coinTossDialog'), coinTossResult: $('#coinTossResult'), tossAgainButton: $('#tossAgainButton'), resetDialog: $('#resetDialog'), resetTitle: $('#resetTitle'), resetDetail: $('#resetDetail'), confirmResetButton: $('#confirmResetButton'), commanderSetupButton: $('#commanderSetupButton'), backToSetupButton: $('#backToSetupButton'), declareWinnerButton: $('#declareWinnerButton'), declareWinnerDialog: $('#declareWinnerDialog'), declareWinnerForm: $('#declareWinnerForm'), winnerSeat: $('#winnerSeat'), winnerReason: $('#winnerReason'), victoryDialog: $('#victoryDialog'), victoryArt: $('.victory-art'), victoryEyebrow: $('#victoryEyebrow'), victoryTitle: $('#victoryTitle'), victoryDetail: $('#victoryDetail'), personalMatchMoment: $('#personalMatchMoment'), personalMatchArt: $('#personalMatchArt'), personalMatchMomentTitle: $('#personalMatchMomentTitle'), personalMatchMomentLine: $('#personalMatchMomentLine'), personalMatchMomentFact: $('#personalMatchMomentFact'),
-  lobbyControls: $('#lobbyControls'), lobbyStatus: $('#lobbyStatus'), lobbySeatStatus: $('#lobbySeatStatus'), lobbyInviteCode: $('#lobbyInviteCode'), lobbyRoster: $('#lobbyRoster'), copyLobbyJoinLinkButton: $('#copyLobbyJoinLinkButton'), showJoinQrButton: $('#showJoinQrButton'), showJoinQrMenuButton: $('#showJoinQrMenuButton'), firstPlayerOptions: $('#firstPlayerOptions'), startingSeatField: $('#startingSeatField'), startingSeat: $('#startingSeat'), chooseFirstButton: $('#chooseFirstButton'), winnerFirstButton: $('#winnerFirstButton'), randomFirstButton: $('#randomFirstButton'), startGameButton: $('#startGameButton'), lobbyLeaveTableButton: $('#lobbyLeaveTableButton'), nextGameConfirmDialog: $('#nextGameConfirmDialog'), nextGameConfirmForm: $('#nextGameConfirmForm'), nextGameConfirmDetail: $('#nextGameConfirmDetail'), nextGameConfirmRoster: $('#nextGameConfirmRoster'), confirmNextGameStart: $('#confirmNextGameStart'), startingRollDialog: $('#startingRollDialog'), startingRollStatus: $('#startingRollStatus'), rollMyD20Button: $('#rollMyD20Button'), startingRollCanvas: $('#startingRollCanvas'), startingRollFinalDice: $('#startingRollFinalDice'), startingRollOverlays: $('#startingRollOverlays'), turnCueDialog: $('#turnCueDialog'), turnCueForm: $('#turnCueForm'), turnSoundDialog: $('#turnSoundDialog'), turnSoundForm: $('#turnSoundForm'), turnSoundChoice: $('#turnSoundChoice'), turnSoundVolume: $('#turnSoundVolume'), turnSoundVolumeValue: $('#turnSoundVolumeValue'), previewTurnSoundButton: $('#previewTurnSoundButton'), turnSoundPreferencesButton: $('#turnSoundPreferencesButton'), turnBanner: $('#turnBanner'), turnLabel: $('#turnLabel'), turnPlayer: $('#turnPlayer'), turnElapsed: $('#turnElapsed'), gameTimer: $('#gameTimer'), lastTurnSummary: $('#lastTurnSummary'), turnActions: $('#turnActions'), endTurnButton: $('#endTurnButton'), undoTurnButton: $('#undoTurnButton'), pauseTurnButton: $('#pauseTurnButton'), toggleTurnTrackingButton: $('#toggleTurnTrackingButton'), toggleTurnCuesButton: $('#toggleTurnCuesButton'), toggleDeviceCuesButton: $('#toggleDeviceCuesButton'), toggleTouchFeedbackButton: $('#toggleTouchFeedbackButton'), turnActionDetail: $('#turnActionDetail'),
+  disconnectBanner: $('#disconnectBanner'), syncBanner: $('#syncBanner'), coinTossNotice: $('#coinTossNotice'), victoryNotice: $('#victoryNotice'), intermissionPanel: $('#intermissionPanel'), intermissionTitle: $('#intermissionTitle'), intermissionDetail: $('#intermissionDetail'), intermissionRoster: $('#intermissionRoster'), intermissionReadyButton: $('#intermissionReadyButton'), intermissionStartButton: $('#intermissionStartButton'), coinTossButton: $('#coinTossButton'), coinTossDialog: $('#coinTossDialog'), coinTossResult: $('#coinTossResult'), tossAgainButton: $('#tossAgainButton'), resetDialog: $('#resetDialog'), resetTitle: $('#resetTitle'), resetDetail: $('#resetDetail'), confirmResetButton: $('#confirmResetButton'), nextGameButton: $('#nextGameButton'), commanderSetupButton: $('#commanderSetupButton'), backToSetupButton: $('#backToSetupButton'), declareWinnerButton: $('#declareWinnerButton'), declareWinnerDialog: $('#declareWinnerDialog'), declareWinnerForm: $('#declareWinnerForm'), winnerSeat: $('#winnerSeat'), winnerReason: $('#winnerReason'), victoryDialog: $('#victoryDialog'), victoryArt: $('.victory-art'), victoryEyebrow: $('#victoryEyebrow'), victoryTitle: $('#victoryTitle'), victoryDetail: $('#victoryDetail'), personalMatchMoment: $('#personalMatchMoment'), personalMatchArt: $('#personalMatchArt'), personalMatchMomentTitle: $('#personalMatchMomentTitle'), personalMatchMomentLine: $('#personalMatchMomentLine'), personalMatchMomentFact: $('#personalMatchMomentFact'),
+  lobbyControls: $('#lobbyControls'), lobbyStatus: $('#lobbyStatus'), lobbyInviteCode: $('#lobbyInviteCode'), lobbyRoster: $('#lobbyRoster'), copyLobbyJoinLinkButton: $('#copyLobbyJoinLinkButton'), showJoinQrButton: $('#showJoinQrButton'), showJoinQrMenuButton: $('#showJoinQrMenuButton'), firstPlayerOptions: $('#firstPlayerOptions'), startingSeatField: $('#startingSeatField'), startingSeat: $('#startingSeat'), chooseFirstButton: $('#chooseFirstButton'), winnerFirstButton: $('#winnerFirstButton'), randomFirstButton: $('#randomFirstButton'), startGameButton: $('#startGameButton'), nextGameConfirmDialog: $('#nextGameConfirmDialog'), nextGameConfirmForm: $('#nextGameConfirmForm'), nextGameConfirmDetail: $('#nextGameConfirmDetail'), nextGameConfirmRoster: $('#nextGameConfirmRoster'), confirmNextGameStart: $('#confirmNextGameStart'), startingRollDialog: $('#startingRollDialog'), startingRollStatus: $('#startingRollStatus'), rollMyD20Button: $('#rollMyD20Button'), startingRollCanvas: $('#startingRollCanvas'), startingRollFinalDice: $('#startingRollFinalDice'), startingRollOverlays: $('#startingRollOverlays'), startingRollLive: $('#startingRollLive'), turnCueDialog: $('#turnCueDialog'), turnCueForm: $('#turnCueForm'), turnSoundDialog: $('#turnSoundDialog'), turnSoundForm: $('#turnSoundForm'), turnSoundChoice: $('#turnSoundChoice'), turnSoundVolume: $('#turnSoundVolume'), turnSoundVolumeValue: $('#turnSoundVolumeValue'), previewTurnSoundButton: $('#previewTurnSoundButton'), turnSoundPreferencesButton: $('#turnSoundPreferencesButton'), turnBanner: $('#turnBanner'), turnLabel: $('#turnLabel'), turnPlayer: $('#turnPlayer'), turnElapsed: $('#turnElapsed'), gameTimer: $('#gameTimer'), lastTurnSummary: $('#lastTurnSummary'), turnActions: $('#turnActions'), endTurnButton: $('#endTurnButton'), undoTurnButton: $('#undoTurnButton'), pauseTurnButton: $('#pauseTurnButton'), toggleTurnTrackingButton: $('#toggleTurnTrackingButton'), toggleTurnCuesButton: $('#toggleTurnCuesButton'), toggleDeviceCuesButton: $('#toggleDeviceCuesButton'), toggleTouchFeedbackButton: $('#toggleTouchFeedbackButton'), turnActionDetail: $('#turnActionDetail'),
   commanderCountDialog: $('#commanderCountDialog'), commanderCountDetail: $('#commanderCountDetail'), commanderCountForm: $('#commanderCountForm'), saveCommanderCountButton: $('#saveCommanderCountButton'), commanderDeckField: $('#commanderDeckField'), commanderDeck: $('#commanderDeck'), joinQrDialog: $('#joinQrDialog'), joinQrImage: $('#joinQrImage'), joinQrCode: $('#joinQrCode'), shareJoinLinkButton: $('#shareJoinLinkButton'), copyJoinLinkButton: $('#copyJoinLinkButton'),
-  commanderTaxQuickButton: $('#commanderTaxQuickButton'), commanderTaxDialog: $('#commanderTaxDialog'), commanderTaxDetail: $('#commanderTaxDetail'), commanderTaxList: $('#commanderTaxList'), toggleInterfaceStyleButton: $('#toggleInterfaceStyleButton'), toggleScreenAwakeButton: $('#toggleScreenAwakeButton'),
-  cardCameraButton: $('#cardCameraButton'), cardCameraDialog: $('#cardCameraDialog'), cardAdvisorForm: $('#cardAdvisorForm'), firstCardTitle: $('#firstCardTitle'), secondCardTitle: $('#secondCardTitle'), interactionSituation: $('#interactionSituation'), cardLookupStatus: $('#cardLookupStatus'), cardLookupResult: $('#cardLookupResult'), personalMatchMomentDialog: $('#personalMatchMomentDialog'), achievementDialog: $('#achievementDialog'), achievementTitle: $('#achievementTitle'), achievementSummary: $('#achievementSummary'), achievementUnlockList: $('#achievementUnlockList'), postGameDialog: $('#postGameDialog'), postGameDetail: $('#postGameDetail'), postGameNextGameButton: $('#postGameNextGameButton'), postGameLeaveTableButton: $('#postGameLeaveTableButton'),
+  commanderTaxQuickButton: $('#commanderTaxQuickButton'), commanderTaxDialog: $('#commanderTaxDialog'), commanderTaxDetail: $('#commanderTaxDetail'), commanderTaxList: $('#commanderTaxList'), toggleInterfaceStyleButton: $('#toggleInterfaceStyleButton'),
+  cardCameraButton: $('#cardCameraButton'), cardCameraDialog: $('#cardCameraDialog'), cardAdvisorForm: $('#cardAdvisorForm'), firstCardTitle: $('#firstCardTitle'), secondCardTitle: $('#secondCardTitle'), interactionSituation: $('#interactionSituation'), cardLookupStatus: $('#cardLookupStatus'), cardLookupResult: $('#cardLookupResult'), achievementDialog: $('#achievementDialog'), achievementTitle: $('#achievementTitle'), achievementSummary: $('#achievementSummary'), achievementUnlockList: $('#achievementUnlockList'),
   customLifeButton: $('#customLifeButton'), customLifeDialog: $('#customLifeDialog'), customLifeForm: $('#customLifeForm'), customLifeAmount: $('#customLifeAmount'), cancelCustomLifeButton: $('#cancelCustomLifeButton'), radiationDialog: $('#radiationDialog'), radiationForm: $('#radiationForm'), radiationDetail: $('#radiationDetail'), radiationNonlandCount: $('#radiationNonlandCount'), resolveRadiationButton: $('#resolveRadiationButton'), playtestNotesButton: $('#playtestNotesButton'), playtestRecapButton: $('#playtestRecapButton'), fieldTestButton: $('#fieldTestButton'), markDevelopmentButton: $('#markDevelopmentButton'), fieldTestDialog: $('#fieldTestDialog'), fieldTestForm: $('#fieldTestForm'), fieldTestStatus: $('#fieldTestStatus'), savedPlaytestsButton: $('#savedPlaytestsButton'), lockDeveloperModeButton: $('#lockDeveloperModeButton'), developerModeDialog: $('#developerModeDialog'), developerModeForm: $('#developerModeForm'), developerModeKey: $('#developerModeKey'), developerModeStatus: $('#developerModeStatus'), unlockDeveloperModeButton: $('#unlockDeveloperModeButton'), refreshTableButton: $('#refreshTableButton'), playtestNotesDialog: $('#playtestNotesDialog'), playtestNotesForm: $('#playtestNotesForm'), playtestNotesList: $('#playtestNotesList'), playtestNoteText: $('#playtestNoteText'), playtestNoteStatus: $('#playtestNoteStatus'), playtestRecapDialog: $('#playtestRecapDialog'), playtestRecapContent: $('#playtestRecapContent'), savedPlaytestsDialog: $('#savedPlaytestsDialog'), savedPlaytestsContent: $('#savedPlaytestsContent')
 };
 const winnerCondition = $('#winnerCondition');
-const lobbyBackToSetupButton = $('#lobbyBackToSetupButton');
-const lobbyDeveloperHoldTarget = $('#lobbyDeveloperHoldButton');
-const deckSearch = { create: $('#createDeckSearch'), join: $('#joinDeckSearch'), commander: $('#commanderDeckSearch') };
 const transport = new RealtimeAdapter({ apiBase: apiBaseFromPage() });
-const gameWakeLock = new GameWakeLock();
 const DIAGNOSTIC_BUILD = '200';
 const reportedDiagnostics = new Set();
 let viewportSyncTimer = null;
@@ -95,10 +88,6 @@ const baseSealMarkup = $('.counter-sigil')?.innerHTML || ''; const baseModeNavMa
 const accountSignedInStatus = $('#accountSignedInStatus');
 const accountInterfaceStyleField = $('#accountInterfaceStyleField'); const accountInterfaceStyle = $('#accountInterfaceStyle'); const accountPersonalSkinField = $('#accountPersonalSkinField'); const accountPersonalSkin = $('#accountPersonalSkin'); const accountUsePersonalSkinField = $('#accountUsePersonalSkinField'); const accountUsePersonalSkin = $('#accountUsePersonalSkin');
 let state = null;
-let releaseUpdateWaiting = false;
-let releaseUpdateDismissed = false;
-let releaseUpdateController = null;
-let releaseUpdateNoticeKey = '';
 let developerMode = sessionStorage.getItem(DEVELOPER_MODE_KEY) === 'on';
 const SAVED_TABLES_KEY = 'fivefold-arc:saved-tables';
 let lifeChange = null;
@@ -113,10 +102,6 @@ let startingRollTimers = [];
 let startingRollSequence = 0;
 let lastStartingRollKey = null;
 let turnCueAudio = null;
-function screenAwakeEnabled() { try { return localStorage.getItem('fivefold-arc:screen-awake') !== 'off'; } catch { return true; } }
-function setScreenAwake(enabled) { try { localStorage.setItem('fivefold-arc:screen-awake', enabled ? 'on' : 'off'); } catch { /* preference is optional */ } }
-function activeGameNeedsWakeLock() { return Boolean(state?.turn?.gameStarted && (state.lifecycle?.status || 'playing') === 'playing'); }
-function syncGameWakeLock() { void gameWakeLock.sync({ active: activeGameNeedsWakeLock(), enabled: screenAwakeEnabled() }); }
 function deviceTurnCuesEnabled() { try { return localStorage.getItem('fivefold-arc:turn-cues') !== 'off'; } catch { return true; } }
 function setDeviceTurnCues(enabled) { try { localStorage.setItem('fivefold-arc:turn-cues', enabled ? 'on' : 'off'); } catch { /* preference is optional */ } }
 function turnSound() { try { const sound = localStorage.getItem('fivefold-arc:turn-sound'); return ['ding', 'chime', 'bell', 'two-note', 'tap'].includes(sound) ? sound : 'ding'; } catch { return 'ding'; } }
@@ -125,7 +110,7 @@ function setTurnSound(sound, volume) { try { localStorage.setItem('fivefold-arc:
 function touchFeedbackEnabled() { try { return localStorage.getItem('fivefold-arc:touch-feedback') !== 'off'; } catch { return true; } }
 function setTouchFeedback(enabled) { try { localStorage.setItem('fivefold-arc:touch-feedback', enabled ? 'on' : 'off'); } catch { /* preference is optional */ } }
 function pulseTouchFeedback() { if (!touchFeedbackEnabled()) return; try { navigator.vibrate?.(12); } catch { /* unsupported, including iPhone */ } }
-function cueMode(turn = state?.turn) { return ['off', 'sound', 'vibrate', 'both'].includes(turn?.cueMode) ? turn.cueMode : 'sound'; }
+function cueMode(turn = state?.turn) { return ['sound', 'vibrate', 'both'].includes(turn?.cueMode) ? turn.cueMode : 'off'; }
 function prepareTurnCueAudio(preview = false, mode = cueMode(), force = false) { if (!force && !preview && (!deviceTurnCuesEnabled() || !['sound', 'both'].includes(mode))) return; try { const AudioContextConstructor = window.AudioContext || window.webkitAudioContext; if (!AudioContextConstructor) return; turnCueAudio ||= new AudioContextConstructor(); if (turnCueAudio.state === 'suspended') void turnCueAudio.resume(); } catch { /* audio remains best-effort on mobile browsers */ } }
 function playTurnCue(preview = false) {
   const mode = cueMode();
@@ -147,22 +132,9 @@ let shownVictoryKey = null; let victoryDismissReady = false; let victoryDismissT
 let automaticallySavedGameKey = null; let automaticSaveInFlightKey = null;
 const automaticSavePromises = new Map(); const dismissedVictoryKeys = new Set();
 let pendingSignInReturn = null;
-const unlockedAchievementsByGame = new Map(); const personalMatchMomentPromises = new Map();
+const unlockedAchievementsByGame = new Map();
 let resolvedRadiationTurnKey = null;
 let selectedDeckId = ''; let setupDecks = []; let commanderDecks = []; let joinGameFormat = 'commander'; let savedDecks = []; let editingDeckId = null; let deckCommanderColors = [];
-function filterSavedDeckList(query = $('#myDeckSearch')?.value) {
-  const normalized = String(query || '').trim().toLocaleLowerCase(); const decks = [...myDecksContent.querySelectorAll('[data-saved-deck]')];
-  const matches = decks.filter(item => !normalized || item.textContent.toLocaleLowerCase().includes(normalized)); decks.forEach(item => { item.hidden = !matches.includes(item); });
-  let empty = $('#deckSearchEmpty'); if (!empty) { empty = document.createElement('p'); empty.id = 'deckSearchEmpty'; empty.setAttribute('role', 'status'); myDecksContent.after(empty); }
-  empty.textContent = 'No saved decks match that search.'; empty.hidden = !normalized || matches.length > 0;
-}
-function ensureMyDeckSearch() {
-  if ($('#myDeckSearch')) return;
-  const field = document.createElement('label'); field.id = 'deckSearchField'; field.className = 'select-field'; field.textContent = 'Find a deck';
-  const input = document.createElement('input'); input.id = 'myDeckSearch'; input.type = 'search'; input.autocomplete = 'off'; input.placeholder = 'Commander, deck name, or colors'; input.addEventListener('input', () => filterSavedDeckList(input.value));
-  field.append(input); myDecksContent.before(field);
-}
-ensureMyDeckSearch();
 let optimisticLifeDelta = 0;
 let lifeCorrectionCredit = { amount: 0, expiresAt: 0 };
 let awaitingConfirmedResync = false;
@@ -175,12 +147,8 @@ let accountPreferences = null;
 let publishedSkins = [];
 let activeGameSkinId = '';
 let dialPointer = null;
-const lifeBatcher = new LifeAdjustmentBatcher({ send: async ({ delta, operationId, isCorrection, playerId }) => {
-  try {
-    const result = await transport.adjust({ counter: 'life', delta, operationId, ...(isCorrection ? { isCorrection: true } : {}) });
-    optimisticLifeDelta -= delta;
-    if (!result.blocked && !result.ignored) confirmLifeChange(playerId);
-  }
+const lifeBatcher = new LifeAdjustmentBatcher({ send: async ({ delta, operationId }) => {
+  try { await transport.adjust({ counter: 'life', delta, operationId }); optimisticLifeDelta -= delta; }
   catch (error) { optimisticLifeDelta -= delta; renderConnection('disconnected'); showError(error); }
   finally { if (state) render(); }
 } });
@@ -202,7 +170,7 @@ function createState({ playerCount = 4, startingLife = 40, gameFormat = 'command
   const commanderSources = gameFormat === 'commander' ? sourcesFromPlayers(players) : [];
   players.forEach(player => { player.commanderDamage = blankDamage(commanderSources); });
   const startedAt = Date.now();
-  return { playerCount, seatCapacity: playerCount, startingLife, gameFormat, roundLimitMinutes, tableSkinId, ownerPlayerId, activePlayerId: ownerPlayerId, turnSeatId: ownerPlayerId, turn: { activeSeatId: 0, gameStarted: false, gameStartedAt: null, startingPlayerSeatId: null, startingPlayerRoll: null, lastHandoff: null, trackingEnabled: true, cueMode: 'sound', pausedAt: null }, localSimulation, podCode, gameResult: null, lifecycle: { status: 'lobby', seatIds: players.map(player => Number(player.id.slice(1)) - 1), readySeatIds: [] }, lastGameWinnerSeatId: null, mode: 'life', selectedSourceId: null, commanderSources, commanderCastCounts: blankDamage(commanderSources), players };
+  return { playerCount, seatCapacity: playerCount, startingLife, gameFormat, roundLimitMinutes, tableSkinId, ownerPlayerId, activePlayerId: ownerPlayerId, turnSeatId: ownerPlayerId, turn: { activeSeatId: 0, gameStarted: false, gameStartedAt: null, startingPlayerSeatId: null, startingPlayerRoll: null, lastHandoff: null, trackingEnabled: true, cueMode: 'off', pausedAt: null }, localSimulation, podCode, gameResult: null, lifecycle: { status: 'lobby', seatIds: players.map(player => Number(player.id.slice(1)) - 1), readySeatIds: [] }, lastGameWinnerSeatId: null, mode: 'life', selectedSourceId: null, commanderSources, commanderCastCounts: blankDamage(commanderSources), players };
 }
 function playerIdForSource(source, fallbackLabel = '') {
   if (source.ownerPlayerId) return source.ownerPlayerId;
@@ -226,8 +194,6 @@ function developerHost() { return Boolean(state && (state.localSimulation || tra
 function renderDeveloperTools() {
   const visible = developerMode && developerHost();
   [dom.playtestRecapButton, dom.fieldTestButton, dom.markDevelopmentButton, dom.savedPlaytestsButton, dom.lockDeveloperModeButton].forEach(button => { button.hidden = !visible; });
-  lobbyBackToSetupButton.hidden = !visible;
-  lobbyDeveloperHoldTarget.hidden = !developerHost() || developerMode;
   dom.quickTestButton.hidden = !developerMode;
   dom.localSimulationField.hidden = !developerMode;
 }
@@ -256,7 +222,7 @@ function stateFromSnapshot(snapshot) {
   const commanderSources = normaliseSnapshotSources(snapshot); const previous = state;
   const ownerPlayerId = `P${transport.seatId + 1}`;
   const activePlayerId = previous?.localSimulation === false && previous.podCode === snapshot.code && snapshot.seats.some(seat => `P${seat.seatId + 1}` === previous.activePlayerId) ? previous.activePlayerId : ownerPlayerId;
-  const turn = snapshot.turn || { activeSeatId: 0, gameStarted: true, gameStartedAt: Date.now(), turnStartedAt: Date.now(), roundEndsAt: null, startingPlayerSeatId: 0, startingPlayerRoll: null, lastHandoff: null, trackingEnabled: true, cueMode: 'sound', pausedAt: null };
+  const turn = snapshot.turn || { activeSeatId: 0, gameStarted: true, gameStartedAt: Date.now(), turnStartedAt: Date.now(), roundEndsAt: null, startingPlayerSeatId: 0, startingPlayerRoll: null, lastHandoff: null, trackingEnabled: true, cueMode: 'off', pausedAt: null };
   return {
     playerCount: snapshot.config.playerCount, seatCapacity: snapshot.config.seatCapacity || snapshot.config.playerCount, startingLife: snapshot.config.startingLife, gameFormat: snapshot.config.gameFormat || 'commander', roundLimitMinutes: snapshot.config.roundLimitMinutes || null, commanderSources, commanderCastCounts: castCountsFromSnapshot(snapshot, commanderSources), ownerPlayerId, activePlayerId, turnSeatId: `P${turn.activeSeatId + 1}`, turn,
     localSimulation: false, podCode: snapshot.code, version: snapshot.version, hostSeatId: snapshot.hostSeatId, tableSkinId: snapshot.config.tableSkinId || '', sessionKind: snapshot.sessionKind || 'standard', feedbackPromptSeatId: snapshot.feedbackPromptSeatId, lastCoinToss: snapshot.lastCoinToss || null, gameResult: snapshot.gameResult || null, lifecycle: snapshot.lifecycle || { status: snapshot.turn?.gameStarted ? 'playing' : 'lobby', seatIds: snapshot.seats.filter(seat => seat.claimed).map(seat => seat.seatId), readySeatIds: [] }, lastGameWinnerSeatId: Number.isInteger(snapshot.lastGameWinnerSeatId) ? snapshot.lastGameWinnerSeatId : null, mode: previous?.mode || 'life', selectedSourceId: previous?.selectedSourceId || null,
@@ -326,10 +292,6 @@ function localLastPlayerStanding() {
 }
 function victoryKey(result) { return result ? `${result.winnerSeatId}:${result.reason}:${result.decidedAt}` : null; }
 function winnerFromResult() { return state?.gameResult ? state.players.find(player => player.id === `P${state.gameResult.winnerSeatId + 1}`) : null; }
-function localPersonalMatchMoment() {
-  const player = activePlayer(); const winner = winnerFromResult(); const won = player?.id === winner?.id;
-  return { category: 'Arc Complete', title: won ? 'Arc Victor' : 'Battle Tested', line: won ? 'You carried the day.' : 'You saw this chapter through to its end.', fact: won ? 'Victory recorded in your local table.' : 'Game complete in your local table.', art: 'arc-complete' };
-}
 function accoladeArtUrl(title) { return `assets/accolades/${String(title || 'arc-complete').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}.png`; }
 function winnerArtUrl(winner, gameKey) { const variants = ['last-one-standing', 'table-monarch', 'arc-victor']; const seed = [...String(gameKey || winner?.id || '')].reduce((total, character) => total + character.codePointAt(0), 0); return `assets/accolades/${variants[seed % variants.length]}.png`; }
 const achievementRarityLabel = (rarity) => ({ common: 'Common', uncommon: 'Uncommon', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' })[rarity] || 'Common';
@@ -344,56 +306,20 @@ function showAchievementUnlocks(gameKey) {
   dom.achievementUnlockList.innerHTML = unlocked.map(achievement => achievementCardHtml(achievement)).join('');
   dom.achievementDialog.showModal(); return true;
 }
-function showPostGameChoices() {
-  if (!state?.gameResult || dom.postGameDialog.open) return;
-  const canStartNextGame = state.localSimulation || transport.seatId === state.hostSeatId;
-  dom.postGameNextGameButton.hidden = !canStartNextGame;
-  dom.postGameDetail.textContent = canStartNextGame
-    ? 'Set up another game with this table, or leave this table on this phone.'
-    : 'The host will open next-game setup for the table. You can leave this table on this phone.';
-  dom.postGameDialog.showModal();
-}
-async function continueAfterRewards(gameKey) {
-  await automaticSavePromises.get(gameKey);
-  if (!showAchievementUnlocks(gameKey)) showPostGameChoices();
-}
-async function showPersonalMatchMoment(gameKey) {
-  const moment = await personalMatchMomentPromises.get(gameKey);
-  if (victoryKey(state?.gameResult) !== gameKey) return;
-  if (!moment) return continueAfterRewards(gameKey);
-  dom.personalMatchMomentTitle.textContent = moment.title;
-  dom.personalMatchArt.dataset.category = moment.category;
-  dom.personalMatchArt.dataset.variant = String(moment.variant || 0);
-  dom.personalMatchArt.style.backgroundImage = `url("${accoladeArtUrl(moment.art || moment.title)}")`;
-  dom.personalMatchMomentLine.textContent = moment.line;
-  dom.personalMatchMomentFact.textContent = moment.fact;
-  dom.personalMatchMomentDialog.showModal();
-}
 async function loadSaveGameDecks() {
   try { const token = await currentAccountToken(); if (!token) return; const response = await fetch('/api/account/decks', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) return; const { decks } = await response.json(); dom.saveGameDeck.innerHTML = `<option value="">No deck selected</option>${decks.map(deck => `<option value="${escapeHtml(deck.deckId)}">${escapeHtml([deck.commanderName, deck.name].filter(Boolean).join(' · '))}</option>`).join('')}`; } catch { /* Saving a game remains available without a deck. */ }
 }
-function sortSetupDecks(decks) { return [...decks].sort((left, right) => Number(right.favorite) - Number(left.favorite) || String(left.name || left.commanderName || '').localeCompare(String(right.name || right.commanderName || ''), undefined, { sensitivity: 'base' })); }
-function deckSearchText(deck) { return [deck.commanderName, ...(deck.commanderNames || []), deck.name, ...(deck.colors || [])].filter(Boolean).join(' ').toLocaleLowerCase(); }
-function filterDecks(decks, query) { const normalized = String(query || '').trim().toLocaleLowerCase(); return normalized ? decks.filter(deck => deckSearchText(deck).includes(normalized)) : decks; }
-function deckOptionLabel(deck) { return `${deck.favorite ? '★ ' : ''}${[deck.commanderName, deck.name, deck.colors?.join('')].filter(Boolean).join(' · ')}`; }
-function filterDeckSelect(select, input, decks) {
-  const selected = select.value;
-  const visible = filterDecks(decks, input.value);
-  const selectedDeck = decks.find(deck => deck.deckId === selected);
-  const options = selectedDeck && !visible.some(deck => deck.deckId === selected) ? [selectedDeck, ...visible] : visible;
-  select.innerHTML = `<option value="">No deck selected</option>${options.map(deck => `<option value="${escapeHtml(deck.deckId)}">${escapeHtml(deckOptionLabel(deck))}</option>`).join('')}${visible.length ? '' : '<option disabled>No matching decks</option>'}`;
-  select.value = selected;
-}
-function refreshSetupDeckPickers() { filterDeckSelect(dom.createDeck, deckSearch.create, setupDecks); filterDeckSelect(dom.joinDeck, deckSearch.join, setupDecks); }
 async function loadCommanderDecks() {
-  try { const token = await currentAccountToken(); if (!token) return; const response = await fetch('/api/account/decks', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) return; const { decks } = await response.json(); commanderDecks = sortSetupDecks(decks); filterDeckSelect(dom.commanderDeck, deckSearch.commander, commanderDecks); dom.commanderDeck.value = selectedDeckId; dom.commanderDeckField.hidden = false; } catch { /* Deck choice remains optional. */ }
+  try { const token = await currentAccountToken(); if (!token) return; const response = await fetch('/api/account/decks', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) return; const { decks } = await response.json(); commanderDecks = decks; dom.commanderDeck.innerHTML = `<option value="">No deck selected</option>${decks.map(deck => `<option value="${escapeHtml(deck.deckId)}">${escapeHtml([deck.commanderName, deck.name].filter(Boolean).join(' · '))}</option>`).join('')}`; dom.commanderDeck.value = selectedDeckId; dom.commanderDeckField.hidden = false; } catch { /* Deck choice remains optional. */ }
 }
+function sortSetupDecks(decks) { return [...decks].sort((left, right) => Number(right.favorite) - Number(left.favorite) || String(left.name || left.commanderName || '').localeCompare(String(right.name || right.commanderName || ''), undefined, { sensitivity: 'base' })); }
 async function loadSetupDecks() {
-  try { const token = await currentAccountToken(); if (!token) return; const response = await fetch('/api/account/decks', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) return; const { decks } = await response.json(); setupDecks = sortSetupDecks(decks); refreshSetupDeckPickers(); [dom.createDeck, dom.joinDeck].forEach(select => { select.value = ''; }); $('#joinSignInDeckButton').hidden = true; updateFormatSetup(); } catch {} }
+  try { const token = await currentAccountToken(); if (!token) return; const response = await fetch('/api/account/decks', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) return; const { decks } = await response.json(); setupDecks = sortSetupDecks(decks); const options = `<option value="">No deck selected</option>${setupDecks.map(deck => `<option value="${escapeHtml(deck.deckId)}">${escapeHtml(`${deck.favorite ? '★ ' : ''}${[deck.commanderName, deck.name, deck.colors?.join('')].filter(Boolean).join(' · ')}`)}</option>`).join('')}`; [dom.createDeck, dom.joinDeck].forEach(select => { select.innerHTML = options; select.value = ''; }); $('#joinSignInDeckButton').hidden = true; updateFormatSetup(); } catch {} }
 function renderVictory() {
   const result = state?.gameResult; const winner = winnerFromResult();
   dom.victoryNotice.hidden = !result || !winner;
   dom.viewCelebrationButton.hidden = !result || !winner;
+  dom.nextGameButton.hidden = !result || !winner || !(state?.localSimulation || transport.seatId === state?.hostSeatId);
   dom.saveGameButton.hidden = !result || !winner || state?.localSimulation;
   dom.saveGameDeck.hidden = true;
   if (!result || !winner) { shownVictoryKey = null; if (dom.victoryDialog.open) dom.victoryDialog.close('game-reset'); return; }
@@ -426,7 +352,17 @@ function renderVictory() {
     // A completed shared-table result is the record of the game. Save it for
     // each signed-in player without relying on them to remember a final tap.
     automaticSavePromises.set(key, saveGameToHistory({ automatic: true, gameKey: key }));
-    personalMatchMomentPromises.set(key, state.localSimulation ? Promise.resolve(localPersonalMatchMoment()) : transport.getPersonalMatchMoment().then(({ moment }) => moment).catch(() => null));
+    dom.personalMatchMoment.hidden = true; dom.personalMatchMoment.classList.remove('achievement-reveal');
+    if (!state.localSimulation) transport.getPersonalMatchMoment().then(({ moment }) => {
+      if (victoryKey(state?.gameResult) !== key || !moment) return;
+      dom.personalMatchMomentTitle.textContent = moment.title;
+      dom.personalMatchArt.dataset.category = moment.category;
+      dom.personalMatchArt.dataset.variant = String(moment.variant || 0);
+      dom.personalMatchArt.style.backgroundImage = `url("${accoladeArtUrl(moment.art || moment.title)}")`;
+      dom.personalMatchMomentLine.textContent = moment.line;
+      dom.personalMatchMomentFact.textContent = moment.fact;
+      dom.personalMatchMoment.hidden = false;
+    }).catch(() => {});
     if (!dom.victoryDialog.open) { victoryDismissReady = false; dom.victoryDialog.showModal(); clearTimeout(victoryDismissTimer); victoryDismissTimer = setTimeout(() => { victoryDismissReady = true; $('#victoryTapHint').textContent = 'Tap anywhere to continue'; }, 1200); }
   }
 }
@@ -526,7 +462,7 @@ async function showMyDecks(signIn = false) {
     const token = signIn ? await googleAccountToken() : await currentAccountToken();
     if (!token) { myDecksStatus.textContent = 'Sign in to keep private deck notes.'; myDecksSignInButton.hidden = false; createDeckButton.disabled = true; return; }
     const response = await fetch('/api/account/decks?archived=all', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) throw new Error('Your decks are not available yet.');
-    const decks = (await response.json()).decks; savedDecks = decks; enterApp(true); myDecksStatus.textContent = decks.length ? `${decks.length} saved deck${decks.length === 1 ? '' : 's'}` : 'No saved decks yet.'; myDecksContent.innerHTML = decks.length ? `<ul>${decks.map(deck => `<li data-saved-deck><strong>${deck.favorite ? '★ ' : ''}${escapeHtml(deck.commanderName)}</strong>${deck.archived ? ' <small>Archived</small>' : ''}${deck.name ? `<br><small>${escapeHtml(deck.name)}</small>` : ''}${deck.colors?.length ? `<br><small>${escapeHtml(deck.colors.join(' '))}</small>` : ''}${deck.notes ? `<br><small>${escapeHtml(deck.notes)}</small>` : ''}<br><button type="button" class="text-action" data-edit-deck="${escapeHtml(deck.deckId)}">Edit</button> <button type="button" class="text-action" data-toggle-favorite="${escapeHtml(deck.deckId)}">${deck.favorite ? 'Unfavorite' : 'Favorite'}</button> <button type="button" class="text-action" data-toggle-archive="${escapeHtml(deck.deckId)}">${deck.archived ? 'Restore' : 'Archive'}</button> <button type="button" class="text-action" data-export-deck="${escapeHtml(deck.deckId)}">Export deck</button> <button type="button" class="text-action" data-remove-deck="${escapeHtml(deck.deckId)}">Remove</button></li>`).join('')}</ul>` : ''; $('#deckSearchField').hidden = !decks.length; filterSavedDeckList(); myDecksContent.hidden = !decks.length; myDecksSignInButton.hidden = true; createDeckButton.disabled = false;
+    const decks = (await response.json()).decks; savedDecks = decks; enterApp(true); myDecksStatus.textContent = decks.length ? `${decks.length} saved deck${decks.length === 1 ? '' : 's'}` : 'No saved decks yet.'; myDecksContent.innerHTML = decks.length ? `<ul>${decks.map(deck => `<li><strong>${deck.favorite ? '★ ' : ''}${escapeHtml(deck.commanderName)}</strong>${deck.archived ? ' <small>Archived</small>' : ''}${deck.name ? `<br><small>${escapeHtml(deck.name)}</small>` : ''}${deck.colors?.length ? `<br><small>${escapeHtml(deck.colors.join(' '))}</small>` : ''}${deck.notes ? `<br><small>${escapeHtml(deck.notes)}</small>` : ''}<br><button type="button" class="text-action" data-edit-deck="${escapeHtml(deck.deckId)}">Edit</button> <button type="button" class="text-action" data-toggle-favorite="${escapeHtml(deck.deckId)}">${deck.favorite ? 'Unfavorite' : 'Favorite'}</button> <button type="button" class="text-action" data-toggle-archive="${escapeHtml(deck.deckId)}">${deck.archived ? 'Restore' : 'Archive'}</button> <button type="button" class="text-action" data-export-deck="${escapeHtml(deck.deckId)}">Export deck</button> <button type="button" class="text-action" data-remove-deck="${escapeHtml(deck.deckId)}">Remove</button></li>`).join('')}</ul>` : ''; myDecksContent.hidden = !decks.length; myDecksSignInButton.hidden = true; createDeckButton.disabled = false;
   } catch (error) { myDecksStatus.textContent = error?.message || 'Your decks are not available yet.'; myDecksSignInButton.hidden = false; createDeckButton.disabled = true; }
 }
 function setDeckColors(colors) { const confirmed = normaliseIdentity(colors); $$('input[name="deckColors"]').forEach(input => { input.checked = confirmed.includes(input.value); }); }
@@ -602,20 +538,12 @@ async function signInWithEmailPassword() {
   finally { emailSignInInFlight = false; }
 }
 function openMyProfile() { myGamesDialog.showModal(); void showMyGames(); }
-function renderReleaseUpdateNotice() {
-  const presentation = releaseUpdatePresentation({ waiting: releaseUpdateWaiting, lifecycle: state?.lifecycle?.status || null, connectionStatus: transport.status });
-  const key = `${presentation.kind}:${presentation.message}`;
-  if (key !== releaseUpdateNoticeKey) { dom.releaseUpdateMessage.textContent = presentation.message; releaseUpdateNoticeKey = key; }
-  dom.releaseUpdateRefreshButton.hidden = presentation.kind !== 'ready';
-  dom.releaseUpdateNotice.hidden = presentation.kind === 'hidden' || releaseUpdateDismissed;
-}
-function showView(view) { dom.views.forEach(item => { item.hidden = item !== view; }); renderReleaseUpdateNotice(); window.scrollTo({ top: 0, behavior: 'instant' }); }
+function showView(view) { dom.views.forEach(item => { item.hidden = item !== view; }); window.scrollTo({ top: 0, behavior: 'instant' }); }
 function savedTables() { try { const tables = JSON.parse(localStorage.getItem(SAVED_TABLES_KEY)); return Array.isArray(tables) ? tables.filter(table => /^[A-Z0-9]{6}$/.test(table?.code)).slice(0, 8) : []; } catch { return []; } }
 function saveTable() {
   if (!state || state.localSimulation || !/^[A-Z0-9]{6}$/.test(state.podCode)) return;
   const entry = { code: state.podCode, seatId: transport.seatId, name: displayName(state.players.find(player => player.id === state.ownerPlayerId)), isHost: transport.seatId === state.hostSeatId, lastUsedAt: Date.now() };
   try { localStorage.setItem(SAVED_TABLES_KEY, JSON.stringify([entry, ...savedTables().filter(table => table.code !== entry.code || table.seatId !== entry.seatId)].slice(0, 8))); } catch { /* Storage is optional; reclaim remains available when the browser can retain it. */ }
-  saveLastActiveTable(localStorage, { code: entry.code, seatId: entry.seatId, updatedAt: entry.lastUsedAt });
 }
 function latestRecoverableHostPodCode() {
   const recoverableCodes = new Set(transport.hostRecoveryPodCodes());
@@ -667,25 +595,6 @@ async function openJoinCode(code) {
   const normalizedCode = String(code || '').toUpperCase();
   if (!/^[A-Z0-9]{6}$/.test(normalizedCode)) return;
   showView(dom.join); $('#podCode').value = normalizedCode; dom.joinCodeStatus.textContent = 'Finding your table…'; await refreshJoinSeats();
-}
-async function reclaimLastActiveTable(target) {
-  showView(dom.join); $('#podCode').value = target.code; dom.joinCodeStatus.textContent = 'Reconnecting to your latest table…';
-  try {
-    const { snapshot } = await transport.inspectRoom(target.code);
-    const seat = snapshot.seats[target.seatId];
-    if (!seat?.claimed || !transport.hasStoredReclaimToken(target.code, target.seatId)) throw Object.assign(new Error('Your saved seat is no longer available.'), { code: 'RECLAIM_UNAVAILABLE' });
-    const result = await transport.claimRoom({ code: target.code, seatId: target.seatId, name: seat.name, commanderCount: seat.commanderCount, commanderNames: seat.commanderNames, commanderColors: seat.commanderColors });
-    if (result?.snapshot) {
-      showSharedGame(result.snapshot);
-      dom.syncBanner.textContent = 'Reconnected to your latest table.';
-      dom.syncBanner.hidden = false;
-      clearTimeout(syncBannerTimer);
-      syncBannerTimer = setTimeout(() => { dom.syncBanner.hidden = true; }, 5000);
-    }
-  } catch (error) {
-    if (shouldClearLastActiveTable(error)) clearLastActiveTable(localStorage);
-    renderSavedTables(); showView(dom.landing);
-  }
 }
 let joinQrScanner = null;
 function stopJoinQrScanner() { joinQrScanner?.stop(dom.joinQrScannerVideo); }
@@ -834,18 +743,14 @@ function renderCommanderNameFields(container, count, names = [], identities = []
 }
 function selectedCommanderCount(formName) { return Number($(`input[name="${formName}"]:checked`)?.value || 1); }
 function refreshSetupCommanderNames() { renderCommanderNameFields(dom.createCommanderNames, selectedCommanderCount('commanderCount')); renderCommanderNameFields(dom.joinCommanderNames, selectedCommanderCount('joinCommanderCount')); }
-function showCurrentTableView() {
-  const lifecycleStatus = state?.lifecycle?.status || (state?.turn?.gameStarted ? 'playing' : 'lobby');
-  showView(lifecycleStatus === 'lobby' ? dom.lobby : dom.game);
-}
-function beginLocalGame(config) { transport.useLocal(); state = { ...createState(config), localDemoLastInteractionAt: Date.now() }; void startGame(); }
+function beginLocalGame(config) { transport.useLocal(); state = { ...createState(config), localDemoLastInteractionAt: Date.now() }; showView(dom.game); render(); }
 function clearDeepJoinCode() {
   const url = new URL(location.href);
   if (!url.searchParams.has('join')) return;
   url.searchParams.delete('join');
   history.replaceState(history.state, '', url);
 }
-function showSharedGame(snapshot) { clearDeepJoinCode(); state = stateFromSnapshot(snapshot); saveTable(); renderSavedTables(); showCurrentTableView(); render(); void applySelectedAppearance(); }
+function showSharedGame(snapshot) { clearDeepJoinCode(); state = stateFromSnapshot(snapshot); saveTable(); renderSavedTables(); showView(dom.game); render(); void applySelectedAppearance(); }
 function showError(error) { dom.connectionDetail.textContent = error?.message || 'The pod server could not complete that request.'; dom.connectionDialog.showModal(); }
 function activePlayer() { return state.players.find(player => player.id === state.activePlayerId); }
 function currentValue(player) { const value = state.mode === 'commander' ? commanderValue(player) : player[state.mode]; return state.mode === 'life' && !state.localSimulation && player.id === state.ownerPlayerId ? value + optimisticLifeDelta : value; }
@@ -862,8 +767,6 @@ function renderTurnFlow() {
   const isComplete = lifecycleStatus === 'complete';
   const isStarted = Boolean(state.turn.gameStarted) && !isComplete;
   dom.lobbyControls.hidden = isStarted || isIntermission || isComplete;
-  const lobbyPlayer = state.localSimulation ? activePlayer() : ownPlayer();
-  dom.lobbySeatStatus.textContent = lobbyPlayer ? `You are ${displayPlayer(lobbyPlayer)}. Gameplay controls unlock when the game begins.` : 'Your seat is being restored.';
   dom.intermissionPanel.hidden = !isIntermission;
   const renderSeatOrder = (container, rosterIds, { intermission = false } = {}) => {
     const readyIds = state.lifecycle?.readySeatIds || [];
@@ -921,9 +824,6 @@ function renderTurnFlow() {
   dom.toggleDeviceCuesButton.textContent = `My turn cue: ${deviceTurnCuesEnabled() ? 'on' : 'off'}`;
   dom.turnSoundPreferencesButton.textContent = `My turn sound: ${turnSound().replace('-', ' ')}`;
   dom.toggleTouchFeedbackButton.textContent = `Touch feedback: ${touchFeedbackEnabled() ? 'on' : 'off'}`;
-  dom.toggleScreenAwakeButton.hidden = !isStarted;
-  dom.toggleScreenAwakeButton.disabled = !gameWakeLock.supported;
-  dom.toggleScreenAwakeButton.textContent = gameWakeLock.supported ? `Keep screen awake: ${screenAwakeEnabled() ? 'on' : 'off'}` : 'Keep screen awake: unavailable';
   dom.pauseTurnButton.hidden = !isStarted || !isHost || !trackingEnabled;
   if (freezeGameControls) {
     clearInterval(turnTicker); turnTicker = null;
@@ -941,7 +841,6 @@ function renderTurnFlow() {
       : `${shareCode}${claimedPlayers.length}/${state.seatCapacity || state.playerCount} seats claimed. ${displayName(firstPlayer)} goes first by default.`;
     dom.lobbyInviteCode.textContent = state.podCode && state.podCode !== 'LOCAL' ? state.podCode : '';
     dom.copyLobbyJoinLinkButton.hidden = !canShareJoin || !isHost;
-    dom.lobbyLeaveTableButton.hidden = state.localSimulation;
     dom.startingSeat.innerHTML = claimedPlayers.map(player => `<option value="${Number(player.id.slice(1)) - 1}">${escapeHtml(displayPlayer(player))}</option>`).join('');
     dom.startingSeat.value = String(pendingStartingSeatId ?? authoritativeSeatId);
     dom.firstPlayerOptions.hidden = !isHost;
@@ -1004,9 +903,7 @@ async function resolveRadiation() {
   } catch (error) { showError(error); } finally { dom.resolveRadiationButton.disabled = false; }
 }
 function render() {
-  renderReleaseUpdateNotice();
   renderDeveloperTools();
-  syncGameWakeLock();
   dom.game.dataset.interfaceStyle = interfaceStyle;
   const commanderFormat = state.gameFormat === 'commander';
   if (!commanderFormat && state.mode === 'commander') state.mode = 'life';
@@ -1372,9 +1269,12 @@ async function adjust(delta) {
   }
   if (state.mode === 'life') {
     const isCorrection = lifeAdjustmentIsCorrection(delta);
-    optimisticLifeDelta += delta;
     showLifeChange(player.id, delta, previous, previous + delta);
-    lifeBatcher.add(delta, { isCorrection, playerId: player.id });
+    // Shared life is an atomic server-side delta. Submit each tap immediately
+    // so Safari timer/identifier support can never leave a visible local-only
+    // total that was not written to the table.
+    try { const result = await transport.adjust({ counter: 'life', delta, ...(isCorrection ? { isCorrection: true } : {}) }); if (!result.blocked && !result.ignored) confirmLifeChange(player.id); }
+    catch (error) { renderConnection('disconnected'); showError(error); }
     return;
   }
   $$('[data-delta]').forEach(button => { button.disabled = true; });
@@ -1437,7 +1337,7 @@ async function startGame() {
   if (!state || state.turn.gameStarted) return;
   if (state.localSimulation) {
     const startedAt = Date.now(); const startingPlayerSeatId = state.turn.startingPlayerSeatId ?? state.turn.activeSeatId;
-    state.turn = { ...state.turn, gameStarted: true, activeSeatId: startingPlayerSeatId, startingPlayerSeatId, gameStartedAt: startedAt, turnStartedAt: startedAt, roundEndsAt: state.roundLimitMinutes ? startedAt + state.roundLimitMinutes * 60000 : null, lastHandoff: null }; state.lifecycle = { ...state.lifecycle, status: 'playing', readySeatIds: [] }; state.gameResult = null; state.turnSeatId = `P${startingPlayerSeatId + 1}`; state.activePlayerId = state.turnSeatId; showCurrentTableView(); render(); return;
+    state.turn = { ...state.turn, gameStarted: true, activeSeatId: startingPlayerSeatId, startingPlayerSeatId, gameStartedAt: startedAt, turnStartedAt: startedAt, roundEndsAt: state.roundLimitMinutes ? startedAt + state.roundLimitMinutes * 60000 : null, lastHandoff: null }; state.lifecycle = { ...state.lifecycle, status: 'playing', readySeatIds: [] }; state.gameResult = null; state.turnSeatId = `P${startingPlayerSeatId + 1}`; state.activePlayerId = state.turnSeatId; render(); return;
   }
   try { const result = await transport.startGame(); if (result.conflict) showError(new Error('The table changed first. The latest lobby is shown.')); } catch (error) { showError(error); }
 }
@@ -1556,7 +1456,7 @@ async function eliminatePlayer() {
     if (state.localSimulation) {
       const player = state.players[targetSeatId];
       if (!player || player.eliminated) return;
-      player.alternateElimination = { reason, detail: detail || null }; state.players.forEach(evaluatePlayer); localLastPlayerStanding(); render();
+      player.alternateElimination = { reason, detail: detail || null }; state.players.forEach(evaluatePlayer); evaluateLocalVictory(); render();
     } else {
       const result = await transport.eliminatePlayer(targetSeatId, reason, detail);
       if (result.conflict) showError(new Error('The table changed first. The latest game state is shown.'));
@@ -1596,7 +1496,7 @@ async function tossCoin({ dialog = true } = {}) {
     } catch (error) { renderConnection('disconnected'); showError(error); return; }
   }
 }
-function closeGameOverlays() { [dom.resetDialog, dom.connectionDialog, dom.leaveTableDialog, dom.coinTossDialog, dom.startingRollDialog, dom.turnCueDialog, dom.turnSoundDialog, dom.customLifeDialog, dom.commanderSourceDialog, dom.commanderCountDialog, dom.commanderTaxDialog, dom.victoryDialog, dom.personalMatchMomentDialog, dom.achievementDialog, dom.postGameDialog, dom.declareWinnerDialog, dom.eliminatePlayerDialog, dom.playtestNotesDialog, dom.playtestRecapDialog, dom.savedPlaytestsDialog, dom.cardCameraDialog, dom.joinQrScannerDialog].forEach(dialog => { if (dialog?.open) dialog.close(); }); }
+function closeGameOverlays() { [dom.resetDialog, dom.connectionDialog, dom.leaveTableDialog, dom.coinTossDialog, dom.startingRollDialog, dom.turnCueDialog, dom.turnSoundDialog, dom.customLifeDialog, dom.commanderSourceDialog, dom.commanderCountDialog, dom.commanderTaxDialog, dom.victoryDialog, dom.achievementDialog, dom.declareWinnerDialog, dom.eliminatePlayerDialog, dom.playtestNotesDialog, dom.playtestRecapDialog, dom.savedPlaytestsDialog, dom.cardCameraDialog, dom.joinQrScannerDialog].forEach(dialog => { if (dialog?.open) dialog.close(); }); }
 
 async function openCardCamera() {
   dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false');
@@ -1664,13 +1564,12 @@ $('#joinStepTwoNext').addEventListener('click', () => { if (/^P[1-8]$/.test(dom.
 signInButton.addEventListener('click', openSignIn); continueGuestButton.addEventListener('click', enterApp);
 $('#createPodButton').addEventListener('click', () => showView(dom.create)); $('#joinPodButton').addEventListener('click', () => { showView(dom.join); dom.joinCodeStatus.textContent = ''; }); $('#changePodButton').addEventListener('click', () => showView(dom.join)); $$('[data-back]').forEach(button => button.addEventListener('click', () => { renderSavedTables(); showView(dom.landing); })); $('#podCode').addEventListener('input', event => { event.currentTarget.value = event.currentTarget.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); }); $('#joinSeat').addEventListener('change', () => { dom.joinName.placeholder = dom.joinSeat.value; renderJoinSeatClaim(); }); dom.joinCodeForm.addEventListener('submit', async event => { event.preventDefault(); await refreshJoinSeats(); }); dom.scanJoinQrButton.addEventListener('click', () => void openJoinQrScanner()); dom.joinQrScannerDialog.addEventListener('close', stopJoinQrScanner); $$('input[name="commanderCount"], input[name="joinCommanderCount"]').forEach(input => input.addEventListener('change', refreshSetupCommanderNames)); $$('input[name="gameFormat"]').forEach(input => input.addEventListener('change', () => { if (selectedGameFormat() === 'casual') { $('input[name="startingLife"][value="20"]').checked = true; $('input[name="playerCount"][value="2"]').checked = true; } updateFormatSetup(); }));
 dom.joinQrCameraInput.addEventListener('change', event => void readJoinQrCameraPhoto(event));
-$('#quickTestButton').addEventListener('click', () => { const saved = loadLocal(); if (saved) { transport.useLocal(); state = saved; if (!state.turn?.gameStarted) void startGame(); else { showCurrentTableView(); render(); } } else beginLocalGame({}); });
+$('#quickTestButton').addEventListener('click', () => { const saved = loadLocal(); if (saved) { transport.useLocal(); state = saved; showView(dom.game); render(); } else beginLocalGame({}); });
 $('#createPodButton').addEventListener('click', () => void loadSetupDecks()); $('#joinPodButton').addEventListener('click', () => void loadSetupDecks());
 $('#createPodButton').addEventListener('click', () => { selectedDeckId = ''; try { sessionStorage.removeItem('fivefold-arc:selected-deck'); } catch {} dom.createDeck.value = ''; });
 $('#joinSignInDeckButton').addEventListener('click', () => openSignIn({ returnToJoin: true }));
 function selectSetupDeck(event) { selectedDeckId = event.currentTarget.value || ''; try { sessionStorage.setItem('fivefold-arc:selected-deck', selectedDeckId); } catch {} if (selectedDeckId && (event.currentTarget === dom.createDeck || event.currentTarget === dom.joinDeck)) { const deck = setupDecks.find(item => item.deckId === selectedDeckId); const commanderNames = deck?.commanderNames?.length ? deck.commanderNames : [deck?.commanderName].filter(Boolean); const joining = event.currentTarget === dom.joinDeck; if (commanderNames.length) { const container = joining ? dom.joinCommanderNames : dom.createCommanderNames; const identities = savedDeckCommanderColors(deck, commanderNames.length); $(`input[name="${joining ? 'joinCommanderCount' : 'commanderCount'}"][value="${commanderNames.length}"]`).checked = true; renderCommanderNameFields(container, commanderNames.length, commanderNames, identities); if (identities.length !== commanderNames.length) void confirmUnresolvedCommanderDetails(container, commanderNames.length); } } }
 dom.createDeck.addEventListener('change', selectSetupDeck); dom.joinDeck.addEventListener('change', selectSetupDeck);
-deckSearch.create.addEventListener('input', () => filterDeckSelect(dom.createDeck, deckSearch.create, setupDecks)); deckSearch.join.addEventListener('input', () => filterDeckSelect(dom.joinDeck, deckSearch.join, setupDecks)); deckSearch.commander.addEventListener('input', () => filterDeckSelect(dom.commanderDeck, deckSearch.commander, commanderDecks));
 dom.commanderDeck.addEventListener('change', event => {
   selectedDeckId = event.currentTarget.value || '';
   try { sessionStorage.setItem('fivefold-arc:selected-deck', selectedDeckId); } catch {}
@@ -1727,7 +1626,7 @@ function beginDialDrag(event) {
   dialPointer = { id: event.pointerId, angle: dialAngle(event), accumulated: 0 }; document.body.classList.add('dial-dragging'); dom.dialGesture.classList.add('dragging'); dom.dialGesture.setPointerCapture?.(event.pointerId); event.preventDefault();
 }
 function leaveTable() {
-  clearLastActiveTable(localStorage); closeGameOverlays(); clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); clearStartingRollTimers(); clearInterval(turnTicker); dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); state = null; transport.clearSession(); renderSavedTables(); showView(dom.landing);
+  closeGameOverlays(); clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); clearStartingRollTimers(); clearInterval(turnTicker); dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); state = null; transport.clearSession(); renderSavedTables(); showView(dom.landing);
 }
 function moveDialDrag(event) {
   if (!dialPointer || event.pointerId !== dialPointer.id) return;
@@ -1755,7 +1654,7 @@ dom.radiationForm.addEventListener('submit', event => { if (event.submitter?.val
 // every deliberate tap so a cue changed by another phone is ready too.
 document.addEventListener('pointerdown', () => prepareTurnCueAudio(false, cueMode(), true));
 document.addEventListener('pointerup', event => { const button = event.target.closest('button'); if (!button || button.disabled || button.hidden || !button.getClientRects().length) return; pulseTouchFeedback(); });
-dom.endTurnButton.addEventListener('click', handoffTurn); dom.undoTurnButton.addEventListener('click', undoTurnHandoff); dom.pauseTurnButton.addEventListener('click', toggleTurnPause); dom.toggleTurnTrackingButton.addEventListener('click', toggleTurnTracking); dom.toggleTurnCuesButton.addEventListener('click', openTurnCueDialog); dom.turnCueForm.addEventListener('submit', async event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); const mode = String(new FormData(dom.turnCueForm).get('cueMode') || 'sound'); prepareTurnCueAudio(false, mode); if (await setTurnCue(mode)) dom.turnCueDialog.close('confirm'); }); dom.toggleDeviceCuesButton.addEventListener('click', () => { setDeviceTurnCues(!deviceTurnCuesEnabled()); render(); }); dom.toggleTouchFeedbackButton.addEventListener('click', () => { setTouchFeedback(!touchFeedbackEnabled()); render(); }); dom.toggleScreenAwakeButton.addEventListener('click', () => { setScreenAwake(!screenAwakeEnabled()); syncGameWakeLock(); render(); });
+dom.endTurnButton.addEventListener('click', handoffTurn); dom.undoTurnButton.addEventListener('click', undoTurnHandoff); dom.pauseTurnButton.addEventListener('click', toggleTurnPause); dom.toggleTurnTrackingButton.addEventListener('click', toggleTurnTracking); dom.toggleTurnCuesButton.addEventListener('click', openTurnCueDialog); dom.turnCueForm.addEventListener('submit', async event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); const mode = String(new FormData(dom.turnCueForm).get('cueMode') || 'off'); prepareTurnCueAudio(false, mode); if (await setTurnCue(mode)) dom.turnCueDialog.close('confirm'); }); dom.toggleDeviceCuesButton.addEventListener('click', () => { setDeviceTurnCues(!deviceTurnCuesEnabled()); render(); }); dom.toggleTouchFeedbackButton.addEventListener('click', () => { setTouchFeedback(!touchFeedbackEnabled()); render(); });
 dom.turnSoundPreferencesButton.addEventListener('click', openTurnSoundDialog); dom.turnSoundVolume.addEventListener('input', () => { dom.turnSoundVolumeValue.value = `${dom.turnSoundVolume.value}%`; }); dom.previewTurnSoundButton.addEventListener('click', () => { setTurnSound(dom.turnSoundChoice.value, Number(dom.turnSoundVolume.value)); playTurnCue(true); }); dom.turnSoundForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); setTurnSound(dom.turnSoundChoice.value, Number(dom.turnSoundVolume.value)); dom.turnSoundDialog.close('confirm'); render(); }); dom.toggleInterfaceStyleButton.addEventListener('click', () => setInterfaceStyle(interfaceStyle === 'dial' ? 'button' : 'dial', { persistAccount: true }));
 dom.startingSeat.addEventListener('change', () => { pendingStartingSeatId = Number(dom.startingSeat.value); renderTurnFlow(); }); dom.chooseFirstButton.addEventListener('click', () => chooseStartingPlayer(pendingStartingSeatId ?? Number(dom.startingSeat.value))); dom.winnerFirstButton.addEventListener('click', () => { if (Number.isInteger(state?.lastGameWinnerSeatId)) chooseStartingPlayer(state.lastGameWinnerSeatId); }); dom.randomFirstButton.addEventListener('click', () => chooseStartingPlayer()); dom.startGameButton.addEventListener('click', startGame);
 const syncGameMenuScrollLock = () => { const open = !dom.gameMenu.hidden; dom.gameMenuBackdrop.hidden = !open; document.documentElement.classList.toggle('game-menu-open', open); document.body.classList.toggle('game-menu-open', open); };
@@ -1789,33 +1688,20 @@ $('#closeGameMenuButton').addEventListener('click', () => { dom.gameMenu.hidden 
 dom.commanderSetupButton.addEventListener('click', () => { dom.gameMenu.hidden = true; const player = state.localSimulation ? activePlayer() : state.players.find(item => item.id === state.ownerPlayerId); dom.commanderCountDetail.textContent = state.localSimulation ? `Local simulation: change ${displayName(player)}'s commander details.` : `Change your commander names and color identity for this pod. Your current game and seat stay in place.`; dom.saveCommanderCountButton.textContent = 'Update this pod'; dom.saveCommanderCountButton.disabled = false; dom.commanderDeckField.hidden = true; $(`input[name="gameCommanderCount"][value="${player.commanderCount}"]`).checked = true; renderCommanderNameFields(dom.gameCommanderNames, player.commanderCount, player.commanderNames, player.commanderColors); dom.commanderCountDialog.showModal(); void loadCommanderDecks(); });
 let developerHoldTimer = null;
 const clearDeveloperHold = () => { clearTimeout(developerHoldTimer); developerHoldTimer = null; };
-const beginDeveloperHold = event => { event.preventDefault(); if (!developerMode && developerHost()) developerHoldTimer = setTimeout(() => { developerHoldTimer = null; dom.developerModeKey.value = ''; dom.developerModeStatus.textContent = ''; dom.developerModeDialog.showModal(); dom.developerModeKey.focus(); }, 750); };
-dom.podLabel.addEventListener('pointerdown', beginDeveloperHold); lobbyDeveloperHoldTarget.addEventListener('pointerdown', beginDeveloperHold);
-['pointerup', 'pointercancel', 'pointerleave'].forEach(type => { dom.podLabel.addEventListener(type, clearDeveloperHold); lobbyDeveloperHoldTarget.addEventListener(type, clearDeveloperHold); });
-dom.podLabel.addEventListener('contextmenu', event => event.preventDefault()); lobbyDeveloperHoldTarget.addEventListener('contextmenu', event => event.preventDefault());
+dom.podLabel.addEventListener('pointerdown', () => { if (!developerMode && developerHost()) developerHoldTimer = setTimeout(() => { developerHoldTimer = null; dom.developerModeKey.value = ''; dom.developerModeStatus.textContent = ''; dom.developerModeDialog.showModal(); dom.developerModeKey.focus(); }, 750); });
+['pointerup', 'pointercancel', 'pointerleave'].forEach(type => dom.podLabel.addEventListener(type, clearDeveloperHold));
 dom.developerModeForm.addEventListener('submit', async event => { event.preventDefault(); const key = dom.developerModeKey.value; dom.unlockDeveloperModeButton.disabled = true; dom.developerModeStatus.textContent = 'Verifying…'; try { await verifyDeveloperKey(key); developerMode = true; sessionStorage.setItem(DEVELOPER_MODE_KEY, 'on'); dom.developerModeDialog.close('unlocked'); renderDeveloperTools(); } catch (error) { dom.developerModeStatus.textContent = error.message; } finally { dom.unlockDeveloperModeButton.disabled = false; } });
 dom.lockDeveloperModeButton.addEventListener('click', () => { developerMode = false; sessionStorage.removeItem(DEVELOPER_MODE_KEY); renderDeveloperTools(); });
 dom.commanderTaxQuickButton?.addEventListener('click', () => { renderCommanderTaxDialog(); dom.commanderTaxDialog.showModal(); });
-dom.backToSetupButton?.addEventListener('click', returnToSetup); lobbyBackToSetupButton?.addEventListener('click', returnToSetup); dom.leaveTableButton?.addEventListener('click', () => { dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); dom.leaveTableDialog.showModal(); }); dom.lobbyLeaveTableButton?.addEventListener('click', () => dom.leaveTableDialog.showModal()); dom.confirmLeaveTableButton?.addEventListener('click', leaveTable);
+dom.backToSetupButton?.addEventListener('click', returnToSetup); dom.leaveTableButton?.addEventListener('click', () => { dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); dom.leaveTableDialog.showModal(); }); dom.confirmLeaveTableButton?.addEventListener('click', leaveTable);
 $$('input[name="gameCommanderCount"]').forEach(input => input.addEventListener('change', () => renderCommanderNameFields(dom.gameCommanderNames, selectedCommanderCount('gameCommanderCount'))));
 dom.commanderCountForm.addEventListener('submit', async event => { if (event.submitter?.value === 'confirm') { event.preventDefault(); const form = new FormData(dom.commanderCountForm); const count = Number(form.get('gameCommanderCount')); dom.saveCommanderCountButton.disabled = true; const { colors, unresolved } = await confirmUnresolvedCommanderDetails(dom.gameCommanderNames, count); if (unresolved.length) { dom.saveCommanderCountButton.textContent = 'Update without colors'; dom.saveCommanderCountButton.disabled = false; return; } const names = commanderNamesFromForm(new FormData(dom.commanderCountForm), count); selectedDeckId = dom.commanderDeck.value || ''; try { sessionStorage.setItem('fivefold-arc:selected-deck', selectedDeckId); } catch {} await updateCommanderSetup(count, names, colors); dom.commanderCountDialog.close('confirm'); } }); dom.declareWinnerForm.addEventListener('submit', event => { if (event.submitter?.value === 'confirm') declareWinner(); });
+dom.nextGameButton.addEventListener('click', event => { event.stopPropagation(); if (dom.victoryDialog.open) dom.victoryDialog.close('next-game'); void beginIntermission(); });
 dom.intermissionReadyButton.addEventListener('click', () => void setNextGameReady()); dom.intermissionStartButton.addEventListener('click', () => void confirmNextGameStart()); dom.nextGameConfirmForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); dom.nextGameConfirmDialog.close('confirm'); void startGame(); });
-const advanceRewardDialog = (dialog, action) => {
-  dialog.addEventListener('click', event => { if (event.target.closest('button, select, input, label')) return; if (dialog === dom.victoryDialog && !victoryDismissReady) return; if (dialog.open) dialog.close('advance'); });
-  dialog.addEventListener('keydown', event => { if (!['Enter', ' '].includes(event.key)) return; event.preventDefault(); if (dialog === dom.victoryDialog && !victoryDismissReady) return; if (dialog.open) dialog.close('advance'); });
-  dialog.addEventListener('cancel', event => { event.preventDefault(); });
-  dialog.addEventListener('close', () => { if (dialog.returnValue === 'advance') action(); });
-};
-advanceRewardDialog(dom.victoryDialog, () => { const key = victoryKey(state?.gameResult); dismissedVictoryKeys.add(key); void showPersonalMatchMoment(key); });
-advanceRewardDialog(dom.personalMatchMomentDialog, () => { const key = victoryKey(state?.gameResult); void continueAfterRewards(key); });
-dom.achievementDialog.addEventListener('close', () => { unlockedAchievementsByGame.delete(dom.achievementDialog.dataset.gameKey); showPostGameChoices(); });
-dom.postGameNextGameButton.addEventListener('click', () => { dom.postGameDialog.close('next-game'); void beginIntermission(); });
-dom.postGameLeaveTableButton.addEventListener('click', () => { dom.postGameDialog.close('leave-table'); dom.leaveTableDialog.showModal(); });
+dom.victoryDialog.addEventListener('click', () => { if (victoryDismissReady && dom.victoryDialog.open) dom.victoryDialog.close('tap'); }); dom.victoryDialog.addEventListener('close', () => { if (dom.victoryDialog.returnValue !== 'tap') return; const key = victoryKey(state?.gameResult); dismissedVictoryKeys.add(key); void (async () => { await automaticSavePromises.get(key); if (!showAchievementUnlocks(key)) openQuickFeedback(); })(); }); dom.achievementDialog.addEventListener('close', () => { unlockedAchievementsByGame.delete(dom.achievementDialog.dataset.gameKey); openQuickFeedback(); });
 $('#quickFeedbackForm').addEventListener('submit', async event => { event.preventDefault(); const response = event.submitter?.value; const until = Date.now() + (response === 'skip' ? 30 : 7) * 24 * 60 * 60 * 1000; localStorage.setItem('fivefold-arc:quick-feedback-until', String(until)); if (response !== 'skip') await transport.recordQuickFeedback({ response }); $('#quickFeedbackDialog').close(); });
 dom.viewCelebrationButton.addEventListener('click', () => { shownVictoryKey = null; dom.gameMenu.hidden = true; renderVictory(); });
-dom.releaseUpdateDismissButton.addEventListener('click', () => { releaseUpdateDismissed = true; renderReleaseUpdateNotice(); });
-dom.releaseUpdateRefreshButton.addEventListener('click', () => { void releaseUpdateController?.refreshAtSafeBoundary({ lifecycle: state?.lifecycle?.status || null, connectionStatus: transport.status, reload: () => location.reload() }); });
-transport.addEventListener('status', event => { renderConnection(event.detail); renderMutationAvailability(); }); transport.addEventListener('status', renderReleaseUpdateNotice); transport.addEventListener('state', event => { if (event.detail?.seats?.length) { const previousTossKey = coinTossKey(state?.lastCoinToss); const previousRollKey = startingPlayerRollKey(state?.turn?.startingPlayerRoll); const previousTurnKey = state?.turn?.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; state = stateFromSnapshot(event.detail); saveTable(); if (awaitingConfirmedResync && transport.status === 'connected') { awaitingConfirmedResync = false; const presentation = connectionPresentation({ status: 'connected', resynced: true }); dom.syncBanner.textContent = presentation.syncMessage; dom.syncBanner.hidden = false; clearTimeout(syncBannerTimer); syncBannerTimer = setTimeout(() => { dom.syncBanner.hidden = true; }, 5000); } const nextRollKey = startingPlayerRollKey(state.turn.startingPlayerRoll); const nextTurnKey = state.turn.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; showCurrentTableView(); if (nextTurnKey && nextTurnKey !== previousTurnKey && nextTurnKey !== lastTurnHandoffKey) { lastTurnHandoffKey = nextTurnKey; showTurnHandoff(); } if (nextRollKey && nextRollKey !== previousRollKey && nextRollKey !== lastStartingRollKey) { lastStartingRollKey = nextRollKey; showStartingPlayerRoll(state.turn.startingPlayerRoll); } else if (coinTossKey(state.lastCoinToss) && coinTossKey(state.lastCoinToss) !== previousTossKey) { const dialog = coinTossDialogRequested; coinTossDialogRequested = false; showCoinToss(state.lastCoinToss, { dialog }); } else render(); } });
+transport.addEventListener('status', event => { renderConnection(event.detail); renderMutationAvailability(); }); transport.addEventListener('state', event => { if (event.detail?.seats?.length) { const previousTossKey = coinTossKey(state?.lastCoinToss); const previousRollKey = startingPlayerRollKey(state?.turn?.startingPlayerRoll); const previousTurnKey = state?.turn?.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; state = stateFromSnapshot(event.detail); if (awaitingConfirmedResync && transport.status === 'connected') { awaitingConfirmedResync = false; const presentation = connectionPresentation({ status: 'connected', resynced: true }); dom.syncBanner.textContent = presentation.syncMessage; dom.syncBanner.hidden = false; clearTimeout(syncBannerTimer); syncBannerTimer = setTimeout(() => { dom.syncBanner.hidden = true; }, 5000); } const nextRollKey = startingPlayerRollKey(state.turn.startingPlayerRoll); const nextTurnKey = state.turn.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; if (dom.game.hidden) showView(dom.game); if (nextTurnKey && nextTurnKey !== previousTurnKey && nextTurnKey !== lastTurnHandoffKey) { lastTurnHandoffKey = nextTurnKey; showTurnHandoff(); } if (nextRollKey && nextRollKey !== previousRollKey && nextRollKey !== lastStartingRollKey) { lastStartingRollKey = nextRollKey; showStartingPlayerRoll(state.turn.startingPlayerRoll); } else if (coinTossKey(state.lastCoinToss) && coinTossKey(state.lastCoinToss) !== previousTossKey) { const dialog = coinTossDialogRequested; coinTossDialogRequested = false; showCoinToss(state.lastCoinToss, { dialog }); } else render(); } });
 transport.addEventListener('state', event => { const roomCode = event.detail?.code; if (!roomCode || reportedDiagnostics.has(roomCode)) return; reportedDiagnostics.add(roomCode); setTimeout(() => recordClientDiagnostic('session_started'), 0); });
 transport.addEventListener('state', event => { if (event.detail?.seats?.length) void applySelectedAppearance(); });
 document.addEventListener('visibilitychange', () => { recordClientDiagnostic('visibility_changed'); if (document.visibilityState === 'visible') { scheduleViewportMetrics(); void transport.resume(); } });
@@ -1823,13 +1709,9 @@ window.addEventListener('error', () => recordClientDiagnostic('unhandled_error')
 window.addEventListener('unhandledrejection', () => recordClientDiagnostic('unhandled_error'));
 dom.startingRollCanvas?.addEventListener('webglcontextlost', () => recordClientDiagnostic('webgl_context_lost'));
 transport.addEventListener('protocolerror', () => recordClientDiagnostic('protocol_error'));
-if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  watchForReleaseUpdate({ serviceWorker: navigator.serviceWorker, getSafetyState: () => ({ lifecycle: state?.lifecycle?.status || null, connectionStatus: transport.status }), onChange: ({ waiting }) => { releaseUpdateWaiting = waiting; releaseUpdateDismissed = false; renderReleaseUpdateNotice(); } }).then(controller => { releaseUpdateController = controller; }).catch(() => {});
-}
+if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js').catch(() => {});
 const deepJoinCode = new URLSearchParams(location.search).get('join');
-const initialTableTarget = appearancePreviewMode ? null : startupTableTarget({ queryJoinCode: deepJoinCode, localStorage });
-if (initialTableTarget?.kind === 'join') void openJoinCode(initialTableTarget.code);
-else if (initialTableTarget?.kind === 'reclaim') void reclaimLastActiveTable(initialTableTarget);
+if (!appearancePreviewMode && /^[A-Z0-9]{6}$/i.test(deepJoinCode || '')) openJoinCode(deepJoinCode);
 if (!appearancePreviewMode) { void loadGameDefaultLayout(); void loadPublishedSkinChoices(); }
 if (!appearancePreviewMode) void restoreSavedAccountSession();
 if (appearancePreviewMode) {

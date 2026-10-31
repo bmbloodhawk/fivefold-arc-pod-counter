@@ -8,7 +8,7 @@ export class RealtimeAdapter extends EventTarget {
     this.connectionId = null; this.roomCode = null; this.seatId = null;
     this.reclaimToken = null; this.snapshot = null; this.events = null;
     this.heartbeatTimer = null; this.reconnectTimer = null; this.snapshotRefreshTimer = null;
-    this.sseRecoveryInFlight = false; this.sseRecoveryGeneration = 0; this.resumePromise = null;
+    this.sseRecoveryInFlight = false; this.resumePromise = null;
     this.status = 'local'; this.localMode = true; this.stopped = false; this.sessionEpoch = 0;
   }
 
@@ -46,11 +46,7 @@ export class RealtimeAdapter extends EventTarget {
   resume() {
     if (this.localMode || this.stopped || !this.roomCode || document.visibilityState === 'hidden') return Promise.resolve({ ignored: true });
     if (this.resumePromise) return this.resumePromise;
-    // A room read can prove the table still exists, but it cannot prove that
-    // this phone's short-lived connection survived backgrounding. Foreground
-    // resume must therefore win over an in-flight SSE-only recovery and make
-    // one fresh connection/seat reclaim.
-    this.sseRecoveryGeneration += 1; this.sseRecoveryInFlight = false;
+    if (this.sseRecoveryInFlight) return Promise.resolve({ recovering: true });
     clearTimeout(this.reconnectTimer); this.reconnectTimer = null;
     const epoch = this.sessionEpoch;
     let resume;
@@ -248,7 +244,6 @@ export class RealtimeAdapter extends EventTarget {
     this.stopped = true; this.events?.close(); this.events = null;
     clearInterval(this.heartbeatTimer); clearTimeout(this.reconnectTimer); clearInterval(this.snapshotRefreshTimer);
     this.heartbeatTimer = null; this.reconnectTimer = null; this.snapshotRefreshTimer = null; this.connectionId = null;
-    this.sseRecoveryGeneration += 1; this.sseRecoveryInFlight = false;
     if (!this.localMode) this.#setStatus('disconnected');
   }
 
@@ -281,13 +276,7 @@ export class RealtimeAdapter extends EventTarget {
     const events = new EventSource(url); this.events = events;
     events.addEventListener('open', () => { if (this.#isCurrentSession(epoch) && this.events === events) this.#setStatus('connected'); });
     events.addEventListener('snapshot', event => { if (!this.#isCurrentSession(epoch) || this.events !== events) return; try { this.#acceptSnapshot(JSON.parse(event.data), epoch); } catch { if (this.#isCurrentSession(epoch) && this.events === events) this.dispatchEvent(new CustomEvent('protocolerror')); } });
-    events.addEventListener('close', () => {
-      if (!this.#isCurrentSession(epoch) || this.events !== events) return;
-      events.close(); this.events = null;
-      // A stream may close while ordinary table requests are still healthy.
-      // Verify and reopen only the stream before reclaiming the active seat.
-      void this.#recoverSse(epoch);
-    });
+    events.addEventListener('close', () => { if (!this.#isCurrentSession(epoch) || this.events !== events) return; events.close(); this.#scheduleReconnect(epoch); });
     events.addEventListener('error', () => {
       if (!this.#isCurrentSession(epoch) || this.events !== events) return;
       void this.recordClientDiagnostic({ kind: 'sse_error' }).catch(() => {});
@@ -364,20 +353,19 @@ export class RealtimeAdapter extends EventTarget {
   async #recoverSse(epoch) {
     if (!this.#isCurrentSession(epoch) || this.sseRecoveryInFlight) return;
     this.sseRecoveryInFlight = true;
-    const recoveryGeneration = ++this.sseRecoveryGeneration;
     try {
       const result = await this.#request(`/api/rooms/${this.roomCode}?refresh=${Date.now()}`);
-      if (!this.#isCurrentSession(epoch) || recoveryGeneration !== this.sseRecoveryGeneration) return;
+      if (!this.#isCurrentSession(epoch)) return;
       this.#acceptSnapshot(result.snapshot, epoch);
       this.#subscribe(epoch);
       this.#setStatus('connected');
     } catch {
-      if (this.#isCurrentSession(epoch) && recoveryGeneration === this.sseRecoveryGeneration) {
+      if (this.#isCurrentSession(epoch)) {
         this.#setStatus('disconnected');
         this.#scheduleReconnect(epoch);
       }
     } finally {
-      if (recoveryGeneration === this.sseRecoveryGeneration) this.sseRecoveryInFlight = false;
+      this.sseRecoveryInFlight = false;
     }
   }
 
@@ -395,7 +383,6 @@ export class RealtimeAdapter extends EventTarget {
     clearInterval(this.heartbeatTimer); clearTimeout(this.reconnectTimer); clearInterval(this.snapshotRefreshTimer);
     this.heartbeatTimer = null; this.reconnectTimer = null; this.snapshotRefreshTimer = null;
     this.connectionId = null; this.roomCode = null; this.seatId = null; this.reclaimToken = null; this.snapshot = null;
-    this.sseRecoveryGeneration += 1; this.sseRecoveryInFlight = false;
     this.localMode = false; this.stopped = false; this.#setStatus('waiting');
     return this.sessionEpoch;
   }
