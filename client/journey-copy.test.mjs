@@ -51,11 +51,14 @@ test('developer tools stay hidden until a host unlocks them with the protected p
   assert.match(app, /const DEVELOPER_MODE_KEY = 'fivefold-arc:developer-mode';/);
   assert.match(app, /\/api\/developer\/access/);
   assert.match(app, /dom\.podLabel\.addEventListener\('pointerdown'/);
+  assert.match(html, /id="lobbyDeveloperHoldButton"[^>]*aria-label="Open developer tools"/);
+  assert.match(app, /const lobbyDeveloperHoldTarget = \$\('#lobbyDeveloperHoldButton'\)/);
   assert.match(app, /lobbyDeveloperHoldTarget\.addEventListener\('pointerdown'/);
   assert.match(app, /const beginDeveloperHold = event => \{ event\.preventDefault\(\);/);
   assert.match(app, /lobbyDeveloperHoldTarget\.addEventListener\('contextmenu', event => event\.preventDefault\(\)\)/);
   assert.match(app, /developerMode && developerHost\(\)/);
   assert.match(app, /lobbyBackToSetupButton\.hidden = !visible;/);
+  assert.match(app, /lobbyDeveloperHoldTarget\.hidden = !developerHost\(\) \|\| developerMode;/);
   assert.match(app, /const developerMenuVisible = developerMode && developerHost\(\);/);
   assert.match(app, /dom\.playtestRecapButton\.hidden = !developerMenuVisible;/);
   assert.match(app, /dom\.savedPlaytestsButton\.hidden = !developerMenuVisible;/);

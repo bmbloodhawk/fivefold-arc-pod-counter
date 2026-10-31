@@ -174,7 +174,9 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .lobby-controls { display: grid; gap: 7px; margin: 8px 0; padding: 12px; border: 1px solid var(--brass-dark); background: rgb(216 174 97 / .08); text-align: center; }
 .lobby-view { text-align: center; }
 .lobby-view > h1 { margin-bottom: 8px; }
-#lobbyTitle { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+.lobby-title-hold { position: relative; }
+.lobby-title-hold > h1 { margin-bottom: 8px; }
+#lobbyDeveloperHoldButton { position: absolute; inset: 0; width: 100%; border: 0; background: transparent; cursor: default; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; touch-action: none; }
 .lobby-seat-status { margin: 0 0 18px; color: var(--muted); font-size: .88rem; line-height: 1.45; }
 .intermission-panel { display: grid; gap: 10px; margin: 8px 0; padding: 14px; border: 1px solid var(--brass); background: linear-gradient(135deg, rgb(216 174 97 / .18), rgb(16 26 20 / .9)); text-align: center; }
 .intermission-panel h2, .intermission-panel p { margin: 0; }

@@ -39,7 +39,7 @@ const dom = {
 };
 const winnerCondition = $('#winnerCondition');
 const lobbyBackToSetupButton = $('#lobbyBackToSetupButton');
-const lobbyDeveloperHoldTarget = $('#lobbyTitle');
+const lobbyDeveloperHoldTarget = $('#lobbyDeveloperHoldButton');
 const deckSearch = { create: $('#createDeckSearch'), join: $('#joinDeckSearch'), commander: $('#commanderDeckSearch') };
 const transport = new RealtimeAdapter({ apiBase: apiBaseFromPage() });
 const gameWakeLock = new GameWakeLock();
@@ -223,6 +223,7 @@ function renderDeveloperTools() {
   const visible = developerMode && developerHost();
   [dom.playtestRecapButton, dom.fieldTestButton, dom.markDevelopmentButton, dom.savedPlaytestsButton, dom.lockDeveloperModeButton].forEach(button => { button.hidden = !visible; });
   lobbyBackToSetupButton.hidden = !visible;
+  lobbyDeveloperHoldTarget.hidden = !developerHost() || developerMode;
   dom.quickTestButton.hidden = !developerMode;
   dom.localSimulationField.hidden = !developerMode;
 }
