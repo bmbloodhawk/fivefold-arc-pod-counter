@@ -51,6 +51,7 @@ test('developer tools stay hidden until a host unlocks them with the protected p
   assert.match(app, /const DEVELOPER_MODE_KEY = 'fivefold-arc:developer-mode';/);
   assert.match(app, /\/api\/developer\/access/);
   assert.match(app, /dom\.podLabel\.addEventListener\('pointerdown'/);
+  assert.match(app, /lobbyDeveloperHoldTarget\.addEventListener\('pointerdown'/);
   assert.match(app, /developerMode && developerHost\(\)/);
   assert.match(app, /lobbyBackToSetupButton\.hidden = !visible;/);
   assert.match(app, /const developerMenuVisible = developerMode && developerHost\(\);/);
