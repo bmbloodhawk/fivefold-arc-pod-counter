@@ -8,7 +8,7 @@ export class RealtimeAdapter extends EventTarget {
     this.connectionId = null; this.roomCode = null; this.seatId = null;
     this.reclaimToken = null; this.snapshot = null; this.events = null;
     this.heartbeatTimer = null; this.reconnectTimer = null; this.snapshotRefreshTimer = null;
-    this.sseRecoveryInFlight = false; this.resumePromise = null;
+    this.sseRecoveryInFlight = false; this.sseRecoveryGeneration = 0; this.resumePromise = null;
     this.status = 'local'; this.localMode = true; this.stopped = false; this.sessionEpoch = 0;
   }
 
@@ -46,7 +46,11 @@ export class RealtimeAdapter extends EventTarget {
   resume() {
     if (this.localMode || this.stopped || !this.roomCode || document.visibilityState === 'hidden') return Promise.resolve({ ignored: true });
     if (this.resumePromise) return this.resumePromise;
-    if (this.sseRecoveryInFlight) return Promise.resolve({ recovering: true });
+    // A room read can prove the table still exists, but it cannot prove that
+    // this phone's short-lived connection survived backgrounding. Foreground
+    // resume must therefore win over an in-flight SSE-only recovery and make
+    // one fresh connection/seat reclaim.
+    this.sseRecoveryGeneration += 1; this.sseRecoveryInFlight = false;
     clearTimeout(this.reconnectTimer); this.reconnectTimer = null;
     const epoch = this.sessionEpoch;
     let resume;
@@ -244,6 +248,7 @@ export class RealtimeAdapter extends EventTarget {
     this.stopped = true; this.events?.close(); this.events = null;
     clearInterval(this.heartbeatTimer); clearTimeout(this.reconnectTimer); clearInterval(this.snapshotRefreshTimer);
     this.heartbeatTimer = null; this.reconnectTimer = null; this.snapshotRefreshTimer = null; this.connectionId = null;
+    this.sseRecoveryGeneration += 1; this.sseRecoveryInFlight = false;
     if (!this.localMode) this.#setStatus('disconnected');
   }
 
@@ -353,19 +358,20 @@ export class RealtimeAdapter extends EventTarget {
   async #recoverSse(epoch) {
     if (!this.#isCurrentSession(epoch) || this.sseRecoveryInFlight) return;
     this.sseRecoveryInFlight = true;
+    const recoveryGeneration = ++this.sseRecoveryGeneration;
     try {
       const result = await this.#request(`/api/rooms/${this.roomCode}?refresh=${Date.now()}`);
-      if (!this.#isCurrentSession(epoch)) return;
+      if (!this.#isCurrentSession(epoch) || recoveryGeneration !== this.sseRecoveryGeneration) return;
       this.#acceptSnapshot(result.snapshot, epoch);
       this.#subscribe(epoch);
       this.#setStatus('connected');
     } catch {
-      if (this.#isCurrentSession(epoch)) {
+      if (this.#isCurrentSession(epoch) && recoveryGeneration === this.sseRecoveryGeneration) {
         this.#setStatus('disconnected');
         this.#scheduleReconnect(epoch);
       }
     } finally {
-      this.sseRecoveryInFlight = false;
+      if (recoveryGeneration === this.sseRecoveryGeneration) this.sseRecoveryInFlight = false;
     }
   }
 
@@ -383,6 +389,7 @@ export class RealtimeAdapter extends EventTarget {
     clearInterval(this.heartbeatTimer); clearTimeout(this.reconnectTimer); clearInterval(this.snapshotRefreshTimer);
     this.heartbeatTimer = null; this.reconnectTimer = null; this.snapshotRefreshTimer = null;
     this.connectionId = null; this.roomCode = null; this.seatId = null; this.reclaimToken = null; this.snapshot = null;
+    this.sseRecoveryGeneration += 1; this.sseRecoveryInFlight = false;
     this.localMode = false; this.stopped = false; this.#setStatus('waiting');
     return this.sessionEpoch;
   }

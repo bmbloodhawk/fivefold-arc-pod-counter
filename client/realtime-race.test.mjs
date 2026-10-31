@@ -159,6 +159,47 @@ test('returning from background coalesces resume requests into one fresh claim a
   }
 });
 
+test('foreground resume takes over when an SSE-only recovery is already reading a stale connection', async () => {
+  const originals = Object.fromEntries(['fetch', 'EventSource', 'document', 'localStorage'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  let connectionNumber = 0; let resumeClaims = 0; let releaseRecoveryRead;
+  try {
+    FakeEventSource.instances = [];
+    globalThis.document = { visibilityState: 'visible' };
+    globalThis.EventSource = FakeEventSource;
+    globalThis.localStorage = { getItem: () => null, setItem: () => {} };
+    globalThis.fetch = async (url, options = {}) => {
+      const path = new URL(url).pathname;
+      if (path === '/api/connections') return response({ connectionId: `connection-${++connectionNumber}` });
+      if (path === '/api/rooms' && options.method === 'POST') return response({ snapshot: { code: 'POD123', version: 1 }, seatId: 0, reclaimToken: 'pod-token' });
+      if (path === '/api/rooms/POD123' && options.method === 'GET') return new Promise(resolve => { releaseRecoveryRead = () => resolve(response({ snapshot: { code: 'POD123', version: 1 } })); });
+      if (path === '/api/rooms/POD123/claim' && options.method === 'POST') { resumeClaims += 1; return response({ snapshot: { code: 'POD123', version: 2 } }); }
+      if (path === '/api/rooms/POD123/client-diagnostics') return response({});
+      throw new Error(`Unexpected request: ${options.method || 'GET'} ${path}`);
+    };
+
+    const { RealtimeAdapter } = await import(new URL(`./realtime.js?foreground-wins=${Date.now()}`, import.meta.url));
+    const adapter = new RealtimeAdapter({ apiBase: 'https://pod.test' });
+    await adapter.createRoom({ playerCount: 2, startingLife: 40 });
+
+    FakeEventSource.instances.at(-1).emit('error');
+    await new Promise(resolve => setImmediate(resolve));
+    await adapter.resume();
+
+    assert.equal(connectionNumber, 2);
+    assert.equal(resumeClaims, 1);
+    releaseRecoveryRead();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(FakeEventSource.instances.length, 2);
+    assert.equal(adapter.status, 'connected');
+    adapter.clearSession();
+  } finally {
+    for (const [key, descriptor] of Object.entries(originals)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else delete globalThis[key];
+    }
+  }
+});
+
 test('a cleared room cannot overwrite a newly created room with late SSE or mutation snapshots', async () => {
   const originals = Object.fromEntries(['fetch', 'EventSource', 'document', 'localStorage'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   let connectionNumber = 0; let roomNumber = 0; let releaseOldMutation;

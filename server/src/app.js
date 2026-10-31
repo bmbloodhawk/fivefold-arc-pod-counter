@@ -1537,7 +1537,19 @@ export class RoomService {
   attachStream({ room, connection }, res) {
     connection.streams.add(res);
     res.write(`event: snapshot\ndata: ${JSON.stringify(this.snapshot(room))}\n\n`);
-    return () => connection.streams.delete(res);
+    // Quiet SSE streams are commonly dropped by mobile networks and proxies.
+    // A comment is ignored by EventSource, keeps the transport active, and is
+    // recommended by the HTML SSE authoring guidance for long-lived streams.
+    const keepalive = setInterval(() => {
+      if (!res.writableEnded && !res.destroyed) res.write(': keepalive\n\n');
+    }, 15_000);
+    let detached = false;
+    return () => {
+      if (detached) return;
+      detached = true;
+      clearInterval(keepalive);
+      connection.streams.delete(res);
+    };
   }
 
   broadcast(room) {

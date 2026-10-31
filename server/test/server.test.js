@@ -88,6 +88,31 @@ async function room(config = {}) {
   return { connectionId, ...created.body };
 }
 
+test("keeps an attached SSE stream alive with an ignored comment and clears it on detach", () => {
+  const originalSetInterval = globalThis.setInterval;
+  const originalClearInterval = globalThis.clearInterval;
+  const timers = []; const cleared = [];
+  globalThis.setInterval = (callback, delay) => { const timer = { callback, delay }; timers.push(timer); return timer; };
+  globalThis.clearInterval = (timer) => { cleared.push(timer); };
+  try {
+    const service = new RoomService();
+    const connection = service.createConnection();
+    const created = service.createRoom(connection.connectionId, { playerCount: 2, startingLife: 40 });
+    const writes = []; const stream = { writableEnded: false, destroyed: false, write: value => writes.push(value) };
+    const detach = service.attachStream({ room: service.room(created.snapshot.code), connection: service.getConnection(connection.connectionId) }, stream);
+
+    assert.equal(timers.length, 1);
+    assert.equal(timers[0].delay, 15_000);
+    timers[0].callback();
+    assert.ok(writes.some(value => value === ': keepalive\n\n'));
+    detach();
+    assert.deepEqual(cleared, [timers[0]]);
+  } finally {
+    globalThis.setInterval = originalSetInterval;
+    globalThis.clearInterval = originalClearInterval;
+  }
+});
+
 describe("room configuration and claims", () => {
   test("keeps Oracle lookup available when supporting rulings are absent", async () => {
     const lookup = createCardLookup(async (url) => ({
