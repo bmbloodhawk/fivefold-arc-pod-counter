@@ -1,13 +1,13 @@
 // A waiting worker is deliberately not promoted here. The old controller keeps
 // serving its complete release until every old page is gone or the player
 // refreshes at a lifecycle boundary chosen by the app.
-const RELEASE_ID = '2026-10-30-safe-reclaim-2';
+const RELEASE_ID = '2026-10-30-safe-reclaim-3';
 const CACHE_PREFIX = 'fivefold-arc-release-';
 const CACHE = `${CACHE_PREFIX}${RELEASE_ID}`;
-const PREVIOUS_RELEASE_CACHE = 'fivefold-arc-release-2026-10-30-safe-reclaim-1';
+const PREVIOUS_RELEASE_CACHE = 'fivefold-arc-release-2026-10-30-safe-reclaim-2';
 const APP_SHELL = [
-  './', './index.html', './privacy.html', './terms.html', './styles.css?v=236', './app.js?v=266',
-  './account-auth.js?v=6', './active-table-recovery.js?v=1', './release-update.js?v=1', './connection-state.js?v=1',
+  './', './index.html', './privacy.html', './terms.html', './styles.css?v=236', './app.js?v=267',
+  './account-auth.js?v=6', './active-table-recovery.js?v=1', './release-update.js?v=1', './connection-state.js?v=1', './game-wake-lock.js?v=1',
   './commander-source-flow.js?v=1', './card-interaction-advice.js?v=1', './join-qr-scanner.js?v=3', './realtime.js?v=79',
   './life-adjustment-batcher.js?v=72', './dice-roll-3d.js?v=114', './vendor/jsqr.js?v=1', './vendor/three/three.module.js',
   './vendor/three/three.core.js', './vendor/rapier/rapier.mjs', './vendor/dice-box/dice-box.es.js', './vendor/dice-box/Dice.js',
