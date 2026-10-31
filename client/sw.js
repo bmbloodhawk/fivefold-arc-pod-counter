@@ -1,15 +1,15 @@
 // A waiting worker is promoted only after every open game page confirms that
 // it is safe. The old controller keeps serving a complete release otherwise.
-const RELEASE_ID = '2026-10-30-safe-reclaim-12';
+const RELEASE_ID = '2026-10-31-stream-recovery-13';
 const CACHE_PREFIX = 'fivefold-arc-release-';
 const CACHE = `${CACHE_PREFIX}${RELEASE_ID}`;
-const PREVIOUS_RELEASE_CACHE = 'fivefold-arc-release-2026-10-30-safe-reclaim-11';
+const PREVIOUS_RELEASE_CACHE = 'fivefold-arc-release-2026-10-30-safe-reclaim-12';
 const RELEASE_STATUS_REQUEST = 'fivefold-arc:release-status-request';
 const RELEASE_STATUS_REPLY = 'fivefold-arc:release-status-reply';
 const ACTIVATE_WHEN_SAFE = 'fivefold-arc:activate-when-safe';
 const pendingActivationChecks = new Map();
 const APP_SHELL = [
-  './', './index.html', './privacy.html', './terms.html', './styles.css?v=237', './app.js?v=276',
+  './', './index.html', './privacy.html', './terms.html', './styles.css?v=237', './app.js?v=277',
   './account-auth.js?v=6', './active-table-recovery.js?v=1', './release-update.js?v=2', './connection-state.js?v=1', './game-wake-lock.js?v=1',
   './commander-source-flow.js?v=1', './card-interaction-advice.js?v=1', './join-qr-scanner.js?v=3', './realtime.js?v=79',
   './life-adjustment-batcher.js?v=72', './dice-roll-3d.js?v=114', './vendor/jsqr.js?v=1', './vendor/three/three.module.js',
