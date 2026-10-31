@@ -574,7 +574,13 @@ export class RoomService {
 
   async loadDurableRoom(code) {
     if (!this.roomStore) return this.room(code);
-    const record = await this.roomStore.read(code);
+    const normalizedCode = String(code || "").toUpperCase();
+    // Once this process owns a live table, it is the authoritative working
+    // copy until a mutation finishes its compare-and-swap. Rehydrating during
+    // an SSE reconnect can otherwise overwrite that newer copy with the
+    // previous durable version and split connected phones.
+    if (this.rooms.has(normalizedCode)) return this.room(normalizedCode);
+    const record = await this.roomStore.read(normalizedCode);
     if (!record) throw Object.assign(new Error("Room not found or expired"), { status: 404, code: "ROOM_NOT_FOUND" });
     const lastActiveAt = Number(record.room?.room?.lastActiveAt);
     if (Number.isFinite(lastActiveAt) && this.now() - lastActiveAt > this.roomTtlMs) {

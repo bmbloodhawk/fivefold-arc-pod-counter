@@ -87,6 +87,24 @@ test("durable mutations for one pod serialize rapid life changes instead of reje
   assert.equal((await store.read(created.snapshot.code)).version, 3);
 });
 
+test("a reconnect read does not replace an active table with an older durable snapshot", async () => {
+  const store = new MemoryRoomStore();
+  const service = new RoomService({ roomStore: store });
+  const host = service.createConnection();
+  const created = await service.createRoomDurably(host.connectionId, { playerCount: 2, startingLife: 40 });
+  const active = service.room(created.snapshot.code);
+
+  // This represents a mutation that has changed the live table while its
+  // durable write is still in flight and another phone reopens its SSE stream.
+  active.seats[0].counters.life = 39;
+  active.version += 1;
+
+  const reloaded = await service.loadDurableRoom(created.snapshot.code);
+
+  assert.equal(reloaded.version, 2);
+  assert.equal(reloaded.seats[0].counters.life, 39);
+});
+
 test("a legacy durable table can finish when the host is eliminated", async () => {
   const store = new MemoryRoomStore();
   const service = new RoomService({ roomStore: store });
@@ -101,6 +119,25 @@ test("a legacy durable table can finish when the host is eliminated", async () =
 
   const eliminated = await service.mutateDurably(created.snapshot.code, () => service.adjustOwnSeat(created.snapshot.code, host.connectionId, { counter: "life", delta: -40 }));
 
+  assert.equal(eliminated.snapshot.gameResult.winnerSeatId, 1);
+  assert.equal(eliminated.snapshot.lifecycle.status, "complete");
+});
+
+test("a durable commander-damage elimination completes the table", async () => {
+  const store = new MemoryRoomStore();
+  const service = new RoomService({ roomStore: store });
+  const host = service.createConnection();
+  const created = await service.createRoomDurably(host.connectionId, { playerCount: 2, startingLife: 40 });
+  const opponent = service.createConnection();
+  let snapshot = (await service.mutateDurably(created.snapshot.code, () => service.claimSeat(created.snapshot.code, opponent.connectionId, { seatId: 1, name: "Jace" }))).snapshot;
+  snapshot = (await service.mutateDurably(created.snapshot.code, () => service.startGame(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version }))).snapshot;
+
+  const eliminated = await service.mutateDurably(created.snapshot.code, () => service.adjustOwnSeat(created.snapshot.code, host.connectionId, {
+    counter: "commanderDamage", commanderSourceId: "seat-1-commander-a", delta: 21,
+  }));
+
+  assert.equal(eliminated.snapshot.seats[0].counters.life, 19);
+  assert.equal(eliminated.snapshot.seats[0].commanderDamageReceived["seat-1-commander-a"], 21);
   assert.equal(eliminated.snapshot.gameResult.winnerSeatId, 1);
   assert.equal(eliminated.snapshot.lifecycle.status, "complete");
 });
