@@ -9,6 +9,10 @@ const [app, page, transport] = await Promise.all([
 ]);
 
 test('next-game setup is a distinct ready state with host start controls', () => {
+  assert.match(page, /id="lobbyView"/);
+  assert.match(page, /id="lobbySeatStatus"/);
+  assert.match(app, /function showCurrentTableView\(\)/);
+  assert.match(app, /showView\(lifecycleStatus === 'lobby' \? dom\.lobby : dom\.game\)/);
   assert.match(page, /id="intermissionPanel"/);
   assert.match(page, /id="intermissionReadyButton"/);
   assert.match(app, /const isIntermission = lifecycleStatus === 'intermission';/);
