@@ -1332,11 +1332,24 @@ test("restores legacy recovery records without optional commander display fields
 test("batches rapid life taps into one fresh client operation", async () => {
   const jobs = []; const sent = [];
   const batcher = new LifeAdjustmentBatcher({ operationId: () => `operation-${sent.length + 1}-fresh-id`, schedule: (job) => { jobs.push(job); return jobs.length; }, cancel: () => {}, send: (operation) => sent.push(operation) });
-  batcher.add(-1); batcher.add(-5);
+  batcher.add(-1, { isCorrection: false }); batcher.add(-5, { isCorrection: false });
   await batcher.flush();
-  assert.deepEqual(sent, [{ delta: -6, operationId: "operation-1-fresh-id" }]);
-  batcher.add(1); await batcher.flush();
+  assert.deepEqual(sent, [{ delta: -6, operationId: "operation-1-fresh-id", isCorrection: false }]);
+  batcher.add(1, { isCorrection: true }); await batcher.flush();
   assert.equal(sent[1].operationId, "operation-2-fresh-id");
+  assert.equal(sent[1].isCorrection, true);
+});
+
+test("sends an immediate life correction separately from pending damage", async () => {
+  const sent = [];
+  const batcher = new LifeAdjustmentBatcher({ operationId: () => `operation-${sent.length + 1}`, schedule: () => 1, cancel: () => {}, send: (operation) => sent.push(operation) });
+  batcher.add(-1, { isCorrection: false });
+  batcher.add(1, { isCorrection: true });
+  await batcher.flush();
+  assert.deepEqual(sent, [
+    { delta: -1, operationId: "operation-1", isCorrection: false },
+    { delta: 1, operationId: "operation-2", isCorrection: true }
+  ]);
 });
 
 test("uses a compatible life operation ID when randomUUID is unavailable", () => {

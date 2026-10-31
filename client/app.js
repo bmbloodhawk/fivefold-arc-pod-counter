@@ -175,8 +175,12 @@ let accountPreferences = null;
 let publishedSkins = [];
 let activeGameSkinId = '';
 let dialPointer = null;
-const lifeBatcher = new LifeAdjustmentBatcher({ send: async ({ delta, operationId }) => {
-  try { await transport.adjust({ counter: 'life', delta, operationId }); optimisticLifeDelta -= delta; }
+const lifeBatcher = new LifeAdjustmentBatcher({ send: async ({ delta, operationId, isCorrection, playerId }) => {
+  try {
+    const result = await transport.adjust({ counter: 'life', delta, operationId, ...(isCorrection ? { isCorrection: true } : {}) });
+    optimisticLifeDelta -= delta;
+    if (!result.blocked && !result.ignored) confirmLifeChange(playerId);
+  }
   catch (error) { optimisticLifeDelta -= delta; renderConnection('disconnected'); showError(error); }
   finally { if (state) render(); }
 } });
@@ -1368,12 +1372,9 @@ async function adjust(delta) {
   }
   if (state.mode === 'life') {
     const isCorrection = lifeAdjustmentIsCorrection(delta);
+    optimisticLifeDelta += delta;
     showLifeChange(player.id, delta, previous, previous + delta);
-    // Shared life is an atomic server-side delta. Submit each tap immediately
-    // so Safari timer/identifier support can never leave a visible local-only
-    // total that was not written to the table.
-    try { const result = await transport.adjust({ counter: 'life', delta, ...(isCorrection ? { isCorrection: true } : {}) }); if (!result.blocked && !result.ignored) confirmLifeChange(player.id); }
-    catch (error) { renderConnection('disconnected'); showError(error); }
+    lifeBatcher.add(delta, { isCorrection, playerId: player.id });
     return;
   }
   $$('[data-delta]').forEach(button => { button.disabled = true; });
