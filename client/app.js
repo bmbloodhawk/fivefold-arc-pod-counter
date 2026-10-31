@@ -156,9 +156,19 @@ let accountPreferences = null;
 let publishedSkins = [];
 let activeGameSkinId = '';
 let dialPointer = null;
+async function reconcileLifeWriteError(error) {
+  try {
+    await transport.refreshRoom();
+    renderConnection('connected');
+    return true;
+  } catch {
+    renderConnection('disconnected'); showError(error);
+    return false;
+  }
+}
 const lifeBatcher = new LifeAdjustmentBatcher({ send: async ({ delta, operationId }) => {
   try { await transport.adjust({ counter: 'life', delta, operationId }); optimisticLifeDelta -= delta; }
-  catch (error) { optimisticLifeDelta -= delta; renderConnection('disconnected'); showError(error); }
+  catch (error) { optimisticLifeDelta -= delta; await reconcileLifeWriteError(error); }
   finally { if (state) render(); }
 } });
 
@@ -1305,14 +1315,14 @@ async function adjust(delta) {
     // so Safari timer/identifier support can never leave a visible local-only
     // total that was not written to the table.
     try { const result = await transport.adjust({ counter: 'life', delta, ...(isCorrection ? { isCorrection: true } : {}) }); if (!result.blocked && !result.ignored) confirmLifeChange(player.id); }
-    catch (error) { renderConnection('disconnected'); showError(error); }
+    catch (error) { await reconcileLifeWriteError(error); }
     return;
   }
   $$('[data-delta]').forEach(button => { button.disabled = true; });
   try {
     const result = await transport.adjust({ counter: target, delta, ...(state.mode === 'commander' ? { commanderSourceId: source.id } : {}) });
     if (lifeDelta && !result.blocked && !result.ignored) showLifeChange(player.id, lifeDelta, lifeBefore, lifeAfter);
-  } catch (error) { renderConnection('disconnected'); showError(error); }
+  } catch (error) { if (target === 'life') await reconcileLifeWriteError(error); else { renderConnection('disconnected'); showError(error); } }
 }
 function remapLocalDamage(previousSources, nextSources) {
   const oldId = new Map(previousSources.map(source => [`${source.ownerPlayerId}:${source.slot || 'A'}`, source.id]));
