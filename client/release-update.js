@@ -1,4 +1,4 @@
-export const RELEASE_ID = '2026-10-30-safe-reclaim-5';
+export const RELEASE_ID = '2026-10-30-safe-reclaim-6';
 export const RELEASE_STATUS_REQUEST = 'fivefold-arc:release-status-request';
 export const RELEASE_STATUS_REPLY = 'fivefold-arc:release-status-reply';
 export const ACTIVATE_WHEN_SAFE = 'fivefold-arc:activate-when-safe';

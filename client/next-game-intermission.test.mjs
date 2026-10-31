@@ -35,8 +35,11 @@ test('pod setup separates first-game players from future seat capacity', () => {
   assert.match(transport, /async createRoom\(\{ playerCount, seatCapacity = playerCount,/);
 });
 
-test('achievement reveals wait for the personal match moment dismissal and its save', () => {
+test('achievement reveals wait for the personal match moment dismissal and then offer a next step', () => {
   assert.match(app, /const automaticSavePromises = new Map\(\); const dismissedVictoryKeys = new Set\(\);/);
   assert.match(app, /automaticSavePromises\.set\(key, saveGameToHistory\(\{ automatic: true, gameKey: key \}\)\);/);
-  assert.match(app, /dismissedVictoryKeys\.add\(key\); void \(async \(\) => \{ await automaticSavePromises\.get\(key\); if \(!showAchievementUnlocks\(key\)\) openQuickFeedback\(\); \}\)\(\);/);
+  assert.match(app, /async function showPersonalMatchMoment\(gameKey\)/);
+  assert.match(app, /async function continueAfterRewards\(gameKey\)/);
+  assert.match(app, /if \(!showAchievementUnlocks\(gameKey\)\) showPostGameChoices\(\);/);
+  assert.match(page, /id="postGameDialog"/);
 });

@@ -426,13 +426,15 @@ test('touch feedback is local, optional, and never part of game state', () => {
   assert.match(styles, /#gameView\[data-counter-mode="commander"\] \{ touch-action: manipulation; \}/);
 });
 
-test('the confirmed winner is celebrated on every phone before the host opens next-game setup', () => {
+test('the completed-game flow separates winner, accolade, and next-step choice', () => {
   assert.match(html, /id="victoryDialog"[\s\S]*assets\/victory-seal-v1\.png[\s\S]*id="victoryEyebrow"[\s\S]*id="victoryTapHint"[^>]*>Enjoy the win/);
-  assert.match(html, /class="victory-winner-copy"[\s\S]*id="personalMatchMoment"[\s\S]*class="victory-dismissal"/);
+  assert.match(html, /id="personalMatchMomentDialog"[\s\S]*id="personalMatchMoment"[\s\S]*Tap anywhere to continue/);
+  assert.match(html, /id="postGameDialog"[\s\S]*id="postGameNextGameButton"[\s\S]*id="postGameLeaveTableButton"/);
   assert.match(app, /if \(key !== shownVictoryKey\)/);
   assert.match(app, /if \(!result \|\| !winner\) \{ shownVictoryKey = null; if \(dom\.victoryDialog\.open\) dom\.victoryDialog\.close\('game-reset'\); return; \}/);
   assert.match(app, /const youWon = winner\.id === actingSeatId/);
-  assert.match(app, /victoryDismissReady && dom\.victoryDialog\.open/);
+  assert.match(app, /const advanceRewardDialog = \(dialog, action\)/);
+  assert.match(app, /advanceRewardDialog\(dom\.victoryDialog, \(\) => \{ const key = victoryKey\(state\?\.gameResult\); dismissedVictoryKeys\.add\(key\); void showPersonalMatchMoment\(key\); \}\);/);
   assert.match(styles, /\.victory-art \{[\s\S]*object-position: center 31%/);
   assert.doesNotMatch(styles, /\.victory-art \{[^}]*opacity:/);
   assert.doesNotMatch(styles, /\.victory-art \{[^}]*mix-blend-mode:/);
@@ -454,11 +456,12 @@ test('expanded match moments include their own original accolade illustrations',
   newAccoladeAssets.forEach(asset => assert.ok(asset.length > 1_000_000));
 });
 
-test('achievements follow the personal match accolade and reveal every new rarity only after unlock', () => {
+test('achievements follow the personal match accolade before an explicit next-step choice', () => {
   assert.match(html, /id="achievementDialog"[\s\S]*ACHIEVEMENT UNCOVERED[\s\S]*id="achievementUnlockList"/);
   assert.match(app, /function showAchievementUnlocks\(gameKey\)/);
   assert.match(app, /unlockedAchievementsByGame\.set\(gameKey, unlockedAchievements\)/);
-  assert.match(app, /dismissedVictoryKeys\.add\(key\); void \(async \(\) => \{ await automaticSavePromises\.get\(key\); if \(!showAchievementUnlocks\(key\)\) openQuickFeedback\(\); \}\)\(\);/);
+  assert.match(app, /async function continueAfterRewards\(gameKey\) \{[\s\S]*await automaticSavePromises\.get\(gameKey\);[\s\S]*if \(!showAchievementUnlocks\(gameKey\)\) showPostGameChoices\(\);/);
+  assert.match(app, /dom\.achievementDialog\.addEventListener\('close', \(\) => \{ unlockedAchievementsByGame\.delete\(dom\.achievementDialog\.dataset\.gameKey\); showPostGameChoices\(\); \}\);/);
   assert.match(app, /const achievementCardHtml = \(achievement, showNew = false\)/);
   assert.match(app, /unlocked\.map\(achievement =>/);
   assert.match(styles, /\.achievement-card\[data-rarity="legendary"\]/);

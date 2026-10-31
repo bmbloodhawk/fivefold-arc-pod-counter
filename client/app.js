@@ -34,7 +34,7 @@ const dom = {
   lobbyControls: $('#lobbyControls'), lobbyStatus: $('#lobbyStatus'), lobbyInviteCode: $('#lobbyInviteCode'), lobbyRoster: $('#lobbyRoster'), copyLobbyJoinLinkButton: $('#copyLobbyJoinLinkButton'), showJoinQrButton: $('#showJoinQrButton'), showJoinQrMenuButton: $('#showJoinQrMenuButton'), firstPlayerOptions: $('#firstPlayerOptions'), startingSeatField: $('#startingSeatField'), startingSeat: $('#startingSeat'), chooseFirstButton: $('#chooseFirstButton'), winnerFirstButton: $('#winnerFirstButton'), randomFirstButton: $('#randomFirstButton'), startGameButton: $('#startGameButton'), nextGameConfirmDialog: $('#nextGameConfirmDialog'), nextGameConfirmForm: $('#nextGameConfirmForm'), nextGameConfirmDetail: $('#nextGameConfirmDetail'), nextGameConfirmRoster: $('#nextGameConfirmRoster'), confirmNextGameStart: $('#confirmNextGameStart'), startingRollDialog: $('#startingRollDialog'), startingRollStatus: $('#startingRollStatus'), rollMyD20Button: $('#rollMyD20Button'), startingRollCanvas: $('#startingRollCanvas'), startingRollFinalDice: $('#startingRollFinalDice'), startingRollOverlays: $('#startingRollOverlays'), startingRollLive: $('#startingRollLive'), turnCueDialog: $('#turnCueDialog'), turnCueForm: $('#turnCueForm'), turnSoundDialog: $('#turnSoundDialog'), turnSoundForm: $('#turnSoundForm'), turnSoundChoice: $('#turnSoundChoice'), turnSoundVolume: $('#turnSoundVolume'), turnSoundVolumeValue: $('#turnSoundVolumeValue'), previewTurnSoundButton: $('#previewTurnSoundButton'), turnSoundPreferencesButton: $('#turnSoundPreferencesButton'), turnBanner: $('#turnBanner'), turnLabel: $('#turnLabel'), turnPlayer: $('#turnPlayer'), turnElapsed: $('#turnElapsed'), gameTimer: $('#gameTimer'), lastTurnSummary: $('#lastTurnSummary'), turnActions: $('#turnActions'), endTurnButton: $('#endTurnButton'), undoTurnButton: $('#undoTurnButton'), pauseTurnButton: $('#pauseTurnButton'), toggleTurnTrackingButton: $('#toggleTurnTrackingButton'), toggleTurnCuesButton: $('#toggleTurnCuesButton'), toggleDeviceCuesButton: $('#toggleDeviceCuesButton'), toggleTouchFeedbackButton: $('#toggleTouchFeedbackButton'), turnActionDetail: $('#turnActionDetail'),
   commanderCountDialog: $('#commanderCountDialog'), commanderCountDetail: $('#commanderCountDetail'), commanderCountForm: $('#commanderCountForm'), saveCommanderCountButton: $('#saveCommanderCountButton'), commanderDeckField: $('#commanderDeckField'), commanderDeck: $('#commanderDeck'), joinQrDialog: $('#joinQrDialog'), joinQrImage: $('#joinQrImage'), joinQrCode: $('#joinQrCode'), shareJoinLinkButton: $('#shareJoinLinkButton'), copyJoinLinkButton: $('#copyJoinLinkButton'),
   commanderTaxQuickButton: $('#commanderTaxQuickButton'), commanderTaxDialog: $('#commanderTaxDialog'), commanderTaxDetail: $('#commanderTaxDetail'), commanderTaxList: $('#commanderTaxList'), toggleInterfaceStyleButton: $('#toggleInterfaceStyleButton'), toggleScreenAwakeButton: $('#toggleScreenAwakeButton'),
-  cardCameraButton: $('#cardCameraButton'), cardCameraDialog: $('#cardCameraDialog'), cardAdvisorForm: $('#cardAdvisorForm'), firstCardTitle: $('#firstCardTitle'), secondCardTitle: $('#secondCardTitle'), interactionSituation: $('#interactionSituation'), cardLookupStatus: $('#cardLookupStatus'), cardLookupResult: $('#cardLookupResult'), achievementDialog: $('#achievementDialog'), achievementTitle: $('#achievementTitle'), achievementSummary: $('#achievementSummary'), achievementUnlockList: $('#achievementUnlockList'),
+  cardCameraButton: $('#cardCameraButton'), cardCameraDialog: $('#cardCameraDialog'), cardAdvisorForm: $('#cardAdvisorForm'), firstCardTitle: $('#firstCardTitle'), secondCardTitle: $('#secondCardTitle'), interactionSituation: $('#interactionSituation'), cardLookupStatus: $('#cardLookupStatus'), cardLookupResult: $('#cardLookupResult'), personalMatchMomentDialog: $('#personalMatchMomentDialog'), achievementDialog: $('#achievementDialog'), achievementTitle: $('#achievementTitle'), achievementSummary: $('#achievementSummary'), achievementUnlockList: $('#achievementUnlockList'), postGameDialog: $('#postGameDialog'), postGameDetail: $('#postGameDetail'), postGameNextGameButton: $('#postGameNextGameButton'), postGameLeaveTableButton: $('#postGameLeaveTableButton'),
   customLifeButton: $('#customLifeButton'), customLifeDialog: $('#customLifeDialog'), customLifeForm: $('#customLifeForm'), customLifeAmount: $('#customLifeAmount'), cancelCustomLifeButton: $('#cancelCustomLifeButton'), radiationDialog: $('#radiationDialog'), radiationForm: $('#radiationForm'), radiationDetail: $('#radiationDetail'), radiationNonlandCount: $('#radiationNonlandCount'), resolveRadiationButton: $('#resolveRadiationButton'), playtestNotesButton: $('#playtestNotesButton'), playtestRecapButton: $('#playtestRecapButton'), fieldTestButton: $('#fieldTestButton'), markDevelopmentButton: $('#markDevelopmentButton'), fieldTestDialog: $('#fieldTestDialog'), fieldTestForm: $('#fieldTestForm'), fieldTestStatus: $('#fieldTestStatus'), savedPlaytestsButton: $('#savedPlaytestsButton'), lockDeveloperModeButton: $('#lockDeveloperModeButton'), developerModeDialog: $('#developerModeDialog'), developerModeForm: $('#developerModeForm'), developerModeKey: $('#developerModeKey'), developerModeStatus: $('#developerModeStatus'), unlockDeveloperModeButton: $('#unlockDeveloperModeButton'), refreshTableButton: $('#refreshTableButton'), playtestNotesDialog: $('#playtestNotesDialog'), playtestNotesForm: $('#playtestNotesForm'), playtestNotesList: $('#playtestNotesList'), playtestNoteText: $('#playtestNoteText'), playtestNoteStatus: $('#playtestNoteStatus'), playtestRecapDialog: $('#playtestRecapDialog'), playtestRecapContent: $('#playtestRecapContent'), savedPlaytestsDialog: $('#savedPlaytestsDialog'), savedPlaytestsContent: $('#savedPlaytestsContent')
 };
 const winnerCondition = $('#winnerCondition');
@@ -144,7 +144,7 @@ let shownVictoryKey = null; let victoryDismissReady = false; let victoryDismissT
 let automaticallySavedGameKey = null; let automaticSaveInFlightKey = null;
 const automaticSavePromises = new Map(); const dismissedVictoryKeys = new Set();
 let pendingSignInReturn = null;
-const unlockedAchievementsByGame = new Map();
+const unlockedAchievementsByGame = new Map(); const personalMatchMomentPromises = new Map();
 let resolvedRadiationTurnKey = null;
 let selectedDeckId = ''; let setupDecks = []; let commanderDecks = []; let joinGameFormat = 'commander'; let savedDecks = []; let editingDeckId = null; let deckCommanderColors = [];
 let optimisticLifeDelta = 0;
@@ -318,6 +318,31 @@ function showAchievementUnlocks(gameKey) {
   dom.achievementUnlockList.innerHTML = unlocked.map(achievement => achievementCardHtml(achievement)).join('');
   dom.achievementDialog.showModal(); return true;
 }
+function showPostGameChoices() {
+  if (!state?.gameResult || dom.postGameDialog.open) return;
+  const canStartNextGame = state.localSimulation || transport.seatId === state.hostSeatId;
+  dom.postGameNextGameButton.hidden = !canStartNextGame;
+  dom.postGameDetail.textContent = canStartNextGame
+    ? 'Set up another game with this table, or leave this table on this phone.'
+    : 'The host will open next-game setup for the table. You can leave this table on this phone.';
+  dom.postGameDialog.showModal();
+}
+async function continueAfterRewards(gameKey) {
+  await automaticSavePromises.get(gameKey);
+  if (!showAchievementUnlocks(gameKey)) showPostGameChoices();
+}
+async function showPersonalMatchMoment(gameKey) {
+  const moment = await personalMatchMomentPromises.get(gameKey);
+  if (victoryKey(state?.gameResult) !== gameKey) return;
+  if (!moment) return continueAfterRewards(gameKey);
+  dom.personalMatchMomentTitle.textContent = moment.title;
+  dom.personalMatchArt.dataset.category = moment.category;
+  dom.personalMatchArt.dataset.variant = String(moment.variant || 0);
+  dom.personalMatchArt.style.backgroundImage = `url("${accoladeArtUrl(moment.art || moment.title)}")`;
+  dom.personalMatchMomentLine.textContent = moment.line;
+  dom.personalMatchMomentFact.textContent = moment.fact;
+  dom.personalMatchMomentDialog.showModal();
+}
 async function loadSaveGameDecks() {
   try { const token = await currentAccountToken(); if (!token) return; const response = await fetch('/api/account/decks', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) return; const { decks } = await response.json(); dom.saveGameDeck.innerHTML = `<option value="">No deck selected</option>${decks.map(deck => `<option value="${escapeHtml(deck.deckId)}">${escapeHtml([deck.commanderName, deck.name].filter(Boolean).join(' · '))}</option>`).join('')}`; } catch { /* Saving a game remains available without a deck. */ }
 }
@@ -364,17 +389,7 @@ function renderVictory() {
     // A completed shared-table result is the record of the game. Save it for
     // each signed-in player without relying on them to remember a final tap.
     automaticSavePromises.set(key, saveGameToHistory({ automatic: true, gameKey: key }));
-    dom.personalMatchMoment.hidden = true; dom.personalMatchMoment.classList.remove('achievement-reveal');
-    if (!state.localSimulation) transport.getPersonalMatchMoment().then(({ moment }) => {
-      if (victoryKey(state?.gameResult) !== key || !moment) return;
-      dom.personalMatchMomentTitle.textContent = moment.title;
-      dom.personalMatchArt.dataset.category = moment.category;
-      dom.personalMatchArt.dataset.variant = String(moment.variant || 0);
-      dom.personalMatchArt.style.backgroundImage = `url("${accoladeArtUrl(moment.art || moment.title)}")`;
-      dom.personalMatchMomentLine.textContent = moment.line;
-      dom.personalMatchMomentFact.textContent = moment.fact;
-      dom.personalMatchMoment.hidden = false;
-    }).catch(() => {});
+    personalMatchMomentPromises.set(key, state.localSimulation ? Promise.resolve(null) : transport.getPersonalMatchMoment().then(({ moment }) => moment).catch(() => null));
     if (!dom.victoryDialog.open) { victoryDismissReady = false; dom.victoryDialog.showModal(); clearTimeout(victoryDismissTimer); victoryDismissTimer = setTimeout(() => { victoryDismissReady = true; $('#victoryTapHint').textContent = 'Tap anywhere to continue'; }, 1200); }
   }
 }
@@ -1540,7 +1555,7 @@ async function tossCoin({ dialog = true } = {}) {
     } catch (error) { renderConnection('disconnected'); showError(error); return; }
   }
 }
-function closeGameOverlays() { [dom.resetDialog, dom.connectionDialog, dom.leaveTableDialog, dom.coinTossDialog, dom.startingRollDialog, dom.turnCueDialog, dom.turnSoundDialog, dom.customLifeDialog, dom.commanderSourceDialog, dom.commanderCountDialog, dom.commanderTaxDialog, dom.victoryDialog, dom.achievementDialog, dom.declareWinnerDialog, dom.eliminatePlayerDialog, dom.playtestNotesDialog, dom.playtestRecapDialog, dom.savedPlaytestsDialog, dom.cardCameraDialog, dom.joinQrScannerDialog].forEach(dialog => { if (dialog?.open) dialog.close(); }); }
+function closeGameOverlays() { [dom.resetDialog, dom.connectionDialog, dom.leaveTableDialog, dom.coinTossDialog, dom.startingRollDialog, dom.turnCueDialog, dom.turnSoundDialog, dom.customLifeDialog, dom.commanderSourceDialog, dom.commanderCountDialog, dom.commanderTaxDialog, dom.victoryDialog, dom.personalMatchMomentDialog, dom.achievementDialog, dom.postGameDialog, dom.declareWinnerDialog, dom.eliminatePlayerDialog, dom.playtestNotesDialog, dom.playtestRecapDialog, dom.savedPlaytestsDialog, dom.cardCameraDialog, dom.joinQrScannerDialog].forEach(dialog => { if (dialog?.open) dialog.close(); }); }
 
 async function openCardCamera() {
   dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false');
@@ -1742,7 +1757,17 @@ $$('input[name="gameCommanderCount"]').forEach(input => input.addEventListener('
 dom.commanderCountForm.addEventListener('submit', async event => { if (event.submitter?.value === 'confirm') { event.preventDefault(); const form = new FormData(dom.commanderCountForm); const count = Number(form.get('gameCommanderCount')); dom.saveCommanderCountButton.disabled = true; const { colors, unresolved } = await confirmUnresolvedCommanderDetails(dom.gameCommanderNames, count); if (unresolved.length) { dom.saveCommanderCountButton.textContent = 'Update without colors'; dom.saveCommanderCountButton.disabled = false; return; } const names = commanderNamesFromForm(new FormData(dom.commanderCountForm), count); selectedDeckId = dom.commanderDeck.value || ''; try { sessionStorage.setItem('fivefold-arc:selected-deck', selectedDeckId); } catch {} await updateCommanderSetup(count, names, colors); dom.commanderCountDialog.close('confirm'); } }); dom.declareWinnerForm.addEventListener('submit', event => { if (event.submitter?.value === 'confirm') declareWinner(); });
 dom.nextGameButton.addEventListener('click', event => { event.stopPropagation(); if (dom.victoryDialog.open) dom.victoryDialog.close('next-game'); void beginIntermission(); });
 dom.intermissionReadyButton.addEventListener('click', () => void setNextGameReady()); dom.intermissionStartButton.addEventListener('click', () => void confirmNextGameStart()); dom.nextGameConfirmForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); dom.nextGameConfirmDialog.close('confirm'); void startGame(); });
-dom.victoryDialog.addEventListener('click', () => { if (victoryDismissReady && dom.victoryDialog.open) dom.victoryDialog.close('tap'); }); dom.victoryDialog.addEventListener('close', () => { if (dom.victoryDialog.returnValue !== 'tap') return; const key = victoryKey(state?.gameResult); dismissedVictoryKeys.add(key); void (async () => { await automaticSavePromises.get(key); if (!showAchievementUnlocks(key)) openQuickFeedback(); })(); }); dom.achievementDialog.addEventListener('close', () => { unlockedAchievementsByGame.delete(dom.achievementDialog.dataset.gameKey); openQuickFeedback(); });
+const advanceRewardDialog = (dialog, action) => {
+  dialog.addEventListener('click', event => { if (event.target.closest('button, select, input, label')) return; if (dialog === dom.victoryDialog && !victoryDismissReady) return; if (dialog.open) dialog.close('advance'); });
+  dialog.addEventListener('keydown', event => { if (!['Enter', ' '].includes(event.key)) return; event.preventDefault(); if (dialog === dom.victoryDialog && !victoryDismissReady) return; if (dialog.open) dialog.close('advance'); });
+  dialog.addEventListener('cancel', event => { event.preventDefault(); });
+  dialog.addEventListener('close', () => { if (dialog.returnValue === 'advance') action(); });
+};
+advanceRewardDialog(dom.victoryDialog, () => { const key = victoryKey(state?.gameResult); dismissedVictoryKeys.add(key); void showPersonalMatchMoment(key); });
+advanceRewardDialog(dom.personalMatchMomentDialog, () => { const key = victoryKey(state?.gameResult); void continueAfterRewards(key); });
+dom.achievementDialog.addEventListener('close', () => { unlockedAchievementsByGame.delete(dom.achievementDialog.dataset.gameKey); showPostGameChoices(); });
+dom.postGameNextGameButton.addEventListener('click', () => { dom.postGameDialog.close('next-game'); void beginIntermission(); });
+dom.postGameLeaveTableButton.addEventListener('click', () => { dom.postGameDialog.close('leave-table'); dom.leaveTableDialog.showModal(); });
 $('#quickFeedbackForm').addEventListener('submit', async event => { event.preventDefault(); const response = event.submitter?.value; const until = Date.now() + (response === 'skip' ? 30 : 7) * 24 * 60 * 60 * 1000; localStorage.setItem('fivefold-arc:quick-feedback-until', String(until)); if (response !== 'skip') await transport.recordQuickFeedback({ response }); $('#quickFeedbackDialog').close(); });
 dom.viewCelebrationButton.addEventListener('click', () => { shownVictoryKey = null; dom.gameMenu.hidden = true; renderVictory(); });
 dom.releaseUpdateDismissButton.addEventListener('click', () => { releaseUpdateDismissed = true; renderReleaseUpdateNotice(); });
