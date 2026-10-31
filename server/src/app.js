@@ -423,6 +423,7 @@ export class RoomService {
     this.productMeasurement = productMeasurement;
     this.roomStore = roomStore;
     this.deferredBroadcasts = null;
+    this.durableMutationTail = Promise.resolve();
   }
 
   createConnection() {
@@ -601,22 +602,27 @@ export class RoomService {
 
   async mutateDurably(code, action) {
     if (!this.roomStore) return action();
-    const room = await this.loadDurableRoom(code);
-    const expectedVersion = room.version;
-    const priorBroadcasts = this.deferredBroadcasts;
-    this.deferredBroadcasts = new Set();
-    try {
-      const result = await action();
-      const committed = await this.roomStore.compareAndSwap(room.code, expectedVersion, this.durableRecord(room));
-      if (!committed.committed) {
-        if (committed.room) this.hydrateDurableRecord(committed.room);
-        throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: committed.room ? this.snapshot(this.rooms.get(room.code)) : undefined });
+    const execute = async () => {
+      const room = await this.loadDurableRoom(code);
+      const expectedVersion = room.version;
+      const priorBroadcasts = this.deferredBroadcasts;
+      this.deferredBroadcasts = new Set();
+      try {
+        const result = await action();
+        const committed = await this.roomStore.compareAndSwap(room.code, expectedVersion, this.durableRecord(room));
+        if (!committed.committed) {
+          if (committed.room) this.hydrateDurableRecord(committed.room);
+          throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: committed.room ? this.snapshot(this.rooms.get(room.code)) : undefined });
+        }
+        for (const pending of this.deferredBroadcasts) this.broadcastNow(pending);
+        return result;
+      } finally {
+        this.deferredBroadcasts = priorBroadcasts;
       }
-      for (const pending of this.deferredBroadcasts) this.broadcastNow(pending);
-      return result;
-    } finally {
-      this.deferredBroadcasts = priorBroadcasts;
-    }
+    };
+    const queued = this.durableMutationTail.then(execute, execute);
+    this.durableMutationTail = queued.catch(() => {});
+    return queued;
   }
 
   room(code) {

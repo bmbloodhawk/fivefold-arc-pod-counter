@@ -72,6 +72,21 @@ test("a new server instance loads a durable room and accepts the existing seat r
   assert.equal(reclaimed.snapshot.seats[0].connected, true);
 });
 
+test("durable mutations for one pod serialize rapid life changes instead of rejecting a stale version", async () => {
+  const store = new MemoryRoomStore();
+  const service = new RoomService({ roomStore: store });
+  const host = service.createConnection();
+  const created = await service.createRoomDurably(host.connectionId, { playerCount: 2, startingLife: 40 });
+
+  await Promise.all([
+    service.mutateDurably(created.snapshot.code, () => service.adjustOwnSeat(created.snapshot.code, host.connectionId, { counter: "life", delta: -1 })),
+    service.mutateDurably(created.snapshot.code, () => service.adjustOwnSeat(created.snapshot.code, host.connectionId, { counter: "life", delta: -2 })),
+  ]);
+
+  assert.equal(service.snapshot(service.room(created.snapshot.code)).seats[0].counters.life, 37);
+  assert.equal((await store.read(created.snapshot.code)).version, 3);
+});
+
 test("an expired durable room cannot be revived after a server restart", async () => {
   let now = 10_000;
   const store = new MemoryRoomStore();
