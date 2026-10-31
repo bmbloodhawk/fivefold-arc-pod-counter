@@ -281,7 +281,13 @@ export class RealtimeAdapter extends EventTarget {
     const events = new EventSource(url); this.events = events;
     events.addEventListener('open', () => { if (this.#isCurrentSession(epoch) && this.events === events) this.#setStatus('connected'); });
     events.addEventListener('snapshot', event => { if (!this.#isCurrentSession(epoch) || this.events !== events) return; try { this.#acceptSnapshot(JSON.parse(event.data), epoch); } catch { if (this.#isCurrentSession(epoch) && this.events === events) this.dispatchEvent(new CustomEvent('protocolerror')); } });
-    events.addEventListener('close', () => { if (!this.#isCurrentSession(epoch) || this.events !== events) return; events.close(); this.#scheduleReconnect(epoch); });
+    events.addEventListener('close', () => {
+      if (!this.#isCurrentSession(epoch) || this.events !== events) return;
+      events.close(); this.events = null;
+      // A stream may close while ordinary table requests are still healthy.
+      // Verify and reopen only the stream before reclaiming the active seat.
+      void this.#recoverSse(epoch);
+    });
     events.addEventListener('error', () => {
       if (!this.#isCurrentSession(epoch) || this.events !== events) return;
       void this.recordClientDiagnostic({ kind: 'sse_error' }).catch(() => {});
