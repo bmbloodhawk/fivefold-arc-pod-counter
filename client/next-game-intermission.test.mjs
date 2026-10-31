@@ -13,7 +13,7 @@ test('next-game setup is a distinct ready state with host start controls', () =>
   assert.match(page, /id="intermissionReadyButton"/);
   assert.match(app, /const isIntermission = lifecycleStatus === 'intermission';/);
   assert.match(app, /dom\.intermissionReadyButton\.addEventListener\('click', \(\) => void setNextGameReady\(\)\)/);
-  assert.match(app, /dom\.nextGameButton\.addEventListener\('click'.*void beginIntermission\(\)/);
+  assert.match(app, /dom\.postGameNextGameButton\.addEventListener\('click'.*void beginIntermission\(\)/);
   assert.match(page, /id="nextGameConfirmDialog"/);
   assert.match(page, /id="lobbyRoster"/);
   assert.match(app, /data-move-seat/);

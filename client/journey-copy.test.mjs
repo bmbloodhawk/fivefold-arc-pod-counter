@@ -438,14 +438,14 @@ test('the completed-game flow separates winner, accolade, and next-step choice',
   assert.match(styles, /\.victory-art \{[\s\S]*object-position: center 31%/);
   assert.doesNotMatch(styles, /\.victory-art \{[^}]*opacity:/);
   assert.doesNotMatch(styles, /\.victory-art \{[^}]*mix-blend-mode:/);
-  assert.match(styles, /\.victory-dialog-content \{[\s\S]*grid-template-rows: 1fr 1fr/);
+  assert.match(styles, /\.victory-dialog-content \{[\s\S]*min-height: 100dvh/);
+  assert.match(styles, /#victoryDialog,#personalMatchMomentDialog \{[\s\S]*width: 100vw/);
   assert.match(app, /function accoladeArtUrl\(title\).*assets\/accolades/s);
   assert.match(app, /function winnerArtUrl\(winner, gameKey\).*last-one-standing.*table-monarch.*arc-victor/s);
   assert.match(app, /winnerArtUrl\(winner, key\)/);
   assert.match(app, /accoladeArtUrl\(moment\.art \|\| moment\.title\)/);
-  assert.match(html, /id="nextGameButton"[^>]*>Start next game/);
-  assert.match(app, /dom\.nextGameButton\.hidden = !result \|\| !winner \|\| !\(state\?\.localSimulation \|\| transport\.seatId === state\?\.hostSeatId\)/);
-  assert.match(app, /void beginIntermission\(\);/);
+  assert.doesNotMatch(html, /id="nextGameButton"/);
+  assert.match(app, /dom\.postGameNextGameButton\.addEventListener\('click', \(\) => \{ dom\.postGameDialog\.close\('next-game'\); void beginIntermission\(\); \}\);/);
   assert.match(html, /id="intermissionPanel"[\s\S]*id="intermissionReadyButton"[\s\S]*id="intermissionStartButton"/);
   assert.match(styles, /\.personal-match-art \{[\s\S]*background-size: cover/);
   assert.doesNotMatch(styles, /\.personal-match-art \{[^}]*opacity:/);
@@ -459,6 +459,7 @@ test('expanded match moments include their own original accolade illustrations',
 test('achievements follow the personal match accolade before an explicit next-step choice', () => {
   assert.match(html, /id="achievementDialog"[\s\S]*ACHIEVEMENT UNCOVERED[\s\S]*id="achievementUnlockList"/);
   assert.match(app, /function showAchievementUnlocks\(gameKey\)/);
+  assert.match(app, /function localPersonalMatchMoment\(\)/);
   assert.match(app, /unlockedAchievementsByGame\.set\(gameKey, unlockedAchievements\)/);
   assert.match(app, /async function continueAfterRewards\(gameKey\) \{[\s\S]*await automaticSavePromises\.get\(gameKey\);[\s\S]*if \(!showAchievementUnlocks\(gameKey\)\) showPostGameChoices\(\);/);
   assert.match(app, /dom\.achievementDialog\.addEventListener\('close', \(\) => \{ unlockedAchievementsByGame\.delete\(dom\.achievementDialog\.dataset\.gameKey\); showPostGameChoices\(\); \}\);/);
