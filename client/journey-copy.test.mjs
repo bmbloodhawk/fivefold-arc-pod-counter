@@ -67,7 +67,7 @@ test('manual card-data refresh remains in the protected developer page and opens
 
 test('switching a deck during next-game commander setup applies that deck’s commanders', () => {
   assert.match(app, /let selectedDeckId = ''; let setupDecks = \[\]; let commanderDecks = \[\];/);
-  assert.match(app, /commanderDecks = decks;/);
+  assert.match(app, /commanderDecks = sortSetupDecks\(decks\);/);
   assert.match(app, /dom\.commanderDeck\.addEventListener\('change', event => \{/);
   assert.match(app, /renderCommanderNameFields\(dom\.gameCommanderNames, commanderNames\.length, commanderNames, identities\)/);
 });
@@ -130,7 +130,7 @@ test('creating a pod is distinct from starting a game', () => {
   assert.match(html, /id="createDeckField" class="select-field" hidden>My deck/);
   assert.match(html, /class="create-step commander-setup-step" data-create-step="4"/);
   assert.match(app, /function sortSetupDecks\(decks\) \{ return \[\.\.\.decks\]\.sort\(\(left, right\) => Number\(right\.favorite\) - Number\(left\.favorite\)/);
-  assert.match(app, /\[dom\.createDeck, dom\.joinDeck\]\.forEach\(select => \{ select\.innerHTML = options; select\.value = ''; \}\)/);
+  assert.match(app, /refreshSetupDeckPickers\(\); \[dom\.createDeck, dom\.joinDeck\]\.forEach\(select => \{ select\.value = ''; \}\)/);
   assert.match(html, /name="deckCommanderCount" value="2"/);
   assert.match(styles, /\.setup-form:has\(\.commander-setup-step:not\(\[hidden\]\)\) \{ margin-top: 16px; \}/);
   assert.match(styles, /\.commander-setup-step \.dialog-actions \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); gap: 6px; margin-top: 8px; \}/);
@@ -564,6 +564,10 @@ test('signed-in accounts keep private deck details and personal history tools', 
 
 test('My decks keeps the editor above saved decks and confirms commander colors', () => {
   assert.ok(html.indexOf('id="deckEditor"') < html.indexOf('id="savedDeckList"'));
+  assert.match(app, /input\.id = 'myDeckSearch'/);
+  assert.match(html, /id="createDeckSearch"/);
+  assert.match(html, /id="joinDeckSearch"/);
+  assert.match(html, /id="commanderDeckSearch"/);
   assert.match(html, /id="findDeckColorsButton"/);
   assert.match(html, /id="deckCommanderStatus"/);
   assert.match(app, /async function confirmDeckCommanderColors\(\)/);
@@ -572,6 +576,9 @@ test('My decks keeps the editor above saved decks and confirms commander colors'
   assert.match(app, /commanderColors, name: deckName\.value/);
   assert.match(app, /setDeckColors\(colors\);/);
   assert.match(app, /await confirmDeckCommanderColors\(\);/);
+  assert.match(app, /function filterDecks\(decks, query\)/);
+  assert.match(app, /filterDeckSelect\(dom\.createDeck, deckSearch\.create, setupDecks\)/);
+  assert.match(app, /filterDeckSelect\(dom\.joinDeck, deckSearch\.join, setupDecks\)/);
 });
 
 test('completed signed-in games save automatically without a final player action', () => {

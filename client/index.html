@@ -107,7 +107,7 @@
         </section>
         <section class="create-step commander-setup-step" data-create-step="4" hidden>
           <p class="eyebrow">STEP 4 OF 5</p>
-          <label id="createDeckField" class="select-field" hidden>My deck <small>(optional)</small><select id="createDeck"><option value="">No deck selected</option></select></label>
+          <label id="createDeckField" class="select-field" hidden>My deck <small>(optional)</small><input id="createDeckSearch" type="search" autocomplete="off" placeholder="Search commander, deck, or colors"><select id="createDeck"><option value="">No deck selected</option></select></label>
           <fieldset class="choice-field">
             <legend>Your commander <small>(optional)</small></legend>
             <div class="segmented commander-count-choice" role="radiogroup" aria-label="Number of commanders for your claimed seat">
@@ -185,7 +185,7 @@
         </section>
         <section class="join-step" data-join-step="4" hidden>
           <p class="eyebrow">STEP 4 OF 4</p>
-          <label id="joinDeckField" class="select-field" hidden>My deck <small>(optional)</small><select id="joinDeck"><option value="">No deck selected</option></select></label>
+          <label id="joinDeckField" class="select-field" hidden>My deck <small>(optional)</small><input id="joinDeckSearch" type="search" autocomplete="off" placeholder="Search commander, deck, or colors"><select id="joinDeck"><option value="">No deck selected</option></select></label>
           <button id="joinSignInDeckButton" class="secondary-action" type="button">Sign in to use a saved deck</button>
           <fieldset class="choice-field">
             <legend>Your commander <small>(optional)</small></legend>
@@ -448,7 +448,7 @@
         </div>
       </fieldset>
       <div id="gameCommanderNames" class="commander-name-fields"></div>
-      <label id="commanderDeckField" class="select-field" hidden>My deck <small>(optional)</small><select id="commanderDeck"><option value="">No deck selected</option></select></label>
+      <label id="commanderDeckField" class="select-field" hidden>My deck <small>(optional)</small><input id="commanderDeckSearch" type="search" autocomplete="off" placeholder="Search commander, deck, or colors"><select id="commanderDeck"><option value="">No deck selected</option></select></label>
       <div class="dialog-actions">
         <button value="cancel" class="secondary-action">Cancel</button>
         <button id="saveCommanderCountButton" value="confirm" class="primary-action">Update this pod</button>
