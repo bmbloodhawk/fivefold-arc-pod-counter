@@ -16,3 +16,9 @@ test('the staging deployment is isolated, free-tier, and visibly marked', () => 
   assert.match(app, /TEST ENVIRONMENT/);
   assert.match(styles, /\.staging-environment-banner/);
 });
+
+test('staging always supplies a sample achievement reveal without changing real achievements', () => {
+  assert.match(app, /const isStagingEnvironment = location\.hostname === stagingHostname;/);
+  assert.match(app, /const STAGING_SAMPLE_ACHIEVEMENT = Object\.freeze\(/);
+  assert.match(app, /const unlocked = isStagingEnvironment \? \[\.\.\.earned, STAGING_SAMPLE_ACHIEVEMENT\] : earned;/);
+});

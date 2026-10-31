@@ -52,7 +52,8 @@ function scheduleViewportMetrics() {
 }
 syncViewportMetrics();
 const stagingHostname = 'fivefold-arc-pod-counter-staging.onrender.com';
-if (location.hostname === stagingHostname) {
+const isStagingEnvironment = location.hostname === stagingHostname;
+if (isStagingEnvironment) {
   const banner = document.createElement('p');
   banner.className = 'staging-environment-banner';
   banner.setAttribute('role', 'status');
@@ -305,8 +306,10 @@ function winnerArtUrl(winner, gameKey) { const variants = ['last-one-standing', 
 const achievementRarityLabel = (rarity) => ({ common: 'Common', uncommon: 'Uncommon', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' })[rarity] || 'Common';
 const achievementRarityMark = (rarity) => ({ common: '◇', uncommon: '✦', rare: '✧', epic: '✹', legendary: '✪' })[rarity] || '◇';
 const achievementCardHtml = (achievement, showNew = false) => { const rarity = achievement.rarity || 'common'; return `<article class="achievement-card" data-rarity="${escapeHtml(rarity)}"><span aria-hidden="true">${achievementRarityMark(rarity)}</span><div><small class="achievement-rarity">${escapeHtml(achievementRarityLabel(rarity))}</small><strong>${escapeHtml(achievement.title)}</strong><small>${escapeHtml(achievement.detail)}</small>${showNew && achievement.isNew ? '<b class="achievement-card-new">New</b>' : ''}</div></article>`; };
+const STAGING_SAMPLE_ACHIEVEMENT = Object.freeze({ id: 'staging-sample-achievement', rarity: 'common', title: 'Testing the Arc', detail: 'Sample achievement shown only in the test environment.', isNew: true });
 function showAchievementUnlocks(gameKey) {
-  const unlocked = unlockedAchievementsByGame.get(gameKey) || [];
+  const earned = unlockedAchievementsByGame.get(gameKey) || [];
+  const unlocked = isStagingEnvironment ? [...earned, STAGING_SAMPLE_ACHIEVEMENT] : earned;
   if (!unlocked.length || dom.achievementDialog.open) return false;
   dom.achievementDialog.dataset.gameKey = gameKey;
   dom.achievementTitle.textContent = unlocked.length === 1 ? 'Achievement uncovered' : `${unlocked.length} achievements uncovered`;
