@@ -351,7 +351,10 @@ export class RealtimeAdapter extends EventTarget {
   }
 
   async #recoverSse(epoch) {
-    if (!this.#isCurrentSession(epoch) || this.sseRecoveryInFlight) return;
+    // Foreground resume owns recovery until its new claim and stream are in
+    // place. An error from the old background stream must not start a second
+    // recovery that briefly marks the same phone offline.
+    if (!this.#isCurrentSession(epoch) || this.sseRecoveryInFlight || this.resumePromise) return;
     this.sseRecoveryInFlight = true;
     try {
       const result = await this.#request(`/api/rooms/${this.roomCode}?refresh=${Date.now()}`);
