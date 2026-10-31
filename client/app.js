@@ -21,7 +21,7 @@ const ELIMINATION_ART = { life: 'assets/elimination-skull-v1.png', poison: 'asse
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const dom = {
-  views: $$('.view'), landing: $('#landingView'), create: $('#createView'), join: $('#joinView'), joinSeatView: $('#joinSeatView'), game: $('#gameView'), joinCodeForm: $('#joinCodeForm'), joinCodeStatus: $('#joinCodeStatus'), scanJoinQrButton: $('#scanJoinQrButton'), joinQrScannerDialog: $('#joinQrScannerDialog'), joinQrScannerVideo: $('#joinQrScannerVideo'), joinQrScannerStatus: $('#joinQrScannerStatus'), joinQrCameraFallback: $('#joinQrCameraFallback'), joinQrCameraInput: $('#joinQrCameraInput'), savedTables: $('#savedTables'), savedTablesList: $('#savedTablesList'), quickTestButton: $('#quickTestButton'), localSimulationField: $('#localSimulationField'),
+  views: $$('.view'), landing: $('#landingView'), create: $('#createView'), join: $('#joinView'), joinSeatView: $('#joinSeatView'), lobby: $('#lobbyView'), lobbyMount: $('#lobbyMount'), game: $('#gameView'), joinCodeForm: $('#joinCodeForm'), joinCodeStatus: $('#joinCodeStatus'), scanJoinQrButton: $('#scanJoinQrButton'), joinQrScannerDialog: $('#joinQrScannerDialog'), joinQrScannerVideo: $('#joinQrScannerVideo'), joinQrScannerStatus: $('#joinQrScannerStatus'), joinQrCameraFallback: $('#joinQrCameraFallback'), joinQrCameraInput: $('#joinQrCameraInput'), savedTables: $('#savedTables'), savedTablesList: $('#savedTablesList'), quickTestButton: $('#quickTestButton'), localSimulationField: $('#localSimulationField'),
   connectionButton: $('#connectionButton'), connectionText: $('#connectionText'), connectionDialog: $('#connectionDialog'), connectionDetail: $('#connectionDetail'), editPlayerNameButton: $('#editPlayerNameButton'), editPlayerNameDialog: $('#editPlayerNameDialog'), editPlayerNameForm: $('#editPlayerNameForm'), editPlayerName: $('#editPlayerName'), eliminatePlayerButton: $('#eliminatePlayerButton'), eliminatePlayerDialog: $('#eliminatePlayerDialog'), eliminatePlayerForm: $('#eliminatePlayerForm'), eliminatePlayerSeat: $('#eliminatePlayerSeat'), eliminatePlayerReason: $('#eliminatePlayerReason'), eliminatePlayerDetail: $('#eliminatePlayerDetail'), leaveTableButton: $('#leaveTableButton'), leaveTableDialog: $('#leaveTableDialog'), confirmLeaveTableButton: $('#confirmLeaveTableButton'),
   playerCountChoices: $('#playerCountChoices'), seatCapacity: $('#seatCapacity'), createName: $('#createName'), joinSeat: $('#joinSeat'), joinName: $('#joinName'), joinSeatClaim: $('#joinSeatClaim'), activeSeat: $('#activeSeat'), localSimulation: $('#localSimulation'), roundLimitMinutes: $('#roundLimitMinutes'), createCommanderNames: $('#createCommanderNames'), joinCommanderNames: $('#joinCommanderNames'), gameCommanderNames: $('#gameCommanderNames'), createDeckField: $('#createDeckField'), createDeck: $('#createDeck'), joinDeckField: $('#joinDeckField'), joinDeck: $('#joinDeck'),
   podStrip: $('#podStrip'), podLabel: $('#podLabel'), commanderIdentityName: $('#commanderIdentityName'), identityHeaderRail: $('#identityHeaderRail'), modeTitle: $('#modeTitle'), mainValue: $('#mainValue'), dialControls: $('#dialControls'), dialGesture: $('#dialGesture'),
@@ -35,6 +35,7 @@ const dom = {
   customLifeButton: $('#customLifeButton'), customLifeDialog: $('#customLifeDialog'), customLifeForm: $('#customLifeForm'), customLifeAmount: $('#customLifeAmount'), cancelCustomLifeButton: $('#cancelCustomLifeButton'), radiationDialog: $('#radiationDialog'), radiationForm: $('#radiationForm'), radiationDetail: $('#radiationDetail'), radiationNonlandCount: $('#radiationNonlandCount'), resolveRadiationButton: $('#resolveRadiationButton'), playtestNotesButton: $('#playtestNotesButton'), playtestRecapButton: $('#playtestRecapButton'), fieldTestButton: $('#fieldTestButton'), markDevelopmentButton: $('#markDevelopmentButton'), fieldTestDialog: $('#fieldTestDialog'), fieldTestForm: $('#fieldTestForm'), fieldTestStatus: $('#fieldTestStatus'), savedPlaytestsButton: $('#savedPlaytestsButton'), lockDeveloperModeButton: $('#lockDeveloperModeButton'), developerModeDialog: $('#developerModeDialog'), developerModeForm: $('#developerModeForm'), developerModeKey: $('#developerModeKey'), developerModeStatus: $('#developerModeStatus'), unlockDeveloperModeButton: $('#unlockDeveloperModeButton'), refreshTableButton: $('#refreshTableButton'), playtestNotesDialog: $('#playtestNotesDialog'), playtestNotesForm: $('#playtestNotesForm'), playtestNotesList: $('#playtestNotesList'), playtestNoteText: $('#playtestNoteText'), playtestNoteStatus: $('#playtestNoteStatus'), playtestRecapDialog: $('#playtestRecapDialog'), playtestRecapContent: $('#playtestRecapContent'), savedPlaytestsDialog: $('#savedPlaytestsDialog'), savedPlaytestsContent: $('#savedPlaytestsContent')
 };
 const winnerCondition = $('#winnerCondition');
+dom.lobbyMount.append(dom.lobbyControls);
 const transport = new RealtimeAdapter({ apiBase: apiBaseFromPage() });
 const DIAGNOSTIC_BUILD = '200';
 const reportedDiagnostics = new Set();
@@ -579,7 +580,7 @@ async function signInWithEmailPassword() {
   finally { emailSignInInFlight = false; }
 }
 function openMyProfile() { myGamesDialog.showModal(); void showMyGames(); }
-function showView(view) { dom.views.forEach(item => { item.hidden = item !== view; }); window.scrollTo({ top: 0, behavior: 'instant' }); }
+function showView(view) { const activeView = view === dom.game && state && !state.turn?.gameStarted ? dom.lobby : view; dom.views.forEach(item => { item.hidden = item !== activeView; }); window.scrollTo({ top: 0, behavior: 'instant' }); }
 function savedTables() { try { const tables = JSON.parse(localStorage.getItem(SAVED_TABLES_KEY)); return Array.isArray(tables) ? tables.filter(table => /^[A-Z0-9]{6}$/.test(table?.code)).slice(0, 8) : []; } catch { return []; } }
 function saveTable() {
   if (!state || state.localSimulation || !/^[A-Z0-9]{6}$/.test(state.podCode)) return;
@@ -784,14 +785,15 @@ function renderCommanderNameFields(container, count, names = [], identities = []
 }
 function selectedCommanderCount(formName) { return Number($(`input[name="${formName}"]:checked`)?.value || 1); }
 function refreshSetupCommanderNames() { renderCommanderNameFields(dom.createCommanderNames, selectedCommanderCount('commanderCount')); renderCommanderNameFields(dom.joinCommanderNames, selectedCommanderCount('joinCommanderCount')); }
-function beginLocalGame(config) { transport.useLocal(); state = { ...createState(config), localDemoLastInteractionAt: Date.now() }; showView(dom.game); render(); }
+function showTableView() { showView(state?.turn?.gameStarted ? dom.game : dom.lobby); }
+function beginLocalGame(config) { transport.useLocal(); state = { ...createState(config), localDemoLastInteractionAt: Date.now() }; showTableView(); render(); }
 function clearDeepJoinCode() {
   const url = new URL(location.href);
   if (!url.searchParams.has('join')) return;
   url.searchParams.delete('join');
   history.replaceState(history.state, '', url);
 }
-function showSharedGame(snapshot) { clearDeepJoinCode(); state = stateFromSnapshot(snapshot); saveTable(); renderSavedTables(); showView(dom.game); render(); void applySelectedAppearance(); }
+function showSharedGame(snapshot) { clearDeepJoinCode(); state = stateFromSnapshot(snapshot); saveTable(); renderSavedTables(); showTableView(); render(); void applySelectedAppearance(); }
 function showError(error) { dom.connectionDetail.textContent = error?.message || 'The pod server could not complete that request.'; dom.connectionDialog.showModal(); }
 function activePlayer() { return state.players.find(player => player.id === state.activePlayerId); }
 function currentValue(player) { const value = state.mode === 'commander' ? commanderValue(player) : player[state.mode]; return state.mode === 'life' && !state.localSimulation && player.id === state.ownerPlayerId ? value + optimisticLifeDelta : value; }
@@ -1605,7 +1607,7 @@ $('#joinStepTwoNext').addEventListener('click', () => { if (/^P[1-8]$/.test(dom.
 signInButton.addEventListener('click', openSignIn); continueGuestButton.addEventListener('click', enterApp);
 $('#createPodButton').addEventListener('click', () => showView(dom.create)); $('#joinPodButton').addEventListener('click', () => { showView(dom.join); dom.joinCodeStatus.textContent = ''; }); $('#changePodButton').addEventListener('click', () => showView(dom.join)); $$('[data-back]').forEach(button => button.addEventListener('click', () => { renderSavedTables(); showView(dom.landing); })); $('#podCode').addEventListener('input', event => { event.currentTarget.value = event.currentTarget.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); }); $('#joinSeat').addEventListener('change', () => { dom.joinName.placeholder = dom.joinSeat.value; renderJoinSeatClaim(); }); dom.joinCodeForm.addEventListener('submit', async event => { event.preventDefault(); await refreshJoinSeats(); }); dom.scanJoinQrButton.addEventListener('click', () => void openJoinQrScanner()); dom.joinQrScannerDialog.addEventListener('close', stopJoinQrScanner); $$('input[name="commanderCount"], input[name="joinCommanderCount"]').forEach(input => input.addEventListener('change', refreshSetupCommanderNames)); $$('input[name="gameFormat"]').forEach(input => input.addEventListener('change', () => { if (selectedGameFormat() === 'casual') { $('input[name="startingLife"][value="20"]').checked = true; $('input[name="playerCount"][value="2"]').checked = true; } updateFormatSetup(); }));
 dom.joinQrCameraInput.addEventListener('change', event => void readJoinQrCameraPhoto(event));
-$('#quickTestButton').addEventListener('click', () => { const saved = loadLocal(); if (saved) { transport.useLocal(); state = saved; showView(dom.game); render(); } else beginLocalGame({}); });
+$('#quickTestButton').addEventListener('click', () => { const saved = loadLocal(); if (saved) { transport.useLocal(); state = saved; showTableView(); render(); } else beginLocalGame({}); });
 $('#createPodButton').addEventListener('click', () => void loadSetupDecks()); $('#joinPodButton').addEventListener('click', () => void loadSetupDecks());
 $('#createPodButton').addEventListener('click', () => { selectedDeckId = ''; try { sessionStorage.removeItem('fivefold-arc:selected-deck'); } catch {} dom.createDeck.value = ''; });
 $('#joinSignInDeckButton').addEventListener('click', () => openSignIn({ returnToJoin: true }));
