@@ -43,3 +43,8 @@ test('achievement reveals wait for the personal match moment dismissal and then 
   assert.match(app, /if \(!showAchievementUnlocks\(gameKey\)\) showPostGameChoices\(\);/);
   assert.match(page, /id="postGameDialog"/);
 });
+
+test('local alternate eliminations declare the last remaining player', () => {
+  assert.match(app, /player\.alternateElimination = \{ reason, detail: detail \|\| null \}; state\.players\.forEach\(evaluatePlayer\); localLastPlayerStanding\(\); render\(\);/);
+  assert.doesNotMatch(app, /evaluateLocalVictory\(/);
+});

@@ -1518,7 +1518,7 @@ async function eliminatePlayer() {
     if (state.localSimulation) {
       const player = state.players[targetSeatId];
       if (!player || player.eliminated) return;
-      player.alternateElimination = { reason, detail: detail || null }; state.players.forEach(evaluatePlayer); evaluateLocalVictory(); render();
+      player.alternateElimination = { reason, detail: detail || null }; state.players.forEach(evaluatePlayer); localLastPlayerStanding(); render();
     } else {
       const result = await transport.eliminatePlayer(targetSeatId, reason, detail);
       if (result.conflict) showError(new Error('The table changed first. The latest game state is shown.'));
