@@ -87,6 +87,24 @@ test("durable mutations for one pod serialize rapid life changes instead of reje
   assert.equal((await store.read(created.snapshot.code)).version, 3);
 });
 
+test("a legacy durable table can finish when the host is eliminated", async () => {
+  const store = new MemoryRoomStore();
+  const service = new RoomService({ roomStore: store });
+  const host = service.createConnection();
+  const created = await service.createRoomDurably(host.connectionId, { playerCount: 2, startingLife: 40 });
+  const opponent = service.createConnection();
+  let snapshot = (await service.mutateDurably(created.snapshot.code, () => service.claimSeat(created.snapshot.code, opponent.connectionId, { seatId: 1, name: "Jace" }))).snapshot;
+  snapshot = (await service.mutateDurably(created.snapshot.code, () => service.startGame(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version }))).snapshot;
+  const legacy = await store.read(created.snapshot.code);
+  delete legacy.room.room.recentAccoladeCategories;
+  await store.compareAndSwap(created.snapshot.code, legacy.version, legacy);
+
+  const eliminated = await service.mutateDurably(created.snapshot.code, () => service.adjustOwnSeat(created.snapshot.code, host.connectionId, { counter: "life", delta: -40 }));
+
+  assert.equal(eliminated.snapshot.gameResult.winnerSeatId, 1);
+  assert.equal(eliminated.snapshot.lifecycle.status, "complete");
+});
+
 test("an expired durable room cannot be revived after a server restart", async () => {
   let now = 10_000;
   const store = new MemoryRoomStore();

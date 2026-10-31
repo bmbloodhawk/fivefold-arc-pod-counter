@@ -547,6 +547,7 @@ export class RoomService {
     if (!record || record.schemaVersion !== 1 || !saved || record.code !== saved.code || record.version !== saved.version) throw Object.assign(new Error("The saved room record was invalid"), { status: 503, code: "ROOM_STORE_INVALID" });
     const room = {
       ...saved,
+      recentAccoladeCategories: saved.recentAccoladeCategories && typeof saved.recentAccoladeCategories === "object" ? saved.recentAccoladeCategories : {},
       hostRecoveryKeyHash: record.room.hostRecoveryKeyHash ? decodedHash(record.room.hostRecoveryKeyHash) : null,
       seats: saved.seats.map((seat) => ({
         ...seat,
@@ -703,6 +704,7 @@ export class RoomService {
   completePlaytest(room, completedAt, { incomplete = false } = {}) {
     if (room.ledgerCompletedAt) return;
     room.ledgerCompletedAt = completedAt;
+    room.recentAccoladeCategories ||= {};
     const recap = {
       ...recapFromRoom(room, completedAt),
       notes: room.playtestNotes.map((note) => ({ ...note })),
