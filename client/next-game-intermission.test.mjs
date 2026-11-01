@@ -24,6 +24,16 @@ test('next-game setup is a distinct ready state with host start controls', () =>
   assert.match(transport, /async reorderNextGameSeats\(seatIds\) \{ return this\.\#hostGameRequest\('\/next-game-reorder', \{ seatIds \}\); \}/);
 });
 
+test('next-game setup owns a separate screen instead of sharing the live counter', () => {
+  assert.match(page, /<section id="intermissionView" class="view setup-shell intermission-screen" hidden/);
+  assert.match(page, /<section id="intermissionView"[\s\S]*id="intermissionPanel"/);
+  const gameView = page.match(/<section id="gameView"[\s\S]*?<\/section>\s*<\/main>/)?.[0] || '';
+  assert.doesNotMatch(gameView, /id="intermissionPanel"/);
+  assert.match(app, /intermission: \$\('#intermissionView'\)/);
+  assert.match(app, /function tableViewForState\(\) \{[\s\S]*lifecycle\?\.status === 'intermission'[\s\S]*return dom\.intermission/);
+  assert.match(app, /function showTableView\(\) \{ showView\(tableViewForState\(\)\); \}/);
+});
+
 test('pod setup separates first-game players from future seat capacity', () => {
   assert.match(page, /Players for game one/);
   assert.match(page, /id="seatCapacity" name="seatCapacity"/);
