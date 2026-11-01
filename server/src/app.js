@@ -1557,7 +1557,6 @@ export function createRealtimeServer(options = {}) {
   const lookupCardInteraction = options.lookupCardInteraction ?? createCardInteractionLookup(options.fetchImpl);
   const allowedOrigin = options.allowedOrigin ?? process.env.ALLOWED_ORIGIN ?? "*";
   const staticDir = options.staticDir ?? null;
-  const appEnv = options.appEnv ?? process.env.APP_ENV ?? "production";
   const sseClients = new Map();
   // A 16-player event can mean four simultaneous four-player pods behind one
   // venue NAT. Keep abuse protection, but leave enough headroom for every
@@ -1610,7 +1609,7 @@ export function createRealtimeServer(options = {}) {
       const url = new URL(req.url, "http://localhost");
       const parts = url.pathname.split("/").filter(Boolean);
       const connectionId = req.headers["x-connection-id"];
-      if (req.method === "GET" && url.pathname === "/health") return json(res, 200, { ok: true, ...(appEnv === "staging" && service.durableBenchmark ? { durableBenchmark: service.durableBenchmark } : {}) });
+      if (req.method === "GET" && url.pathname === "/health") return json(res, 200, { ok: true });
       if (req.method === "GET" && url.pathname === "/api/account/history") { const accountId = await account(req); return json(res, 200, { history: await accountHistory.summary(accountId) }); }
       if (req.method === "POST" && url.pathname === "/api/account/achievements/viewed") { const accountId = await account(req); const input = await readJson(req); return json(res, 200, { viewed: await accountHistory.markAchievementRarityViewed(accountId, input?.rarity) }); }
       if (req.method === "GET" && url.pathname === "/api/account/skin-access") { const accountId = await account(req); return json(res, 200, { access: await accountHistory.skinAccess(accountId) }); }

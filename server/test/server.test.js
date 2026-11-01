@@ -61,19 +61,6 @@ test("uses explicit CORS and baseline browser security headers when configured",
   }
 });
 
-test("exposes durable benchmark aggregates only from staging health", async () => {
-  const benchmark = { available: true, samples: 12, p50Ms: 24 };
-  const { server: stagingServer, service: stagingService } = createRealtimeServer({ appEnv: "staging" });
-  stagingService.durableBenchmark = benchmark;
-  await new Promise((resolve) => stagingServer.listen(0, "127.0.0.1", resolve));
-  const stagingUrl = `http://127.0.0.1:${stagingServer.address().port}`;
-  try {
-    assert.deepEqual(await (await fetch(`${stagingUrl}/health`)).json(), { ok: true, durableBenchmark: benchmark });
-  } finally {
-    await new Promise((resolve) => stagingServer.close(resolve));
-  }
-});
-
 async function connection() {
   return (await call("/api/connections", { method: "POST" })).body.connectionId;
 }
