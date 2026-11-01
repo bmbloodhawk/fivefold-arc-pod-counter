@@ -807,6 +807,7 @@ export class RoomService {
     }
     seat.ownerConnectionId = connectionId;
     connection.seatKey = seatKey;
+    if (!Number.isInteger(room.hostSeatId)) room.hostSeatId = seatId;
     synchronizeCommanderState(room);
     if (!wasClaimed && ["lobby", "intermission"].includes(room.lifecycle?.status) && !room.lifecycle.seatIds.includes(seatId)) {
       room.lifecycle.seatIds.push(seatId);
@@ -1147,6 +1148,27 @@ export class RoomService {
     this.recordCompletion(room);
     this.broadcast(room);
     return { snapshot: this.snapshot(room) };
+  }
+
+  leaveIntermission(code, connectionId, input = {}) {
+    const room = this.room(code); const { connection, seat, seatId } = this.requireOwner(room, connectionId);
+    if (room.lifecycle?.status !== "intermission") throw Object.assign(new Error("You can leave after a game, while the next game is being set up"), { status: 409, code: "NOT_IN_INTERMISSION", snapshot: this.snapshot(room) });
+    if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
+    room.lifecycle.seatIds = room.lifecycle.seatIds.filter((id) => id !== seatId);
+    room.lifecycle.readySeatIds = room.lifecycle.readySeatIds.filter((id) => id !== seatId);
+    seat.claimed = false;
+    seat.ownerConnectionId = null;
+    seat.tokenHash = null;
+    seat.recentOperationIds = new Map();
+    resetSeatForNextGame(seat, room.config.startingLife);
+    connection.seatKey = null;
+    this.closeStreams(connection, "left_table");
+    if (seatId === room.hostSeatId) room.hostSeatId = room.lifecycle.seatIds.find((id) => room.seats[id]?.claimed) ?? null;
+    synchronizeCommanderState(room);
+    room.version += 1;
+    this.recordLedger(room, "next_game_seat_left", seatId, { hostTransferredToSeatId: Number.isInteger(room.hostSeatId) ? room.hostSeatId : null });
+    this.broadcast(room);
+    return { snapshot: this.snapshot(room), left: true };
   }
 
   chooseStartingPlayer(code, connectionId, input = {}) {
@@ -1668,6 +1690,7 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "POST" && parts[3] === "begin-intermission") return json(res, 200, service.beginIntermission(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "next-game-ready") return json(res, 200, service.setNextGameReady(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "next-game-skip") return json(res, 200, service.skipNextGameSeat(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "leave-intermission") return json(res, 200, service.leaveIntermission(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "next-game-reorder") return json(res, 200, service.reorderNextGameSeats(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "coin-toss") return json(res, 200, service.tossCoin(code, connectionId));
         if (req.method === "GET" && parts[3] === "playtest-notes") return json(res, 200, service.listPlaytestNotes(code, connectionId));

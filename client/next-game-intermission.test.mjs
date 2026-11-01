@@ -34,6 +34,17 @@ test('next-game setup owns a separate screen instead of sharing the live counter
   assert.match(app, /function showTableView\(\) \{ showView\(tableViewForState\(\)\); \}/);
 });
 
+test('intermission supports self-service leaving and host invitations', () => {
+  assert.match(page, /id="intermissionLeaveButton"[^>]*>Leave table/);
+  assert.match(page, /id="intermissionLeaveDialog"/);
+  assert.match(page, /id="copyIntermissionJoinLinkButton"/);
+  assert.match(page, /id="showIntermissionJoinQrButton"/);
+  assert.match(app, /async function leaveNextGameTable\(\)/);
+  assert.match(app, /transport\.leaveIntermission\(\)/);
+  assert.match(app, /!handoff\.automatic/);
+  assert.match(transport, /async leaveIntermission\(\)/);
+});
+
 test('pod setup separates first-game players from future seat capacity', () => {
   assert.match(page, /Players for game one/);
   assert.match(page, /id="seatCapacity" name="seatCapacity"/);

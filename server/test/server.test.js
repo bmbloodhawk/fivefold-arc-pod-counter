@@ -1462,3 +1462,31 @@ test("keeps a completed game intact while the next-game roster becomes ready", (
   assert.deepEqual(snapshot.lifecycle.seatIds, [0, 2, 1]);
   assert.equal(snapshot.gameResult, null);
 });
+
+test("a player can leave the next-game roster without host intervention", () => {
+  const service = new RoomService(); const host = service.createConnection(); const made = service.createRoom(host.connectionId, { playerCount: 3, startingLife: 40 });
+  const guest = service.createConnection(); let snapshot = service.claimSeat(made.snapshot.code, guest.connectionId, { seatId: 1, name: "Guest" }).snapshot;
+  snapshot = service.startGame(made.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
+  snapshot = service.declareWinner(made.snapshot.code, host.connectionId, { baseVersion: snapshot.version, winnerSeatId: 0, winCondition: "life" }).snapshot;
+  snapshot = service.beginIntermission(made.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
+
+  snapshot = service.leaveIntermission(made.snapshot.code, guest.connectionId, { baseVersion: snapshot.version }).snapshot;
+
+  assert.equal(snapshot.seats[1].claimed, false);
+  assert.deepEqual(snapshot.lifecycle.seatIds, [0]);
+  assert.deepEqual(snapshot.lifecycle.readySeatIds, []);
+});
+
+test("leaving host transfers next-game control to the next remaining player", () => {
+  const service = new RoomService(); const host = service.createConnection(); const made = service.createRoom(host.connectionId, { playerCount: 3, startingLife: 40 });
+  const guest = service.createConnection(); let snapshot = service.claimSeat(made.snapshot.code, guest.connectionId, { seatId: 1, name: "Guest" }).snapshot;
+  snapshot = service.startGame(made.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
+  snapshot = service.declareWinner(made.snapshot.code, host.connectionId, { baseVersion: snapshot.version, winnerSeatId: 0, winCondition: "life" }).snapshot;
+  snapshot = service.beginIntermission(made.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
+
+  snapshot = service.leaveIntermission(made.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
+
+  assert.equal(snapshot.hostSeatId, 1);
+  assert.equal(snapshot.seats[0].claimed, false);
+  assert.deepEqual(snapshot.lifecycle.seatIds, [1]);
+});
