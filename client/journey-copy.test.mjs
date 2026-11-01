@@ -368,6 +368,7 @@ test('life changes and low-life warnings do not reflow the fixed play surface', 
   assert.match(styles, /font-size: 1\.2rem;[\s\S]*line-height: 1\.1;/);
   assert.match(app, /lifeChangeOwnsStatusSlot = lifeChange\?\.playerId === player\.id/);
   assert.match(app, /\$\{safetyStatus\} · \$\{sign\}\$\{Math\.abs\(lifeChange\.delta\)\} LIFE/);
+  assert.doesNotMatch(app, /SYNCED JUST NOW/);
 });
 
 test('the elimination mark is an overlay, not a layout row', () => {

@@ -1012,7 +1012,7 @@ function renderLifeChange(player) {
   const safetyStatus = player?.warning;
   dom.lifeChangeIndicator.textContent = safetyStatus
     ? `${safetyStatus} · ${sign}${Math.abs(lifeChange.delta)} LIFE`
-    : `${sign}${Math.abs(lifeChange.delta)} LIFE · ${lifeChange.from} → ${lifeChange.to}${lifeChange.confirmed ? ' · SYNCED JUST NOW' : ''}`;
+    : `${sign}${Math.abs(lifeChange.delta)} LIFE · ${lifeChange.from} → ${lifeChange.to}`;
   dom.lifeChangeIndicator.classList.toggle('negative', lifeChange.delta < 0);
 }
 function renderMutationAvailability() {
