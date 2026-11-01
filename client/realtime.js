@@ -50,7 +50,11 @@ export class RealtimeAdapter extends EventTarget {
     clearTimeout(this.reconnectTimer); this.reconnectTimer = null;
     const epoch = this.sessionEpoch;
     let resume;
-    resume = this.#resumeSession(epoch).finally(() => { if (this.resumePromise === resume) this.resumePromise = null; });
+    // A foreground event can fire even though this browser still owns a
+    // healthy seat. Verify that connection and refresh only its stream first;
+    // reclaiming here would replace a good connection and create version churn.
+    const recovery = this.status === 'connected' && this.connectionId ? this.#resumeHealthySession(epoch) : this.#resumeSession(epoch);
+    resume = recovery.finally(() => { if (this.resumePromise === resume) this.resumePromise = null; });
     this.resumePromise = resume;
     return resume;
   }
@@ -332,6 +336,20 @@ export class RealtimeAdapter extends EventTarget {
         this.#setStatus('disconnected'); this.#scheduleReconnect(epoch);
       }
       return { reconnecting: true };
+    }
+  }
+
+  async #resumeHealthySession(epoch) {
+    try {
+      await this.#request('/api/connections/heartbeat', { method: 'POST', authenticated: true, body: {} });
+      if (!this.#isCurrentSession(epoch)) return { ignored: true };
+      const result = await this.#request(`/api/rooms/${this.roomCode}?refresh=${Date.now()}`);
+      if (!this.#isCurrentSession(epoch)) return { ignored: true };
+      this.#acceptSnapshot(result.snapshot, epoch);
+      this.#subscribe(epoch); this.#setStatus('connected');
+      return { refreshed: true, snapshot: this.snapshot };
+    } catch {
+      return this.#resumeSession(epoch);
     }
   }
 
