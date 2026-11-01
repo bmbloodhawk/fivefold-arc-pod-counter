@@ -402,6 +402,26 @@ function gameSeats(room) {
   // still stable, so moving a person never transfers their account or deck.
   return ids.map((seatId) => room.seats[seatId]).filter((seat) => seat?.claimed);
 }
+function advancePastEliminatedActiveSeat(room, now) {
+  if (!room.turn.gameStarted || room.gameResult || !seatIsEliminated(room.seats[room.turn.activeSeatId])) return null;
+  const tableSeats = gameSeats(room);
+  const livingSeats = tableSeats.filter((seat) => !seatIsEliminated(seat));
+  if (!livingSeats.length) return null;
+  const fromSeatId = room.turn.activeSeatId;
+  const currentIndex = tableSeats.findIndex((seat) => seat.seatId === fromSeatId);
+  const nextSeat = Array.from({ length: tableSeats.length }, (_, offset) => tableSeats[(currentIndex + offset + 1) % tableSeats.length])
+    .find((seat) => livingSeats.includes(seat));
+  const toSeatId = (nextSeat || livingSeats[0]).seatId;
+  const turnLengthMs = Math.max(0, now - (room.turn.turnStartedAt ?? now));
+  room.turn = {
+    ...room.turn,
+    activeSeatId: toSeatId,
+    turnStartedAt: now,
+    lastHandoff: { fromSeatId, toSeatId, handedOffAt: now, turnLengthMs, automatic: true },
+  };
+  recordTurnMoment(room.seats[fromSeatId], turnLengthMs);
+  return room.turn.lastHandoff;
+}
 function resetSeatForNextGame(seat, startingLife) {
   seat.counters = { life: startingLife, radiation: 0, poison: 0, energy: 0, generic: 0 };
   seat.counterTotals = { poison: 0 };
@@ -896,12 +916,14 @@ export class RoomService {
     seat.commanderNames = nextCommanderNames;
     seat.commanderColors = nextCommanderColors;
     synchronizeCommanderState(room);
-    recordLastPlayerStanding(room, this.now());
+    const now = this.now(); recordLastPlayerStanding(room, now);
+    const automaticHandoff = advancePastEliminatedActiveSeat(room, now);
     room.version += 1;
     this.recordLedger(room, "seat_configured", seat.seatId, {
       counters: Object.keys(counters), commanderDamageSources: Object.keys(commander), commanderCastSources: Object.keys(commanderCastCounts),
       renamed: hasName, commanderCountChanged: hasCommanderCount, commanderNamesChanged: hasCommanderNames,
     });
+    if (automaticHandoff) this.recordLedger(room, "turn_auto_advanced_after_elimination", seat.seatId, automaticHandoff);
     this.recordCompletion(room);
     this.broadcast(room);
     return { snapshot: this.snapshot(room) };
@@ -938,9 +960,11 @@ export class RoomService {
     }
     if (counter === "poison" && applied > 0) seat.counterTotals = { ...(seat.counterTotals || {}), poison: (seat.counterTotals?.poison || 0) + applied };
     recordMatchMoment(seat, { counter, delta: applied, commanderSourceId: input.commanderSourceId, lifeBefore: counter === "commanderDamage" ? seat.counters.life + applied : counter === "life" ? seat.counters.life - applied : seat.counters.life, lifeAfter: seat.counters.life, gameStarted: room.turn.gameStarted, isOwnTurn: room.turn.activeSeatId === seat.seatId, turnKey: room.turn.turnStartedAt, isCorrection: counter === 'life' && input.isCorrection === true });
-    recordLastPlayerStanding(room, this.now());
+    const now = this.now(); recordLastPlayerStanding(room, now);
+    const automaticHandoff = advancePastEliminatedActiveSeat(room, now);
     room.version += 1;
     this.recordLedger(room, "counter_adjusted", seat.seatId, { counter, delta: applied, ...(counter === "commanderDamage" ? { commanderSourceId: input.commanderSourceId } : {}) });
+    if (automaticHandoff) this.recordLedger(room, "turn_auto_advanced_after_elimination", seat.seatId, automaticHandoff);
     this.recordCompletion(room);
     this.broadcast(room);
     const snapshot = this.snapshot(room);
@@ -957,8 +981,8 @@ export class RoomService {
     if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
     const nonlandCount = asInteger(input.nonlandCount, "nonlandCount", 0, 999); const removed = Math.min(nonlandCount, seat.counters.radiation || 0);
     seat.counters.radiation -= removed; seat.counters.life = Math.max(-999, seat.counters.life - nonlandCount);
-    recordMatchMoment(seat, { counter: "life", delta: -nonlandCount, lifeBefore: seat.counters.life + nonlandCount, lifeAfter: seat.counters.life, gameStarted: true, isOwnTurn: true, turnKey: room.turn.turnStartedAt }); recordLastPlayerStanding(room, this.now()); room.version += 1;
-    this.recordLedger(room, "radiation_resolved", seatId, { nonlandCount, removed }); this.recordCompletion(room); this.broadcast(room); return { snapshot: this.snapshot(room) };
+    const now = this.now(); recordMatchMoment(seat, { counter: "life", delta: -nonlandCount, lifeBefore: seat.counters.life + nonlandCount, lifeAfter: seat.counters.life, gameStarted: true, isOwnTurn: true, turnKey: room.turn.turnStartedAt }); recordLastPlayerStanding(room, now); const automaticHandoff = advancePastEliminatedActiveSeat(room, now); room.version += 1;
+    this.recordLedger(room, "radiation_resolved", seatId, { nonlandCount, removed }); if (automaticHandoff) this.recordLedger(room, "turn_auto_advanced_after_elimination", seatId, automaticHandoff); this.recordCompletion(room); this.broadcast(room); return { snapshot: this.snapshot(room) };
   }
 
   resetRoom(code, connectionId, input = {}) {
@@ -1115,9 +1139,11 @@ export class RoomService {
     target.alternateElimination = { reason, detail: detail || null, decidedAt: this.now() };
     room.automaticEliminationOrder ||= [];
     if (!room.automaticEliminationOrder.includes(targetSeatId)) room.automaticEliminationOrder.push(targetSeatId);
-    recordLastPlayerStanding(room, this.now(), reason);
+    const now = this.now(); recordLastPlayerStanding(room, now, reason);
+    const automaticHandoff = advancePastEliminatedActiveSeat(room, now);
     room.version += 1;
     this.recordLedger(room, "player_eliminated", seatId, { targetSeatId, reason, detail: detail || null });
+    if (automaticHandoff) this.recordLedger(room, "turn_auto_advanced_after_elimination", seatId, automaticHandoff);
     this.recordCompletion(room);
     this.broadcast(room);
     return { snapshot: this.snapshot(room) };
@@ -1241,6 +1267,7 @@ export class RoomService {
     if (!handoff || this.now() - handoff.handedOffAt > 15_000) {
       throw Object.assign(new Error("The turn-handoff undo window has expired"), { status: 409, code: "HANDOFF_UNDO_EXPIRED", snapshot: this.snapshot(room) });
     }
+    if (handoff.automatic) throw Object.assign(new Error("An elimination handoff cannot be undone"), { status: 409, code: "ELIMINATION_HANDOFF_FINAL" });
     if (seatId !== handoff.fromSeatId) {
       throw Object.assign(new Error("Only the player who ended the turn may undo that handoff"), { status: 403, code: "HANDOFF_UNDO_OWNER_ONLY" });
     }

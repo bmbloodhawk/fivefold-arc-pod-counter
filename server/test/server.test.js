@@ -955,10 +955,26 @@ describe("authority and convergence", () => {
     snapshot = service.chooseStartingPlayer(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version, startingSeatId: 0 }).snapshot;
     snapshot = service.startGame(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
     snapshot = service.adjustOwnSeat(created.snapshot.code, host.connectionId, { counter: "life", delta: -40 }).snapshot;
-    snapshot = service.handoffTurn(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
 
     assert.equal(snapshot.turn.activeSeatId, 3);
     assert.equal(snapshot.turn.lastHandoff.fromSeatId, 0);
+    assert.equal(snapshot.turn.lastHandoff.automatic, true);
+    assert.throws(() => service.undoTurnHandoff(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version }), { code: "ELIMINATION_HANDOFF_FINAL" });
+  });
+
+  test("a host-marked active player elimination immediately advances to the next living seat", () => {
+    const service = new RoomService(); const host = service.createConnection(); const made = service.createRoom(host.connectionId, { playerCount: 3, startingLife: 40 });
+    const second = service.createConnection(); const third = service.createConnection();
+    let snapshot = service.claimSeat(made.snapshot.code, second.connectionId, { seatId: 1, name: "Jace" }).snapshot;
+    snapshot = service.claimSeat(made.snapshot.code, third.connectionId, { seatId: 2, name: "Nissa" }).snapshot;
+    snapshot = service.startGame(made.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
+
+    snapshot = service.eliminatePlayer(made.snapshot.code, host.connectionId, { baseVersion: snapshot.version, targetSeatId: 0, reason: "milled_out" }).snapshot;
+
+    assert.equal(snapshot.gameResult, null);
+    assert.equal(snapshot.turn.activeSeatId, 1);
+    assert.equal(snapshot.turn.lastHandoff.fromSeatId, 0);
+    assert.equal(snapshot.turn.lastHandoff.toSeatId, 1);
   });
 
   test("applies concurrent live counter deltas without a stale-version re-entry error", async () => {
