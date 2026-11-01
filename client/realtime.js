@@ -293,7 +293,10 @@ export class RealtimeAdapter extends EventTarget {
     this.heartbeatTimer = setInterval(async () => {
       if (!this.#isCurrentSession(epoch) || document.visibilityState === 'hidden' || !this.connectionId) return;
       try { await this.#request('/api/connections/heartbeat', { method: 'POST', authenticated: true, body: {} }); }
-      catch { if (this.#isCurrentSession(epoch)) this.#scheduleReconnect(epoch); }
+      // A heartbeat can be the only request a mobile proxy rejects. Confirm
+      // the ordinary room read before tearing down a healthy table session;
+      // #recoverSse reclaims only when that confirmation also fails.
+      catch { if (this.#isCurrentSession(epoch)) void this.#recoverSse(epoch); }
     }, 40000);
   }
 

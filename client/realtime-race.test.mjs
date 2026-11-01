@@ -114,6 +114,46 @@ test('an SSE-only drop keeps scoring connected when the confirmed room read succ
   }
 });
 
+test('a transient heartbeat failure refreshes the room before attempting a reclaim', async () => {
+  const originals = Object.fromEntries(['fetch', 'EventSource', 'document', 'localStorage', 'setInterval', 'clearInterval'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  const intervals = [];
+  try {
+    FakeEventSource.instances = [];
+    globalThis.document = { visibilityState: 'visible' };
+    globalThis.EventSource = FakeEventSource;
+    globalThis.localStorage = { getItem: () => null, setItem: () => {} };
+    globalThis.setInterval = (callback, delay) => { const timer = { callback, delay }; intervals.push(timer); return timer; };
+    globalThis.clearInterval = () => {};
+    globalThis.fetch = async (url, options = {}) => {
+      const path = new URL(url).pathname;
+      if (path === '/api/connections') return response({ connectionId: 'connection-1' });
+      if (path === '/api/rooms' && options.method === 'POST') return response({ snapshot: { code: 'POD123', version: 1 }, seatId: 0, reclaimToken: 'pod-token' });
+      if (path === '/api/connections/heartbeat') throw new Error('temporary heartbeat failure');
+      if (path === '/api/rooms/POD123') return response({ snapshot: { code: 'POD123', version: 2 } });
+      if (path === '/api/rooms/POD123/claim') throw new Error('a healthy room read must not reclaim the seat');
+      throw new Error(`Unexpected request: ${options.method || 'GET'} ${path}`);
+    };
+
+    const { RealtimeAdapter } = await import(new URL(`./realtime.js?heartbeat-recover=${Date.now()}`, import.meta.url));
+    const adapter = new RealtimeAdapter({ apiBase: 'https://pod.test' });
+    await adapter.createRoom({ playerCount: 2, startingLife: 40 });
+    const heartbeat = intervals.find(timer => timer.delay === 40_000);
+    assert.ok(heartbeat);
+    await heartbeat.callback();
+    await new Promise(resolve => setImmediate(resolve));
+
+    assert.equal(adapter.status, 'connected');
+    assert.equal(adapter.snapshot.version, 2);
+    assert.equal(FakeEventSource.instances.length, 2);
+    adapter.clearSession();
+  } finally {
+    for (const [key, descriptor] of Object.entries(originals)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else delete globalThis[key];
+    }
+  }
+});
+
 test('returning from background coalesces resume requests into one fresh claim and stream', async () => {
   const originals = Object.fromEntries(['fetch', 'EventSource', 'document', 'localStorage'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   let connectionNumber = 0; let resumeClaims = 0; let releaseResumeClaim; let adapter;
