@@ -61,6 +61,20 @@ test("uses explicit CORS and baseline browser security headers when configured",
   }
 });
 
+test("staging provides two original appearance choices without publishing them to production", async () => {
+  const stagingServer = createRealtimeServer({ appEnv: "staging" }).server;
+  await new Promise((resolve) => stagingServer.listen(0, "127.0.0.1", resolve));
+  const stagingUrl = `http://127.0.0.1:${stagingServer.address().port}`;
+  try {
+    const skins = await (await fetch(`${stagingUrl}/api/game-skins`)).json();
+    assert.deepEqual(skins.skins.map((skin) => skin.id), ["staging-slate", "staging-ember"]);
+    const detail = await (await fetch(`${stagingUrl}/api/game-skins/staging-slate`)).json();
+    assert.equal(detail.skin.name, "Staging Slate");
+  } finally {
+    await new Promise((resolve) => stagingServer.close(resolve));
+  }
+});
+
 async function connection() {
   return (await call("/api/connections", { method: "POST" })).body.connectionId;
 }

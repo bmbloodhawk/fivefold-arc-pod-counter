@@ -14,6 +14,10 @@ const COMMANDER_LOOKUP_TIMEOUT_MS = 6_000;
 const COMMANDER_LOOKUP_MIN_INTERVAL_MS = 100;
 const MAX_RECENT_OPERATION_IDS = 100;
 const DICE_IDENTITY_COLORS = { w: "#eee4c9", u: "#4f92c6", b: "#6f5b91", r: "#bd5a4c", g: "#4f8a63" };
+const STAGING_TEST_SKINS = Object.freeze([
+  Object.freeze({ id: "staging-slate", name: "Staging Slate", status: "Approved", edited: "Test only", background: "#101b2c", surface: "#1d2c42", accent: "#a9cff5", secondary: "#6386ad", text: "#f4f8ff", muted: "#c2d1e2", interfaceStyle: "button", modeLayouts: {} }),
+  Object.freeze({ id: "staging-ember", name: "Staging Ember", status: "Approved", edited: "Test only", background: "#25170f", surface: "#402616", accent: "#f2b866", secondary: "#a5663c", text: "#fff4e5", muted: "#e5c7a8", interfaceStyle: "button", modeLayouts: {} }),
+]);
 const STATIC_TYPES = new Map([
   [".css", "text/css; charset=utf-8"],
   [".html", "text/html; charset=utf-8"],
@@ -72,6 +76,13 @@ function json(res, status, body, extraHeaders = {}) {
     ...extraHeaders,
   });
   res.end(data);
+}
+
+function publishedGameSkins(catalog, appEnv) {
+  const catalogSkins = (catalog.skins || []).filter((skin) => skin?.status === "Approved");
+  if (appEnv !== "staging") return catalogSkins;
+  const testIds = new Set(STAGING_TEST_SKINS.map((skin) => skin.id));
+  return [...catalogSkins.filter((skin) => !testIds.has(skin.id)), ...STAGING_TEST_SKINS];
 }
 
 async function serveJoinQr(res, code, origin) {
@@ -1557,6 +1568,7 @@ export function createRealtimeServer(options = {}) {
   const lookupCardInteraction = options.lookupCardInteraction ?? createCardInteractionLookup(options.fetchImpl);
   const allowedOrigin = options.allowedOrigin ?? process.env.ALLOWED_ORIGIN ?? "*";
   const staticDir = options.staticDir ?? null;
+  const appEnv = options.appEnv ?? process.env.APP_ENV ?? "production";
   const sseClients = new Map();
   // A 16-player event can mean four simultaneous four-player pods behind one
   // venue NAT. Keep abuse protection, but leave enough headroom for every
@@ -1628,8 +1640,8 @@ export function createRealtimeServer(options = {}) {
       if (req.method === "GET" && url.pathname === "/api/appearance-studio/catalog") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { catalog: await appearanceCatalog.read() }); }
       if (req.method === "PUT" && url.pathname === "/api/appearance-studio/catalog") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { catalog: await appearanceCatalog.write(await readJson(req, 8 * 1024 * 1024)) }); }
       if (req.method === "GET" && url.pathname === "/api/game-layout") { const catalog = await appearanceCatalog.read(); return json(res, 200, { layout: catalog.gameDefaultLayout || null }); }
-      if (req.method === "GET" && url.pathname === "/api/game-skins") { const catalog = await appearanceCatalog.read(); return json(res, 200, { skins: (catalog.skins || []).filter((skin) => skin?.status === "Approved").map(({ id, name, edited, interfaceStyle, modeLayouts, background, surface, accent, secondary, text, muted }) => ({ id, name, edited, interfaceStyle, modeLayouts, background, surface, accent, secondary, text, muted })) }); }
-      if (req.method === "GET" && parts[0] === "api" && parts[1] === "game-skins" && /^[A-Za-z0-9_-]{1,80}$/.test(parts[2] || "")) { const catalog = await appearanceCatalog.read(); const skin = (catalog.skins || []).find((item) => item?.id === parts[2] && item.status === "Approved"); if (!skin) throw Object.assign(new Error("Published skin not found"), { status: 404, code: "SKIN_NOT_FOUND" }); const assetData = async (id) => { if (!id || !/^[A-Za-z0-9_-]{4,80}$/.test(id)) return ""; try { return (await appearanceCatalog.readAsset(id))?.data || ""; } catch { return ""; } }; const overlayData = Object.fromEntries(await Promise.all(Object.entries(skin.overlays || {}).map(async ([slot, id]) => [slot, await assetData(id)]))); const symbolData = Object.fromEntries(await Promise.all(Object.entries(skin.symbolAssets || {}).map(async ([mode, id]) => [mode, await assetData(id)]))); return json(res, 200, { skin: { ...skin, backgroundData: await assetData(skin.backgroundAsset), sealData: await assetData(skin.sealAsset), symbolData, overlayData } }); }
+      if (req.method === "GET" && url.pathname === "/api/game-skins") { const skins = publishedGameSkins(await appearanceCatalog.read(), appEnv); return json(res, 200, { skins: skins.map(({ id, name, edited, interfaceStyle, modeLayouts, background, surface, accent, secondary, text, muted }) => ({ id, name, edited, interfaceStyle, modeLayouts, background, surface, accent, secondary, text, muted })) }); }
+      if (req.method === "GET" && parts[0] === "api" && parts[1] === "game-skins" && /^[A-Za-z0-9_-]{1,80}$/.test(parts[2] || "")) { const catalog = await appearanceCatalog.read(); const skin = publishedGameSkins(catalog, appEnv).find((item) => item?.id === parts[2]); if (!skin) throw Object.assign(new Error("Published skin not found"), { status: 404, code: "SKIN_NOT_FOUND" }); const assetData = async (id) => { if (!id || !/^[A-Za-z0-9_-]{4,80}$/.test(id)) return ""; try { return (await appearanceCatalog.readAsset(id))?.data || ""; } catch { return ""; } }; const overlayData = Object.fromEntries(await Promise.all(Object.entries(skin.overlays || {}).map(async ([slot, id]) => [slot, await assetData(id)]))); const symbolData = Object.fromEntries(await Promise.all(Object.entries(skin.symbolAssets || {}).map(async ([mode, id]) => [mode, await assetData(id)]))); return json(res, 200, { skin: { ...skin, backgroundData: await assetData(skin.backgroundAsset), sealData: await assetData(skin.sealAsset), symbolData, overlayData } }); }
       if (req.method === "PUT" && url.pathname === "/api/appearance-studio/game-layout") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); const body = await readJson(req, 512 * 1024); if (!body?.layout || typeof body.layout !== "object") throw Object.assign(new Error("A base game layout is required."), { status: 400, code: "INVALID_INPUT" }); const catalog = await appearanceCatalog.read(); catalog.gameDefaultLayout = body.layout; return json(res, 200, { layout: (await appearanceCatalog.write(catalog)).gameDefaultLayout }); }
       if (req.method === "POST" && url.pathname === "/api/appearance-studio/phone-layout") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); const body = await readJson(req, 8 * 1024 * 1024); if (!body?.skin || typeof body.skin !== "object") throw Object.assign(new Error("A Studio skin is required."), { status: 400, code: "INVALID_INPUT" }); const id = randomBytes(12).toString("base64url"); const session = { skin: body.skin, updatedAt: Date.now(), expiresAt: Date.now() + PHONE_LAYOUT_TTL_MS }; phoneLayoutSessions.set(id, session); return json(res, 201, { id, skin: session.skin, expiresAt: session.expiresAt }); }
       if (parts[0] === "api" && parts[1] === "appearance-studio" && parts[2] === "phone-layout" && /^[A-Za-z0-9_-]{12,40}$/.test(parts[3] || "")) { const session = readPhoneLayoutSession(parts[3]); const phoneLayoutUrl = `${req.headers["x-forwarded-proto"] || "https"}://${req.headers.host}/index.html?appearance-preview=1&phone-layout=${parts[3]}`; if (req.method === "GET" && parts[4] === "qr") return json(res, 200, { url: phoneLayoutUrl, data: await QRCode.toDataURL(phoneLayoutUrl, { margin: 1, width: 320, errorCorrectionLevel: "M" }) }); if (req.method === "GET") return json(res, 200, { skin: session.skin, updatedAt: session.updatedAt, expiresAt: session.expiresAt }); if (req.method === "PUT") { const body = await readJson(req, 8 * 1024 * 1024); if (!body?.skin || typeof body.skin !== "object") throw Object.assign(new Error("A Studio skin is required."), { status: 400, code: "INVALID_INPUT" }); session.skin = body.skin; session.updatedAt = Date.now(); session.expiresAt = Date.now() + PHONE_LAYOUT_TTL_MS; return json(res, 200, { skin: session.skin, updatedAt: session.updatedAt, expiresAt: session.expiresAt }); } }
