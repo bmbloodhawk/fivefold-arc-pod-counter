@@ -855,6 +855,7 @@ describe("authority and convergence", () => {
     assert.equal(selected.snapshot.turn.startingPlayerSeatId, 1);
     const started = service.startGame(initial.code, host.connectionId, { baseVersion: selected.snapshot.version });
     assert.equal(started.snapshot.turn.gameStarted, true);
+    assert.equal(started.snapshot.turn.turnNumber, 1);
     assert.equal(started.snapshot.turn.gameStartedAt, now);
     assert.equal(started.snapshot.turn.roundEndsAt, now + 60 * 60 * 1000);
 
@@ -875,6 +876,31 @@ describe("authority and convergence", () => {
     now += 15_001;
     assert.throws(() => service.undoTurnHandoff(initial.code, activeConnectionId, { baseVersion: again.snapshot.version }), { code: "HANDOFF_UNDO_EXPIRED" });
     assert.equal(service.snapshot(service.room(initial.code)).turn.activeSeatId, 0);
+  });
+
+  test("table turn number advances only when play returns to the starting player", () => {
+    const service = new RoomService();
+    const host = service.createConnection();
+    const created = service.createRoom(host.connectionId, { playerCount: 3, startingLife: 40 });
+    const second = service.createConnection();
+    const third = service.createConnection();
+    let snapshot = service.claimSeat(created.snapshot.code, second.connectionId, { seatId: 1 }).snapshot;
+    snapshot = service.claimSeat(created.snapshot.code, third.connectionId, { seatId: 2 }).snapshot;
+    snapshot = service.startGame(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
+    assert.equal(snapshot.turn.turnNumber, 1);
+
+    snapshot = service.handoffTurn(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
+    assert.equal(snapshot.turn.activeSeatId, 1);
+    assert.equal(snapshot.turn.turnNumber, 1);
+    snapshot = service.handoffTurn(created.snapshot.code, second.connectionId, { baseVersion: snapshot.version }).snapshot;
+    assert.equal(snapshot.turn.activeSeatId, 2);
+    assert.equal(snapshot.turn.turnNumber, 1);
+    snapshot = service.handoffTurn(created.snapshot.code, third.connectionId, { baseVersion: snapshot.version }).snapshot;
+    assert.equal(snapshot.turn.activeSeatId, 0);
+    assert.equal(snapshot.turn.turnNumber, 2);
+
+    snapshot = service.undoTurnHandoff(created.snapshot.code, third.connectionId, { baseVersion: snapshot.version }).snapshot;
+    assert.equal(snapshot.turn.turnNumber, 1);
   });
 
   test("the active player resolves radiation as one life-and-counter action", () => {

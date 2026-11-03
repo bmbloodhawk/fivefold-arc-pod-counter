@@ -30,6 +30,11 @@ test('double taps cannot trigger browser zoom anywhere in the counter while pinc
   assert.match(app, /document\.addEventListener\('dblclick', event => event\.preventDefault\(\), \{ capture: true \}\)/);
 });
 
+test('turn status shows the shared table turn in its existing compact status row', () => {
+  assert.match(app, /dom\.lastTurnSummary\.textContent = `TURN \$\{Math\.max\(1, Number\(state\.turn\.turnNumber\) \|\| 1\)\}/);
+  assert.match(app, /turnNumber: 1/);
+});
+
 test('joining keeps optional commander setup out of the primary claim path', () => {
   assert.match(html, /STEP 2 OF 4/);
   assert.match(html, /STEP 3 OF 4/);

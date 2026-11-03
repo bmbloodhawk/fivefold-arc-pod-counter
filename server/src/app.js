@@ -428,6 +428,7 @@ function advancePastEliminatedActiveSeat(room, now) {
     ...room.turn,
     activeSeatId: toSeatId,
     turnStartedAt: now,
+    turnNumber: (room.turn.turnNumber || 1) + (toSeatId === room.turn.startingPlayerSeatId ? 1 : 0),
     lastHandoff: { fromSeatId, toSeatId, handedOffAt: now, turnLengthMs, automatic: true },
   };
   recordTurnMoment(room.seats[fromSeatId], turnLengthMs);
@@ -539,6 +540,7 @@ export class RoomService {
         gameStarted: false,
         gameStartedAt: null,
         turnStartedAt: null,
+        turnNumber: 0,
         roundEndsAt: null,
         startingPlayerSeatId: null,
         startingPlayerRoll: null,
@@ -591,6 +593,7 @@ export class RoomService {
         gameStarted: room.turn.gameStarted,
         gameStartedAt: room.turn.gameStartedAt,
         turnStartedAt: room.turn.turnStartedAt,
+        turnNumber: room.turn.turnNumber || 0,
         roundEndsAt: room.turn.roundEndsAt,
         startingPlayerSeatId: room.turn.startingPlayerSeatId,
         startingPlayerRoll: room.turn.startingPlayerRoll ? {
@@ -1027,6 +1030,7 @@ export class RoomService {
       gameStarted: false,
       gameStartedAt: null,
       turnStartedAt: null,
+      turnNumber: 0,
       roundEndsAt: null,
       startingPlayerSeatId: nextStartingSeatId,
       startingPlayerRoll: null,
@@ -1092,7 +1096,7 @@ export class RoomService {
     room.tableGameNumber = (room.tableGameNumber || 1) + 1;
     room.lifecycle = { status: "intermission", seatIds: nextSeatIds, readySeatIds: [] };
     const nextStarter = nextSeatIds.find((id) => id > previousStarter) ?? nextSeatIds[0] ?? room.hostSeatId;
-    room.turn = { ...room.turn, activeSeatId: nextStarter, gameStarted: false, gameStartedAt: null, turnStartedAt: null, roundEndsAt: null, startingPlayerSeatId: nextStarter, startingPlayerRoll: null, lastHandoff: null, pausedAt: null, pausedDurationMs: 0 };
+    room.turn = { ...room.turn, activeSeatId: nextStarter, gameStarted: false, gameStartedAt: null, turnStartedAt: null, turnNumber: 0, roundEndsAt: null, startingPlayerSeatId: nextStarter, startingPlayerRoll: null, lastHandoff: null, pausedAt: null, pausedDurationMs: 0 };
     room.version += 1; this.recordLedger(room, "next_game_setup_started", seatId, { seatIds: nextSeatIds }); this.broadcast(room);
     return { snapshot: this.snapshot(room) };
   }
@@ -1237,6 +1241,7 @@ export class RoomService {
       gameStarted: true,
       gameStartedAt: startedAt,
       turnStartedAt: startedAt,
+      turnNumber: 1,
       roundEndsAt: room.config.roundLimitMinutes ? startedAt + room.config.roundLimitMinutes * 60 * 1000 : null,
       startingPlayerSeatId: room.turn.startingPlayerSeatId ?? room.turn.activeSeatId,
       lastHandoff: null,
@@ -1281,6 +1286,7 @@ export class RoomService {
       ...room.turn,
       activeSeatId: toSeatId,
       turnStartedAt: handedOffAt,
+      turnNumber: (room.turn.turnNumber || 1) + (toSeatId === room.turn.startingPlayerSeatId ? 1 : 0),
       lastHandoff: { fromSeatId: seatId, toSeatId, handedOffAt, turnLengthMs: Math.max(0, handedOffAt - (previousTurnStartedAt ?? handedOffAt)) },
     };
     recordTurnMoment(room.seats[seatId], room.turn.lastHandoff.turnLengthMs);
@@ -1308,6 +1314,7 @@ export class RoomService {
       ...room.turn,
       activeSeatId: handoff.fromSeatId,
       turnStartedAt: handoff.handedOffAt,
+      turnNumber: Math.max(1, (room.turn.turnNumber || 1) - (handoff.toSeatId === room.turn.startingPlayerSeatId ? 1 : 0)),
       lastHandoff: null,
     };
     room.version += 1;
