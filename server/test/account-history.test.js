@@ -89,6 +89,20 @@ test("ordinary completed-game moments stay common or uncommon", async () => {
   ["full-pantry", "still-here", "irradiated-victory", "capacitor-discharge", "round-robin", "full-table", "eightfold-assembly"].forEach(id => assert.equal(rarities.get(id), "uncommon"));
 });
 
+test("round-count achievements reward unusually short and long Commander games", async () => {
+  const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: (() => { let id = 0; return () => String(++id); })() }); const accountId = await history.ensureAccount("subject");
+  await history.saveGame(accountId, { tableSize: 4, won: true, achievementFacts: { tableTurnNumber: 5 } });
+  let rarities = new Map((await history.summary(accountId)).achievements.map(achievement => [achievement.id, achievement.rarity]));
+  assert.equal(rarities.get("flash-victory"), "legendary");
+  assert.equal(rarities.has("deep-into-the-night"), false);
+
+  await history.saveGame(accountId, { tableSize: 4, won: false, achievementFacts: { tableTurnNumber: 30 } });
+  rarities = new Map((await history.summary(accountId)).achievements.map(achievement => [achievement.id, achievement.rarity]));
+  assert.equal(rarities.get("deep-into-the-night"), "rare");
+  assert.equal(rarities.get("saga-at-the-table"), "epic");
+  assert.equal(rarities.get("the-long-goodbye"), "legendary");
+});
+
 test("expanded achievement pool recognizes tracked pod, recovery, counter, and commander-pressure moments", async () => {
   const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: (() => { let id = 0; return () => String(++id); })() }); const accountId = await history.ensureAccount("subject");
   await history.saveGame(accountId, { tableSize: 5, won: true, counterTotals: { poison: 9, energy: 50, radiation: 25 }, achievementFacts: { lifeGained: 150, lowestLife: 5, lifeGainedAfterLow: 25, playerCountAtStart: 6, everyStarterTwoTurns: 1, everyStarterThreeTurns: 1, everyOpponentCommanderAt10: 1 } });

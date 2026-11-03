@@ -813,6 +813,9 @@ describe("authority and convergence", () => {
     const restarted = service.startGame(created.snapshot.code, host.connectionId, { baseVersion: reset.snapshot.version });
     assert.equal(service.room(created.snapshot.code).seats[0].matchMoment.tableGameNumber, 2);
     assert.equal(restarted.snapshot.turn.gameStarted, true);
+    const finished = service.declareWinner(created.snapshot.code, host.connectionId, { baseVersion: restarted.snapshot.version, winnerSeatId: 0, winCondition: "life" });
+    assert.equal(service.personalMatchMoment(created.snapshot.code, host.connectionId).achievementFacts.tableTurnNumber, 1);
+    assert.equal(finished.snapshot.gameResult.winnerSeatId, 0);
     assert.equal(hostRoll.snapshot.turn.startingPlayerRoll.status, "rolling");
     assert.equal(rolling.snapshot.turn.startingPlayerRoll.status, "rolling");
   });

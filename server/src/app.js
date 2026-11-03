@@ -719,6 +719,7 @@ export class RoomService {
         wonByDeclaredAlternateWin: room.gameResult.winnerSeatId === seat.seatId && room.gameResult.winCondition === "alternate_win" ? 1 : 0,
         playerCountAtStart: matchMoment.playerCountAtStart || room.seats.filter((item) => item.claimed).length,
         turnCount: matchMoment.turnCount || 0,
+        tableTurnNumber: room.turn.turnNumber || 0,
         durationMs: Math.max(0, room.gameResult.decidedAt - (room.turn.gameStartedAt || room.gameResult.decidedAt)),
         commanderSourcesHit: commanderDamage.filter((damage) => damage > 0).length,
         largestCommanderDamage: Math.max(0, ...commanderDamage),
