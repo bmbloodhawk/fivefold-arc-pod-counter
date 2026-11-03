@@ -410,6 +410,15 @@ test('three-dot menu uses one selectable row pattern except for intentional cont
   assert.match(styles, /\.game-menu > button\.danger-text \{/);
 });
 
+test('each player can choose a local appearance without changing the shared table skin', () => {
+  assert.match(html, /id="deviceAppearanceField"[^>]*hidden/);
+  assert.match(html, /id="deviceAppearanceChoice"/);
+  assert.match(app, /DEVICE_APPEARANCE_KEY = 'fivefold-arc:device-appearance'/);
+  assert.match(app, /Table appearance —/);
+  assert.match(html, /Only this device\. It never changes the table or anyone else’s screen\./);
+  assert.match(app, /setDeviceAppearanceChoice\(dom\.deviceAppearanceChoice\.value\)/);
+});
+
 test('the three-dot menu captures its own scrolling instead of scrolling the game behind it', () => {
   assert.match(styles, /\.game-menu \{[\s\S]*overscroll-behavior: contain[\s\S]*touch-action: pan-y/);
   assert.match(styles, /html\.game-menu-open, body\.game-menu-open \{ overflow: hidden/);
