@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 // The ledger intentionally records only a compact, playtest-focused history.
 // It never receives reclaim tokens, connection identifiers, IP addresses, or
 // raw request bodies.
@@ -227,8 +229,13 @@ function diagnosticMetadata({ gameId, roomCode, recap = null, events = [], check
 }
 
 export function createPlaytestLedgerFromEnv(env = process.env) {
-  if (!env.FIREBASE_DATABASE_URL || !env.FIREBASE_SERVICE_ACCOUNT_EMAIL || !env.FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY) return new NullPlaytestLedger();
-  return new FirebasePlaytestLedger({ databaseUrl: env.FIREBASE_DATABASE_URL, clientEmail: env.FIREBASE_SERVICE_ACCOUNT_EMAIL, privateKey: env.FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY });
+  const serviceAccount = env.FIREBASE_SERVICE_ACCOUNT_FILE
+    ? JSON.parse(readFileSync(env.FIREBASE_SERVICE_ACCOUNT_FILE, "utf8"))
+    : {};
+  const clientEmail = env.FIREBASE_SERVICE_ACCOUNT_EMAIL || serviceAccount.client_email;
+  const privateKey = env.FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY || serviceAccount.private_key;
+  if (!env.FIREBASE_DATABASE_URL || !clientEmail || !privateKey) return new NullPlaytestLedger();
+  return new FirebasePlaytestLedger({ databaseUrl: env.FIREBASE_DATABASE_URL, clientEmail, privateKey });
 }
 
 export function publicSeat(seat) {
