@@ -445,7 +445,7 @@ function resetSeatForNextGame(seat, startingLife) {
 function feedbackPromptSeatId(room) { const seats = room.seats.filter(seat => seat.claimed); if (!room.gameResult || !seats.length) return null; const value = [...room.gameId].reduce((total, character) => total + character.codePointAt(0), 0); return value % 3 ? null : seats[value % seats.length].seatId; }
 
 export class RoomService {
-  constructor({ now = () => Date.now(), roomTtlMs = 6 * 60 * 60 * 1000, connectionTtlMs = 90 * 1000, ledger = new NullPlaytestLedger(), productMeasurement = new ProductMeasurement() } = {}) {
+  constructor({ now = () => Date.now(), roomTtlMs = 6 * 60 * 60 * 1000, connectionTtlMs = 90 * 1000, ledger = new NullPlaytestLedger(), productMeasurement = new ProductMeasurement(), autoRecoverRooms = false } = {}) {
     this.now = now;
     this.roomTtlMs = roomTtlMs;
     this.connectionTtlMs = connectionTtlMs;
@@ -453,6 +453,8 @@ export class RoomService {
     this.connections = new Map();
     this.ledger = ledger;
     this.productMeasurement = productMeasurement;
+    this.autoRecoverRooms = autoRecoverRooms;
+    this.recoveryLoads = new Map();
   }
 
   createConnection() {
@@ -1462,22 +1464,17 @@ export class RoomService {
     };
   }
 
-  async restoreRoom(roomCode, hostRecoveryKey) {
-    const code = String(roomCode || "").toUpperCase();
-    if (this.rooms.has(code)) return { snapshot: this.snapshot(this.room(code)), restored: false };
-    if (typeof hostRecoveryKey !== "string") throw Object.assign(new Error("A host recovery key is required"), { status: 403, code: "HOST_RECOVERY_REQUIRED" });
-    const record = await this.ledger.readRecovery(code);
-    if (!record?.room || !tokenMatches(hostRecoveryKey, decodedHash(record.hostRecoveryKeyHash))) {
-      throw Object.assign(new Error("The host recovery key did not match this room"), { status: 403, code: "HOST_RECOVERY_DENIED" });
-    }
-    const room = record.room;
-    if (room.code !== code || !Array.isArray(room.seats) || room.seats.length < 2 || room.seats.length > 8) {
+  hydrateRecoveryRecord(code, record) {
+    const room = record?.room;
+    if (record?.schemaVersion !== 1 || typeof record.hostRecoveryKeyHash !== "string" || !record.hostRecoveryKeyHash
+      || room?.code !== code || !Number.isInteger(room.version) || room.version < 1
+      || !Array.isArray(room.seats) || room.seats.length < 2 || room.seats.length > 8
+      || room.seats.some((seat) => !seat || typeof seat !== "object" || !Number.isInteger(seat.seatId))) {
       throw Object.assign(new Error("The saved recovery record is invalid"), { status: 422, code: "INVALID_RECOVERY_RECORD" });
     }
     room.hostRecoveryKeyHash = decodedHash(record.hostRecoveryKeyHash);
     // Recovery records can outlive optional Commander display fields added in a
-    // later release. Normalize those legacy seats before deriving sources so a
-    // valid host key can restore an older table instead of crashing.
+    // later release. Normalize those legacy seats before deriving sources.
     room.seats = room.seats.map((seat) => {
       const commanderCount = seat.commanderCount === 2 ? 2 : 1;
       const commanderNames = Array.from({ length: commanderCount }, (_, slot) => typeof seat.commanderNames?.[slot] === "string" ? seat.commanderNames[slot] : "");
@@ -1495,9 +1492,36 @@ export class RoomService {
       };
     });
     room.lastActiveAt = this.now();
-    room.version += 1;
     synchronizeCommanderState(room);
     this.rooms.set(code, room);
+    return room;
+  }
+
+  async ensureRoom(roomCode) {
+    const code = String(roomCode || "").toUpperCase();
+    if (this.rooms.has(code)) return false;
+    if (!this.autoRecoverRooms) return false;
+    if (this.recoveryLoads.has(code)) return this.recoveryLoads.get(code);
+    const loading = (async () => {
+      const record = await this.ledger.readRecovery(code);
+      if (this.rooms.has(code) || !record?.room) return false;
+      this.hydrateRecoveryRecord(code, record);
+      return true;
+    })().finally(() => this.recoveryLoads.delete(code));
+    this.recoveryLoads.set(code, loading);
+    return loading;
+  }
+
+  async restoreRoom(roomCode, hostRecoveryKey) {
+    const code = String(roomCode || "").toUpperCase();
+    if (this.rooms.has(code)) return { snapshot: this.snapshot(this.room(code)), restored: false };
+    if (typeof hostRecoveryKey !== "string") throw Object.assign(new Error("A host recovery key is required"), { status: 403, code: "HOST_RECOVERY_REQUIRED" });
+    const record = await this.ledger.readRecovery(code);
+    if (!record?.room || !tokenMatches(hostRecoveryKey, decodedHash(record.hostRecoveryKeyHash))) {
+      throw Object.assign(new Error("The host recovery key did not match this room"), { status: 403, code: "HOST_RECOVERY_DENIED" });
+    }
+    const room = this.hydrateRecoveryRecord(code, record);
+    room.version += 1;
     this.recordLedger(room, "room_restored", room.hostSeatId, { restoredAt: this.now() });
     return { snapshot: this.snapshot(room), restored: true };
   }
@@ -1570,13 +1594,14 @@ export class RoomService {
 }
 
 export function createRealtimeServer(options = {}) {
-  const service = options.service ?? new RoomService(options);
+  const appEnv = options.appEnv ?? process.env.APP_ENV ?? "production";
+  const service = options.service ?? new RoomService({ ...options, autoRecoverRooms: options.autoRecoverRooms ?? appEnv === "staging" });
   const lookupCommanderIdentity = options.lookupCommanderIdentity ?? createCommanderIdentityLookup(options.fetchImpl);
   const lookupCard = options.lookupCard ?? createCardLookup(options.fetchImpl);
   const lookupCardInteraction = options.lookupCardInteraction ?? createCardInteractionLookup(options.fetchImpl);
   const allowedOrigin = options.allowedOrigin ?? process.env.ALLOWED_ORIGIN ?? "*";
   const staticDir = options.staticDir ?? null;
-  const appEnv = options.appEnv ?? process.env.APP_ENV ?? "production";
+  const durableRoomStore = options.durableRoomStore ?? null;
   const sseClients = new Map();
   // A 16-player event can mean four simultaneous four-player pods behind one
   // venue NAT. Keep abuse protection, but leave enough headroom for every
@@ -1695,6 +1720,7 @@ export function createRealtimeServer(options = {}) {
       if (req.method === "POST" && parts[0] === "api" && parts[1] === "recovery" && parts[2]) return json(res, 200, await service.restoreRoom(parts[2], (await readJson(req)).hostRecoveryKey));
       if (parts[0] === "api" && parts[1] === "rooms" && parts[2]) {
         const code = parts[2].toUpperCase();
+        await service.ensureRoom(code);
         if (req.method === "GET" && parts[3] === "join-qr.svg") {
           service.room(code);
           const protocol = String(req.headers["x-forwarded-proto"] || "http").split(",")[0].trim();

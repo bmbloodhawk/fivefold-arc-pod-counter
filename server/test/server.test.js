@@ -1323,6 +1323,67 @@ test("restores a private recovery record with disconnected seats and token-scope
   assert.throws(() => restarted.mutateOwnSeat(made.snapshot.code, hostConnection.connectionId, { baseVersion: selfCommanderDamage.snapshot.version, commanderCastCounts: { "seat-1-commander-a": 3 } }), { code: "INVALID_INPUT" });
 });
 
+test("staging automatically rehydrates a durable table before players reclaim their seats", async () => {
+  const ledger = new MemoryPlaytestLedger();
+  const original = new RoomService({ ledger });
+  const host = original.createConnection();
+  const made = original.createRoom(host.connectionId, { playerCount: 2, startingLife: 40 });
+  const player = original.createConnection();
+  const claimed = original.claimSeat(made.snapshot.code, player.connectionId, { seatId: 1, name: "Jace" });
+  original.adjustOwnSeat(made.snapshot.code, player.connectionId, { counter: "life", delta: -3 });
+
+  const restartedServer = createRealtimeServer({ appEnv: "staging", ledger }).server;
+  await new Promise((resolve) => restartedServer.listen(0, "127.0.0.1", resolve));
+  const restartedUrl = `http://127.0.0.1:${restartedServer.address().port}`;
+  try {
+    const restored = await fetch(`${restartedUrl}/api/rooms/${made.snapshot.code}`);
+    const restoredBody = await restored.json();
+    assert.equal(restored.status, 200);
+    assert.equal(restoredBody.snapshot.seats[1].counters.life, 37);
+    assert.equal(restoredBody.snapshot.seats[1].connected, false);
+
+    const connection = await (await fetch(`${restartedUrl}/api/connections`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" })).json();
+    const reclaimed = await fetch(`${restartedUrl}/api/rooms/${made.snapshot.code}/claim`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-connection-id": connection.connectionId },
+      body: JSON.stringify({ seatId: 1, reclaimToken: claimed.reclaimToken }),
+    });
+    const reclaimedBody = await reclaimed.json();
+    assert.equal(reclaimed.status, 200);
+    assert.equal(reclaimedBody.snapshot.seats[1].connected, true);
+  } finally {
+    await new Promise((resolve) => restartedServer.close(resolve));
+  }
+});
+
+test("deduplicates simultaneous staging recovery reads for one missing room", async () => {
+  const ledger = new MemoryPlaytestLedger();
+  const original = new RoomService({ ledger });
+  const host = original.createConnection();
+  const made = original.createRoom(host.connectionId, { playerCount: 2, startingLife: 40 });
+  let reads = 0;
+  const readRecovery = ledger.readRecovery.bind(ledger);
+  ledger.readRecovery = async (code) => {
+    reads += 1;
+    await new Promise((resolve) => setImmediate(resolve));
+    return readRecovery(code);
+  };
+
+  const restarted = new RoomService({ ledger, autoRecoverRooms: true });
+  await Promise.all([restarted.ensureRoom(made.snapshot.code), restarted.ensureRoom(made.snapshot.code)]);
+
+  assert.equal(reads, 1);
+  assert.equal(restarted.snapshot(restarted.room(made.snapshot.code)).version, made.snapshot.version);
+});
+
+test("rejects a malformed durable record without exposing a server error", async () => {
+  const ledger = new MemoryPlaytestLedger();
+  ledger.readRecovery = async () => ({ schemaVersion: 1, hostRecoveryKeyHash: "not-a-real-hash", room: { code: "ARC123", version: 1, seats: [null, null] } });
+  const restarted = new RoomService({ ledger, autoRecoverRooms: true });
+
+  await assert.rejects(() => restarted.ensureRoom("ARC123"), (error) => error.code === "INVALID_RECOVERY_RECORD" && error.status === 422);
+});
+
 test("restores legacy recovery records without optional commander display fields", async () => {
   const ledger = new MemoryPlaytestLedger();
   const original = new RoomService({ ledger });
