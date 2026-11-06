@@ -1349,6 +1349,20 @@ test("tracks self-commander damage without corruption and eliminates only at 21"
   assert.equal(result.snapshot.gameResult?.winnerSeatId, 1);
 });
 
+test("commander adjustment repairs a legacy seat missing its damage map", () => {
+  const service = new RoomService();
+  const host = service.createConnection();
+  const made = service.createRoom(host.connectionId, { playerCount: 2, startingLife: 40, commanderNames: ["Atraxa"] });
+  const guest = service.createConnection();
+  const claimed = service.claimSeat(made.snapshot.code, guest.connectionId, { seatId: 1, name: "Jace", commanderNames: ["Krenko"] });
+  service.startGame(made.snapshot.code, host.connectionId, { baseVersion: claimed.snapshot.version });
+  service.room(made.snapshot.code).seats[0].commanderDamageReceived = undefined;
+
+  const result = service.adjustOwnSeat(made.snapshot.code, host.connectionId, { counter: "commanderDamage", commanderSourceId: "seat-0-commander-a", delta: 1 });
+  assert.equal(result.snapshot.seats[0].commanderDamageReceived["seat-0-commander-a"], 1);
+  assert.equal(result.snapshot.seats[0].counters.life, 39);
+});
+
 test("bounds commander lookups and never turns an outage into a colorless result", async () => {
   const lookup = createCommanderIdentityLookup((_url, { signal }) => new Promise((_resolve, reject) => signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true })), { timeoutMs: 20 });
   await assert.rejects(() => lookup("Atraxa"), (error) => error.code === "COMMANDER_LOOKUP_UNAVAILABLE" && /without a color identity/.test(error.message));

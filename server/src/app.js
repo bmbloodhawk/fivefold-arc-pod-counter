@@ -308,11 +308,11 @@ function synchronizeCommanderState(room) {
       seat.commanderCastCounts = {};
       continue;
     }
-    const previous = seat.commanderDamageReceived;
+    const previous = seat.commanderDamageReceived && typeof seat.commanderDamageReceived === "object" ? seat.commanderDamageReceived : {};
     seat.commanderDamageReceived = Object.fromEntries(
       sources.map((source) => [source.id, Object.hasOwn(previous, source.id) ? previous[source.id] : 0]),
     );
-    const previousCastCounts = seat.commanderCastCounts;
+    const previousCastCounts = seat.commanderCastCounts && typeof seat.commanderCastCounts === "object" ? seat.commanderCastCounts : {};
     seat.commanderCastCounts = Object.fromEntries(
       ownCommanderSourceIds(seat).map((sourceId) => [
         sourceId,
@@ -1023,6 +1023,10 @@ export class RoomService {
     }
     let applied = delta;
     if (counter === "commanderDamage") {
+      // A legacy durable record can predate this map. Repair it before the
+      // atomic damage update instead of turning a valid counter action into a
+      // server error.
+      if (!seat.commanderDamageReceived || typeof seat.commanderDamageReceived !== "object") synchronizeCommanderState(room);
       const sourceId = input.commanderSourceId;
       const allowed = new Set(commanderSources(room).map((source) => source.id));
       if (!allowed.has(sourceId)) {
