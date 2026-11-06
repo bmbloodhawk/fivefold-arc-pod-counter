@@ -690,7 +690,8 @@ export class RoomService {
       incomplete,
     };
     if (room.gameResult) {
-      const decisions = tableMatchMomentDecisions({ seats: room.seats, winnerSeatId: room.gameResult.winnerSeatId, seed: room.gameId, recentCategoriesBySeat: room.recentAccoladeCategories });
+      const context = { durationMs: Math.max(0, room.gameResult.decidedAt - (room.turn.gameStartedAt || room.gameResult.decidedAt)), everyStarterTwoTurns: room.seats.filter(item => item.claimed !== false).every(item => (item.matchMoment?.turnCount || 0) >= 2) };
+      const decisions = tableMatchMomentDecisions({ seats: room.seats, winnerSeatId: room.gameResult.winnerSeatId, seed: room.gameId, recentCategoriesBySeat: room.recentAccoladeCategories, context });
       room.gameAccolades = Object.fromEntries([...decisions].map(([seatId, decision]) => [seatId, decision.moment]));
       for (const [seatId, decision] of decisions) room.recentAccoladeCategories[seatId] = [decision.moment.category, ...(room.recentAccoladeCategories[seatId] || []).filter((category) => category !== decision.moment.category)].slice(0, 3);
       recap.accolades = room.seats.filter((seat) => seat.claimed).map((seat) => ({ seatId: seat.seatId, name: seat.name, ...decisions.get(seat.seatId) }));
