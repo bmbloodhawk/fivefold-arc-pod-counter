@@ -547,7 +547,7 @@ test('signed-in accounts keep private deck details and personal history tools', 
   assert.match(app, /\/api\/account\/preferences/);
   assert.match(app, /profile-tabs/);
   assert.match(html, /Achievements uncovered/);
-  assert.match(app, /transport\.getPersonalMatchMoment\(\)/);
+  assert.match(app, /transport\.getPersonalMatchMoment\(await loadRecentAccoladeIds\(\)\)/);
   assert.match(app, /counterTotals,/);
   assert.match(app, /More await\./);
   assert.match(app, /achievement-rarity-tabs/);

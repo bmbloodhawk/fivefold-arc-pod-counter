@@ -44,7 +44,15 @@ export function recordTurnMoment(seat, turnLengthMs) {
 
 function named(seed, titles, line, fact, art = titles[0]) {
   const value = [...String(seed)].reduce((sum, character) => sum + character.codePointAt(0), 0);
-  return { category: titles[0], variant: value % titles.length, title: titles[value % titles.length], line, fact, art };
+  return { id: accoladeId(titles[0]), category: titles[0], variant: value % titles.length, title: titles[value % titles.length], line, fact, art };
+}
+
+function accoladeId(value) { return String(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+
+function seededIndex(seed, length) {
+  let value = 2166136261;
+  for (const character of String(seed)) { value ^= character.codePointAt(0); value = Math.imul(value, 16777619); }
+  return Math.abs(value >>> 0) % length;
 }
 
 function commanderName(sourceId, seats) {
@@ -118,7 +126,7 @@ function earnedMatchMoments({ seat, seats, winnerSeatId }) {
   return earned.length ? earned : [{ titles: ['Arc Complete', 'Table Tale', 'Pod Veteran'], line: 'Another table, another tale.', fact: 'Match complete' }];
 }
 
-export function tableMatchMomentDecisions({ seats, winnerSeatId, seed, recentCategoriesBySeat = {} }) {
+export function tableMatchMomentDecisions({ seats, winnerSeatId, seed, recentCategoriesBySeat = {}, recentAccoladeIdsBySeat = {} }) {
   const candidates = seats.filter((seat) => seat.claimed !== false).map((seat) => ({ seat, moments: earnedMatchMoments({ seat, seats, winnerSeatId }) }));
   const used = new Set(); const selected = new Map();
   for (const item of [...candidates].sort((a, b) => a.moments.length - b.moments.length || a.seat.seatId - b.seat.seatId)) {
@@ -127,13 +135,14 @@ export function tableMatchMomentDecisions({ seats, winnerSeatId, seed, recentCat
     const pool = specific.length ? specific : item.moments;
     const unused = pool.filter((option) => !used.has(option.titles[0]));
     const recent = new Set(recentCategoriesBySeat[item.seat.seatId] || []);
-    const fresh = unused.filter((option) => !recent.has(option.titles[0]));
+    const profileRecent = new Set(recentAccoladeIdsBySeat[item.seat.seatId] || []);
+    const fresh = unused.filter((option) => !recent.has(option.titles[0]) && !profileRecent.has(accoladeId(option.titles[0])));
     const options = fresh.length ? fresh : unused.length ? unused : pool;
-    const selectedOption = options[0];
+    const selectedOption = options[seededIndex(`${seed}:${item.seat.seatId}`, options.length)];
     used.add(selectedOption.titles[0]);
     const selectionReason = specific.length && genericWin(item.moments[item.moments.length - 1])
       ? 'Tracked match moment selected over generic win'
-      : unused.length ? 'Highest-priority unused eligible accolade' : 'Highest-priority eligible accolade';
+      : options.length > 1 ? 'Deterministic choice from fresh eligible accolades' : unused.length ? 'Highest-priority unused eligible accolade' : 'Highest-priority eligible accolade';
     selected.set(item.seat.seatId, { moment: named(`${seed}:${item.seat.seatId}:${selectedOption.titles[0]}`, selectedOption.titles, selectedOption.line, selectedOption.fact, selectedOption.art), eligibleCategories: item.moments.map((option) => option.titles[0]), selectionReason });
   }
   return selected;
@@ -141,4 +150,4 @@ export function tableMatchMomentDecisions({ seats, winnerSeatId, seed, recentCat
 
 export function tableMatchMoments(input) { return new Map([...tableMatchMomentDecisions(input)].map(([seatId, decision]) => [seatId, decision.moment])); }
 
-export function personalMatchMoment({ seat, seats, winnerSeatId, seed }) { return tableMatchMoments({ seats, winnerSeatId, seed }).get(seat.seatId); }
+export function personalMatchMoment({ seat, seats, winnerSeatId, seed, recentAccoladeIds = [] }) { return tableMatchMoments({ seats, winnerSeatId, seed, recentAccoladeIdsBySeat: { [seat.seatId]: recentAccoladeIds } }).get(seat.seatId); }

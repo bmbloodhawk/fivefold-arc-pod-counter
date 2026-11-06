@@ -148,7 +148,7 @@ export class RealtimeAdapter extends EventTarget {
     return this.#request(`/api/rooms/${this.roomCode}/playtest-notes`, { method: 'POST', authenticated: true, body: { text } });
   }
   async getPlaytestRecap() { return this.#request(`/api/rooms/${this.roomCode}/playtest-recap`, { authenticated: true }); }
-  async getPersonalMatchMoment() { return this.#request(`/api/rooms/${this.roomCode}/match-moment`, { authenticated: true }); }
+  async getPersonalMatchMoment(recentAccoladeIds = []) { const ids = recentAccoladeIds.filter(id => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)).slice(0, 5); const query = ids.length ? `?recentAccoladeIds=${encodeURIComponent(ids.join(','))}` : ''; return this.#request(`/api/rooms/${this.roomCode}/match-moment${query}`, { authenticated: true }); }
   async recordFieldTest(input) { return this.#request(`/api/rooms/${this.roomCode}/field-test`, { method: 'POST', authenticated: true, body: input }); }
   async recordClientDiagnostic(input) {
     if (this.localMode || this.status !== 'connected' || !this.roomCode) return { skipped: true };

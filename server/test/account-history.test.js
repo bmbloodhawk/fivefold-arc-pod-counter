@@ -40,6 +40,18 @@ test("account history rejects room details and unrecorded placement data", async
   await assert.rejects(() => history.saveGame(accountId, { tableSize: 4, won: true, roomCode: "PRIVATE" }), /Text|invalid|allowed/);
 });
 
+test("personal accolade history is private, bounded, and saved with the completed game", async () => {
+  const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: (() => { let id = 0; return () => String(++id); })() });
+  const accountId = await history.ensureAccount("subject");
+  for (const accoladeId of ["signal-kept", "long-vigil", "full-court", "hazard-triad", "second-wind", "turning-point"]) {
+    await history.saveGame(accountId, { tableSize: 4, won: false, accoladeId });
+  }
+  const summary = await history.summary(accountId);
+  assert.deepEqual(summary.recentAccoladeIds, ["turning-point", "second-wind", "hazard-triad", "full-court", "long-vigil"]);
+  assert.equal(summary.games.some(game => game.accoladeId === "turning-point"), true);
+  await assert.rejects(() => history.saveGame(accountId, { tableSize: 4, won: false, accoladeId: "Bad Accolade" }), /Accolade is invalid/);
+});
+
 test("achievements are earned from saved results and do not reveal unfinished goals", async () => {
   const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: (() => { let id = 0; return () => String(++id); })() }); const accountId = await history.ensureAccount("subject");
   await history.saveGame(accountId, { tableSize: 2, won: true, place: 1 });

@@ -725,7 +725,7 @@ export class RoomService {
     return { recap: { ...recapFromRoom(room, this.now()), notes: room.playtestNotes.map((note) => ({ ...note })) } };
   }
 
-  personalMatchMoment(code, connectionId) {
+  personalMatchMoment(code, connectionId, recentAccoladeIds = []) {
     const room = this.room(code); const { seat } = this.requireOwner(room, connectionId);
     if (!room.gameResult) throw Object.assign(new Error("A match moment is available after the game ends"), { status: 409, code: "GAME_NOT_COMPLETE" });
     const matchMoment = seat.matchMoment || blankMatchMoment(room.config.startingLife);
@@ -734,7 +734,7 @@ export class RoomService {
     const opposingCommanderSourceIds = commanderSources(room).filter((source) => source.ownerSeatId !== seat.seatId).map((source) => source.id);
     const millEliminations = room.seats.filter((item) => item.alternateElimination?.reason === "milled_out").length;
     return {
-      moment: room.gameAccolades?.[seat.seatId] || personalMatchMoment({ seat, seats: room.seats, winnerSeatId: room.gameResult.winnerSeatId, seed: room.gameId }),
+      moment: recentAccoladeIds.length ? personalMatchMoment({ seat, seats: room.seats, winnerSeatId: room.gameResult.winnerSeatId, seed: room.gameId, recentAccoladeIds }) : room.gameAccolades?.[seat.seatId] || personalMatchMoment({ seat, seats: room.seats, winnerSeatId: room.gameResult.winnerSeatId, seed: room.gameId }),
       counterTotals: {
         poison: matchMoment.poisonGained || 0,
         energy: matchMoment.energyGained || 0,
@@ -1825,7 +1825,7 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "GET" && parts[3] === "playtest-notes") return json(res, 200, service.listPlaytestNotes(code, connectionId));
         if (req.method === "POST" && parts[3] === "playtest-notes") return json(res, 201, service.addPlaytestNote(code, connectionId, await readJson(req)));
         if (req.method === "GET" && parts[3] === "playtest-recap") return json(res, 200, service.playtestRecap(code, connectionId));
-        if (req.method === "GET" && parts[3] === "match-moment") return json(res, 200, service.personalMatchMoment(code, connectionId));
+        if (req.method === "GET" && parts[3] === "match-moment") { const recentAccoladeIds = (url.searchParams.get('recentAccoladeIds') || '').split(',').filter(id => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)).slice(0, 5); return json(res, 200, service.personalMatchMoment(code, connectionId, recentAccoladeIds)); }
         if (req.method === "POST" && parts[3] === "field-test") return json(res, 201, service.recordFieldTest(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "client-diagnostics") return json(res, 201, service.recordClientDiagnostic(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "quick-feedback") return json(res, 201, service.recordQuickFeedback(code, connectionId, await readJson(req)));

@@ -361,6 +361,9 @@ function advanceEndGameFlow(key) {
 async function loadSaveGameDecks() {
   try { const token = await currentAccountToken(); if (!token) return; const response = await fetch('/api/account/decks', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) return; const { decks } = await response.json(); dom.saveGameDeck.innerHTML = `<option value="">No deck selected</option>${decks.map(deck => `<option value="${escapeHtml(deck.deckId)}">${escapeHtml([deck.commanderName, deck.name].filter(Boolean).join(' · '))}</option>`).join('')}`; } catch { /* Saving a game remains available without a deck. */ }
 }
+async function loadRecentAccoladeIds() {
+  try { const token = await currentAccountToken(); if (!token) return []; const response = await fetch('/api/account/history', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) return []; const ids = (await response.json()).history?.recentAccoladeIds; return Array.isArray(ids) ? ids.filter(id => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)).slice(0, 5) : []; } catch { return []; }
+}
 async function loadCommanderDecks() {
   try { const token = await currentAccountToken(); if (!token) return; const response = await fetch('/api/account/decks', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) return; const { decks } = await response.json(); commanderDecks = decks; dom.commanderDeck.innerHTML = `<option value="">No deck selected</option>${decks.map(deck => `<option value="${escapeHtml(deck.deckId)}">${escapeHtml([deck.commanderName, deck.name].filter(Boolean).join(' · '))}</option>`).join('')}`; dom.commanderDeck.value = selectedDeckId; dom.commanderDeckField.hidden = false; } catch { /* Deck choice remains optional. */ }
 }
@@ -401,7 +404,7 @@ function renderVictory() {
     // each signed-in player without relying on them to remember a final tap.
     automaticSavePromises.set(key, saveGameToHistory({ automatic: true, gameKey: key }));
     dom.personalMatchMoment.hidden = true; dom.personalMatchMoment.classList.remove('achievement-reveal');
-    const momentRequest = isStagingEnvironment ? Promise.resolve({ moment: STAGING_SAMPLE_MATCH_MOMENT }) : state.localSimulation ? Promise.resolve({ moment: null }) : transport.getPersonalMatchMoment();
+    const momentRequest = isStagingEnvironment ? Promise.resolve({ moment: STAGING_SAMPLE_MATCH_MOMENT }) : state.localSimulation ? Promise.resolve({ moment: null }) : loadRecentAccoladeIds().then(ids => transport.getPersonalMatchMoment(ids));
     personalMomentPromises.set(key, momentRequest.then(({ moment }) => {
       if (victoryKey(state?.gameResult) !== key) return false;
       return showPersonalMatchMoment(moment);
@@ -615,8 +618,8 @@ async function saveGameToHistory({ automatic = false, gameKey = victoryKey(state
     // being refreshed.
     if (victoryKey(state?.gameResult) !== gameKey) { dom.saveGameButton.disabled = false; dom.saveGameButton.textContent = 'Save this game'; return false; }
     const seatId = Number(you.id.slice(1)) - 1; const place = Array.isArray(result.finishingOrder) ? result.finishingOrder.indexOf(seatId) + 1 : null;
-    const { counterTotals, achievementFacts } = await transport.getPersonalMatchMoment();
-    const response = await fetch('/api/account/games', { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ tableSize: state.players.filter(player => player.connectionStatus !== 'waiting').length, won: result.winnerSeatId === seatId, place: place || null, outcomeDescription: result.declarationDetail || null, commanderName: you.commanderNames?.filter(Boolean).join(' / ') || null, deckId: selectedDeckId || null, counterTotals, achievementFacts, sourceGameId: `${state.podCode}:${result.decidedAt}:${seatId}` }) });
+    const { counterTotals, achievementFacts, moment } = await transport.getPersonalMatchMoment(await loadRecentAccoladeIds());
+    const response = await fetch('/api/account/games', { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ tableSize: state.players.filter(player => player.connectionStatus !== 'waiting').length, won: result.winnerSeatId === seatId, place: place || null, outcomeDescription: result.declarationDetail || null, commanderName: you.commanderNames?.filter(Boolean).join(' / ') || null, deckId: selectedDeckId || null, counterTotals, achievementFacts, accoladeId: moment?.id || null, sourceGameId: `${state.podCode}:${result.decidedAt}:${seatId}` }) });
     if (!response.ok) throw new Error('This game could not be saved yet.');
     const { unlockedAchievements = [] } = await response.json();
     if (automatic) automaticallySavedGameKey = gameKey;

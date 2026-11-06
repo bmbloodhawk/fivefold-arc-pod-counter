@@ -186,7 +186,7 @@ export class AccountHistory {
   }
 
   async saveGame(accountId, input = {}) {
-    const extra = Object.keys(input).find((key) => !["tableSize", "won", "place", "outcomeDescription", "commanderName", "deckId", "poisonCounters", "counterTotals", "achievementFacts", "sourceGameId"].includes(key));
+    const extra = Object.keys(input).find((key) => !["tableSize", "won", "place", "outcomeDescription", "commanderName", "deckId", "poisonCounters", "counterTotals", "achievementFacts", "sourceGameId", "accoladeId"].includes(key));
     if (extra) throw new TypeError(`Game field is not allowed: ${extra}`);
     const tableSize = Number(input.tableSize); const won = input.won === true;
     const place = input.place == null ? null : Number(input.place);
@@ -210,7 +210,9 @@ export class AccountHistory {
     const rawFacts = input.achievementFacts || {}; const factKeys = ["lowestLife", "lifeGained", "lifeGainedAfterLow", "actionsAfterLow", "largestLifeLossInTurn", "lifeAtLargestLossTurnStart", "lostHalfLifeInOneTurn", "lostAllLifeInOneTurn", "wasMilledOut", "millEliminations", "wonByFinalMillOut", "wonByDeclaredAlternateWin", "playerCountAtStart", "turnCount", "tableTurnNumber", "durationMs", "commanderSourcesHit", "largestCommanderDamage", "everyOpponentCommanderAt10", "everyOpponentCommanderAt18", "handoffCount", "everyStarterTwoTurns", "everyStarterThreeTurns", "reclaimedDuringGame", "actionsAfterReclaim", "turnsAfterReclaim", "tableGameNumber", "usedLocalD20"];
     if (!rawFacts || typeof rawFacts !== "object" || Array.isArray(rawFacts) || Object.keys(rawFacts).some(key => !factKeys.includes(key))) throw new TypeError("Achievement facts are invalid");
     const achievementFacts = Object.fromEntries(factKeys.filter(key => rawFacts[key] != null).map(key => { const value = Number(rawFacts[key]); if (!Number.isInteger(value) || value < 0 || value > 9_999_999_999) throw new TypeError("Achievement facts are invalid"); return [key, value]; }));
-    const game = { gameId, savedAt: this.now(), tableSize, won, place, outcomeDescription: text(input.outcomeDescription, 160), commanderName: text(input.commanderName, 120), deckId: input.deckId || null, counterTotals, achievementFacts, ...(sourceGameId ? { sourceGameId } : {}) };
+    const accoladeId = input.accoladeId == null ? null : text(input.accoladeId, 80);
+    if (accoladeId && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(accoladeId)) throw new TypeError("Accolade is invalid");
+    const game = { gameId, savedAt: this.now(), tableSize, won, place, outcomeDescription: text(input.outcomeDescription, 160), commanderName: text(input.commanderName, 120), deckId: input.deckId || null, counterTotals, achievementFacts, ...(accoladeId ? { accoladeId } : {}), ...(sourceGameId ? { sourceGameId } : {}) };
     await this.store.write(gamesPath(accountId), { ...games, [gameId]: game });
     return game;
   }
@@ -296,7 +298,10 @@ export class AccountHistory {
     const decks = Object.values((await this.store.read(decksPath(accountId))) || {}); const playedColors = new Set(decks.filter(deck => games.some(game => game.deckId === deck.deckId)).flatMap(deck => deck.colors || []));
     const seen = new Set(Array.isArray(account.seenAchievementIds) ? account.seenAchievementIds : []);
     const achievements = achievementsFor({ games, decks, bestWinStreak, monthCount: monthGames.length, playedColors }).map(achievement => ({ ...achievement, isNew: !seen.has(achievement.id) }));
-    return { gamesPlayed: games.length, wins, winRate: games.length ? wins / games.length : null, counterTotals: lifetimeCounterTotals(games), recentGames: games.slice(0, 12), games, deckStats, achievements, thisMonth: { gamesPlayed: monthGames.length, wins: monthGames.filter(game => game.won).length } };
+    // Object insertion order is the save order. It remains reliable even when
+    // several games are recorded within the same millisecond.
+    const recentAccoladeIds = Object.values((await this.store.read(gamesPath(accountId))) || {}).reverse().map(game => game.accoladeId).filter(Boolean).slice(0, 5);
+    return { gamesPlayed: games.length, wins, winRate: games.length ? wins / games.length : null, counterTotals: lifetimeCounterTotals(games), recentGames: games.slice(0, 12), games, deckStats, achievements, recentAccoladeIds, thisMonth: { gamesPlayed: monthGames.length, wins: monthGames.filter(game => game.won).length } };
   }
 
   async export(accountId) {
