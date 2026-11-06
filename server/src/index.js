@@ -11,11 +11,15 @@ const port = Number(process.env.PORT ?? 8787);
 const staticDir = resolve(fileURLToPath(new URL("../../client/", import.meta.url)));
 const cardIdentityIndex = await loadCardIdentityIndex(resolve(fileURLToPath(new URL("../static-data/card-identity-index.json", import.meta.url))));
 const ledger = createPlaytestLedgerFromEnv();
+const durableRecoveryEnabled = process.env.DURABLE_ROOM_RECOVERY_ENABLED === "true";
+if (durableRecoveryEnabled && typeof ledger.accessToken !== "function") {
+  throw new Error("Durable room recovery requires Firebase service-account credentials");
+}
 const appearanceCatalog = createAppearanceCatalogFromEnv({ path: resolve(fileURLToPath(new URL("../data/appearance-studio-catalog.json", import.meta.url))) });
 const derivedProjectId = /^https:\/\/([a-z0-9-]+)-default-rtdb\./.exec(process.env.FIREBASE_DATABASE_URL || "")?.[1];
 const accountVerifier = createFirebaseIdTokenVerifierFromEnv({ ...process.env, FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID || derivedProjectId });
 const accountHistory = accountVerifier && process.env.FIREBASE_DATABASE_URL && process.env.FIREBASE_SERVICE_ACCOUNT_EMAIL && process.env.FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY ? new AccountHistory({ store: ledger }) : null;
-const { server, service } = createRealtimeServer({ staticDir, ledger, appearanceCatalog, accountVerifier, accountHistory, lookupCommanderIdentity: createLocalCommanderIdentityLookup(cardIdentityIndex) });
+const { server, service } = createRealtimeServer({ staticDir, ledger, appearanceCatalog, accountVerifier, accountHistory, durableRecoveryEnabled, lookupCommanderIdentity: createLocalCommanderIdentityLookup(cardIdentityIndex) });
 const sweepTimer = setInterval(() => service.sweep(), 30_000);
 sweepTimer.unref();
 

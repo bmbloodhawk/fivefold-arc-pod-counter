@@ -1645,7 +1645,8 @@ export class RoomService {
 
 export function createRealtimeServer(options = {}) {
   const appEnv = options.appEnv ?? process.env.APP_ENV ?? "production";
-  const service = options.service ?? new RoomService({ ...options, autoRecoverRooms: options.autoRecoverRooms ?? appEnv === "staging" });
+  const durableRecoveryEnabled = options.durableRecoveryEnabled ?? process.env.DURABLE_ROOM_RECOVERY_ENABLED === "true";
+  const service = options.service ?? new RoomService({ ...options, autoRecoverRooms: options.autoRecoverRooms ?? (appEnv === "staging" || durableRecoveryEnabled) });
   const lookupCommanderIdentity = options.lookupCommanderIdentity ?? createCommanderIdentityLookup(options.fetchImpl);
   const lookupCard = options.lookupCard ?? createCardLookup(options.fetchImpl);
   const lookupCardInteraction = options.lookupCardInteraction ?? createCardInteractionLookup(options.fetchImpl);

@@ -1398,6 +1398,15 @@ test("staging automatically rehydrates a durable table before players reclaim th
   }
 });
 
+test("production durable recovery requires an explicit opt in", () => {
+  const ledger = new MemoryPlaytestLedger();
+  const disabled = createRealtimeServer({ appEnv: "production", ledger }).service;
+  const enabled = createRealtimeServer({ appEnv: "production", durableRecoveryEnabled: true, ledger }).service;
+
+  assert.equal(disabled.autoRecoverRooms, false);
+  assert.equal(enabled.autoRecoverRooms, true);
+});
+
 test("deduplicates simultaneous staging recovery reads for one missing room", async () => {
   const ledger = new MemoryPlaytestLedger();
   const original = new RoomService({ ledger });
