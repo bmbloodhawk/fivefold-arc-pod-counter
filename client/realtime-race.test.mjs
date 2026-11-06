@@ -114,6 +114,47 @@ test('an SSE-only drop keeps scoring connected when the confirmed room read succ
   }
 });
 
+test('an SSE recovery reclaims before reporting connected when the server no longer owns the seat', async () => {
+  const originals = Object.fromEntries(['fetch', 'EventSource', 'document', 'localStorage'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  let connectionNumber = 0; let reclaimCalls = 0;
+  try {
+    FakeEventSource.instances = [];
+    globalThis.document = { visibilityState: 'visible' };
+    globalThis.EventSource = FakeEventSource;
+    globalThis.localStorage = { getItem: () => null, setItem: () => {} };
+    globalThis.fetch = async (url, options = {}) => {
+      const path = new URL(url).pathname;
+      if (path === '/api/connections') return response({ connectionId: `connection-${++connectionNumber}` });
+      if (path === '/api/rooms' && options.method === 'POST') return response({ snapshot: { code: 'POD123', version: 1 }, seatId: 0, reclaimToken: 'pod-token' });
+      if (path === '/api/rooms/POD123' && options.method !== 'POST') return response({ snapshot: { code: 'POD123', version: 2 }, ownership: { ownsSeat: false } });
+      if (path === '/api/rooms/POD123/claim' && options.method === 'POST') {
+        reclaimCalls += 1;
+        assert.equal(options.headers['X-Connection-Id'], 'connection-2');
+        return response({ snapshot: { code: 'POD123', version: 3 } });
+      }
+      if (path === '/api/rooms/POD123/client-diagnostics') return response({});
+      throw new Error(`Unexpected request: ${options.method || 'GET'} ${path}`);
+    };
+
+    const { RealtimeAdapter } = await import(new URL(`./realtime.js?restart-reclaim=${Date.now()}`, import.meta.url));
+    const adapter = new RealtimeAdapter({ apiBase: 'https://pod.test' });
+    await adapter.createRoom({ playerCount: 2, startingLife: 40 });
+    FakeEventSource.instances.at(-1).emit('error');
+    await new Promise(resolve => setImmediate(resolve));
+
+    assert.equal(reclaimCalls, 1);
+    assert.equal(adapter.connectionId, 'connection-2');
+    assert.equal(adapter.status, 'connected');
+    assert.equal(adapter.snapshot.version, 3);
+    adapter.clearSession();
+  } finally {
+    for (const [key, descriptor] of Object.entries(originals)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else delete globalThis[key];
+    }
+  }
+});
+
 test('a transient heartbeat failure refreshes the room before attempting a reclaim', async () => {
   const originals = Object.fromEntries(['fetch', 'EventSource', 'document', 'localStorage', 'setInterval', 'clearInterval'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   const intervals = [];

@@ -856,6 +856,22 @@ export class RoomService {
     return { connection, seat, seatId };
   }
 
+  /**
+   * A room snapshot is public, but a reconnecting client also needs to know
+   * whether its current server-side connection still owns its seat.  This is
+   * deliberately a boolean rather than a credential-bearing seat detail.
+   */
+  ownershipStatus(room, connectionId) {
+    if (!connectionId) return null;
+    try {
+      const { seatId } = this.requireOwner(room, connectionId);
+      return { ownsSeat: true, seatId };
+    } catch (error) {
+      if (error?.status === 401 || error?.status === 403) return { ownsSeat: false };
+      throw error;
+    }
+  }
+
   mutateOwnSeat(code, connectionId, input = {}) {
     const room = this.room(code);
     const { seat } = this.requireOwner(room, connectionId);
@@ -1727,7 +1743,11 @@ export function createRealtimeServer(options = {}) {
           const host = String(req.headers["x-forwarded-host"] || req.headers.host || "localhost").split(",")[0].trim();
           return serveJoinQr(res, code, `${protocol}://${host}`);
         }
-        if (req.method === "GET" && parts.length === 3) return json(res, 200, { snapshot: service.snapshot(service.room(code)) });
+        if (req.method === "GET" && parts.length === 3) {
+          const room = service.room(code);
+          const ownership = service.ownershipStatus(room, connectionId);
+          return json(res, 200, { snapshot: service.snapshot(room), ...(ownership ? { ownership } : {}) });
+        }
         if (req.method === "POST" && parts[3] === "claim") return json(res, 200, service.claimSeat(code, connectionId, await readJson(req)));
         if (req.method === "PATCH" && parts[3] === "me") return json(res, 200, service.mutateOwnSeat(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "adjust") return json(res, 200, service.adjustOwnSeat(code, connectionId, await readJson(req)));

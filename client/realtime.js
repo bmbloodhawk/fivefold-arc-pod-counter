@@ -388,9 +388,13 @@ export class RealtimeAdapter extends EventTarget {
     if (!this.#isCurrentSession(epoch) || this.sseRecoveryInFlight || this.resumePromise) return;
     this.sseRecoveryInFlight = true;
     try {
-      const result = await this.#request(`/api/rooms/${this.roomCode}?refresh=${Date.now()}`);
+      const result = await this.#request(`/api/rooms/${this.roomCode}?refresh=${Date.now()}`, { authenticated: true });
       if (!this.#isCurrentSession(epoch)) return;
       this.#acceptSnapshot(result.snapshot, epoch);
+      // A server restart can restore the room while discarding every in-memory
+      // connection. A public room read still succeeds in that case, but the
+      // old connection cannot change life. Reclaim before calling it connected.
+      if (result.ownership?.ownsSeat === false) return this.#resumeSession(epoch);
       this.#subscribe(epoch);
       this.#setStatus('connected');
     } catch {

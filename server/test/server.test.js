@@ -156,6 +156,26 @@ describe("room configuration and claims", () => {
     assert.equal(JSON.stringify(made.snapshot).includes(made.reclaimToken), false);
   });
 
+  test("reports whether an authenticated connection still owns its room seat", async () => {
+    const made = await room({ playerCount: 2 });
+    const owner = await call(`/api/rooms/${made.snapshot.code}`, { connectionId: made.connectionId });
+    assert.equal(owner.status, 200);
+    assert.deepEqual(owner.body.ownership, { ownsSeat: true, seatId: 0 });
+
+    const replacement = await connection();
+    const reclaimed = await call(`/api/rooms/${made.snapshot.code}/claim`, {
+      method: "POST", connectionId: replacement, body: { seatId: 0, reclaimToken: made.reclaimToken },
+    });
+    assert.equal(reclaimed.status, 200);
+
+    const oldConnection = await call(`/api/rooms/${made.snapshot.code}`, { connectionId: made.connectionId });
+    assert.equal(oldConnection.status, 200);
+    assert.deepEqual(oldConnection.body.ownership, { ownsSeat: false });
+
+    const publicRead = await call(`/api/rooms/${made.snapshot.code}`);
+    assert.equal(Object.hasOwn(publicRead.body, "ownership"), false);
+  });
+
   test("casual and custom tables omit Commander-only sources", async () => {
     const casual = await room({ gameFormat: "casual", startingLife: 20 });
     assert.equal(casual.snapshot.config.gameFormat, "casual");
