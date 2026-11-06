@@ -176,6 +176,28 @@ describe("room configuration and claims", () => {
     assert.equal(Object.hasOwn(publicRead.body, "ownership"), false);
   });
 
+  test("pins a table protocol and rejects a phone that cannot operate it", async () => {
+    const invalidConnection = await call("/api/connections", { method: "POST", body: [] });
+    assert.equal(invalidConnection.status, 400);
+    assert.equal(invalidConnection.body.error.code, "INVALID_INPUT");
+
+    const creator = await call("/api/connections", { method: "POST", body: { supportedTableProtocols: [1] } });
+    assert.equal(creator.status, 201);
+    const made = await call("/api/rooms", {
+      method: "POST", connectionId: creator.body.connectionId, body: { playerCount: 2, startingLife: 40 },
+    });
+    assert.equal(made.status, 201);
+    assert.equal(made.body.snapshot.protocolVersion, 1);
+
+    const incompatible = await call("/api/connections", { method: "POST", body: { supportedTableProtocols: [2] } });
+    assert.equal(incompatible.status, 201);
+    const denied = await call(`/api/rooms/${made.body.snapshot.code}/claim`, {
+      method: "POST", connectionId: incompatible.body.connectionId, body: { seatId: 1, name: "Jace" },
+    });
+    assert.equal(denied.status, 409);
+    assert.equal(denied.body.error.code, "TABLE_PROTOCOL_INCOMPATIBLE");
+  });
+
   test("casual and custom tables omit Commander-only sources", async () => {
     const casual = await room({ gameFormat: "casual", startingLife: 20 });
     assert.equal(casual.snapshot.config.gameFormat, "casual");
@@ -1411,6 +1433,7 @@ test("restores legacy recovery records without optional commander display fields
   const made = original.createRoom(host.connectionId, { playerCount: 4, startingLife: 40, commanderNames: ["Atraxa"] });
   original.adjustOwnSeat(made.snapshot.code, host.connectionId, { counter: "life", delta: -1 });
   const record = ledger.records.filter((item) => item.kind === "recovery").at(-1).record;
+  delete record.room.protocolVersion;
   for (const seat of record.room.seats) {
     delete seat.commanderNames;
     delete seat.commanderColors;
@@ -1421,6 +1444,7 @@ test("restores legacy recovery records without optional commander display fields
   const restarted = new RoomService({ ledger });
   const restored = await restarted.restoreRoom(made.snapshot.code, made.hostRecoveryKey);
   assert.equal(restored.restored, true);
+  assert.equal(restored.snapshot.protocolVersion, 1);
   assert.equal(restored.snapshot.seats[0].counters.life, 39);
   assert.deepEqual(restored.snapshot.seats[0].commanderColors, [[]]);
 });

@@ -19,7 +19,10 @@ test('does not emit a second state event for an unchanged snapshot', async () =>
     globalThis.localStorage = { getItem: () => null, setItem: () => {} };
     globalThis.fetch = async (url, options = {}) => {
       const path = new URL(url).pathname;
-      if (path === '/api/connections') return response({ connectionId: 'connection-1' });
+      if (path === '/api/connections') {
+        assert.deepEqual(JSON.parse(options.body), { supportedTableProtocols: [1] });
+        return response({ connectionId: 'connection-1' });
+      }
       if (path === '/api/rooms' && options.method === 'POST') return response({ snapshot: { code: 'POD123', version: 1 }, seatId: 0, reclaimToken: 'pod-token' });
       if (path === '/api/rooms/POD123') return response({ snapshot: { code: 'POD123', version: 1 } });
       throw new Error(`Unexpected request: ${options.method || 'GET'} ${path}`);

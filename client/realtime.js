@@ -1,5 +1,6 @@
 /** HTTP + SSE transport. Shared writes use exact versions and are never queued. */
 const SNAPSHOT_SAFETY_REFRESH_MS = 30_000;
+const SUPPORTED_TABLE_PROTOCOLS = [1];
 
 export class RealtimeAdapter extends EventTarget {
   constructor({ apiBase = location.origin } = {}) {
@@ -277,7 +278,7 @@ export class RealtimeAdapter extends EventTarget {
   }
 
   async #startConnection(epoch) {
-    const result = await this.#request('/api/connections', { method: 'POST', body: {} });
+    const result = await this.#request('/api/connections', { method: 'POST', body: { supportedTableProtocols: SUPPORTED_TABLE_PROTOCOLS } });
     if (!this.#isCurrentSession(epoch)) return false;
     this.connectionId = result.connectionId;
     return true;

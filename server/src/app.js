@@ -13,6 +13,10 @@ const COMMANDER_IDENTITY_TTL_MS = 6 * 60 * 60 * 1000;
 const COMMANDER_LOOKUP_TIMEOUT_MS = 6_000;
 const COMMANDER_LOOKUP_MIN_INTERVAL_MS = 100;
 const MAX_RECENT_OPERATION_IDS = 100;
+// This is the shared-table contract, not a browser or visual build number.
+// Future clients can advertise support for more than one table protocol.
+const CURRENT_TABLE_PROTOCOL_VERSION = 1;
+const MAX_TABLE_PROTOCOL_VERSION = 100;
 const DICE_IDENTITY_COLORS = { w: "#eee4c9", u: "#4f92c6", b: "#6f5b91", r: "#bd5a4c", g: "#4f8a63" };
 const STAGING_TEST_SKINS = Object.freeze([
   Object.freeze({ id: "staging-slate", name: "Staging Slate", status: "Approved", edited: "Test only", background: "#101b2c", surface: "#1d2c42", accent: "#a9cff5", secondary: "#6386ad", text: "#f4f8ff", muted: "#c2d1e2", interfaceStyle: "button", modeLayouts: {} }),
@@ -63,6 +67,23 @@ function tokenHash(token) {
 function tokenMatches(token, expectedHash) {
   if (typeof token !== "string" || !Buffer.isBuffer(expectedHash)) return false;
   return timingSafeEqual(tokenHash(token), expectedHash);
+}
+
+function supportedTableProtocols(input) {
+  if (input === undefined) return [CURRENT_TABLE_PROTOCOL_VERSION];
+  if (!Array.isArray(input) || !input.length || input.length > 8
+    || input.some((version) => !Number.isInteger(version) || version < 1 || version > MAX_TABLE_PROTOCOL_VERSION)) {
+    throw Object.assign(new Error("supportedTableProtocols must be a short list of positive protocol versions"), { status: 400, code: "INVALID_INPUT" });
+  }
+  return [...new Set(input)].sort((left, right) => left - right);
+}
+
+function roomProtocolVersion(value) {
+  if (value === undefined) return CURRENT_TABLE_PROTOCOL_VERSION;
+  if (!Number.isInteger(value) || value < 1 || value > MAX_TABLE_PROTOCOL_VERSION) {
+    throw Object.assign(new Error("The saved table protocol is invalid"), { status: 422, code: "INVALID_RECOVERY_RECORD" });
+  }
+  return value;
 }
 
 function encodedHash(hash) { return Buffer.from(hash).toString("base64url"); }
@@ -457,11 +478,19 @@ export class RoomService {
     this.recoveryLoads = new Map();
   }
 
-  createConnection() {
+  createConnection(input = {}) {
     this.sweep();
+    if (!input || typeof input !== "object" || Array.isArray(input)) {
+      throw Object.assign(new Error("Connection input must be an object"), { status: 400, code: "INVALID_INPUT" });
+    }
     const connectionId = opaque();
-    this.connections.set(connectionId, { connectionId, seatKey: null, lastSeen: this.now(), streams: new Set() });
+    this.connections.set(connectionId, { connectionId, supportedTableProtocols: supportedTableProtocols(input.supportedTableProtocols), seatKey: null, lastSeen: this.now(), streams: new Set() });
     return { connectionId, expiresInMs: this.connectionTtlMs };
+  }
+
+  requireCompatibleTableProtocol(connection, protocolVersion) {
+    if (connection.supportedTableProtocols.includes(protocolVersion)) return;
+    throw Object.assign(new Error("Update this phone before playing this table"), { status: 409, code: "TABLE_PROTOCOL_INCOMPATIBLE" });
   }
 
   getConnection(connectionId, { touch = true } = {}) {
@@ -492,6 +521,7 @@ export class RoomService {
   createRoom(connectionId, input = {}) {
     const connection = this.getConnection(connectionId);
     if (connection.seatKey) throw Object.assign(new Error("One connection may own only one seat"), { status: 409, code: "CONNECTION_HAS_SEAT" });
+    this.requireCompatibleTableProtocol(connection, CURRENT_TABLE_PROTOCOL_VERSION);
     const gameFormat = normalizeGameFormat(input.gameFormat);
     const playerCount = asInteger(input.playerCount, "playerCount", 2, 8);
     const seatCapacity = input.seatCapacity === undefined ? playerCount : asInteger(input.seatCapacity, "seatCapacity", playerCount, 8);
@@ -523,6 +553,7 @@ export class RoomService {
     const room = {
       code,
       version: 1,
+      protocolVersion: CURRENT_TABLE_PROTOCOL_VERSION,
       createdAt: startedAt,
       lastActiveAt: startedAt,
       hostSeatId: 0,
@@ -582,6 +613,7 @@ export class RoomService {
     return {
       code: room.code,
       version: room.version,
+      protocolVersion: room.protocolVersion,
       hostSeatId: room.hostSeatId,
       config: { ...room.config },
       lastCoinToss: room.lastCoinToss ? { ...room.lastCoinToss } : null,
@@ -770,6 +802,7 @@ export class RoomService {
   claimSeat(code, connectionId, input = {}) {
     const room = this.room(code);
     const connection = this.getConnection(connectionId);
+    this.requireCompatibleTableProtocol(connection, room.protocolVersion);
     const seatId = asInteger(input.seatId, "seatId", 0, room.config.playerCount - 1);
     const seatKey = `${room.code}:${seatId}`;
     if (connection.seatKey && connection.seatKey !== seatKey) {
@@ -1488,6 +1521,7 @@ export class RoomService {
       || room.seats.some((seat) => !seat || typeof seat !== "object" || !Number.isInteger(seat.seatId))) {
       throw Object.assign(new Error("The saved recovery record is invalid"), { status: 422, code: "INVALID_RECOVERY_RECORD" });
     }
+    room.protocolVersion = roomProtocolVersion(room.protocolVersion);
     room.hostRecoveryKeyHash = decodedHash(record.hostRecoveryKeyHash);
     // Recovery records can outlive optional Commander display fields added in a
     // later release. Normalize those legacy seats before deriving sources.
@@ -1730,7 +1764,7 @@ export function createRealtimeServer(options = {}) {
       if (req.method === "GET" && url.pathname === "/api/commander-identity") return json(res, 200, await lookupCommanderIdentity(url.searchParams.get("name") || ""));
       if (req.method === "GET" && url.pathname === "/api/cards/lookup") return json(res, 200, await lookupCard(url.searchParams.get("name") || ""));
       if (req.method === "GET" && url.pathname === "/api/cards/interaction") return json(res, 200, await lookupCardInteraction(url.searchParams.get("first") || "", url.searchParams.get("second") || ""));
-      if (req.method === "POST" && url.pathname === "/api/connections") return json(res, 201, service.createConnection());
+      if (req.method === "POST" && url.pathname === "/api/connections") return json(res, 201, service.createConnection(await readJson(req)));
       if (req.method === "POST" && url.pathname === "/api/connections/heartbeat") return json(res, 200, service.heartbeat(connectionId));
       if (req.method === "POST" && url.pathname === "/api/rooms") return json(res, 201, service.createRoom(connectionId, await readJson(req)));
       if (req.method === "POST" && parts[0] === "api" && parts[1] === "recovery" && parts[2]) return json(res, 200, await service.restoreRoom(parts[2], (await readJson(req)).hostRecoveryKey));
