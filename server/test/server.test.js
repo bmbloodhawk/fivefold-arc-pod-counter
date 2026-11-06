@@ -1357,6 +1357,7 @@ test("commander adjustment repairs a legacy seat missing its damage map", () => 
   const claimed = service.claimSeat(made.snapshot.code, guest.connectionId, { seatId: 1, name: "Jace", commanderNames: ["Krenko"] });
   service.startGame(made.snapshot.code, host.connectionId, { baseVersion: claimed.snapshot.version });
   service.room(made.snapshot.code).seats[0].commanderDamageReceived = undefined;
+  service.room(made.snapshot.code).seats[0].matchMoment.commanderDamageBySource = undefined;
 
   const result = service.adjustOwnSeat(made.snapshot.code, host.connectionId, { counter: "commanderDamage", commanderSourceId: "seat-0-commander-a", delta: 1 });
   assert.equal(result.snapshot.seats[0].commanderDamageReceived["seat-0-commander-a"], 1);

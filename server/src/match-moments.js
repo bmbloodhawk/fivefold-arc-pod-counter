@@ -10,6 +10,9 @@ export function recordMatchMoment(seat, { counter, delta, commanderSourceId, lif
   if (counter === 'commanderDamage') {
     if (delta > 0) {
       m.commanderDamageReceived += delta;
+      // Older durable records did not retain the per-commander achievement map.
+      // Rebuild it lazily so a valid damage entry cannot fail the game action.
+      if (!m.commanderDamageBySource || typeof m.commanderDamageBySource !== 'object') m.commanderDamageBySource = {};
       if (commanderSourceId) m.commanderDamageBySource[commanderSourceId] = (m.commanderDamageBySource[commanderSourceId] || 0) + delta;
     }
     m.lowestLife = Math.min(m.lowestLife, lifeAfter);
