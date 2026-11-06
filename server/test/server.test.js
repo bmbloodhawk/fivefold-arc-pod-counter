@@ -1292,6 +1292,31 @@ test("developer diagnostics find a room and return only its retained game histor
   assert.equal(JSON.stringify(diagnostic).includes("connectionId"), false);
 });
 
+test("developer activity reports only aggregate live table counts", async () => {
+  const now = () => 1_000;
+  const service = new RoomService({ now });
+  const host = service.createConnection();
+  const made = service.createRoom(host.connectionId, { playerCount: 2, startingLife: 40 });
+  const player = service.createConnection();
+  service.claimSeat(made.snapshot.code, player.connectionId, { seatId: 1, name: "Jace" });
+  const activityServer = createRealtimeServer({ service, feedbackPortalKey: "test-key" }).server;
+  await new Promise((resolve) => activityServer.listen(0, "127.0.0.1", resolve));
+  const activityUrl = `http://127.0.0.1:${activityServer.address().port}`;
+  try {
+    const denied = await fetch(`${activityUrl}/api/feedback/activity`);
+    assert.equal(denied.status, 403);
+
+    const allowed = await fetch(`${activityUrl}/api/feedback/activity`, { headers: { "x-feedback-portal-key": "test-key" } });
+    assert.equal(allowed.status, 200);
+    const body = await allowed.json();
+    assert.deepEqual(body.activity, { activePlayers: 2, activeTables: 1, playingTables: 0 });
+    assert.equal(JSON.stringify(body).includes(made.snapshot.code), false);
+    assert.equal(JSON.stringify(body).includes("Jace"), false);
+  } finally {
+    await new Promise((resolve) => activityServer.close(resolve));
+  }
+});
+
 test("treats repeated life operation IDs as one adjustment", async () => {
   const made = await room({ playerCount: 2, startingLife: 40 });
   const operationId = "a4a5b5ce-8e3b-4d62-a7c5-5b5d2e6a2b3c";
@@ -1398,13 +1423,16 @@ test("staging automatically rehydrates a durable table before players reclaim th
   }
 });
 
-test("production durable recovery requires an explicit opt in", () => {
-  const ledger = new MemoryPlaytestLedger();
-  const disabled = createRealtimeServer({ appEnv: "production", ledger }).service;
-  const enabled = createRealtimeServer({ appEnv: "production", durableRecoveryEnabled: true, ledger }).service;
+test("production durable recovery enables with Firebase and retains an emergency off switch", () => {
+  const disabled = createRealtimeServer({ appEnv: "production", ledger: new MemoryPlaytestLedger() }).service;
+  const durableLedger = new MemoryPlaytestLedger();
+  durableLedger.accessToken = async () => "server-only-token";
+  const enabled = createRealtimeServer({ appEnv: "production", ledger: durableLedger }).service;
+  const forcedOff = createRealtimeServer({ appEnv: "production", durableRecoveryEnabled: false, ledger: durableLedger }).service;
 
   assert.equal(disabled.autoRecoverRooms, false);
   assert.equal(enabled.autoRecoverRooms, true);
+  assert.equal(forcedOff.autoRecoverRooms, false);
 });
 
 test("deduplicates simultaneous staging recovery reads for one missing room", async () => {

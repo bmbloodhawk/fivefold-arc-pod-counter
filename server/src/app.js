@@ -799,6 +799,17 @@ export class RoomService {
     };
   }
 
+  developerActivity() {
+    this.sweep();
+    const activeSeats = [...this.rooms.values()].flatMap((room) => room.seats.filter((seat) => seat.claimed && seat.ownerConnectionId && this.connections.has(seat.ownerConnectionId)));
+    const activeRooms = [...this.rooms.values()].filter((room) => room.seats.some((seat) => seat.claimed && seat.ownerConnectionId && this.connections.has(seat.ownerConnectionId)));
+    return {
+      activePlayers: activeSeats.length,
+      activeTables: activeRooms.length,
+      playingTables: activeRooms.filter((room) => room.lifecycle?.status === "playing").length,
+    };
+  }
+
   claimSeat(code, connectionId, input = {}) {
     const room = this.room(code);
     const connection = this.getConnection(connectionId);
@@ -1645,7 +1656,7 @@ export class RoomService {
 
 export function createRealtimeServer(options = {}) {
   const appEnv = options.appEnv ?? process.env.APP_ENV ?? "production";
-  const durableRecoveryEnabled = options.durableRecoveryEnabled ?? process.env.DURABLE_ROOM_RECOVERY_ENABLED === "true";
+  const durableRecoveryEnabled = options.durableRecoveryEnabled ?? (appEnv === "production" && typeof options.ledger?.accessToken === "function");
   const service = options.service ?? new RoomService({ ...options, autoRecoverRooms: options.autoRecoverRooms ?? (appEnv === "staging" || durableRecoveryEnabled) });
   const lookupCommanderIdentity = options.lookupCommanderIdentity ?? createCommanderIdentityLookup(options.fetchImpl);
   const lookupCard = options.lookupCard ?? createCardLookup(options.fetchImpl);
@@ -1733,6 +1744,7 @@ export function createRealtimeServer(options = {}) {
       if (req.method === "GET" && parts[0] === "dice-skins" && parts[1] && parts[2] && serveDiceSkin(res, parts[1], parts[2])) return;
       if (req.method === "GET" && url.pathname === "/api/feedback") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { notes: await service.ledger.listFeedback() }); }
       if (req.method === "GET" && url.pathname === "/api/feedback/insights") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { insights: await service.developerFieldTestInsights() }); }
+      if (req.method === "GET" && url.pathname === "/api/feedback/activity") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { activity: service.developerActivity() }); }
       if (req.method === "GET" && url.pathname === "/api/feedback/diagnostics") {
         feedbackKeyMatches(req.headers["x-feedback-portal-key"]);
         const query = String(url.searchParams.get("query") || "").trim();
