@@ -13,6 +13,7 @@ const COMMANDER_IDENTITY_TTL_MS = 6 * 60 * 60 * 1000;
 const COMMANDER_LOOKUP_TIMEOUT_MS = 6_000;
 const COMMANDER_LOOKUP_MIN_INTERVAL_MS = 100;
 const MAX_RECENT_OPERATION_IDS = 100;
+const SSE_KEEPALIVE_MS = 25_000;
 // This is the shared-table contract, not a browser or visual build number.
 // Future clients can advertise support for more than one table protocol.
 const CURRENT_TABLE_PROTOCOL_VERSION = 1;
@@ -466,7 +467,7 @@ function resetSeatForNextGame(seat, startingLife) {
 function feedbackPromptSeatId(room) { const seats = room.seats.filter(seat => seat.claimed); if (!room.gameResult || !seats.length) return null; const value = [...room.gameId].reduce((total, character) => total + character.codePointAt(0), 0); return value % 3 ? null : seats[value % seats.length].seatId; }
 
 export class RoomService {
-  constructor({ now = () => Date.now(), roomTtlMs = 6 * 60 * 60 * 1000, connectionTtlMs = 90 * 1000, ledger = new NullPlaytestLedger(), productMeasurement = new ProductMeasurement(), autoRecoverRooms = false } = {}) {
+  constructor({ now = () => Date.now(), roomTtlMs = 6 * 60 * 60 * 1000, connectionTtlMs = 90 * 1000, sseKeepaliveMs = SSE_KEEPALIVE_MS, ledger = new NullPlaytestLedger(), productMeasurement = new ProductMeasurement(), autoRecoverRooms = false } = {}) {
     this.now = now;
     this.roomTtlMs = roomTtlMs;
     this.connectionTtlMs = connectionTtlMs;
@@ -476,6 +477,8 @@ export class RoomService {
     this.productMeasurement = productMeasurement;
     this.autoRecoverRooms = autoRecoverRooms;
     this.recoveryLoads = new Map();
+    this.sseKeepaliveMs = sseKeepaliveMs;
+    this.streamKeepalives = new Map();
   }
 
   createConnection(input = {}) {
@@ -1601,7 +1604,14 @@ export class RoomService {
   attachStream({ room, connection }, res) {
     connection.streams.add(res);
     res.write(`event: snapshot\ndata: ${JSON.stringify(this.snapshot(room))}\n\n`);
-    return () => connection.streams.delete(res);
+    const keepalive = setInterval(() => res.write(": keepalive\n\n"), this.sseKeepaliveMs);
+    keepalive.unref?.();
+    this.streamKeepalives.set(res, keepalive);
+    return () => {
+      clearInterval(this.streamKeepalives.get(res));
+      this.streamKeepalives.delete(res);
+      connection.streams.delete(res);
+    };
   }
 
   broadcast(room) {
@@ -1616,6 +1626,8 @@ export class RoomService {
 
   closeStreams(connection, reason) {
     for (const stream of connection.streams) {
+      clearInterval(this.streamKeepalives.get(stream));
+      this.streamKeepalives.delete(stream);
       stream.write(`event: close\ndata: ${JSON.stringify({ reason })}\n\n`);
       stream.end();
     }

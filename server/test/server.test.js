@@ -767,6 +767,20 @@ describe("authority and convergence", () => {
     await reader.cancel();
   });
 
+  test("keeps an idle SSE stream alive without changing room state", async () => {
+    const service = new RoomService({ sseKeepaliveMs: 5 });
+    const host = service.createConnection();
+    const made = service.createRoom(host.connectionId, { playerCount: 2, startingLife: 40 });
+    const stream = { writes: [], write(value) { this.writes.push(value); }, end() {} };
+    const detach = service.attachStream(service.resolveStreamTarget(made.snapshot.code, host.connectionId), stream);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    detach();
+
+    assert.match(stream.writes[0], /event: snapshot/);
+    assert.ok(stream.writes.some((value) => value === ': keepalive\n\n'));
+    assert.equal(service.room(made.snapshot.code).version, made.snapshot.version);
+  });
+
   test("shares a life change with two claimed phone windows", async () => {
     const made = await room({ playerCount: 2, startingLife: 40 });
     const playerConnection = await connection();
