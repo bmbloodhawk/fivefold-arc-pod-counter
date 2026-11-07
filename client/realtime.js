@@ -40,9 +40,17 @@ export class RealtimeAdapter extends EventTarget {
   }
   async refreshRoom() {
     if (this.localMode || !this.roomCode) return { snapshot: this.snapshot, local: true };
-    const result = await this.inspectRoom(this.roomCode);
-    if (result.snapshot) this.#acceptSnapshot(result.snapshot);
-    return result;
+    const epoch = this.sessionEpoch;
+    try {
+      const result = await this.inspectRoom(this.roomCode);
+      if (!this.#isCurrentSession(epoch)) return { ignored: true };
+      if (!result.snapshot) return result;
+      this.#acceptSnapshot(result.snapshot, epoch);
+      return { ...result, snapshot: this.snapshot };
+    } catch (error) {
+      if (!this.#isCurrentSession(epoch)) return { ignored: true };
+      throw error;
+    }
   }
 
   /** Re-establish one confirmed connection after a phone returns to the foreground. */
@@ -111,6 +119,7 @@ export class RealtimeAdapter extends EventTarget {
       let result;
       try { result = await this.#request(`/api/rooms/${this.roomCode}/adjust`, { method: 'POST', authenticated: true, body }); }
       catch (error) {
+        if (!this.#isCurrentSession(epoch)) return { ignored: true };
         if (!operationId || error.status) throw error;
         result = await this.#request(`/api/rooms/${this.roomCode}/adjust`, { method: 'POST', authenticated: true, body });
       }

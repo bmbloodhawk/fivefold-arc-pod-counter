@@ -44,6 +44,42 @@ test('does not emit a second state event for an unchanged snapshot', async () =>
   }
 });
 
+test('a delayed manual refresh returns the newer snapshot already received over SSE', async () => {
+  const originals = Object.fromEntries(['fetch', 'EventSource', 'document', 'localStorage'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  let adapter;
+  let releaseRefresh;
+  const initial = { code: 'POD123', version: 1 };
+  const newer = { code: 'POD123', version: 2 };
+  try {
+    globalThis.document = { visibilityState: 'visible' };
+    globalThis.EventSource = FakeEventSource;
+    globalThis.localStorage = { getItem: () => null, setItem: () => {} };
+    globalThis.fetch = async (url, options = {}) => {
+      const path = new URL(url).pathname;
+      if (path === '/api/connections') return response({ connectionId: 'connection-1' });
+      if (path === '/api/rooms' && options.method === 'POST') return response({ snapshot: initial, seatId: 0, reclaimToken: 'pod-token' });
+      if (path === '/api/rooms/POD123') return new Promise(resolve => { releaseRefresh = () => resolve(response({ snapshot: initial })); });
+      throw new Error(`Unexpected request: ${options.method || 'GET'} ${path}`);
+    };
+
+    const { RealtimeAdapter } = await import('./realtime.js');
+    adapter = new RealtimeAdapter({ apiBase: 'https://pod.test' });
+    await adapter.createRoom({ playerCount: 2, startingLife: 40 });
+    const refresh = adapter.refreshRoom();
+    FakeEventSource.instances.at(-1).emit('snapshot', { data: JSON.stringify(newer) });
+    releaseRefresh();
+
+    assert.deepEqual(adapter.snapshot, newer);
+    assert.deepEqual((await refresh).snapshot, newer);
+  } finally {
+    adapter?.clearSession();
+    for (const [key, descriptor] of Object.entries(originals)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else delete globalThis[key];
+    }
+  }
+});
+
 test('30-second snapshot safety polling pauses while an SSE reconnect is pending', async () => {
   const originals = Object.fromEntries(['fetch', 'EventSource', 'document', 'localStorage', 'setInterval', 'clearInterval'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   const intervals = [];
@@ -361,9 +397,13 @@ test('an old stream error cannot interrupt an in-flight background reclaim', asy
   }
 });
 
-test('a cleared room cannot overwrite a newly created room with late SSE or mutation snapshots', async () => {
+test('a cleared room cannot overwrite or mutate a new room through late responses', async () => {
   const originals = Object.fromEntries(['fetch', 'EventSource', 'document', 'localStorage'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   let connectionNumber = 0; let roomNumber = 0; let releaseOldMutation;
+  let rejectOldAdjustment;
+  const adjustmentPaths = [];
+  const oldRefreshRequests = [];
+  let adapter;
   try {
     globalThis.document = { visibilityState: 'visible' };
     globalThis.EventSource = FakeEventSource;
@@ -376,29 +416,47 @@ test('a cleared room cannot overwrite a newly created room with late SSE or muta
         return response({ snapshot: { code, version: 1 }, seatId: 0, reclaimToken: `${code}-token` });
       }
       if (path.endsWith('/me') && options.method === 'PATCH') return new Promise(resolve => { releaseOldMutation = () => resolve(response({ snapshot: { code: 'OLD111', version: 99 } })); });
+      if (path === '/api/rooms/OLD111' && options.method === 'GET') {
+        return new Promise((resolve, reject) => { oldRefreshRequests.push({ resolve, reject }); });
+      }
+      if (path.endsWith('/adjust')) {
+        adjustmentPaths.push(path);
+        if (path === '/api/rooms/OLD111/adjust') return new Promise((_, reject) => { rejectOldAdjustment = reject; });
+        return response({ snapshot: { code: 'NEW222', version: 2 } });
+      }
       throw new Error(`Unexpected request: ${options.method || 'GET'} ${path}`);
     };
 
     const { RealtimeAdapter } = await import(new URL(`./realtime.js?race=${Date.now()}`, import.meta.url));
-    const adapter = new RealtimeAdapter({ apiBase: 'https://pod.test' }); const states = [];
+    adapter = new RealtimeAdapter({ apiBase: 'https://pod.test' }); const states = [];
     adapter.addEventListener('state', event => states.push(event.detail.code));
 
     await adapter.createRoom({ playerCount: 2, startingLife: 40 });
     const oldEvents = FakeEventSource.instances.at(-1); const oldMutation = adapter.mutate({ counters: { life: 39 } });
+    const oldAdjustment = adapter.adjust({ counter: 'life', delta: -3, operationId: 'test-old-life-operation' });
+    const oldRefresh = adapter.refreshRoom();
+    const failedOldRefresh = adapter.refreshRoom().catch(error => ({ error }));
     await Promise.resolve(); assert.equal(typeof releaseOldMutation, 'function');
 
     adapter.clearSession();
     await adapter.createRoom({ playerCount: 2, startingLife: 40 });
     oldEvents.emit('snapshot', { data: JSON.stringify({ code: 'OLD111', version: 100 }) });
     releaseOldMutation();
-    const staleResult = await oldMutation;
+    rejectOldAdjustment(new TypeError('Old adjustment response dropped'));
+    oldRefreshRequests[0].resolve(response({ snapshot: { code: 'OLD111', version: 101 } }));
+    oldRefreshRequests[1].reject(new TypeError('Old refresh response dropped'));
+    const [staleResult, staleAdjustment, staleRefresh, staleRefreshError] = await Promise.all([oldMutation, oldAdjustment, oldRefresh, failedOldRefresh]);
 
     assert.equal(staleResult.ignored, true);
+    assert.equal(staleAdjustment.ignored, true);
+    assert.deepEqual(staleRefresh, { ignored: true });
+    assert.deepEqual(staleRefreshError, { ignored: true });
+    assert.deepEqual(adjustmentPaths, ['/api/rooms/OLD111/adjust']);
     assert.equal(adapter.roomCode, 'NEW222');
     assert.equal(adapter.snapshot.code, 'NEW222');
     assert.deepEqual(states, ['OLD111', 'NEW222']);
-    adapter.clearSession();
   } finally {
+    adapter?.clearSession();
     for (const [key, descriptor] of Object.entries(originals)) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);
       else delete globalThis[key];

@@ -11,7 +11,7 @@ test('the staging deployment is isolated, free-tier, and visibly marked', () => 
   assert.match(stagingConfig, /name: fivefold-arc-pod-counter-staging/);
   assert.match(stagingConfig, /plan: free/);
   assert.match(stagingConfig, /branch: staging/);
-  assert.match(stagingConfig, /APP_ENV\n\s+value: staging/);
+  assert.match(stagingConfig, /APP_ENV\r?\n\s+value: staging/);
   assert.match(app, /fivefold-arc-pod-counter-staging/);
   assert.match(app, /TEST ENVIRONMENT/);
   assert.match(styles, /\.staging-environment-banner/);

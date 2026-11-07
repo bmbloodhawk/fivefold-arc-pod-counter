@@ -1,5 +1,5 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=82';
-import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=72';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=83';
+import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=73';
 import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=114';
 import { connectionPresentation } from './connection-state.js?v=1';
 import { createInteractionAdvice } from './card-interaction-advice.js?v=1';
@@ -38,7 +38,8 @@ const dom = {
 const winnerCondition = $('#winnerCondition');
 dom.lobbyMount.append(dom.lobbyControls);
 const transport = new RealtimeAdapter({ apiBase: apiBaseFromPage() });
-const DIAGNOSTIC_BUILD = '200';
+const diagnosticAssetVersion = new URL(import.meta.url).searchParams.get('v');
+const DIAGNOSTIC_BUILD = /^\d{1,8}$/.test(diagnosticAssetVersion) ? diagnosticAssetVersion : 'unknown';
 const reportedDiagnostics = new Set();
 let viewportSyncTimer = null;
 function syncViewportMetrics() {
@@ -164,7 +165,8 @@ let activeGameSkinId = '';
 let dialPointer = null;
 async function reconcileLifeWriteError(error) {
   try {
-    await transport.refreshRoom();
+    const result = await transport.refreshRoom();
+    if (result.ignored) return false;
     renderConnection('connected');
     return true;
   } catch {
@@ -1473,7 +1475,10 @@ async function moveNextGameSeat(seatId, direction) {
 async function confirmNextGameStart() {
   if (!state?.lifecycle || state.lifecycle.status !== 'intermission') return;
   if (!state.localSimulation) {
-    try { await transport.refreshRoom(); } catch (error) { showError(error); return; }
+    try {
+      const result = await transport.refreshRoom();
+      if (result.ignored) return;
+    } catch (error) { showError(error); return; }
   }
   const rosterIds = state.lifecycle.seatIds || [];
   const readyIds = state.lifecycle.readySeatIds || [];
@@ -1757,7 +1762,7 @@ myGamesContent.addEventListener('click', event => { const id = event.target.clos
 exportAccountButton.addEventListener('click', () => { void exportAccountData().catch(error => { myGamesStatus.textContent = error.message; }); });
 deleteAccountButton.addEventListener('click', () => { void deleteAccountData().catch(error => { myGamesStatus.textContent = error.message; }); });
 dom.cardCameraButton.addEventListener('click', openCardCamera); dom.cardAdvisorForm.addEventListener('submit', event => { if (event.submitter?.value === 'close') return; event.preventDefault(); lookupCardTitles(); });
-dom.playtestNotesButton.addEventListener('click', openPlaytestNotes); dom.playtestRecapButton.addEventListener('click', openPlaytestRecap); dom.fieldTestButton.addEventListener('click', () => { dom.gameMenu.hidden = true; dom.fieldTestStatus.textContent = ''; dom.fieldTestDialog.showModal(); }); dom.fieldTestForm.addEventListener('submit', async event => { if (event.submitter?.id !== 'saveFieldTestButton') return; event.preventDefault(); const form = new FormData(dom.fieldTestForm); const issues = form.getAll('issues'); if (issues.length > 3) { dom.fieldTestStatus.textContent = 'Choose no more than three friction areas.'; return; } try { dom.fieldTestStatus.textContent = 'Saving…'; await transport.recordFieldTest({ realTable: form.get('realTable') === 'on', deviceMix: form.get('deviceMix'), repeatUse: form.get('repeatUse'), dispute: form.get('dispute'), issues, note: form.get('note') }); dom.fieldTestStatus.textContent = 'Field test saved.'; setTimeout(() => dom.fieldTestDialog.close(), 650); } catch (error) { dom.fieldTestStatus.textContent = `Not saved: ${error.message}`; } }); dom.savedPlaytestsButton.addEventListener('click', openSavedPlaytests); dom.refreshTableButton.addEventListener('click', async () => { try { const { snapshot } = await transport.refreshRoom(); if (snapshot) showSharedGame(snapshot); dom.gameMenu.hidden = true; } catch (error) { showError(error); } }); dom.playtestNotesForm.addEventListener('submit', async event => { if (event.submitter?.id !== 'savePlaytestNoteButton') return; event.preventDefault(); const text = dom.playtestNoteText.value; try { dom.playtestNoteStatus.textContent = 'Saving…'; await transport.addPlaytestNote(text); dom.playtestNoteText.value = ''; dom.playtestNoteStatus.textContent = 'Saved.'; await openPlaytestNotes(); } catch (error) { dom.playtestNoteStatus.textContent = `Not saved: ${error.message}`; } });
+dom.playtestNotesButton.addEventListener('click', openPlaytestNotes); dom.playtestRecapButton.addEventListener('click', openPlaytestRecap); dom.fieldTestButton.addEventListener('click', () => { dom.gameMenu.hidden = true; dom.fieldTestStatus.textContent = ''; dom.fieldTestDialog.showModal(); }); dom.fieldTestForm.addEventListener('submit', async event => { if (event.submitter?.id !== 'saveFieldTestButton') return; event.preventDefault(); const form = new FormData(dom.fieldTestForm); const issues = form.getAll('issues'); if (issues.length > 3) { dom.fieldTestStatus.textContent = 'Choose no more than three friction areas.'; return; } try { dom.fieldTestStatus.textContent = 'Saving…'; await transport.recordFieldTest({ realTable: form.get('realTable') === 'on', deviceMix: form.get('deviceMix'), repeatUse: form.get('repeatUse'), dispute: form.get('dispute'), issues, note: form.get('note') }); dom.fieldTestStatus.textContent = 'Field test saved.'; setTimeout(() => dom.fieldTestDialog.close(), 650); } catch (error) { dom.fieldTestStatus.textContent = `Not saved: ${error.message}`; } }); dom.savedPlaytestsButton.addEventListener('click', openSavedPlaytests); dom.refreshTableButton.addEventListener('click', async () => { try { const { snapshot, ignored } = await transport.refreshRoom(); if (ignored) return; if (snapshot) showSharedGame(snapshot); dom.gameMenu.hidden = true; } catch (error) { showError(error); } }); dom.playtestNotesForm.addEventListener('submit', async event => { if (event.submitter?.id !== 'savePlaytestNoteButton') return; event.preventDefault(); const text = dom.playtestNoteText.value; try { dom.playtestNoteStatus.textContent = 'Saving…'; await transport.addPlaytestNote(text); dom.playtestNoteText.value = ''; dom.playtestNoteStatus.textContent = 'Saved.'; await openPlaytestNotes(); } catch (error) { dom.playtestNoteStatus.textContent = `Not saved: ${error.message}`; } });
 dom.markDevelopmentButton.addEventListener('click', async () => { try { await transport.setSessionKind(state.sessionKind === 'development' ? 'standard' : 'development'); } catch (error) { showError(error); } });
 dom.startingRollDialog.addEventListener('close', () => { startingRollSequence += 1; clearStartingRollTimers(); });
 dom.rollMyD20Button.addEventListener('click', rollMyStartingD20);

@@ -14,6 +14,11 @@ const COMMANDER_LOOKUP_TIMEOUT_MS = 6_000;
 const COMMANDER_LOOKUP_MIN_INTERVAL_MS = 100;
 const MAX_RECENT_OPERATION_IDS = 100;
 const SSE_KEEPALIVE_MS = 25_000;
+const REQUEST_LOG_METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);
+const REQUEST_LOG_FEATURES = new Set([
+  "account", "appearance-studio", "cards", "commander-identity", "connections", "developer",
+  "feedback", "game-layout", "game-skins", "recovery", "rooms", "static",
+]);
 // This is the shared-table contract, not a browser or visual build number.
 // Future clients can advertise support for more than one table protocol.
 const CURRENT_TABLE_PROTOCOL_VERSION = 1;
@@ -1744,9 +1749,10 @@ export function createRealtimeServer(options = {}) {
     }
     Object.entries(cors).forEach(([key, value]) => res.setHeader(key, value));
     Object.entries(securityHeaders).forEach(([key, value]) => res.setHeader(key, value));
+    let parts;
     try {
       const url = new URL(req.url, "http://localhost");
-      const parts = url.pathname.split("/").filter(Boolean);
+      parts = url.pathname.split("/").filter(Boolean);
       const connectionId = req.headers["x-connection-id"];
       if (req.method === "GET" && url.pathname === "/health") return json(res, 200, { ok: true });
       if (req.method === "GET" && url.pathname === "/api/account/history") { const accountId = await account(req); return json(res, 200, { history: await accountHistory.summary(accountId) }); }
@@ -1879,10 +1885,22 @@ export function createRealtimeServer(options = {}) {
       if (req.method === "GET" && !url.pathname.startsWith("/api/") && await serveStatic(res, staticDir, url.pathname)) return;
       return json(res, 404, errorBody("NOT_FOUND", "Endpoint not found"));
     } catch (error) {
-      // Keep client errors generic, but retain the server-side failure class for
-      // operational diagnosis. Do not log request bodies or credentials here.
-      if (!error?.status) console.error("Fivefold Arc request failed", { method: req.method, path: req.url?.split("?")[0], code: error?.code ?? "INTERNAL_ERROR", message: error instanceof Error ? error.message : String(error) });
-      return json(res, error.status ?? 500, errorBody(error.code ?? "INTERNAL_ERROR", error.status ? error.message : "Internal server error", error.snapshot));
+      const status = error.status ?? 500;
+      let headers;
+      if (!error.status) {
+        const requestId = opaque(16);
+        const feature = parts?.[0] === "api" ? parts[1] : "static";
+        headers = { "x-request-id": requestId };
+        console.error(JSON.stringify({
+          event: "request_failed",
+          at: new Date().toISOString(),
+          method: REQUEST_LOG_METHODS.has(req.method) ? req.method : "other",
+          feature: REQUEST_LOG_FEATURES.has(feature) ? feature : "other",
+          status,
+          requestId,
+        }));
+      }
+      return json(res, status, errorBody(error.code ?? "INTERNAL_ERROR", error.status ? error.message : "Internal server error", error.snapshot), headers);
     }
   });
   return { server, service };

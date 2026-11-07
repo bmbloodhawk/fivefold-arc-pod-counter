@@ -23,6 +23,10 @@ npm run test:live
 The target must be disposable test data, never production. The suite creates
 ephemeral rooms through the public API and does not require a cleanup endpoint.
 
+From the repository root, `node qa/reliability-report.mjs` starts a separate
+loopback server and prints a latency, delivery and reclaim report. See the
+[reliability runbook](../docs/RELIABILITY_RUNBOOK.md) for what it measures.
+
 ## Contract boundary
 
 `blackbox/adapter.mjs` is the only implementation-facing file. It maps the
