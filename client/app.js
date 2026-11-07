@@ -88,10 +88,15 @@ document.addEventListener('touchend', event => {
 document.addEventListener('dblclick', event => event.preventDefault(), { capture: true });
 function diagnosticViewport() { return innerWidth <= 360 ? 'compact' : innerWidth <= 600 ? 'phone' : 'wide'; }
 function diagnosticDeviceMemory() { const memory = Number(navigator.deviceMemory); return memory > 8 ? '8plus' : [1, 2, 4, 8].includes(memory) ? String(memory) : 'unknown'; }
-function recordClientDiagnostic(kind) {
+function diagnosticErrorCode(value) {
+  const name = value?.name;
+  const codes = { TypeError: 'CLIENT_TYPE_ERROR', ReferenceError: 'CLIENT_REFERENCE_ERROR', SyntaxError: 'CLIENT_SYNTAX_ERROR', RangeError: 'CLIENT_RANGE_ERROR', AbortError: 'CLIENT_ABORT_ERROR', NetworkError: 'CLIENT_NETWORK_ERROR', SecurityError: 'CLIENT_SECURITY_ERROR', NotAllowedError: 'CLIENT_NOT_ALLOWED_ERROR' };
+  return codes[name] || 'CLIENT_OTHER_ERROR';
+}
+function recordClientDiagnostic(kind, extra = {}) {
   if (appearancePreviewMode || !state?.podCode || transport.localMode) return;
   const heap = performance.memory?.usedJSHeapSize;
-  void transport.recordClientDiagnostic({ kind, build: DIAGNOSTIC_BUILD, viewport: diagnosticViewport(), deviceMemoryGb: diagnosticDeviceMemory(), visibility: document.visibilityState === 'hidden' ? 'hidden' : 'visible', jsHeapMb: Number.isFinite(heap) ? Math.round(heap / 1_048_576) : null }).catch(() => {});
+  void transport.recordClientDiagnostic({ kind, build: DIAGNOSTIC_BUILD, viewport: diagnosticViewport(), deviceMemoryGb: diagnosticDeviceMemory(), visibility: document.visibilityState === 'hidden' ? 'hidden' : 'visible', jsHeapMb: Number.isFinite(heap) ? Math.round(heap / 1_048_576) : null, ...extra }).catch(() => {});
 }
 const accountChoice = $('#accountChoice'); const playActions = $('#playActions'); const signInButton = $('#signInButton'); const continueGuestButton = $('#continueGuestButton'); const myGamesButton = $('#myGamesButton'); const myGamesDialog = $('#myGamesDialog'); const myGamesStatus = $('#myGamesStatus'); const myGamesContent = $('#myGamesContent'); const myGamesSignInButton = $('#myGamesSignInButton'); const emailSignInFields = $('#emailSignInFields'); const emailSignInButton = $('#emailSignInButton'); const forgotPasswordButton = $('#forgotPasswordButton'); const createAccountButton = $('#createAccountButton'); const exportAccountButton = $('#exportAccountButton'); const deleteAccountButton = $('#deleteAccountButton'); const signOutButton = $('#signOutButton'); const accountEmail = $('#accountEmail'); const accountPassword = $('#accountPassword'); const accountPreferredNameField = $('#accountPreferredNameField'); const accountPreferredName = $('#accountPreferredName'); const accountDefaultPlayerCountField = $('#accountDefaultPlayerCountField'); const accountDefaultPlayerCount = $('#accountDefaultPlayerCount'); const accountDefaultRoundLimitField = $('#accountDefaultRoundLimitField'); const accountDefaultRoundLimit = $('#accountDefaultRoundLimit'); const saveAccountPreferencesButton = $('#saveAccountPreferencesButton'); const myDecksButton = $('#myDecksButton'); const myDecksDialog = $('#myDecksDialog'); const myDecksStatus = $('#myDecksStatus'); const myDecksContent = $('#myDecksContent'); const myDecksSignInButton = $('#myDecksSignInButton'); const createDeckButton = $('#createDeckButton'); const findDeckColorsButton = $('#findDeckColorsButton'); const deckCommanderStatus = $('#deckCommanderStatus'); const deckCommanderName = $('#deckCommanderName'); const deckCommanderNameTwo = $('#deckCommanderNameTwo'); const deckCommanderNameTwoField = $('#deckCommanderNameTwoField'); const deckName = $('#deckName'); const deckNotes = $('#deckNotes'); const deckFavorite = $('#deckFavorite');
 myGamesStatus.setAttribute('role', 'status');
@@ -1780,8 +1785,8 @@ transport.addEventListener('status', event => { renderConnection(event.detail); 
 transport.addEventListener('state', event => { const roomCode = event.detail?.code; if (!roomCode || reportedDiagnostics.has(roomCode)) return; reportedDiagnostics.add(roomCode); setTimeout(() => recordClientDiagnostic('session_started'), 0); });
 transport.addEventListener('state', event => { if (event.detail?.seats?.length) void applySelectedAppearance(); });
 document.addEventListener('visibilitychange', () => { recordClientDiagnostic('visibility_changed'); if (document.visibilityState === 'visible') { scheduleViewportMetrics(); void transport.resume(); } });
-window.addEventListener('error', () => recordClientDiagnostic('unhandled_error'));
-window.addEventListener('unhandledrejection', () => recordClientDiagnostic('unhandled_error'));
+window.addEventListener('error', event => recordClientDiagnostic('unhandled_error', { errorCode: diagnosticErrorCode(event.error) }));
+window.addEventListener('unhandledrejection', event => recordClientDiagnostic('unhandled_error', { errorCode: diagnosticErrorCode(event.reason) }));
 dom.startingRollCanvas?.addEventListener('webglcontextlost', () => recordClientDiagnostic('webgl_context_lost'));
 transport.addEventListener('protocolerror', () => recordClientDiagnostic('protocol_error'));
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js').catch(() => {});

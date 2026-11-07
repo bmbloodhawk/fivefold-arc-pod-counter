@@ -117,6 +117,53 @@ test('an SSE-only drop keeps scoring connected when the confirmed room read succ
   }
 });
 
+test('coalesces rapid SSE recovery loops into one connection incident summary', async () => {
+  const originals = Object.fromEntries(['fetch', 'EventSource', 'document', 'localStorage', 'setTimeout', 'clearTimeout'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  const diagnostics = [];
+  const timers = [];
+  let adapter;
+  try {
+    FakeEventSource.instances = [];
+    globalThis.document = { visibilityState: 'visible' };
+    globalThis.EventSource = FakeEventSource;
+    globalThis.localStorage = { getItem: () => null, setItem: () => {} };
+    globalThis.setTimeout = (callback, delay) => { const timer = { callback, delay, cleared: false }; timers.push(timer); return timer; };
+    globalThis.clearTimeout = timer => { if (timer) timer.cleared = true; };
+    globalThis.fetch = async (url, options = {}) => {
+      const path = new URL(url).pathname;
+      if (path === '/api/connections') return response({ connectionId: 'connection-1' });
+      if (path === '/api/rooms' && options.method === 'POST') return response({ snapshot: { code: 'POD123', version: 1 }, seatId: 0, reclaimToken: 'pod-token' });
+      if (path === '/api/rooms/POD123') return response({ snapshot: { code: 'POD123', version: 2 } });
+      if (path === '/api/rooms/POD123/client-diagnostics') { diagnostics.push(JSON.parse(options.body)); return response({}); }
+      throw new Error(`Unexpected request: ${options.method || 'GET'} ${path}`);
+    };
+
+    const { RealtimeAdapter } = await import(new URL(`./realtime.js?incident-summary=${Date.now()}`, import.meta.url));
+    adapter = new RealtimeAdapter({ apiBase: 'https://pod.test' });
+    await adapter.createRoom({ playerCount: 2, startingLife: 40 });
+    FakeEventSource.instances.at(-1).emit('error');
+    await new Promise(resolve => setImmediate(resolve));
+    FakeEventSource.instances.at(-1).emit('error');
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(diagnostics.map(({ outcome, occurrences }) => ({ outcome, occurrences })), [{ outcome: 'failed', occurrences: 1 }]);
+    const recovery = timers.find(timer => timer.delay === 30_000 && !timer.cleared);
+    assert.ok(recovery);
+    recovery.callback();
+    await new Promise(resolve => setImmediate(resolve));
+
+    assert.deepEqual(diagnostics.map(({ kind, operation, outcome, reason, occurrences, reconnectAttempts }) => ({ kind, operation, outcome, reason, occurrences, reconnectAttempts })), [
+      { kind: 'connection_incident', operation: 'sse', outcome: 'failed', reason: 'event_source_error', occurrences: 1, reconnectAttempts: 0 },
+      { kind: 'connection_incident', operation: 'sse', outcome: 'recovered', reason: 'event_source_error', occurrences: 2, reconnectAttempts: 2 },
+    ]);
+  } finally {
+    adapter?.clearSession();
+    for (const [key, descriptor] of Object.entries(originals)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else delete globalThis[key];
+    }
+  }
+});
+
 test('an SSE recovery reclaims before reporting connected when the server no longer owns the seat', async () => {
   const originals = Object.fromEntries(['fetch', 'EventSource', 'document', 'localStorage'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   let connectionNumber = 0; let reclaimCalls = 0;

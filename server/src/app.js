@@ -169,7 +169,11 @@ function asInteger(value, name, min, max) {
   return value;
 }
 
-const CLIENT_DIAGNOSTIC_KINDS = new Set(["session_started", "visibility_changed", "sse_error", "protocol_error", "webgl_context_lost", "unhandled_error"]);
+const CLIENT_DIAGNOSTIC_KINDS = new Set(["session_started", "visibility_changed", "sse_error", "protocol_error", "webgl_context_lost", "unhandled_error", "connection_incident"]);
+const CONNECTION_DIAGNOSTIC_OPERATIONS = new Set(["sse", "heartbeat", "room_read", "seat_reclaim"]);
+const CONNECTION_DIAGNOSTIC_OUTCOMES = new Set(["failed", "recovered"]);
+const CONNECTION_DIAGNOSTIC_REASONS = new Set(["event_source_error", "network_error", "http_error", "ownership_missing"]);
+const CLIENT_DIAGNOSTIC_ERROR_CODES = new Set(["CLIENT_TYPE_ERROR", "CLIENT_REFERENCE_ERROR", "CLIENT_SYNTAX_ERROR", "CLIENT_RANGE_ERROR", "CLIENT_ABORT_ERROR", "CLIENT_NETWORK_ERROR", "CLIENT_SECURITY_ERROR", "CLIENT_NOT_ALLOWED_ERROR", "CLIENT_OTHER_ERROR", "SERVER_CONNECTION_EXPIRED", "SERVER_NOT_SEAT_OWNER", "SERVER_ROOM_NOT_FOUND", "SERVER_VERSION_CONFLICT", "SERVER_NOT_FOUND", "SERVER_OTHER_ERROR"]);
 function normalizeClientDiagnostic(input = {}) {
   if (!input || typeof input !== "object" || Array.isArray(input) || !CLIENT_DIAGNOSTIC_KINDS.has(input.kind)) {
     throw Object.assign(new Error("Diagnostic kind is invalid"), { status: 400, code: "INVALID_INPUT" });
@@ -179,7 +183,18 @@ function normalizeClientDiagnostic(input = {}) {
   const deviceMemoryGb = ["unknown", "1", "2", "4", "8", "8plus"].includes(String(input.deviceMemoryGb)) ? String(input.deviceMemoryGb) : "unknown";
   const visibility = ["visible", "hidden", "unknown"].includes(input.visibility) ? input.visibility : "unknown";
   const jsHeapMb = Number.isInteger(input.jsHeapMb) && input.jsHeapMb >= 0 && input.jsHeapMb <= 2048 ? input.jsHeapMb : null;
-  return { kind: input.kind, build, viewport, deviceMemoryGb, visibility, jsHeapMb };
+  const errorCode = input.errorCode === null || input.errorCode === undefined ? null : (CLIENT_DIAGNOSTIC_ERROR_CODES.has(input.errorCode) ? input.errorCode : null);
+  if (input.errorCode !== null && input.errorCode !== undefined && errorCode === null) throw Object.assign(new Error("errorCode is invalid"), { status: 400, code: "INVALID_INPUT" });
+  const base = { kind: input.kind, build, viewport, deviceMemoryGb, visibility, jsHeapMb, ...(errorCode ? { errorCode } : {}) };
+  if (input.kind !== "connection_incident") return base;
+  if (!CONNECTION_DIAGNOSTIC_OPERATIONS.has(input.operation) || !CONNECTION_DIAGNOSTIC_OUTCOMES.has(input.outcome) || !CONNECTION_DIAGNOSTIC_REASONS.has(input.reason)) {
+    throw Object.assign(new Error("Connection diagnostic details are invalid"), { status: 400, code: "INVALID_INPUT" });
+  }
+  const reconnectAttempts = asInteger(input.reconnectAttempts, "reconnectAttempts", 0, 100);
+  const occurrences = asInteger(input.occurrences, "occurrences", 1, 10_000);
+  const durationMs = asInteger(input.durationMs, "durationMs", 0, 3_600_000);
+  const httpStatus = input.httpStatus === null || input.httpStatus === undefined ? null : asInteger(input.httpStatus, "httpStatus", 400, 599);
+  return { ...base, operation: input.operation, outcome: input.outcome, reason: input.reason, reconnectAttempts, occurrences, durationMs, httpStatus, errorCode };
 }
 
 function normalizeName(value, fallback) {

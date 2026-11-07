@@ -1539,10 +1539,28 @@ test("uses a compatible life operation ID when randomUUID is unavailable", () =>
 test("stores only allow-listed, coarse client health diagnostics with a game", () => {
   const ledger = new MemoryPlaytestLedger(); const service = new RoomService({ ledger });
   const host = service.createConnection(); const created = service.createRoom(host.connectionId, { playerCount: 2, startingLife: 40 });
-  assert.deepEqual(service.recordClientDiagnostic(created.snapshot.code, host.connectionId, { kind: "session_started", build: "200", viewport: "phone", deviceMemoryGb: "4", visibility: "visible", jsHeapMb: 37 }), { recorded: true });
+  assert.deepEqual(service.recordClientDiagnostic(created.snapshot.code, host.connectionId, { kind: "session_started", build: "200", viewport: "phone", deviceMemoryGb: "4", visibility: "visible", jsHeapMb: 37, errorCode: "CLIENT_TYPE_ERROR" }), { recorded: true });
   const diagnostic = ledger.records.findLast(item => item.kind === "event" && item.record.type === "client_diagnostic").record;
-  assert.deepEqual({ type: diagnostic.type, kind: diagnostic.kind, build: diagnostic.build, viewport: diagnostic.viewport, deviceMemoryGb: diagnostic.deviceMemoryGb, visibility: diagnostic.visibility, jsHeapMb: diagnostic.jsHeapMb }, { type: "client_diagnostic", kind: "session_started", build: "200", viewport: "phone", deviceMemoryGb: "4", visibility: "visible", jsHeapMb: 37 });
+  assert.deepEqual({ type: diagnostic.type, kind: diagnostic.kind, build: diagnostic.build, viewport: diagnostic.viewport, deviceMemoryGb: diagnostic.deviceMemoryGb, visibility: diagnostic.visibility, jsHeapMb: diagnostic.jsHeapMb, errorCode: diagnostic.errorCode }, { type: "client_diagnostic", kind: "session_started", build: "200", viewport: "phone", deviceMemoryGb: "4", visibility: "visible", jsHeapMb: 37, errorCode: "CLIENT_TYPE_ERROR" });
   assert.throws(() => service.recordClientDiagnostic(created.snapshot.code, host.connectionId, { kind: "raw_user_agent", userAgent: "not allowed" }), { code: "INVALID_INPUT" });
+});
+
+test("stores a privacy-safe, rate-summary connection incident without raw error text", () => {
+  const ledger = new MemoryPlaytestLedger(); const service = new RoomService({ ledger });
+  const host = service.createConnection(); const created = service.createRoom(host.connectionId, { playerCount: 2, startingLife: 40 });
+  service.recordClientDiagnostic(created.snapshot.code, host.connectionId, {
+    kind: "connection_incident", operation: "sse", outcome: "recovered", reason: "event_source_error",
+    reconnectAttempts: 7, occurrences: 42, durationMs: 18_500, httpStatus: null, errorCode: "SERVER_OTHER_ERROR",
+    errorMessage: "This text must never be retained.", userAgent: "also never retained",
+  });
+  const diagnostic = ledger.records.findLast(item => item.kind === "event" && item.record.type === "client_diagnostic").record;
+  assert.deepEqual({ kind: diagnostic.kind, operation: diagnostic.operation, outcome: diagnostic.outcome, reason: diagnostic.reason, reconnectAttempts: diagnostic.reconnectAttempts, occurrences: diagnostic.occurrences, durationMs: diagnostic.durationMs, httpStatus: diagnostic.httpStatus, errorCode: diagnostic.errorCode }, {
+    kind: "connection_incident", operation: "sse", outcome: "recovered", reason: "event_source_error", reconnectAttempts: 7, occurrences: 42, durationMs: 18_500, httpStatus: null, errorCode: "SERVER_OTHER_ERROR",
+  });
+  assert.equal(JSON.stringify(diagnostic).includes("This text must never be retained."), false);
+  assert.equal(JSON.stringify(diagnostic).includes("also never retained"), false);
+  assert.throws(() => service.recordClientDiagnostic(created.snapshot.code, host.connectionId, { kind: "connection_incident", operation: "unknown" }), { code: "INVALID_INPUT" });
+  assert.throws(() => service.recordClientDiagnostic(created.snapshot.code, host.connectionId, { kind: "connection_incident", operation: "sse", outcome: "failed", reason: "event_source_error", reconnectAttempts: 0, occurrences: 1, durationMs: 0, errorCode: "EMAIL_JANE_EXAMPLE_COM" }), { code: "INVALID_INPUT" });
 });
 
 test("protects the Appearance Studio catalog with the developer portal key", async () => {

@@ -1,5 +1,6 @@
 /** HTTP + SSE transport. Shared writes use exact versions and are never queued. */
 const SNAPSHOT_SAFETY_REFRESH_MS = 30_000;
+const CONNECTION_INCIDENT_REPORT_INTERVAL_MS = 30_000;
 const SUPPORTED_TABLE_PROTOCOLS = [1];
 
 export class RealtimeAdapter extends EventTarget {
@@ -10,6 +11,7 @@ export class RealtimeAdapter extends EventTarget {
     this.reclaimToken = null; this.snapshot = null; this.events = null;
     this.heartbeatTimer = null; this.reconnectTimer = null; this.snapshotRefreshTimer = null;
     this.sseRecoveryInFlight = false; this.resumePromise = null;
+    this.connectionIncident = null; this.connectionRecoveryTimer = null;
     this.status = 'local'; this.localMode = true; this.stopped = false; this.sessionEpoch = 0;
   }
 
@@ -257,8 +259,8 @@ export class RealtimeAdapter extends EventTarget {
 
   disconnect() {
     this.stopped = true; this.events?.close(); this.events = null;
-    clearInterval(this.heartbeatTimer); clearTimeout(this.reconnectTimer); clearInterval(this.snapshotRefreshTimer);
-    this.heartbeatTimer = null; this.reconnectTimer = null; this.snapshotRefreshTimer = null; this.connectionId = null;
+    clearInterval(this.heartbeatTimer); clearTimeout(this.reconnectTimer); clearInterval(this.snapshotRefreshTimer); clearTimeout(this.connectionRecoveryTimer);
+    this.heartbeatTimer = null; this.reconnectTimer = null; this.snapshotRefreshTimer = null; this.connectionRecoveryTimer = null; this.connectionId = null;
     if (!this.localMode) this.#setStatus('disconnected');
   }
 
@@ -286,6 +288,7 @@ export class RealtimeAdapter extends EventTarget {
 
   #subscribe(epoch) {
     if (!this.#isCurrentSession(epoch)) return;
+    if (this.connectionIncident) this.connectionIncident.reconnectAttempts = Math.min(100, this.connectionIncident.reconnectAttempts + 1);
     const previousEvents = this.events; this.events = null; previousEvents?.close();
     const url = `${this.apiBase}/api/rooms/${encodeURIComponent(this.roomCode)}/events?connectionId=${encodeURIComponent(this.connectionId)}`;
     const events = new EventSource(url); this.events = events;
@@ -294,7 +297,7 @@ export class RealtimeAdapter extends EventTarget {
     events.addEventListener('close', () => { if (!this.#isCurrentSession(epoch) || this.events !== events) return; events.close(); this.#scheduleReconnect(epoch); });
     events.addEventListener('error', () => {
       if (!this.#isCurrentSession(epoch) || this.events !== events) return;
-      void this.recordClientDiagnostic({ kind: 'sse_error' }).catch(() => {});
+      this.#recordConnectionFailure('sse', 'event_source_error');
       events.close(); this.events = null;
       // Android WebViews and mobile proxies can drop an otherwise healthy SSE
       // stream. Confirm the ordinary read path first so scoring is not
@@ -311,7 +314,7 @@ export class RealtimeAdapter extends EventTarget {
       // A heartbeat can be the only request a mobile proxy rejects. Confirm
       // the ordinary room read before tearing down a healthy table session;
       // #recoverSse reclaims only when that confirmation also fails.
-      catch { if (this.#isCurrentSession(epoch)) void this.#recoverSse(epoch); }
+      catch (error) { this.#recordConnectionFailure('heartbeat', this.#connectionFailureReason(error), error); if (this.#isCurrentSession(epoch)) void this.#recoverSse(epoch); }
     }, 40000);
   }
 
@@ -341,7 +344,8 @@ export class RealtimeAdapter extends EventTarget {
       this.#acceptSnapshot(result.snapshot, epoch);
       this.#subscribe(epoch); this.#startHeartbeat(epoch); this.#startSnapshotRefresh(epoch); this.#setStatus('connected');
       return { resumed: true, snapshot: result.snapshot };
-    } catch {
+    } catch (error) {
+      this.#recordConnectionFailure('seat_reclaim', this.#connectionFailureReason(error), error);
       if (this.#isCurrentSession(epoch)) {
         this.events?.close(); this.events = null;
         this.#setStatus('disconnected'); this.#scheduleReconnect(epoch);
@@ -377,7 +381,7 @@ export class RealtimeAdapter extends EventTarget {
         const result = await this.#request(`/api/rooms/${this.roomCode}/claim`, { method: 'POST', authenticated: true, body: { seatId: this.seatId, reclaimToken: this.reclaimToken } });
         if (!this.#isCurrentSession(epoch)) return;
         this.#acceptSnapshot(result.snapshot, epoch); this.#subscribe(epoch); this.#startHeartbeat(epoch); this.#startSnapshotRefresh(epoch); this.#setStatus('connected');
-      } catch { if (this.#isCurrentSession(epoch)) { this.#setStatus('disconnected'); this.#scheduleReconnect(epoch); } }
+      } catch (error) { this.#recordConnectionFailure('seat_reclaim', this.#connectionFailureReason(error), error); if (this.#isCurrentSession(epoch)) { this.#setStatus('disconnected'); this.#scheduleReconnect(epoch); } }
     }, 3000);
     this.reconnectTimer = timer;
   }
@@ -398,7 +402,8 @@ export class RealtimeAdapter extends EventTarget {
       if (result.ownership?.ownsSeat === false) return this.#resumeSession(epoch);
       this.#subscribe(epoch);
       this.#setStatus('connected');
-    } catch {
+    } catch (error) {
+      this.#recordConnectionFailure('room_read', this.#connectionFailureReason(error), error);
       if (this.#isCurrentSession(epoch)) {
         this.#setStatus('disconnected');
         this.#scheduleReconnect(epoch);
@@ -420,8 +425,10 @@ export class RealtimeAdapter extends EventTarget {
     this.sessionEpoch += 1;
     this.events?.close(); this.events = null;
     clearInterval(this.heartbeatTimer); clearTimeout(this.reconnectTimer); clearInterval(this.snapshotRefreshTimer);
-    this.heartbeatTimer = null; this.reconnectTimer = null; this.snapshotRefreshTimer = null;
+    clearTimeout(this.connectionRecoveryTimer);
+    this.heartbeatTimer = null; this.reconnectTimer = null; this.snapshotRefreshTimer = null; this.connectionRecoveryTimer = null;
     this.connectionId = null; this.roomCode = null; this.seatId = null; this.reclaimToken = null; this.snapshot = null;
+    this.connectionIncident = null;
     this.localMode = false; this.stopped = false; this.#setStatus('waiting');
     return this.sessionEpoch;
   }
@@ -448,8 +455,57 @@ export class RealtimeAdapter extends EventTarget {
   #storedToken(code, seatId) { try { return localStorage.getItem(this.#tokenKey(code, seatId)); } catch { return null; } }
   #storedRecoveryKey(code) { try { return localStorage.getItem(this.#recoveryKey(code)); } catch { return null; } }
   #setStatus(status) {
+    if (status === 'connected') this.#recordConnectionRecovery();
     if (this.status === status) return;
     this.status = status; this.dispatchEvent(new CustomEvent('status', { detail: status }));
+  }
+
+  #connectionFailureReason(error) { return Number.isInteger(error?.status) ? 'http_error' : 'network_error'; }
+
+  #connectionErrorCode(error) {
+    const codes = new Set(['CONNECTION_EXPIRED', 'NOT_SEAT_OWNER', 'ROOM_NOT_FOUND', 'VERSION_CONFLICT', 'NOT_FOUND']);
+    return codes.has(error?.code) ? `SERVER_${error.code}` : error?.code ? 'SERVER_OTHER_ERROR' : null;
+  }
+
+  #recordConnectionFailure(operation, reason, error = null) {
+    const now = Date.now();
+    clearTimeout(this.connectionRecoveryTimer); this.connectionRecoveryTimer = null;
+    let incident = this.connectionIncident;
+    if (!incident) {
+      incident = { operation, reason, startedAt: now, lastFailureAt: now, reconnectAttempts: 0, occurrences: 0, lastReportedAt: 0, httpStatus: null, errorCode: null };
+      this.connectionIncident = incident;
+    }
+    incident.lastFailureAt = now;
+    incident.occurrences = Math.min(10_000, incident.occurrences + 1);
+    if (Number.isInteger(error?.status) && error.status >= 400 && error.status <= 599) incident.httpStatus = error.status;
+    const errorCode = this.#connectionErrorCode(error);
+    if (errorCode) incident.errorCode = errorCode;
+    if (incident.occurrences === 1 || now - incident.lastReportedAt >= CONNECTION_INCIDENT_REPORT_INTERVAL_MS) {
+      incident.lastReportedAt = now;
+      this.#sendConnectionIncident(incident, 'failed', now);
+    }
+  }
+
+  #recordConnectionRecovery() {
+    const incident = this.connectionIncident;
+    if (!incident) return;
+    clearTimeout(this.connectionRecoveryTimer);
+    const observedFailureAt = incident.lastFailureAt;
+    const timer = setTimeout(() => {
+      if (this.connectionRecoveryTimer !== timer || this.connectionIncident !== incident || incident.lastFailureAt !== observedFailureAt) return;
+      this.connectionRecoveryTimer = null; this.connectionIncident = null;
+      this.#sendConnectionIncident(incident, 'recovered', Date.now());
+    }, CONNECTION_INCIDENT_REPORT_INTERVAL_MS);
+    this.connectionRecoveryTimer = timer;
+  }
+
+  #sendConnectionIncident(incident, outcome, now) {
+    void this.recordClientDiagnostic({
+      kind: 'connection_incident', operation: incident.operation, outcome, reason: incident.reason,
+      reconnectAttempts: incident.reconnectAttempts, occurrences: incident.occurrences,
+      durationMs: Math.min(3_600_000, Math.max(0, now - incident.startedAt)),
+      httpStatus: incident.httpStatus, errorCode: incident.errorCode,
+    }).catch(() => {});
   }
 }
 
