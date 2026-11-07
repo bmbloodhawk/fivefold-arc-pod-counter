@@ -152,7 +152,6 @@ const unlockedAchievementsByGame = new Map();
 let resolvedRadiationTurnKey = null;
 let selectedDeckId = ''; let setupDecks = []; let commanderDecks = []; let joinGameFormat = 'commander'; let savedDecks = []; let editingDeckId = null; let deckCommanderColors = [];
 let optimisticLifeDelta = 0;
-let lifeCorrectionCredit = { amount: 0, expiresAt: 0 };
 let awaitingConfirmedResync = false;
 let syncBannerTimer = null;
 // New players begin with the Dial. An explicit previous Button choice remains
@@ -173,9 +172,17 @@ async function reconcileLifeWriteError(error) {
     return false;
   }
 }
-const lifeBatcher = new LifeAdjustmentBatcher({ send: async ({ delta, operationId }) => {
-  try { await transport.adjust({ counter: 'life', delta, operationId }); optimisticLifeDelta -= delta; }
-  catch (error) { optimisticLifeDelta -= delta; await reconcileLifeWriteError(error); }
+const lifeBatcher = new LifeAdjustmentBatcher({ delayMs: 300, send: async ({ delta, operationId }) => {
+  // The transport applies its snapshot before resolving. Remove this just-sent
+  // amount first so the authoritative response cannot be visually double-counted.
+  optimisticLifeDelta -= delta;
+  try {
+    const result = await transport.adjust({ counter: 'life', delta, operationId });
+    if (result.ignored || result.local) return;
+    if (result.blocked) throw new Error('Reconnect before changing life. The pending adjustment was not saved.');
+    confirmLifeChange(state?.ownerPlayerId);
+  }
+  catch (error) { await reconcileLifeWriteError(error); }
   finally { if (state) render(); }
 } });
 
@@ -275,13 +282,6 @@ function selectedSourceFor(player) {
     state.selectedSourceId = turnSources[0]?.id || sources[0]?.id || null;
   }
   return sources.find(source => source.id === state.selectedSourceId) || null;
-}
-function lifeAdjustmentIsCorrection(delta) {
-  const now = Date.now();
-  if (now > lifeCorrectionCredit.expiresAt) lifeCorrectionCredit = { amount: 0, expiresAt: 0 };
-  if (delta < 0) { lifeCorrectionCredit = { amount: lifeCorrectionCredit.amount + -delta, expiresAt: now + 5_000 }; return false; }
-  if (delta > 0 && lifeCorrectionCredit.amount) { lifeCorrectionCredit = { amount: Math.max(0, lifeCorrectionCredit.amount - delta), expiresAt: now + 5_000 }; return true; }
-  return false;
 }
 function commanderValue(player, sourceId = state.selectedSourceId) { return player.commanderDamage[sourceId] || 0; }
 function evaluatePlayer(player) {
@@ -1333,13 +1333,10 @@ async function adjust(delta) {
     render(); return;
   }
   if (state.mode === 'life') {
-    const isCorrection = lifeAdjustmentIsCorrection(delta);
-    showLifeChange(player.id, delta, previous, previous + delta);
-    // Shared life is an atomic server-side delta. Submit each tap immediately
-    // so Safari timer/identifier support can never leave a visible local-only
-    // total that was not written to the table.
-    try { const result = await transport.adjust({ counter: 'life', delta, ...(isCorrection ? { isCorrection: true } : {}) }); if (!result.blocked && !result.ignored) confirmLifeChange(player.id); }
-    catch (error) { await reconcileLifeWriteError(error); }
+    optimisticLifeDelta += delta;
+    lifeBatcher.add(delta);
+    if (!optimisticLifeDelta) { clearTimeout(lifeChangeTimer); lifeChange = null; render(); }
+    else showLifeChange(player.id, optimisticLifeDelta, player.life, player.life + optimisticLifeDelta);
     return;
   }
   $$('[data-delta]').forEach(button => { button.disabled = true; });
@@ -1588,7 +1585,7 @@ async function lookupCardTitles() {
 }
 function returnToSetup() {
   if (!canReturnToSetup()) return;
-  closeGameOverlays(); clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); clearStartingRollTimers(); clearInterval(turnTicker); dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); showView(dom.create); state = null; transport.clearSession();
+  closeGameOverlays(); clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); clearStartingRollTimers(); clearInterval(turnTicker); lifeBatcher.clear(); optimisticLifeDelta = 0; dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); showView(dom.create); state = null; transport.clearSession();
 }
 function renderConnection(status = transport.status) {
   if (status !== 'connected' && optimisticLifeDelta) { lifeBatcher.clear(); optimisticLifeDelta = 0; }
@@ -1691,7 +1688,7 @@ function beginDialDrag(event) {
   dialPointer = { id: event.pointerId, angle: dialAngle(event), accumulated: 0 }; document.body.classList.add('dial-dragging'); dom.dialGesture.classList.add('dragging'); dom.dialGesture.setPointerCapture?.(event.pointerId); event.preventDefault();
 }
 function leaveTable() {
-  closeGameOverlays(); clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); clearStartingRollTimers(); clearInterval(turnTicker); dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); state = null; transport.clearSession(); renderSavedTables(); showView(dom.landing);
+  closeGameOverlays(); clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); clearStartingRollTimers(); clearInterval(turnTicker); lifeBatcher.clear(); optimisticLifeDelta = 0; dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); state = null; transport.clearSession(); renderSavedTables(); showView(dom.landing);
 }
 function forgetCurrentTable() {
   if (!state?.podCode || state.localSimulation) return;
@@ -1784,7 +1781,7 @@ dom.viewCelebrationButton.addEventListener('click', () => { shownVictoryKey = nu
 transport.addEventListener('status', event => { renderConnection(event.detail); renderMutationAvailability(); }); transport.addEventListener('state', event => { if (event.detail?.seats?.length) { const previousTossKey = coinTossKey(state?.lastCoinToss); const previousRollKey = startingPlayerRollKey(state?.turn?.startingPlayerRoll); const previousTurnKey = state?.turn?.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; state = stateFromSnapshot(event.detail); if (awaitingConfirmedResync && transport.status === 'connected') { awaitingConfirmedResync = false; const presentation = connectionPresentation({ status: 'connected', resynced: true }); dom.syncBanner.textContent = presentation.syncMessage; dom.syncBanner.hidden = false; clearTimeout(syncBannerTimer); syncBannerTimer = setTimeout(() => { dom.syncBanner.hidden = true; }, 5000); } const nextRollKey = startingPlayerRollKey(state.turn.startingPlayerRoll); const nextTurnKey = state.turn.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; const expectedTableView = tableViewForState(); if (expectedTableView.hidden) showView(expectedTableView); if (nextTurnKey && nextTurnKey !== previousTurnKey && nextTurnKey !== lastTurnHandoffKey) { lastTurnHandoffKey = nextTurnKey; showTurnHandoff(); } if (nextRollKey && nextRollKey !== previousRollKey && nextRollKey !== lastStartingRollKey) { lastStartingRollKey = nextRollKey; showStartingPlayerRoll(state.turn.startingPlayerRoll); } else if (coinTossKey(state.lastCoinToss) && coinTossKey(state.lastCoinToss) !== previousTossKey) { const dialog = coinTossDialogRequested; coinTossDialogRequested = false; showCoinToss(state.lastCoinToss, { dialog }); } else render(); } });
 transport.addEventListener('state', event => { const roomCode = event.detail?.code; if (!roomCode || reportedDiagnostics.has(roomCode)) return; reportedDiagnostics.add(roomCode); setTimeout(() => recordClientDiagnostic('session_started'), 0); });
 transport.addEventListener('state', event => { if (event.detail?.seats?.length) void applySelectedAppearance(); });
-document.addEventListener('visibilitychange', () => { recordClientDiagnostic('visibility_changed'); if (document.visibilityState === 'visible') { scheduleViewportMetrics(); void transport.resume(); } });
+document.addEventListener('visibilitychange', () => { recordClientDiagnostic('visibility_changed'); if (document.visibilityState === 'hidden') { void lifeBatcher.flush(); return; } scheduleViewportMetrics(); void transport.resume(); });
 window.addEventListener('error', event => recordClientDiagnostic('unhandled_error', { errorCode: diagnosticErrorCode(event.error) }));
 window.addEventListener('unhandledrejection', event => recordClientDiagnostic('unhandled_error', { errorCode: diagnosticErrorCode(event.reason) }));
 dom.startingRollCanvas?.addEventListener('webglcontextlost', () => recordClientDiagnostic('webgl_context_lost'));

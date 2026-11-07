@@ -1515,12 +1515,14 @@ test("restores legacy recovery records without optional commander display fields
   assert.deepEqual(restored.snapshot.seats[0].commanderColors, [[]]);
 });
 
-test("batches rapid life taps into one fresh client operation", async () => {
+test("batches rapid life corrections into one net client operation", async () => {
   const jobs = []; const sent = [];
   const batcher = new LifeAdjustmentBatcher({ operationId: () => `operation-${sent.length + 1}-fresh-id`, schedule: (job) => { jobs.push(job); return jobs.length; }, cancel: () => {}, send: (operation) => sent.push(operation) });
-  batcher.add(-1); batcher.add(-5);
+  batcher.add(-14); batcher.add(3);
   await batcher.flush();
-  assert.deepEqual(sent, [{ delta: -6, operationId: "operation-1-fresh-id" }]);
+  assert.deepEqual(sent, [{ delta: -11, operationId: "operation-1-fresh-id" }]);
+  batcher.add(-8); batcher.add(8); await batcher.flush();
+  assert.equal(sent.length, 1);
   batcher.add(1); await batcher.flush();
   assert.equal(sent[1].operationId, "operation-2-fresh-id");
 });
