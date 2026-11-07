@@ -18,6 +18,34 @@ const normalizeDeckCommanderColors = (value, count) => {
 };
 
 const COUNTER_TOTAL_KEYS = ["poison", "energy", "radiation", "commanderDamage"];
+const LONG_TERM_TRACKS = [
+  { id: 'chronicle', measure: 'Saved games', thresholds: [175, 225, 300, 400, 550, 700, 900, 1200, 1500, 2000], titles: ['Footnotes', 'Margins', 'Bound Volume', 'Archive Shelf', 'Grand Archive', 'Librarian', 'Living Record', 'Stonebound Ledger', 'Endless Chronicle', 'The Whole Library'], metric: ({ games }) => games.length },
+  { id: 'crowns', measure: 'Recorded wins', thresholds: [75, 100, 150, 200, 300, 400, 500, 650, 800, 1000], titles: ['Crown Reserve', 'Crown Vault', 'Crown Hall', 'Crown Bearer', 'Crowned Path', 'Crown Treasury', 'Crown Dominion', 'Crown Regent', 'Crown Eternal', 'Thousand Crowns'], metric: ({ wins }) => wins.length },
+  { id: 'deck-mastery', measure: 'Games with one saved deck', thresholds: [15, 25, 40, 60, 90, 125, 175, 250, 350, 500], titles: ['Trusted Hand', 'Well-Shuffled', 'Battle-Tested', 'Signature Spellbook', 'Veteran List', 'Seasoned Sleeve', 'Known Lines', 'Masterwork', 'Living Decklist', 'One With the Deck'], metric: ({ deckGames }) => Math.max(0, ...deckGames.values()) },
+  { id: 'deck-victory', measure: 'Wins with one saved deck', thresholds: [5, 10, 20, 35, 55, 80, 120, 175, 250, 350], titles: ['First Trophy', 'Winning Hand', 'Proven Build', 'Pod Favorite', 'Reliable Closer', 'Victory Lap', 'Champion List', 'Hall of Wins', 'Crowned Commander', 'Unbeaten Legend'], metric: ({ deckWins }) => Math.max(0, ...deckWins.values()) },
+  { id: 'resilience', measure: 'Games reaching 5 life or less', thresholds: [3, 5, 10, 20, 35, 55, 80, 120, 175, 250], titles: ['Close Call', 'Narrow Escape', 'Clinging On', 'Last Reserve', 'Refuse to Fall', 'Hard to Kill', 'Scarred Survivor', 'Against the Odds', 'Death Defied', 'Unbroken'], metric: ({ games }) => games.filter(game => game.achievementFacts?.lowestLife <= 5).length },
+  { id: 'endurance', measure: 'Games lasting at least one hour', thresholds: [3, 5, 10, 20, 35, 55, 80, 120, 175, 250], titles: ['After Hours', 'Long Evening', 'Patient Table', 'Night Shift', 'Marathon Pod', 'Midnight Ritual', 'Long Vigil', 'Endless Turn', 'Table Eternal', 'Timekeeper'], metric: ({ games }) => games.filter(game => game.achievementFacts?.durationMs >= 3_600_000).length },
+];
+const longTermDefinitions = () => LONG_TERM_TRACKS.flatMap((track) => track.thresholds.map((target, index) => ({ id: `long-${track.id}-${index + 1}`, track: track.id, title: track.titles[index], detail: `${track.measure}: ${target}.`, target, tier: index })));
+const longTermContext = (games) => {
+  const wins = games.filter(game => game.won); const deckGames = new Map(); const deckWins = new Map();
+  games.filter(game => game.deckId).forEach(game => deckGames.set(game.deckId, (deckGames.get(game.deckId) || 0) + 1));
+  wins.filter(game => game.deckId).forEach(game => deckWins.set(game.deckId, (deckWins.get(game.deckId) || 0) + 1));
+  return { games, wins, deckGames, deckWins };
+};
+const longTermRarity = (tier) => tier >= 8 ? 'legendary' : tier >= 6 ? 'epic' : tier >= 3 ? 'rare' : 'uncommon';
+const nextLongTermAchievement = ({ accountId, gameId, games, earnedIds }) => {
+  const context = longTermContext(games); const earned = new Set(earnedIds || []);
+  const definitions = new Map(longTermDefinitions().map(item => [item.id, item]));
+  const candidates = LONG_TERM_TRACKS.flatMap((track) => {
+    const index = track.thresholds.findIndex((_, tier) => !earned.has(`long-${track.id}-${tier + 1}`));
+    return index >= 0 && track.metric(context) >= track.thresholds[index] ? [definitions.get(`long-${track.id}-${index + 1}`)] : [];
+  });
+  const ordered = candidates.sort((a, b) => a.id.localeCompare(b.id));
+  if (!ordered.length) return null;
+  const choice = createHash('sha256').update(`${accountId}:${gameId}`).digest().readUInt32BE(0);
+  return ordered[choice % ordered.length];
+};
 const counterTotalsFor = (game) => ({
   poison: game.counterTotals?.poison ?? game.poisonCounters ?? 0,
   energy: game.counterTotals?.energy ?? 0,
@@ -33,7 +61,7 @@ const achievementRarity = (id) => {
   return 'common';
 };
 
-const achievementsFor = ({ games, decks, bestWinStreak, monthCount, playedColors }) => {
+const achievementsFor = ({ games, decks, bestWinStreak, monthCount, playedColors, longTermAchievementIds = [] }) => {
   const wins = games.filter(game => game.won);
   const tableSizes = new Set(games.map(game => game.tableSize));
   const deckGames = new Map(); games.filter(game => game.deckId).forEach(game => deckGames.set(game.deckId, (deckGames.get(game.deckId) || 0) + 1));
@@ -142,7 +170,9 @@ const achievementsFor = ({ games, decks, bestWinStreak, monthCount, playedColors
       ['known-to-legends', 'Known to the Legends', 'Received 1,000 commander damage across saved games.', 1000],
     ]),
   ];
-  return definitions.filter(([, , , reached]) => reached).map(([id, title, detail]) => ({ id, title, detail, rarity: achievementRarity(id) }));
+  const legacy = definitions.filter(([, , , reached]) => reached).map(([id, title, detail]) => ({ id, title, detail, rarity: achievementRarity(id) }));
+  const longTerm = longTermDefinitions().filter(item => longTermAchievementIds.includes(item.id)).map(item => ({ id: item.id, title: item.title, detail: item.detail, rarity: longTermRarity(item.tier) }));
+  return [...legacy, ...longTerm];
 };
 
 export class MemoryAccountHistoryStore {
@@ -213,7 +243,12 @@ export class AccountHistory {
     const accoladeId = input.accoladeId == null ? null : text(input.accoladeId, 80);
     if (accoladeId && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(accoladeId)) throw new TypeError("Accolade is invalid");
     const game = { gameId, savedAt: this.now(), tableSize, won, place, outcomeDescription: text(input.outcomeDescription, 160), commanderName: text(input.commanderName, 120), deckId: input.deckId || null, counterTotals, achievementFacts, ...(accoladeId ? { accoladeId } : {}), ...(sourceGameId ? { sourceGameId } : {}) };
-    await this.store.write(gamesPath(accountId), { ...games, [gameId]: game });
+    const savedGames = { ...games, [gameId]: game };
+    await this.store.write(gamesPath(accountId), savedGames);
+    const account = (await this.store.read(accountPath(accountId))) || { accountId, createdAt: this.now(), consentVersion: null };
+    const longTermAchievementIds = Array.isArray(account.longTermAchievementIds) ? account.longTermAchievementIds : [];
+    const nextAchievement = nextLongTermAchievement({ accountId, gameId, games: Object.values(savedGames), earnedIds: longTermAchievementIds });
+    if (nextAchievement) await this.store.write(accountPath(accountId), { ...account, longTermAchievementIds: [...longTermAchievementIds, nextAchievement.id] });
     return game;
   }
 
@@ -297,7 +332,8 @@ export class AccountHistory {
     const thisMonth = new Date(this.now()); const monthGames = games.filter(game => { const date = new Date(game.savedAt); return date.getFullYear() === thisMonth.getFullYear() && date.getMonth() === thisMonth.getMonth(); });
     const decks = Object.values((await this.store.read(decksPath(accountId))) || {}); const playedColors = new Set(decks.filter(deck => games.some(game => game.deckId === deck.deckId)).flatMap(deck => deck.colors || []));
     const seen = new Set(Array.isArray(account.seenAchievementIds) ? account.seenAchievementIds : []);
-    const achievements = achievementsFor({ games, decks, bestWinStreak, monthCount: monthGames.length, playedColors }).map(achievement => ({ ...achievement, isNew: !seen.has(achievement.id) }));
+    const longTermAchievementIds = Array.isArray(account.longTermAchievementIds) ? account.longTermAchievementIds : [];
+    const achievements = achievementsFor({ games, decks, bestWinStreak, monthCount: monthGames.length, playedColors, longTermAchievementIds }).map(achievement => ({ ...achievement, isNew: !seen.has(achievement.id) }));
     // Object insertion order is the save order. It remains reliable even when
     // several games are recorded within the same millisecond.
     const recentAccoladeIds = Object.values((await this.store.read(gamesPath(accountId))) || {}).reverse().map(game => game.accoladeId).filter(Boolean).slice(0, 5);

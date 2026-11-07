@@ -60,6 +60,38 @@ test("achievements are earned from saved results and do not reveal unfinished go
   assert.equal("milestones" in summary, false);
 });
 
+test("long-term achievements persist one earned tier at a time without a retroactive burst", async () => {
+  const store = new MemoryAccountHistoryStore(); const history = new AccountHistory({ store, now: () => 20, createId: (() => { let id = 0; return () => String(++id); })() }); const accountId = await history.ensureAccount("subject");
+  const seededGames = Object.fromEntries(Array.from({ length: 174 }, (_, index) => [`game_seed_${index}`, { gameId: `game_seed_${index}`, savedAt: index, tableSize: 4, won: false, deckId: null, counterTotals: {}, achievementFacts: {} }]));
+  await store.write(`account-history/games/${encodeURIComponent(accountId)}.json`, seededGames);
+  await history.saveGame(accountId, { tableSize: 4, won: false });
+  let summary = await history.summary(accountId);
+  assert.deepEqual(summary.achievements.filter(item => item.id.startsWith("long-")).map(item => item.id), ["long-chronicle-1"]);
+  await history.saveGame(accountId, { tableSize: 4, won: false });
+  summary = await history.summary(accountId);
+  assert.deepEqual(summary.achievements.filter(item => item.id.startsWith("long-")).map(item => item.id), ["long-chronicle-1"]);
+});
+
+test("long-term achievement rules contain all sixty named rewards and grant only one when tracks overlap", async () => {
+  const store = new MemoryAccountHistoryStore(); const history = new AccountHistory({ store, now: () => 20, createId: (() => { let id = 0; return () => String(++id); })() }); const accountId = await history.ensureAccount("subject");
+  const seededGames = Object.fromEntries(Array.from({ length: 174 }, (_, index) => [`game_seed_${index}`, { gameId: `game_seed_${index}`, savedAt: index, tableSize: 4, won: true, deckId: null, counterTotals: {}, achievementFacts: { lowestLife: 5, durationMs: 3_600_000 } }]));
+  await store.write(`account-history/games/${encodeURIComponent(accountId)}.json`, seededGames);
+  await history.saveGame(accountId, { tableSize: 4, won: true, achievementFacts: { lowestLife: 5, durationMs: 3_600_000 } });
+  const account = await store.read(`account-history/accounts/${encodeURIComponent(accountId)}.json`);
+  assert.equal(account.longTermAchievementIds.length, 1);
+  await store.write(`account-history/accounts/${encodeURIComponent(accountId)}.json`, { ...account, longTermAchievementIds: [
+    ...Array.from({ length: 10 }, (_, index) => `long-chronicle-${index + 1}`),
+    ...Array.from({ length: 10 }, (_, index) => `long-crowns-${index + 1}`),
+    ...Array.from({ length: 10 }, (_, index) => `long-deck-mastery-${index + 1}`),
+    ...Array.from({ length: 10 }, (_, index) => `long-deck-victory-${index + 1}`),
+    ...Array.from({ length: 10 }, (_, index) => `long-resilience-${index + 1}`),
+    ...Array.from({ length: 10 }, (_, index) => `long-endurance-${index + 1}`),
+  ] });
+  const longTerm = (await history.summary(accountId)).achievements.filter(item => item.id.startsWith("long-"));
+  assert.equal(longTerm.length, 60);
+  assert.equal(new Set(longTerm.map(item => item.title)).size, 60);
+});
+
 test("achievement folders keep new entries marked until their rarity is viewed", async () => {
   const history = new AccountHistory({ store: new MemoryAccountHistoryStore(), createId: (() => { let id = 0; return () => String(++id); })() }); const accountId = await history.ensureAccount("subject");
   await history.saveGame(accountId, { tableSize: 2, won: true, place: 1 });
