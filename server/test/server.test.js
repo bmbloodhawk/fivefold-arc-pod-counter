@@ -864,8 +864,9 @@ describe("authority and convergence", () => {
     const hostRoll = service.reportStartingPlayerRoll(created.snapshot.code, host.connectionId, { value: 15 });
     const completed = service.reportStartingPlayerRoll(created.snapshot.code, other.connectionId, { value: 12 });
     const started = service.startGame(created.snapshot.code, host.connectionId, { baseVersion: completed.snapshot.version });
-    assert.equal(service.room(created.snapshot.code).seats[0].matchMoment.usedLocalD20, true);
-    const reset = service.resetRoom(created.snapshot.code, host.connectionId, { baseVersion: started.snapshot.version });
+    const firstResult = service.declareWinner(created.snapshot.code, host.connectionId, { baseVersion: started.snapshot.version, winnerSeatId: 0 });
+    assert.equal(service.personalMatchMoment(created.snapshot.code, host.connectionId).achievementFacts.usedLocalD20, 1);
+    const reset = service.resetRoom(created.snapshot.code, host.connectionId, { baseVersion: firstResult.snapshot.version });
     const restarted = service.startGame(created.snapshot.code, host.connectionId, { baseVersion: reset.snapshot.version });
     assert.equal(service.room(created.snapshot.code).seats[0].matchMoment.tableGameNumber, 2);
     assert.equal(restarted.snapshot.turn.gameStarted, true);
@@ -1191,15 +1192,21 @@ test("full-court commander facts require every opposing commander at tables of f
     const player = service.createConnection();
     service.claimSeat(created.snapshot.code, player.connectionId, { seatId, name: `P${seatId + 1}` });
   }
-  const table = service.room(created.snapshot.code); const defender = table.seats[0];
-  defender.matchMoment.playerCountAtStart = 4;
-  defender.matchMoment.commanderDamageBySource = { "seat-1-commander-a": 18, "seat-2-commander-a": 18, "seat-3-commander-a": 18 };
-  defender.matchMoment.commanderDamageReceived = 54;
-  table.gameResult = { winnerSeatId: 0, decidedAt: 100_000 };
-  assert.equal(service.personalMatchMoment(created.snapshot.code, host.connectionId).achievementFacts.everyOpponentCommanderAt10, 1);
-  assert.equal(service.personalMatchMoment(created.snapshot.code, host.connectionId).achievementFacts.everyOpponentCommanderAt18, 1);
-  defender.matchMoment.commanderDamageBySource["seat-3-commander-a"] = 17;
-  assert.equal(service.personalMatchMoment(created.snapshot.code, host.connectionId).achievementFacts.everyOpponentCommanderAt18, 0);
+  const code = created.snapshot.code;
+  const version = () => service.room(code).version;
+  for (const lastDamage of [18, 17]) {
+    service.startGame(code, host.connectionId, { baseVersion: version() });
+    // A separate life gain keeps the test player alive through all three sources.
+    service.adjustOwnSeat(code, host.connectionId, { counter: "life", delta: 30 });
+    for (const [seatId, damage] of [[1, 18], [2, 18], [3, lastDamage]]) {
+      service.adjustOwnSeat(code, host.connectionId, { counter: "commanderDamage", delta: damage, commanderSourceId: "seat-" + seatId + "-commander-a" });
+    }
+    service.declareWinner(code, host.connectionId, { baseVersion: version(), winnerSeatId: 0 });
+    const { achievementFacts } = service.personalMatchMoment(code, host.connectionId);
+    assert.equal(achievementFacts.everyOpponentCommanderAt10, 1);
+    assert.equal(achievementFacts.everyOpponentCommanderAt18, Number(lastDamage === 18));
+    service.resetRoom(code, host.connectionId, { baseVersion: version() });
+  }
 });
 
 test("stores player-owned playtest notes and limits recaps to the host", async () => {

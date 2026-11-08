@@ -6,6 +6,7 @@ export function recordMatchMoment(seat, { counter, delta, commanderSourceId, lif
   if (!gameStarted || !seat.matchMoment) return;
   const m = seat.matchMoment;
   const priorLowest = m.lowestLife;
+  if (m.lostAllLifeInOneTurn && !isCorrection && delta !== 0 && lifeBefore > 0) m.continuedAfterAllLifeLoss = true;
   if (counter === 'life') { if (delta > 0 && !isCorrection) m.lifeGained += delta; if (delta < 0 && isOwnTurn) m.lifeLostOnOwnTurn += -delta; m.lowestLife = Math.min(m.lowestLife, lifeAfter); }
   if (counter === 'commanderDamage') {
     if (delta > 0) {
@@ -32,7 +33,7 @@ export function recordMatchMoment(seat, { counter, delta, commanderSourceId, lif
   if (counter === 'radiation' && delta > 0) m.radiationGained += delta;
   if (m.lowestLife < priorLowest) { m.lifeGainedAfterLow = 0; m.actionsAfterLow = 0; }
   else if (m.lowestLife <= 5 && !isCorrection) { m.actionsAfterLow += 1; if (counter === 'life' && delta > 0) m.lifeGainedAfterLow += delta; }
-  if (m.reclaimedDuringGame) m.actionsAfterReclaim += 1;
+  if (m.reclaimedDuringGame && !isCorrection && delta !== 0) m.actionsAfterReclaim += 1;
 }
 
 export function recordTurnMoment(seat, turnLengthMs) {
@@ -64,7 +65,21 @@ function commanderName(sourceId, seats) {
 }
 
 function distinctCommanderCount(item) {
-  return Object.values(item.matchMoment?.commanderDamageBySource || {}).filter((damage) => damage > 0).length;
+  return Object.entries(item.matchMoment?.commanderDamageBySource || {})
+    .filter(([source, damage]) => damage > 0 && !source.startsWith('seat-' + item.seatId + '-commander-')).length;
+}
+
+function fastestAverage(seat, seats, minimumTurns) {
+  const candidates = seats.filter(item => item.claimed !== false && item.matchMoment?.turnCount >= minimumTurns);
+  if (candidates.length < 2 || !candidates.includes(seat)) return null;
+  const average = seat.matchMoment.totalTurnMs / seat.matchMoment.turnCount;
+  return candidates.every(item => item === seat || item.matchMoment.totalTurnMs / item.matchMoment.turnCount > average)
+    ? average : null;
+}
+
+function damageFromOpponent(damageBySource, seatId) {
+  return (damageBySource?.['seat-' + seatId + '-commander-a'] || 0)
+    + (damageBySource?.['seat-' + seatId + '-commander-b'] || 0);
 }
 
 function uniqueLeader(seat, seats, valueFor) {
@@ -116,23 +131,22 @@ function earnedMatchMoments({ seat, seats, winnerSeatId, context = {} }) {
   if (m.turnCount >= 5) add(['Long Haul', 'Fifth Turn', 'Endurance Run'], 'You stayed in for a substantial share of the game.', `${m.turnCount} recorded turns`, 'long-haul-refresh-v1');
   if (m.playerCountAtStart >= 6 && m.turnCount >= 3) add(['Wide Table Veteran', 'Sixfold Stamina', 'Deep Pod'], 'You made your mark at a truly crowded table.', `${m.playerCountAtStart}-player table · ${m.turnCount} turns`, 'wide-table-veteran-refresh-v1');
   if (m.tableGameNumber >= 3) add(['Table Trilogy', 'Third Time Around', 'Pod Regulars'], 'You completed another chapter at the same table.', `Game ${m.tableGameNumber} at this table`, 'table-trilogy');
-  const eligible = seats.filter(item => item.matchMoment?.turnCount >= 2);
-  const average = m.turnCount ? m.totalTurnMs / m.turnCount : Infinity;
-  const fastest = eligible.length ? Math.min(...eligible.map(item => item.matchMoment.totalTurnMs / item.matchMoment.turnCount)) : Infinity;
-  if (eligible.length >= 2 && average === fastest && eligible.filter(item => item.matchMoment.totalTurnMs / item.matchMoment.turnCount === fastest).length === 1) {
+  const average = fastestAverage(seat, seats, 2);
+  if (average !== null) {
     add(['Speedrunner', 'Lightning Round', 'No Notes'], 'You had the fastest average recorded turn.', `Average turn: ${Math.round(average / 1000)} sec`);
   }
   if (seat.seatId === winnerSeatId) add(['Last One Standing', 'Table Monarch', 'Arc Victor'], 'The table ran out of answers.', 'Winner');
   // Expansion catalog: each condition is deliberately stricter or mixed so it
   // adds a new moment instead of duplicating an existing accolade.
   if (m.lostHalfLifeInOneTurn) add(['Turning Point'], 'One brutal turn changed the whole game.', `Lost ${m.largestLifeLossInTurn} life in one turn`, 'arc-turning-point-v1');
-  if (m.lostAllLifeInOneTurn) add(['Clean Slate'], 'You rebuilt after a complete collapse.', 'All starting life lost in one turn', 'arc-clean-slate-v1');
+  if (m.lostAllLifeInOneTurn && m.continuedAfterAllLifeLoss) add(['Clean Slate'], 'You rebuilt after a complete collapse.', 'All starting life lost in one turn', 'arc-clean-slate-v1');
   if (m.lowestLife <= 5 && m.lifeGainedAfterLow >= 15 && m.actionsAfterLow >= 4) add(['Lasting Spark'], 'You recovered from the brink and kept moving.', `Lowest life: ${m.lowestLife} · +${m.lifeGainedAfterLow} · ${m.actionsAfterLow} actions`, 'arc-lasting-spark-v1');
   if (m.lifeLostOnOwnTurn >= 12 && m.lifeGained >= 8) add(['Blood Price'], 'You paid dearly and still rebuilt.', `${m.lifeLostOnOwnTurn} life paid · +${m.lifeGained} regained`, 'arc-blood-price-v1');
   if (m.reclaimedDuringGame && m.turnsAfterReclaim >= 2 && m.actionsAfterReclaim >= 3) add(['Signal Kept'], 'You reclaimed your seat and held the signal.', `${m.turnsAfterReclaim} turns · ${m.actionsAfterReclaim} actions after reclaim`, 'arc-signal-kept-v1');
   if (largestCommanderDamage >= 15) add(['Marked Trail'], 'One commander left a lasting mark.', `${largestCommanderDamage} from one commander`, 'arc-marked-trail-v1');
   if (distinctCommanders >= 4) add(['Many Banners'], 'Pressure came from every banner.', `${distinctCommanders} commanders dealt damage`, 'arc-many-banners-v1');
-  if (m.playerCountAtStart >= 4 && seats.filter(item => item.claimed !== false && item.seatId !== seat.seatId).every(item => Object.values(m.commanderDamageBySource || {}).some((damage, index) => damage >= 10 && index >= 0))) add(['Full Court'], 'The entire court found you.', `${m.playerCountAtStart}-player commander pressure`, 'arc-full-court-v1');
+  const opponents = seats.filter(item => item.claimed !== false && item.seatId !== seat.seatId);
+  if (m.playerCountAtStart >= 4 && opponents.length >= 3 && opponents.every(item => damageFromOpponent(m.commanderDamageBySource, item.seatId) >= 10)) add(['Full Court'], 'The entire court found you.', `${m.playerCountAtStart}-player commander pressure`, 'arc-full-court-v1');
   if (totalCommanderDamage >= threshold + 8 && uniqueLeader(seat, seats, item => item.matchMoment?.commanderDamageReceived || 0)) add(['Royal Gauntlet'], 'You withstood the table’s heaviest pressure.', `${totalCommanderDamage} commander damage`, 'arc-royal-gauntlet-v1');
   if (m.poisonGained >= 9 && m.lifeGained >= 10) add(['Poison Proof'], 'You endured poison and rebuilt.', `${m.poisonGained} poison · +${m.lifeGained} life`, 'arc-poison-proof-v1');
   if (m.energyGained >= 10 && m.radiationGained >= 10) add(['Charged and Glowing'], 'Energy and radiation both surged.', `+${m.energyGained} energy · ${m.radiationGained} radiation`, 'arc-charged-and-glowing-v1');
@@ -141,14 +155,15 @@ function earnedMatchMoments({ seat, seats, winnerSeatId, context = {} }) {
   if (m.radiationGained >= 15 && m.lifeGained >= 10) add(['Fallout Shelter'], 'You survived the fallout and recovered.', `${m.radiationGained} radiation · +${m.lifeGained} life`, 'arc-fallout-shelter-v1');
   if (m.turnCount >= 7) add(['Long Vigil'], 'You stayed through a very long watch.', `${m.turnCount} recorded turns`, 'arc-long-vigil-v1');
   if (m.playerCountAtStart >= 6 && m.turnCount >= 4) add(['Deep Pod'], 'You held steady in a crowded pod.', `${m.playerCountAtStart} players · ${m.turnCount} turns`, 'arc-deep-pod-v1');
-  if (m.turnCount >= 3 && m.totalTurnMs / m.turnCount <= 60_000 && uniqueLeader(seat, seats, item => item.matchMoment?.turnCount >= 3 ? -(item.matchMoment.totalTurnMs / item.matchMoment.turnCount) : -Infinity)) add(['Quick Study'], 'Your quick turns set the pace.', `Average turn: ${Math.round(m.totalTurnMs / m.turnCount / 1000)} sec`, 'arc-quick-study-v1');
+  const quickAverage = fastestAverage(seat, seats, 3);
+  if (quickAverage !== null && quickAverage <= 60_000) add(['Quick Study'], 'Your quick turns set the pace.', `Average turn: ${Math.round(m.totalTurnMs / m.turnCount / 1000)} sec`, 'arc-quick-study-v1');
   if (m.turnCount >= 4 && m.totalTurnMs / m.turnCount <= 90_000) add(['Steady Hands'], 'Your turns stayed quick and controlled.', `Average turn: ${Math.round(m.totalTurnMs / m.turnCount / 1000)} sec`, 'arc-steady-hands-v1');
   if (m.usedLocalD20) add(['Opening Ceremony'], 'The table began with a local roll.', 'Local D20 start', 'arc-opening-ceremony-v1');
   if (m.tableGameNumber >= 5) add(['Familiar Seats'], 'This table had become familiar ground.', `Game ${m.tableGameNumber} at this table`, 'arc-familiar-seats-v1');
   if (context.durationMs > 3_600_000) add(['Late Chapter'], 'This game became a long chapter.', `${Math.round(context.durationMs / 60000)} minutes`, 'arc-late-chapter-v1');
   if (seat.seatId === winnerSeatId && m.lowestLife <= 5) add(['Arc Victor'], 'You won after fighting from the brink.', `Lowest life: ${m.lowestLife}`, 'arc-arc-victor-v2');
   if (context.everyStarterTwoTurns && m.playerCountAtStart >= 4) add(['Table Tale'], 'Every starter had time to make a story.', `${m.playerCountAtStart}-player complete game`, 'arc-table-tale-v2');
-  if (m.lowestLife <= 2 && m.lifeGained >= 25) add(['Second Wind'], 'You found a second wind at the edge.', `Lowest life: ${m.lowestLife} · +${m.lifeGained} life`, 'arc-second-wind-v2');
+  if (m.lowestLife <= 2 && m.lifeGainedAfterLow >= 25) add(['Second Wind'], 'You found a second wind at the edge.', `Lowest life: ${m.lowestLife} · +${m.lifeGainedAfterLow} recovered`, 'arc-second-wind-v2');
   return earned.length ? earned : [{ titles: ['Arc Complete', 'Table Tale', 'Pod Veteran'], line: 'Another table, another tale.', fact: 'Match complete' }];
 }
 
@@ -164,12 +179,16 @@ export function tableMatchMomentDecisions({ seats, winnerSeatId, seed, recentCat
     const profileRecent = new Set(recentAccoladeIdsBySeat[item.seat.seatId] || []);
     const fresh = unused.filter((option) => !recent.has(option.titles[0]) && !profileRecent.has(accoladeId(option.titles[0])));
     const options = fresh.length ? fresh : unused.length ? unused : pool;
-    const selectedOption = options[seededIndex(`${seed}:${item.seat.seatId}`, options.length)];
+    const chosenIndex = seededIndex(`${seed}:${item.seat.seatId}`, options.length);
+    const selectedOption = options[chosenIndex];
     used.add(selectedOption.titles[0]);
-    const selectionReason = specific.length && genericWin(item.moments[item.moments.length - 1])
+    const toMoment = option => named(`${seed}:${item.seat.seatId}:${option.titles[0]}`, option.titles, option.line, option.fact, option.art);
+    const ranked = [...options.slice(chosenIndex), ...options.slice(0, chosenIndex), ...pool.filter(option => !options.includes(option))];
+    const selectionReason = specific.length && item.moments.some(genericWin)
       ? 'Tracked match moment selected over generic win'
-      : options.length > 1 ? 'Deterministic choice from fresh eligible accolades' : unused.length ? 'Highest-priority unused eligible accolade' : 'Highest-priority eligible accolade';
-    selected.set(item.seat.seatId, { moment: named(`${seed}:${item.seat.seatId}:${selectedOption.titles[0]}`, selectedOption.titles, selectedOption.line, selectedOption.fact, selectedOption.art), eligibleCategories: item.moments.map((option) => option.titles[0]), selectionReason });
+      : options.length === 1 ? (unused.length ? 'Highest-priority unused eligible accolade' : 'Highest-priority eligible accolade')
+        : fresh.length ? 'Deterministic choice from fresh eligible accolades' : unused.length ? 'Deterministic choice from unused eligible accolades' : 'Deterministic choice from eligible accolades';
+    selected.set(item.seat.seatId, { moment: toMoment(selectedOption), alternatives: ranked.slice(1).map(toMoment), eligibleCategories: item.moments.map(option => option.titles[0]), selectionReason });
   }
   return selected;
 }

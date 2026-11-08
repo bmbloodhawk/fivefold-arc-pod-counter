@@ -1,4 +1,4 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=84';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=85';
 import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=73';
 import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=114';
 import { connectionPresentation } from './connection-state.js?v=1';
@@ -152,7 +152,7 @@ let turnTicker = null;
 let turnUndoTimer = null;
 let lastTurnHandoffKey = null;
 let shownVictoryKey = null; let victoryDismissReady = false; let victoryDismissTimer = null; let victoryStage = 'winner';
-let automaticallySavedGameKey = null; let automaticSaveInFlightKey = null;
+let savedGameKey = null; let savingGameKey = null; let savedGameMoment = null; let awardProfileEpoch = 0;
 const automaticSavePromises = new Map(); const dismissedVictoryKeys = new Set(); const personalMomentPromises = new Map();
 let pendingSignInReturn = null;
 const unlockedAchievementsByGame = new Map();
@@ -267,7 +267,7 @@ function stateFromSnapshot(snapshot) {
   const turn = snapshot.turn || { activeSeatId: 0, gameStarted: true, gameStartedAt: Date.now(), turnStartedAt: Date.now(), turnNumber: 1, roundEndsAt: null, startingPlayerSeatId: 0, startingPlayerRoll: null, lastHandoff: null, trackingEnabled: true, cueMode: 'off', pausedAt: null };
   return {
     playerCount: snapshot.config.playerCount, seatCapacity: snapshot.config.seatCapacity || snapshot.config.playerCount, startingLife: snapshot.config.startingLife, gameFormat: snapshot.config.gameFormat || 'commander', roundLimitMinutes: snapshot.config.roundLimitMinutes || null, commanderSources, commanderCastCounts: castCountsFromSnapshot(snapshot, commanderSources), ownerPlayerId, activePlayerId, turnSeatId: `P${turn.activeSeatId + 1}`, turn,
-    localSimulation: false, podCode: snapshot.code, version: snapshot.version, hostSeatId: snapshot.hostSeatId, tableSkinId: snapshot.config.tableSkinId || '', sessionKind: snapshot.sessionKind || 'standard', feedbackPromptSeatId: snapshot.feedbackPromptSeatId, lastCoinToss: snapshot.lastCoinToss || null, gameResult: snapshot.gameResult || null, lifecycle: snapshot.lifecycle || { status: snapshot.turn?.gameStarted ? 'playing' : 'lobby', seatIds: snapshot.seats.filter(seat => seat.claimed).map(seat => seat.seatId), readySeatIds: [] }, lastGameWinnerSeatId: Number.isInteger(snapshot.lastGameWinnerSeatId) ? snapshot.lastGameWinnerSeatId : null, mode: previous?.mode || 'life', selectedSourceId: previous?.selectedSourceId || null,
+    localSimulation: false, podCode: snapshot.code, version: snapshot.version, hostSeatId: snapshot.hostSeatId, tableSkinId: snapshot.config.tableSkinId || '', sessionKind: snapshot.sessionKind || 'standard', feedbackPromptSeatId: snapshot.feedbackPromptSeatId, lastCoinToss: snapshot.lastCoinToss || null, gameResult: snapshot.gameResult ? { ...snapshot.gameResult, gameId: snapshot.completedGameId, saveEligible: snapshot.completedGameEligible === true } : null, lifecycle: snapshot.lifecycle || { status: snapshot.turn?.gameStarted ? 'playing' : 'lobby', seatIds: snapshot.seats.filter(seat => seat.claimed).map(seat => seat.seatId), readySeatIds: [] }, lastGameWinnerSeatId: Number.isInteger(snapshot.lastGameWinnerSeatId) ? snapshot.lastGameWinnerSeatId : null, mode: previous?.mode || 'life', selectedSourceId: previous?.selectedSourceId || null,
     players: snapshot.seats.map(seat => ({ id: `P${seat.seatId + 1}`, name: seat.name, commanderCount: seat.commanderCount === 2 ? 2 : 1, commanderNames: seat.commanderNames || [], commanderColors: (seat.commanderColors || []).map(normaliseIdentity), life: seat.counters.life, poison: seat.counters.poison, poisonReceived: seat.counterTotals?.poison || 0, commanderDamage: damageFromSnapshot(seat, commanderSources), radiation: seat.counters.radiation ?? 0, energy: seat.counters.energy, generic: seat.counters.generic, alternateElimination: seat.alternateElimination || null, connectionStatus: seat.connected ? 'connected' : seat.claimed ? 'disconnected' : 'waiting', eliminated: false, lethalCause: null, warning: null }))
   };
 }
@@ -325,7 +325,7 @@ function localLastPlayerStanding() {
   const survivors = state.players.filter(player => !player.eliminated);
   if (state.players.length >= 2 && survivors.length === 1) { state.gameResult = { winnerSeatId: Number(survivors[0].id.slice(1)) - 1, reason: 'last_player_standing', decidedAt: Date.now() }; state.lifecycle = { ...state.lifecycle, status: 'complete' }; }
 }
-function victoryKey(result) { return result ? `${result.winnerSeatId}:${result.reason}:${result.decidedAt}` : null; }
+function victoryKey(result) { return result ? result.gameId || `${result.winnerSeatId}:${result.reason}:${result.decidedAt}` : null; }
 function winnerFromResult() { return state?.gameResult ? state.players.find(player => player.id === `P${state.gameResult.winnerSeatId + 1}`) : null; }
 function accoladeArtUrl(title) { return `assets/accolades/${String(title || 'arc-complete').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}.png`; }
 function winnerArtUrl(winner, gameKey) { const variants = ['last-one-standing', 'table-monarch', 'arc-victor']; const seed = [...String(gameKey || winner?.id || '')].reduce((total, character) => total + character.codePointAt(0), 0); return `assets/accolades/${variants[seed % variants.length]}.png`; }
@@ -381,9 +381,6 @@ function advanceEndGameFlow(key) {
 async function loadSaveGameDecks() {
   try { const token = await currentAccountToken(); if (!token) return; const response = await fetch('/api/account/decks', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) return; const { decks } = await response.json(); dom.saveGameDeck.innerHTML = `<option value="">No deck selected</option>${decks.map(deck => `<option value="${escapeHtml(deck.deckId)}">${escapeHtml([deck.commanderName, deck.name].filter(Boolean).join(' · '))}</option>`).join('')}`; } catch { /* Saving a game remains available without a deck. */ }
 }
-async function loadRecentAccoladeIds() {
-  try { const token = await currentAccountToken(); if (!token) return []; const response = await fetch('/api/account/history', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) return []; const ids = (await response.json()).history?.recentAccoladeIds; return Array.isArray(ids) ? ids.filter(id => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)).slice(0, 5) : []; } catch { return []; }
-}
 async function loadCommanderDecks() {
   try { const token = await currentAccountToken(); if (!token) return; const response = await fetch('/api/account/decks', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) return; const { decks } = await response.json(); commanderDecks = decks; dom.commanderDeck.innerHTML = `<option value="">No deck selected</option>${decks.map(deck => `<option value="${escapeHtml(deck.deckId)}">${escapeHtml([deck.commanderName, deck.name].filter(Boolean).join(' · '))}</option>`).join('')}`; dom.commanderDeck.value = selectedDeckId; dom.commanderDeckField.hidden = false; } catch { /* Deck choice remains optional. */ }
 }
@@ -394,6 +391,7 @@ function renderVictory() {
   const result = state?.gameResult; const winner = winnerFromResult();
   dom.victoryNotice.hidden = !result || !winner;
   dom.viewCelebrationButton.hidden = !result || !winner;
+  dom.saveGameButton.hidden = !result?.saveEligible;
   if (!result || !winner) { shownVictoryKey = null; victoryStage = 'winner'; if (dom.victoryDialog.open) dom.victoryDialog.close('game-reset'); return; }
   const declared = result.reason === 'declared_winner';
   dom.victoryNotice.textContent = `${declared ? 'WINNER' : 'LAST PLAYER STANDING'} · ${displayName(winner)}`;
@@ -422,9 +420,15 @@ function renderVictory() {
     dom.victoryArt.src = winnerArtUrl(winner, key);
     // A completed shared-table result is the record of the game. Save it for
     // each signed-in player without relying on them to remember a final tap.
-    automaticSavePromises.set(key, saveGameToHistory({ automatic: true, gameKey: key }));
+    const saving = saveGameToHistory({ automatic: true, gameKey: key });
+    automaticSavePromises.set(key, saving);
     dom.personalMatchMoment.hidden = true; dom.personalMatchMoment.classList.remove('achievement-reveal');
-    const momentRequest = isStagingEnvironment ? Promise.resolve({ moment: STAGING_SAMPLE_MATCH_MOMENT }) : state.localSimulation ? Promise.resolve({ moment: null }) : loadRecentAccoladeIds().then(ids => transport.getPersonalMatchMoment(ids));
+    const momentRequest = isStagingEnvironment ? Promise.resolve({ moment: STAGING_SAMPLE_MATCH_MOMENT })
+      : state.localSimulation ? Promise.resolve({ moment: null })
+      : saving.then(saved => {
+        if (victoryKey(state?.gameResult) !== key) return { moment: null };
+        return saved?.moment ? saved : transport.getPersonalMatchMoment([], result.gameId);
+      });
     personalMomentPromises.set(key, momentRequest.then(({ moment }) => {
       if (victoryKey(state?.gameResult) !== key) return false;
       return showPersonalMatchMoment(moment);
@@ -467,6 +471,7 @@ async function finishAccountSignIn(token) {
   // A valid Firebase session is enough to enter the app. Profile preferences
   // are optional enrichment and must not throw a Face ID sign-in back to the
   // guest gate during a brief account-service or network failure.
+  resetAwardProfile();
   enterApp(true);
   try {
     const preferencesResponse = await fetch('/api/account/preferences', { headers: { authorization: `Bearer ${token}` } });
@@ -578,6 +583,7 @@ async function exportAccountData() {
 
 async function deleteAccountData() {
   if (!window.confirm('Permanently delete your saved games, decks, and account data? This cannot be undone.')) return;
+  resetAwardProfile();
   const token = await currentAccountToken(); if (!token) throw new Error('Sign in to delete your account data.');
   const response = await fetch('/api/account', { method: 'DELETE', headers: { authorization: `Bearer ${token}` } });
   if (!response.ok) throw new Error('Your account data could not be deleted.');
@@ -585,10 +591,10 @@ async function deleteAccountData() {
 }
 async function signOut() {
   signOutButton.disabled = true;
+  resetAwardProfile();
   try {
     await signOutAccount();
     selectedDeckId = ''; setupDecks = []; savedDecks = [];
-    automaticallySavedGameKey = null; automaticSaveInFlightKey = null;
     enterApp(false);
     if (myGamesDialog.open) myGamesDialog.close(); if (myDecksDialog.open) myDecksDialog.close();
   } catch (error) {
@@ -636,39 +642,72 @@ function latestRecoverableHostPodCode() {
     .filter(table => table.isHost && recoverableCodes.has(table.code))
     .sort((left, right) => Number(right.lastUsedAt || 0) - Number(left.lastUsedAt || 0))[0]?.code || '';
 }
+function resetAwardProfile() {
+  awardProfileEpoch += 1;
+  savedGameKey = null;
+  savingGameKey = null;
+  savedGameMoment = null;
+  unlockedAchievementsByGame.clear();
+}
+
 async function saveGameToHistory({ automatic = false, gameKey = victoryKey(state?.gameResult) } = {}) {
-  const result = state?.gameResult; const you = state?.players.find(player => player.id === state?.ownerPlayerId);
-  if (!result || !you || state?.localSimulation || (automatic && (state?.sessionKind === 'development' || !gameKey || automaticallySavedGameKey === gameKey || automaticSaveInFlightKey === gameKey))) return false;
-  dom.saveGameButton.disabled = true; dom.saveGameButton.textContent = 'Signing in…';
+  const gameId = state?.gameResult?.gameId;
+  if (!gameId || !state.gameResult.saveEligible || state.localSimulation || gameId !== gameKey) return null;
+  if (savedGameKey === gameKey) return { moment: savedGameMoment };
+  if (savingGameKey === gameKey) return null;
+
+  const roomCode = state.podCode;
+  const deckId = selectedDeckId || null;
+  const seatId = transport.seatId;
+  const transportEpoch = transport.sessionEpoch;
+  const profileEpoch = awardProfileEpoch;
+  const sameSeat = () => state?.podCode === roomCode && transport.seatId === seatId
+    && transport.sessionEpoch === transportEpoch && awardProfileEpoch === profileEpoch;
+  const sameResult = () => sameSeat() && victoryKey(state?.gameResult) === gameKey;
+  savingGameKey = gameKey;
+  dom.saveGameButton.disabled = true;
+  dom.saveGameButton.textContent = 'Saving this game…';
   try {
-    const token = automatic ? await currentAccountToken() : await currentAccountToken() || await googleAccountToken();
-    // Automatic saves never interrupt a game result with a sign-in dialog.
-    // A player can still use the visible button to sign in and save manually.
+    let token = await currentAccountToken();
+    if (!sameSeat()) return null;
+    if (!token && !automatic) token = await googleAccountToken();
+    if (!sameSeat()) return null;
     if (!token) {
-      if (automatic) { dom.saveGameButton.disabled = false; dom.saveGameButton.textContent = 'Sign in to save this game'; return false; }
-      throw new Error('Sign in to save this game.');
+      if (sameResult()) {
+        dom.saveGameButton.disabled = false;
+        dom.saveGameButton.textContent = 'Sign in to save this game';
+      }
+      return null;
     }
-    if (automatic) automaticSaveInFlightKey = gameKey;
-    // Do not persist a provisional result that was corrected while a token was
-    // being refreshed.
-    if (victoryKey(state?.gameResult) !== gameKey) { dom.saveGameButton.disabled = false; dom.saveGameButton.textContent = 'Save this game'; return false; }
-    const seatId = Number(you.id.slice(1)) - 1; const place = Array.isArray(result.finishingOrder) ? result.finishingOrder.indexOf(seatId) + 1 : null;
-    const { counterTotals, achievementFacts, moment } = await transport.getPersonalMatchMoment(await loadRecentAccoladeIds());
-    const response = await fetch('/api/account/games', { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ tableSize: state.players.filter(player => player.connectionStatus !== 'waiting').length, won: result.winnerSeatId === seatId, place: place || null, outcomeDescription: result.declarationDetail || null, commanderName: you.commanderNames?.filter(Boolean).join(' / ') || null, deckId: selectedDeckId || null, counterTotals, achievementFacts, accoladeId: moment?.id || null, sourceGameId: `${state.podCode}:${result.decidedAt}:${seatId}` }) });
-    if (!response.ok) throw new Error('This game could not be saved yet.');
-    const { unlockedAchievements = [] } = await response.json();
-    if (automatic) automaticallySavedGameKey = gameKey;
+    const connectionId = transport.connectionId;
+    if (!connectionId) throw new Error('Reconnect to save this game');
+    const response = await fetch('/api/account/games', {
+      method: 'POST',
+      headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json', 'x-connection-id': connectionId },
+      body: JSON.stringify({ roomCode, gameId, deckId }),
+    });
+    const saved = await response.json();
+    if (!response.ok) throw new Error(saved.error?.message || 'This game could not be saved yet');
+    if (!sameResult()) return null;
+    savedGameKey = gameKey;
+    savedGameMoment = saved.moment;
     dom.saveGameButton.textContent = automatic ? 'Game saved automatically' : 'Game saved';
+    if (!automatic && dom.victoryDialog.open && !isStagingEnvironment) showPersonalMatchMoment(saved.moment);
+    const { unlockedAchievements = [] } = saved;
     if (unlockedAchievements.length) {
       unlockedAchievementsByGame.set(gameKey, unlockedAchievements);
-      // A save can finish just after the player closes their personal match
-      // moment. Remember that dismissal so the unlock cannot be lost to a
-      // network-timing race.
       if (dismissedVictoryKeys.has(gameKey) && !dom.victoryDialog.open) showAchievementUnlocks(gameKey);
     }
-    return true;
-  } catch (error) { dom.saveGameButton.disabled = false; dom.saveGameButton.textContent = error?.message || 'Save this game'; return false; }
-  finally { if (automatic && automaticSaveInFlightKey === gameKey) automaticSaveInFlightKey = null; }
+    return saved;
+  } catch (error) {
+    if (sameResult()) {
+      dom.saveGameButton.disabled = false;
+      dom.saveGameButton.textContent = error?.message || 'Save this game';
+    }
+    return null;
+  } finally {
+    if (awardProfileEpoch === profileEpoch && savingGameKey === gameKey) savingGameKey = null;
+  }
 }
 function renderSavedTables() {
   const tables = savedTables();
@@ -1832,7 +1871,7 @@ dom.eliminatePlayerForm.addEventListener('submit', event => { if (event.submitte
 // whole tap, then close the menu.
 dom.gameMenuBackdrop.addEventListener('pointerdown', event => event.stopPropagation());
 dom.gameMenuBackdrop.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); closeGameMenu(); });
-dom.moreButton.addEventListener('click', () => { dom.gameMenu.hidden = !dom.gameMenu.hidden; dom.moreButton.setAttribute('aria-expanded', String(!dom.gameMenu.hidden)); }); dom.coinTossButton.addEventListener('click', () => { closeGameMenu(); tossCoin(); }); dom.editPlayerNameButton.addEventListener('click', openEditPlayerName); dom.editPlayerNameForm.addEventListener('submit', event => { if (event.submitter?.value === 'confirm') { event.preventDefault(); void updatePlayerName(); } }); dom.declareWinnerButton.addEventListener('click', openDeclareWinner); dom.tossAgainButton.addEventListener('click', () => tossCoin()); dom.saveGameButton.addEventListener('click', saveGameToHistory); myGamesButton.addEventListener('click', openMyProfile); myGamesSignInButton.addEventListener('click', async () => { try { myGamesStatus.textContent = 'Signing in…'; await finishAccountSignIn(await googleAccountToken()); } catch (error) { myGamesStatus.textContent = error?.message || 'Sign-in did not work.'; } }); $('#resetButton').addEventListener('click', () => { closeGameMenu(); openResetDialog(); }); dom.confirmResetButton.addEventListener('click', resetGame);
+dom.moreButton.addEventListener('click', () => { dom.gameMenu.hidden = !dom.gameMenu.hidden; dom.moreButton.setAttribute('aria-expanded', String(!dom.gameMenu.hidden)); }); dom.coinTossButton.addEventListener('click', () => { closeGameMenu(); tossCoin(); }); dom.editPlayerNameButton.addEventListener('click', openEditPlayerName); dom.editPlayerNameForm.addEventListener('submit', event => { if (event.submitter?.value === 'confirm') { event.preventDefault(); void updatePlayerName(); } }); dom.declareWinnerButton.addEventListener('click', openDeclareWinner); dom.tossAgainButton.addEventListener('click', () => tossCoin()); dom.saveGameButton.addEventListener('click', event => { event.stopPropagation(); void saveGameToHistory(); }); myGamesButton.addEventListener('click', openMyProfile); myGamesSignInButton.addEventListener('click', async () => { try { myGamesStatus.textContent = 'Signing in…'; await finishAccountSignIn(await googleAccountToken()); } catch (error) { myGamesStatus.textContent = error?.message || 'Sign-in did not work.'; } }); $('#resetButton').addEventListener('click', () => { closeGameMenu(); openResetDialog(); }); dom.confirmResetButton.addEventListener('click', resetGame);
 myGamesDialog.querySelector('form').addEventListener('submit', event => { event.preventDefault(); if (!event.submitter && !emailSignInFields.hidden && accountEmail.value && accountPassword.value) void signInWithEmailPassword(); }); myGamesDialog.querySelector('button[value="close"]').addEventListener('click', () => myGamesDialog.close());
 emailSignInButton.addEventListener('click', async () => { const showingEmailFields = !emailSignInFields.hidden; emailSignInFields.hidden = false; forgotPasswordButton.hidden = false; createAccountButton.hidden = false; emailSignInButton.textContent = 'Sign in with email'; emailSignInButton.classList.replace('secondary-action', 'primary-action'); myGamesSignInButton.classList.replace('primary-action', 'secondary-action'); if (!showingEmailFields) { myGamesStatus.textContent = 'Enter your email and password, then choose Sign in with email.'; accountEmail.focus(); return; } await signInWithEmailPassword(); });
 forgotPasswordButton.addEventListener('click', async () => { if (!accountEmail.value) { accountEmail.focus(); myGamesStatus.textContent = 'Enter the email address for your account first.'; return; } try { await sendAccountPasswordReset(accountEmail.value); myGamesStatus.textContent = 'Password-reset email sent. Check your inbox and spam folder.'; } catch (error) { myGamesStatus.textContent = error?.message || 'The password-reset email could not be sent.'; } });

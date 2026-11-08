@@ -166,7 +166,14 @@ export class RealtimeAdapter extends EventTarget {
     return this.#request(`/api/rooms/${this.roomCode}/playtest-notes`, { method: 'POST', authenticated: true, body: { text } });
   }
   async getPlaytestRecap() { return this.#request(`/api/rooms/${this.roomCode}/playtest-recap`, { authenticated: true }); }
-  async getPersonalMatchMoment(recentAccoladeIds = []) { const ids = recentAccoladeIds.filter(id => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)).slice(0, 5); const query = ids.length ? `?recentAccoladeIds=${encodeURIComponent(ids.join(','))}` : ''; return this.#request(`/api/rooms/${this.roomCode}/match-moment${query}`, { authenticated: true }); }
+  getPersonalMatchMoment(recentAccoladeIds = [], gameId) {
+    const query = new URLSearchParams();
+    const ids = recentAccoladeIds.filter(id => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)).slice(0, 5);
+    if (ids.length) query.set('recentAccoladeIds', ids.join(','));
+    if (gameId) query.set('gameId', gameId);
+    const suffix = query.size ? '?' + query.toString() : '';
+    return this.#request(`/api/rooms/${this.roomCode}/match-moment${suffix}`, { authenticated: true });
+  }
   async recordFieldTest(input) { return this.#request(`/api/rooms/${this.roomCode}/field-test`, { method: 'POST', authenticated: true, body: input }); }
   async recordClientDiagnostic(input) {
     if (this.localMode || this.status !== 'connected' || !this.roomCode) return { skipped: true };

@@ -3,9 +3,9 @@ import { readFile, stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
 import QRCode from "qrcode";
-import { NullPlaytestLedger, recapFromRoom } from "./playtest-ledger.js";
+import { activeGameDurationMs, NullPlaytestLedger, recapFromRoom } from "./playtest-ledger.js";
 import { ProductMeasurement } from "./product-measurement.js";
-import { blankMatchMoment, personalMatchMoment, recordMatchMoment, recordTurnMoment, tableMatchMomentDecisions } from "./match-moments.js";
+import { blankMatchMoment, recordMatchMoment, recordTurnMoment, tableMatchMomentDecisions } from "./match-moments.js";
 
 const JOIN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const MUTABLE_COUNTERS = new Set(["life", "radiation", "poison", "energy", "generic", "commanderDamage"]);
@@ -13,6 +13,7 @@ const COMMANDER_IDENTITY_TTL_MS = 6 * 60 * 60 * 1000;
 const COMMANDER_LOOKUP_TIMEOUT_MS = 6_000;
 const COMMANDER_LOOKUP_MIN_INTERVAL_MS = 100;
 const MAX_RECENT_OPERATION_IDS = 100;
+const RECENT_COMPLETED_GAMES = 3;
 const SSE_KEEPALIVE_MS = 25_000;
 const REQUEST_LOG_METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);
 const REQUEST_LOG_FEATURES = new Set([
@@ -455,6 +456,13 @@ function gameSeats(room) {
   // still stable, so moving a person never transfers their account or deck.
   return ids.map((seatId) => room.seats[seatId]).filter((seat) => seat?.claimed);
 }
+function crossesStartingSeat(room, fromSeatId, toSeatId) {
+  const ids = gameSeats(room).map(seat => seat.seatId);
+  const start = Math.max(0, ids.indexOf(room.turn.startingPlayerSeatId));
+  const position = id => (ids.indexOf(id) - start + ids.length) % ids.length;
+  return position(toSeatId) <= position(fromSeatId) ? 1 : 0;
+}
+
 function advancePastEliminatedActiveSeat(room, now) {
   if (!room.turn.gameStarted || room.gameResult || !seatIsEliminated(room.seats[room.turn.activeSeatId])) return null;
   const tableSeats = gameSeats(room);
@@ -470,7 +478,8 @@ function advancePastEliminatedActiveSeat(room, now) {
     ...room.turn,
     activeSeatId: toSeatId,
     turnStartedAt: now,
-    turnNumber: (room.turn.turnNumber || 1) + (toSeatId === room.turn.startingPlayerSeatId ? 1 : 0),
+    momentTurnKey: room.ledgerSequence + 1,
+    turnNumber: (room.turn.turnNumber || 1) + crossesStartingSeat(room, fromSeatId, toSeatId),
     lastHandoff: { fromSeatId, toSeatId, handedOffAt: now, turnLengthMs, automatic: true },
   };
   recordTurnMoment(room.seats[fromSeatId], turnLengthMs);
@@ -589,7 +598,7 @@ export class RoomService {
       // This keeps a finished match intact while its players prepare the next.
       lifecycle: { status: "lobby", seatIds: [0], readySeatIds: [], seatOrderConfirmed: false },
       lastGameWinnerSeatId: null,
-      tableGameNumber: 1,
+      completedGames: [],
       sessionKind: "standard",
       turn: {
         activeSeatId: 0,
@@ -633,6 +642,7 @@ export class RoomService {
 
   snapshot(room) {
     const sources = commanderSources(room);
+    const { roundAdvance, countedAfterReclaim, previousMomentTurnKey, ...lastHandoff } = room.turn.lastHandoff || {};
     return {
       code: room.code,
       version: room.version,
@@ -641,6 +651,8 @@ export class RoomService {
       config: { ...room.config },
       lastCoinToss: room.lastCoinToss ? { ...room.lastCoinToss } : null,
       gameResult: room.gameResult ? { ...room.gameResult } : null,
+      completedGameId: room.gameResult ? room.gameId : null,
+      completedGameEligible: Boolean(room.gameResult && room.completedGames?.some(game => game.gameId === room.gameId && game.sessionKind === "standard")),
       lifecycle: { status: room.lifecycle?.status || (room.turn.gameStarted ? "playing" : "lobby"), seatIds: [...(room.lifecycle?.seatIds || room.seats.filter((seat) => seat.claimed).map((seat) => seat.seatId))], readySeatIds: [...(room.lifecycle?.readySeatIds || [])], seatOrderConfirmed: room.lifecycle?.seatOrderConfirmed === true },
       lastGameWinnerSeatId: Number.isInteger(room.lastGameWinnerSeatId) ? room.lastGameWinnerSeatId : null,
       feedbackPromptSeatId: feedbackPromptSeatId(room),
@@ -661,7 +673,7 @@ export class RoomService {
             ...(round.tiedSeatIds ? { tiedSeatIds: [...round.tiedSeatIds] } : {}),
           })),
         } : null,
-        lastHandoff: room.turn.lastHandoff ? { ...room.turn.lastHandoff } : null,
+        lastHandoff: room.turn.lastHandoff ? lastHandoff : null,
         trackingEnabled: room.turn.trackingEnabled !== false,
         cueMode: ["sound", "vibrate", "both"].includes(room.turn.cueMode) ? room.turn.cueMode : "off",
         pausedAt: room.turn.pausedAt ?? null,
@@ -702,20 +714,51 @@ export class RoomService {
   }
 
   completePlaytest(room, completedAt, { incomplete = false } = {}) {
-    if (room.ledgerCompletedAt) return;
+    if (room.ledgerCompletedAt != null) return;
     room.ledgerCompletedAt = completedAt;
-    const recap = {
-      ...recapFromRoom(room, completedAt),
-      notes: room.playtestNotes.map((note) => ({ ...note })),
-      incomplete,
-    };
-    if (room.gameResult) {
-      const context = { durationMs: Math.max(0, room.gameResult.decidedAt - (room.turn.gameStartedAt || room.gameResult.decidedAt)), everyStarterTwoTurns: room.seats.filter(item => item.claimed !== false).every(item => (item.matchMoment?.turnCount || 0) >= 2) };
-      const decisions = tableMatchMomentDecisions({ seats: room.seats, winnerSeatId: room.gameResult.winnerSeatId, seed: room.gameId, recentCategoriesBySeat: room.recentAccoladeCategories, context });
+    const recap = { ...recapFromRoom(room, completedAt), notes: room.playtestNotes.map(note => ({ ...note })), incomplete };
+    if (!incomplete && room.gameResult && room.turn.gameStarted) {
+      const starters = gameSeats(room);
+      const sessionKind = room.turn.startedAsDevelopment || room.sessionKind === "development" ? "development" : "standard";
+      for (const seat of starters) {
+        seat.matchMoment ||= blankMatchMoment(room.config.startingLife);
+        if (sessionKind === "standard") seat.completedGamesAtTable = (seat.completedGamesAtTable ?? 0) + 1;
+        seat.matchMoment.tableGameNumber = seat.completedGamesAtTable ?? 0;
+      }
+      const context = {
+        durationMs: activeGameDurationMs(room.turn, completedAt),
+        everyStarterTwoTurns: starters.every(seat => (seat.matchMoment.turnCount || 0) >= 2),
+      };
+      room.recentAccoladeCategories ||= {};
+      const decisions = tableMatchMomentDecisions({ seats: starters, winnerSeatId: room.gameResult.winnerSeatId, seed: room.gameId, recentCategoriesBySeat: room.recentAccoladeCategories, context });
+      const finished = {
+        gameId: room.gameId,
+        startedAt: room.turn.originalGameStartedAt ?? room.turn.gameStartedAt,
+        completedAt,
+        sessionKind,
+        seats: Object.fromEntries(starters.map(seat => {
+          const { moment, alternatives } = decisions.get(seat.seatId);
+          return [seat.seatId, {
+            ownerHash: encodedHash(seat.tokenHash),
+            game: this.completedGameFacts(room, seat, starters, context),
+            moments: [moment, ...alternatives],
+          }];
+        })),
+      };
+      room.completedGames = [...(room.completedGames || []), finished].slice(-RECENT_COMPLETED_GAMES);
       room.gameAccolades = Object.fromEntries([...decisions].map(([seatId, decision]) => [seatId, decision.moment]));
-      for (const [seatId, decision] of decisions) room.recentAccoladeCategories[seatId] = [decision.moment.category, ...(room.recentAccoladeCategories[seatId] || []).filter((category) => category !== decision.moment.category)].slice(0, 3);
-      recap.accolades = room.seats.filter((seat) => seat.claimed).map((seat) => ({ seatId: seat.seatId, name: seat.name, ...decisions.get(seat.seatId) }));
+      if (sessionKind === "standard") {
+        for (const [seatId, { moment }] of decisions) {
+          room.recentAccoladeCategories[seatId] = [moment.category, ...(room.recentAccoladeCategories[seatId] || []).filter(category => category !== moment.category)].slice(0, 3);
+        }
+      }
+      recap.accolades = starters.map(seat => {
+        const { moment, eligibleCategories, selectionReason } = decisions.get(seat.seatId);
+        return { seatId: seat.seatId, name: seat.name, moment, eligibleCategories, selectionReason };
+      });
       recap.accoladeCounts = recap.accolades.reduce((counts, selection) => ({ ...counts, [selection.moment.category]: (counts[selection.moment.category] || 0) + 1 }), {});
+      // The result event precedes finalization, so also persist the frozen evidence.
+      this.ledger.recovery(this.recoveryRecord(room, completedAt));
     }
     this.ledger.complete(recap);
   }
@@ -746,16 +789,54 @@ export class RoomService {
     return { recap: { ...recapFromRoom(room, this.now()), notes: room.playtestNotes.map((note) => ({ ...note })) } };
   }
 
-  personalMatchMoment(code, connectionId, recentAccoladeIds = []) {
-    const room = this.room(code); const { seat } = this.requireOwner(room, connectionId);
-    if (!room.gameResult) throw Object.assign(new Error("A match moment is available after the game ends"), { status: 409, code: "GAME_NOT_COMPLETE" });
-    const matchMoment = seat.matchMoment || blankMatchMoment(room.config.startingLife);
-    const commanderDamageBySource = matchMoment.commanderDamageBySource || {};
-    const commanderDamage = Object.values(commanderDamageBySource);
-    const opposingCommanderSourceIds = commanderSources(room).filter((source) => source.ownerSeatId !== seat.seatId).map((source) => source.id);
-    const millEliminations = room.seats.filter((item) => item.alternateElimination?.reason === "milled_out").length;
+  completedSeat(code, connectionId, gameId) {
+    const room = this.room(code);
+    const { seat } = this.requireOwner(room, connectionId);
+    const completed = room.completedGames?.find(game => game.gameId === gameId);
+    if (!completed) throw Object.assign(new Error("This completed game is no longer available to save"), { status: 409, code: "COMPLETION_UNAVAILABLE" });
+    const record = completed.seats?.[seat.seatId];
+    if (!record || !seat.tokenHash || record.ownerHash !== encodedHash(seat.tokenHash)) {
+      throw Object.assign(new Error("Only a participating seat can use this result"), { status: 403, code: "NOT_COMPLETED_SEAT" });
+    }
+    return { gameId, seatId: seat.seatId, startedAt: completed.startedAt, completedAt: completed.completedAt, sessionKind: completed.sessionKind, game: record.game, moments: record.moments };
+  }
+
+  personalMatchMoment(code, connectionId, recentAccoladeIds = [], gameId) {
+    const room = this.room(code);
+    const { seat } = this.requireOwner(room, connectionId);
+    if (!gameId && !room.gameResult) throw Object.assign(new Error("A match moment is available after the game ends"), { status: 409, code: "GAME_NOT_COMPLETE" });
+    const requested = gameId || room.gameId;
+    if (!room.completedGames?.some(game => game.gameId === requested) && room.gameResult && requested === room.gameId) {
+      // Older recovered results have no frozen seat evidence. The existing room card is display-only.
+      return { moment: room.gameAccolades?.[seat.seatId] || null };
+    }
+    const { game, moments } = this.completedSeat(code, connectionId, requested);
     return {
-      moment: recentAccoladeIds.length ? personalMatchMoment({ seat, seats: room.seats, winnerSeatId: room.gameResult.winnerSeatId, seed: room.gameId, recentAccoladeIds }) : room.gameAccolades?.[seat.seatId] || personalMatchMoment({ seat, seats: room.seats, winnerSeatId: room.gameResult.winnerSeatId, seed: room.gameId }),
+      moment: moments.find(moment => !recentAccoladeIds.includes(moment.id)) || moments[0],
+      counterTotals: game.counterTotals,
+      achievementFacts: game.achievementFacts,
+    };
+  }
+
+  completedGameFacts(room, seat, starters, context) {
+    const matchMoment = seat.matchMoment;
+    const damageBySource = matchMoment.commanderDamageBySource || {};
+    const opposingIds = new Set(starters.filter(item => item.seatId !== seat.seatId).map(item => item.seatId));
+    const sourceIds = room.turn.startingCommanderSourceIds || commanderSources(room).map(source => source.id);
+    const isOpposing = id => opposingIds.has(Number(id.split("-")[1]));
+    const opposingCommanderSourceIds = sourceIds.filter(isOpposing);
+    const millEliminations = starters.filter(item => item.alternateElimination?.reason === "milled_out").length;
+    const won = room.gameResult.winnerSeatId === seat.seatId;
+    const place = (room.gameResult.finishingOrder?.indexOf(seat.seatId) ?? -1) + 1;
+    const trackedCommanderRounds = room.config.gameFormat === "commander" && room.turn.trackingEnabled && room.turn.roundTrackingComplete !== false;
+    return {
+      tableSize: starters.length,
+      gameFormat: room.config.gameFormat,
+      won,
+      place: place || null,
+      outcomeDescription: room.gameResult.declarationDetail || null,
+      commanderName: seat.commanderNames?.filter(Boolean).join(" / ") || null,
+      playedColors: [...new Set(seat.commanderColors?.flat() || [])],
       counterTotals: {
         poison: matchMoment.poisonGained || 0,
         energy: matchMoment.energyGained || 0,
@@ -773,23 +854,23 @@ export class RoomService {
         lostAllLifeInOneTurn: matchMoment.lostAllLifeInOneTurn ? 1 : 0,
         wasMilledOut: seat.alternateElimination?.reason === "milled_out" ? 1 : 0,
         millEliminations,
-        wonByFinalMillOut: room.gameResult.winnerSeatId === seat.seatId && room.gameResult.decisiveAlternateReason === "milled_out" ? 1 : 0,
-        wonByDeclaredAlternateWin: room.gameResult.winnerSeatId === seat.seatId && room.gameResult.winCondition === "alternate_win" ? 1 : 0,
-        playerCountAtStart: matchMoment.playerCountAtStart || room.seats.filter((item) => item.claimed).length,
+        wonByFinalMillOut: won && room.gameResult.decisiveAlternateReason === "milled_out" ? 1 : 0,
+        wonByDeclaredAlternateWin: won && room.gameResult.winCondition === "alternate_win" ? 1 : 0,
+        playerCountAtStart: starters.length,
         turnCount: matchMoment.turnCount || 0,
-        tableTurnNumber: room.turn.turnNumber || 0,
-        durationMs: Math.max(0, room.gameResult.decidedAt - (room.turn.gameStartedAt || room.gameResult.decidedAt)),
-        commanderSourcesHit: commanderDamage.filter((damage) => damage > 0).length,
-        largestCommanderDamage: Math.max(0, ...commanderDamage),
-        everyOpponentCommanderAt10: (matchMoment.playerCountAtStart >= 4 && opposingCommanderSourceIds.length >= 3 && opposingCommanderSourceIds.every((sourceId) => (commanderDamageBySource[sourceId] || 0) >= 10)) ? 1 : 0,
-        everyOpponentCommanderAt18: (matchMoment.playerCountAtStart >= 4 && opposingCommanderSourceIds.length >= 3 && opposingCommanderSourceIds.every((sourceId) => (commanderDamageBySource[sourceId] || 0) >= 18)) ? 1 : 0,
-        handoffCount: room.seats.reduce((total, item) => total + (item.matchMoment?.turnCount || 0), 0),
-        everyStarterTwoTurns: room.seats.filter((item) => item.claimed).every((item) => (item.matchMoment?.turnCount || 0) >= 2) ? 1 : 0,
-        everyStarterThreeTurns: room.seats.filter((item) => item.claimed).every((item) => (item.matchMoment?.turnCount || 0) >= 3) ? 1 : 0,
+        tableTurnNumber: trackedCommanderRounds ? room.turn.turnNumber || 0 : 0,
+        durationMs: context.durationMs,
+        commanderSourcesHit: Object.entries(damageBySource).filter(([id, damage]) => damage > 0 && isOpposing(id)).length,
+        largestCommanderDamage: Math.max(0, ...Object.values(damageBySource)),
+        everyOpponentCommanderAt10: starters.length >= 4 && opposingCommanderSourceIds.length >= 3 && opposingCommanderSourceIds.every(id => (damageBySource[id] || 0) >= 10) ? 1 : 0,
+        everyOpponentCommanderAt18: starters.length >= 4 && opposingCommanderSourceIds.length >= 3 && opposingCommanderSourceIds.every(id => (damageBySource[id] || 0) >= 18) ? 1 : 0,
+        handoffCount: starters.reduce((total, item) => total + (item.matchMoment.turnCount || 0), 0),
+        everyStarterTwoTurns: context.everyStarterTwoTurns ? 1 : 0,
+        everyStarterThreeTurns: starters.every(item => (item.matchMoment.turnCount || 0) >= 3) ? 1 : 0,
         reclaimedDuringGame: matchMoment.reclaimedDuringGame ? 1 : 0,
         actionsAfterReclaim: matchMoment.actionsAfterReclaim || 0,
         turnsAfterReclaim: matchMoment.turnsAfterReclaim || 0,
-        tableGameNumber: matchMoment.tableGameNumber || room.tableGameNumber || 1,
+        tableGameNumber: matchMoment.tableGameNumber,
         usedLocalD20: matchMoment.usedLocalD20 ? 1 : 0,
       },
     };
@@ -857,6 +938,7 @@ export class RoomService {
       reclaimToken = opaque(32);
       seat.claimed = true;
       seat.tokenHash = tokenHash(reclaimToken);
+      seat.completedGamesAtTable = 0;
       seat.recentOperationIds = new Map();
       seat.name = name;
       seat.commanderCount = commanderCount;
@@ -877,7 +959,7 @@ export class RoomService {
       if (input.commanderNames !== undefined) seat.commanderNames = normalizeCommanderNames(input.commanderNames, seat.commanderCount, seat.commanderNames);
       if (input.commanderColors !== undefined) seat.commanderColors = normalizeCommanderColors(input.commanderColors, seat.commanderCount, seat.commanderColors);
       seat.name = name;
-      if (room.turn.gameStarted) {
+      if (room.turn.gameStarted && !room.gameResult) {
         seat.matchMoment.reclaimedDuringGame = true;
         seat.matchMoment.actionsAfterReclaim = 0;
         seat.matchMoment.turnsAfterReclaim = 0;
@@ -1039,7 +1121,7 @@ export class RoomService {
     if (operationId !== undefined && (typeof operationId !== "string" || operationId.length < 16 || operationId.length > 128)) {
       throw Object.assign(new Error("operationId must be a client-generated opaque identifier"), { status: 400, code: "INVALID_INPUT" });
     }
-    if (operationId && seat.recentOperationIds.has(operationId)) return { snapshot: seat.recentOperationIds.get(operationId), deduplicated: true };
+    if (operationId && seat.recentOperationIds.has(operationId)) return { snapshot: seat.recentOperationIds.get(operationId) || this.snapshot(room), deduplicated: true };
     const counter = input.counter;
     const delta = asInteger(input.delta, "delta", -999, 999);
     if (!MUTABLE_COUNTERS.has(counter) || delta === 0) {
@@ -1065,19 +1147,20 @@ export class RoomService {
       const before = seat.counters[counter] ?? 0; seat.counters[counter] = Math.max(minimum, Math.min(999, before + delta)); applied = seat.counters[counter] - before;
     }
     if (counter === "poison" && applied > 0) seat.counterTotals = { ...(seat.counterTotals || {}), poison: (seat.counterTotals?.poison || 0) + applied };
-    recordMatchMoment(seat, { counter, delta: applied, commanderSourceId: input.commanderSourceId, lifeBefore: counter === "commanderDamage" ? seat.counters.life + applied : counter === "life" ? seat.counters.life - applied : seat.counters.life, lifeAfter: seat.counters.life, gameStarted: room.turn.gameStarted, isOwnTurn: room.turn.activeSeatId === seat.seatId, turnKey: room.turn.turnStartedAt, isCorrection: counter === 'life' && input.isCorrection === true });
+    recordMatchMoment(seat, { counter, delta: applied, commanderSourceId: input.commanderSourceId, lifeBefore: counter === "commanderDamage" ? seat.counters.life + applied : counter === "life" ? seat.counters.life - applied : seat.counters.life, lifeAfter: seat.counters.life, gameStarted: room.turn.gameStarted, isOwnTurn: room.turn.activeSeatId === seat.seatId, turnKey: room.turn.momentTurnKey ?? room.turn.turnStartedAt, isCorrection: counter === 'life' && input.isCorrection === true });
     const now = this.now(); recordLastPlayerStanding(room, now);
     const automaticHandoff = advancePastEliminatedActiveSeat(room, now);
     room.version += 1;
+    if (operationId) {
+      seat.recentOperationIds.set(operationId, null);
+      while (seat.recentOperationIds.size > MAX_RECENT_OPERATION_IDS) seat.recentOperationIds.delete(seat.recentOperationIds.keys().next().value);
+    }
     this.recordLedger(room, "counter_adjusted", seat.seatId, { counter, delta: applied, ...(counter === "commanderDamage" ? { commanderSourceId: input.commanderSourceId } : {}) });
     if (automaticHandoff) this.recordLedger(room, "turn_auto_advanced_after_elimination", seat.seatId, automaticHandoff);
     this.recordCompletion(room);
     this.broadcast(room);
     const snapshot = this.snapshot(room);
-    if (operationId) {
-      seat.recentOperationIds.set(operationId, snapshot);
-      while (seat.recentOperationIds.size > MAX_RECENT_OPERATION_IDS) seat.recentOperationIds.delete(seat.recentOperationIds.keys().next().value);
-    }
+    if (operationId) seat.recentOperationIds.set(operationId, snapshot);
     return { snapshot };
   }
 
@@ -1087,7 +1170,7 @@ export class RoomService {
     if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
     const nonlandCount = asInteger(input.nonlandCount, "nonlandCount", 0, 999); const removed = Math.min(nonlandCount, seat.counters.radiation || 0);
     seat.counters.radiation -= removed; seat.counters.life = Math.max(-999, seat.counters.life - nonlandCount);
-    const now = this.now(); recordMatchMoment(seat, { counter: "life", delta: -nonlandCount, lifeBefore: seat.counters.life + nonlandCount, lifeAfter: seat.counters.life, gameStarted: true, isOwnTurn: true, turnKey: room.turn.turnStartedAt }); recordLastPlayerStanding(room, now); const automaticHandoff = advancePastEliminatedActiveSeat(room, now); room.version += 1;
+    const now = this.now(); recordMatchMoment(seat, { counter: "life", delta: -nonlandCount, lifeBefore: seat.counters.life + nonlandCount, lifeAfter: seat.counters.life, gameStarted: true, isOwnTurn: true, turnKey: room.turn.momentTurnKey ?? room.turn.turnStartedAt }); recordLastPlayerStanding(room, now); const automaticHandoff = advancePastEliminatedActiveSeat(room, now); room.version += 1;
     this.recordLedger(room, "radiation_resolved", seatId, { nonlandCount, removed }); if (automaticHandoff) this.recordLedger(room, "turn_auto_advanced_after_elimination", seatId, automaticHandoff); this.recordCompletion(room); this.broadcast(room); return { snapshot: this.snapshot(room) };
   }
 
@@ -1111,7 +1194,6 @@ export class RoomService {
     room.gameResult = null; room.gameAccolades = null; room.automaticEliminationOrder = []; room.quickFeedbackRecordedAt = null;
     room.lifecycle = { status: "lobby", seatIds: room.seats.filter((seat) => seat.claimed).map((seat) => seat.seatId), readySeatIds: [], seatOrderConfirmed: false };
     room.gameId = opaque(12);
-    room.tableGameNumber = (room.tableGameNumber || 1) + 1;
     room.ledgerSequence = 0;
     room.ledgerLastCheckpointAt = this.now();
     room.ledgerCompletedAt = null;
@@ -1157,6 +1239,7 @@ export class RoomService {
     const room = this.room(code);
     const { seatId } = this.requireOwner(room, connectionId);
     if (seatId !== room.hostSeatId) throw Object.assign(new Error("Only the host seat may declare a winner"), { status: 403, code: "HOST_ONLY" });
+    if (room.gameResult) throw Object.assign(new Error("This game already has a result"), { status: 409, code: "GAME_COMPLETE", snapshot: this.snapshot(room) });
     if (!room.turn.gameStarted) throw Object.assign(new Error("Start the game before declaring a winner"), { status: 409, code: "GAME_NOT_STARTED", snapshot: this.snapshot(room) });
     if (input.baseVersion !== room.version) {
       throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
@@ -1184,7 +1267,6 @@ export class RoomService {
     const nextSeatIds = gameSeats(room).map((seat) => seat.seatId);
     for (const seat of room.seats) resetSeatForNextGame(seat, room.config.startingLife);
     room.lastGameWinnerSeatId = room.gameResult.winnerSeatId;
-    room.tableGameNumber = (room.tableGameNumber || 1) + 1;
     room.lifecycle = { status: "intermission", seatIds: nextSeatIds, readySeatIds: [] };
     const nextStarter = nextSeatIds.find((id) => id > previousStarter) ?? nextSeatIds[0] ?? room.hostSeatId;
     room.turn = { ...room.turn, activeSeatId: nextStarter, gameStarted: false, gameStartedAt: null, turnStartedAt: null, turnNumber: 0, roundEndsAt: null, startingPlayerSeatId: nextStarter, startingPlayerRoll: null, lastHandoff: null, pausedAt: null, pausedDurationMs: 0 };
@@ -1234,6 +1316,7 @@ export class RoomService {
     const room = this.room(code);
     const { seatId } = this.requireOwner(room, connectionId);
     if (seatId !== room.hostSeatId) throw Object.assign(new Error("Only the host seat may mark a player eliminated"), { status: 403, code: "HOST_ONLY" });
+    if (room.gameResult) throw Object.assign(new Error("This game already has a result"), { status: 409, code: "GAME_COMPLETE", snapshot: this.snapshot(room) });
     if (!room.turn.gameStarted) throw Object.assign(new Error("Start the game before marking an elimination"), { status: 409, code: "GAME_NOT_STARTED", snapshot: this.snapshot(room) });
     if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
     const targetSeatId = asInteger(input.targetSeatId, "targetSeatId", 0, room.config.playerCount - 1);
@@ -1322,17 +1405,22 @@ export class RoomService {
     if (room.turn.startingPlayerRoll?.status === "rolling") throw Object.assign(new Error("Wait for every local d20 roll to report before starting the game"), { status: 409, code: "ROLL_IN_PROGRESS", snapshot: this.snapshot(room) });
     const startedAt = this.now();
     const usedLocalD20 = room.turn.startingPlayerRoll?.status === "complete";
-    for (const seat of room.seats) {
+    for (const seat of claimedSeats) {
       seat.matchMoment.playerCountAtStart = playerCountAtStart;
-      seat.matchMoment.tableGameNumber = room.tableGameNumber || 1;
+      seat.matchMoment.tableGameNumber = (seat.completedGamesAtTable ?? 0) + 1;
       seat.matchMoment.usedLocalD20 = usedLocalD20;
     }
     room.turn = {
       ...room.turn,
       gameStarted: true,
       gameStartedAt: startedAt,
+      originalGameStartedAt: startedAt,
       turnStartedAt: startedAt,
+      momentTurnKey: "start",
       turnNumber: 1,
+      roundTrackingComplete: room.turn.trackingEnabled !== false,
+      startedAsDevelopment: room.sessionKind === "development",
+      startingCommanderSourceIds: commanderSources(room).filter(source => claimedSeats.some(seat => seat.seatId === source.ownerSeatId)).map(source => source.id),
       roundEndsAt: room.config.roundLimitMinutes ? startedAt + room.config.roundLimitMinutes * 60 * 1000 : null,
       startingPlayerSeatId: room.turn.startingPlayerSeatId ?? room.turn.activeSeatId,
       lastHandoff: null,
@@ -1350,6 +1438,7 @@ export class RoomService {
   handoffTurn(code, connectionId, input = {}) {
     const room = this.room(code);
     const { seatId } = this.requireOwner(room, connectionId);
+    if (room.gameResult) throw Object.assign(new Error("This game already has a result"), { status: 409, code: "GAME_COMPLETE", snapshot: this.snapshot(room) });
     if (!room.turn.gameStarted) throw Object.assign(new Error("Start the game before handing off turns"), { status: 409, code: "GAME_NOT_STARTED", snapshot: this.snapshot(room) });
     if (!room.turn.trackingEnabled) throw Object.assign(new Error("Turn tracking is off for this game"), { status: 409, code: "TURN_TRACKING_OFF", snapshot: this.snapshot(room) });
     if (room.turn.pausedAt) throw Object.assign(new Error("The host has paused turn tracking"), { status: 409, code: "TURN_PAUSED", snapshot: this.snapshot(room) });
@@ -1373,23 +1462,31 @@ export class RoomService {
     const toSeat = Array.from({ length: tableSeats.length }, (_, offset) => tableSeats[(currentIndex + offset + 1) % tableSeats.length])
       .find((seat) => eligibleSeats.includes(seat));
     const toSeatId = (toSeat || eligibleSeats[0]).seatId;
+    const roundAdvance = crossesStartingSeat(room, seatId, toSeatId);
+    const turnLengthMs = Math.max(0, handedOffAt - (previousTurnStartedAt ?? handedOffAt));
+    const countedAfterReclaim = room.seats[seatId].matchMoment?.reclaimedDuringGame === true;
     room.turn = {
       ...room.turn,
       activeSeatId: toSeatId,
       turnStartedAt: handedOffAt,
-      turnNumber: (room.turn.turnNumber || 1) + (toSeatId === room.turn.startingPlayerSeatId ? 1 : 0),
-      lastHandoff: { fromSeatId: seatId, toSeatId, handedOffAt, turnLengthMs: Math.max(0, handedOffAt - (previousTurnStartedAt ?? handedOffAt)) },
+      momentTurnKey: room.ledgerSequence + 1,
+      turnNumber: (room.turn.turnNumber || 1) + roundAdvance,
+      lastHandoff: {
+        fromSeatId: seatId, toSeatId, handedOffAt, turnLengthMs, roundAdvance, countedAfterReclaim,
+        previousMomentTurnKey: room.turn.momentTurnKey ?? previousTurnStartedAt,
+      },
     };
-    recordTurnMoment(room.seats[seatId], room.turn.lastHandoff.turnLengthMs);
+    recordTurnMoment(room.seats[seatId], turnLengthMs);
     room.version += 1;
-    this.recordLedger(room, "turn_handed_off", seatId, { toSeatId, turnLengthMs: Math.max(0, handedOffAt - (previousTurnStartedAt ?? handedOffAt)) });
+    this.recordLedger(room, "turn_handed_off", seatId, { toSeatId, turnLengthMs });
     this.broadcast(room);
     return { snapshot: this.snapshot(room) };
   }
 
   undoTurnHandoff(code, connectionId, input = {}) {
     const room = this.room(code);
-    const { seatId } = this.requireOwner(room, connectionId);
+    const { seatId, seat } = this.requireOwner(room, connectionId);
+    if (room.gameResult) throw Object.assign(new Error("This game already has a result"), { status: 409, code: "GAME_COMPLETE", snapshot: this.snapshot(room) });
     if (input.baseVersion !== room.version) {
       throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
     }
@@ -1401,11 +1498,18 @@ export class RoomService {
     if (seatId !== handoff.fromSeatId) {
       throw Object.assign(new Error("Only the player who ended the turn may undo that handoff"), { status: 403, code: "HANDOFF_UNDO_OWNER_ONLY" });
     }
+    if (seat.matchMoment) {
+      seat.matchMoment.turnCount = Math.max(0, (seat.matchMoment.turnCount || 0) - 1);
+      seat.matchMoment.totalTurnMs = Math.max(0, (seat.matchMoment.totalTurnMs || 0) - handoff.turnLengthMs);
+      if (handoff.countedAfterReclaim) seat.matchMoment.turnsAfterReclaim = Math.max(0, (seat.matchMoment.turnsAfterReclaim || 0) - 1);
+    }
+    const roundAdvance = handoff.roundAdvance ?? Number(handoff.toSeatId === room.turn.startingPlayerSeatId);
     room.turn = {
       ...room.turn,
       activeSeatId: handoff.fromSeatId,
-      turnStartedAt: handoff.handedOffAt,
-      turnNumber: Math.max(1, (room.turn.turnNumber || 1) - (handoff.toSeatId === room.turn.startingPlayerSeatId ? 1 : 0)),
+      turnStartedAt: this.now() - handoff.turnLengthMs,
+      momentTurnKey: handoff.previousMomentTurnKey ?? handoff.handedOffAt,
+      turnNumber: Math.max(1, (room.turn.turnNumber || 1) - roundAdvance),
       lastHandoff: null,
     };
     room.version += 1;
@@ -1486,7 +1590,18 @@ export class RoomService {
     if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
     if (typeof input.enabled !== "boolean") throw Object.assign(new Error("Turn tracking must be on or off"), { status: 400, code: "INVALID_INPUT" });
     const now = this.now();
-    room.turn = { ...room.turn, trackingEnabled: input.enabled, pausedAt: null, turnStartedAt: input.enabled && room.turn.gameStarted ? now : room.turn.turnStartedAt, pausedDurationMs: input.enabled && room.turn.gameStarted ? 0 : room.turn.pausedDurationMs, lastHandoff: null };
+    const pausedFor = room.turn.pausedAt == null ? 0 : Math.max(0, now - room.turn.pausedAt);
+    room.turn = {
+      ...room.turn,
+      trackingEnabled: input.enabled,
+      roundTrackingComplete: room.turn.roundTrackingComplete !== false && input.enabled,
+      pausedAt: null,
+      pausedDurationMs: (room.turn.pausedDurationMs ?? 0) + pausedFor,
+      gameStartedAt: room.turn.gameStartedAt == null ? null : room.turn.gameStartedAt + pausedFor,
+      turnStartedAt: input.enabled && room.turn.gameStarted ? now : room.turn.turnStartedAt,
+      roundEndsAt: room.turn.roundEndsAt == null ? null : room.turn.roundEndsAt + pausedFor,
+      lastHandoff: null,
+    };
     room.version += 1;
     this.recordLedger(room, "turn_tracking_changed", seatId, { enabled: input.enabled });
     this.broadcast(room);
@@ -1524,9 +1639,9 @@ export class RoomService {
     if (!room.turn.gameStarted || !room.turn.trackingEnabled) throw Object.assign(new Error("Turn tracking is not running"), { status: 409, code: "TURN_TRACKING_OFF", snapshot: this.snapshot(room) });
     if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
     const now = this.now();
-    if (input.paused === true && !room.turn.pausedAt) room.turn = { ...room.turn, pausedAt: now };
-    else if (input.paused === false && room.turn.pausedAt) {
-      const pausedFor = now - room.turn.pausedAt;
+    if (input.paused === true && room.turn.pausedAt == null) room.turn = { ...room.turn, pausedAt: now };
+    else if (input.paused === false && room.turn.pausedAt != null) {
+      const pausedFor = Math.max(0, now - room.turn.pausedAt);
       room.turn = { ...room.turn, pausedAt: null, pausedDurationMs: (room.turn.pausedDurationMs ?? 0) + pausedFor, turnStartedAt: room.turn.turnStartedAt + pausedFor, gameStartedAt: room.turn.gameStartedAt + pausedFor, roundEndsAt: room.turn.roundEndsAt ? room.turn.roundEndsAt + pausedFor : null };
     } else return { snapshot: this.snapshot(room) };
     room.version += 1;
@@ -1546,7 +1661,7 @@ export class RoomService {
           ...seat,
           ownerConnectionId: null,
           tokenHash: seat.tokenHash ? encodedHash(seat.tokenHash) : null,
-          recentOperationIds: [],
+          recentOperationIds: [...(seat.recentOperationIds?.keys() || [])],
         })),
       },
     };
@@ -1577,7 +1692,7 @@ export class RoomService {
         commanderCastCounts: seat.commanderCastCounts && typeof seat.commanderCastCounts === "object" ? seat.commanderCastCounts : {},
         ownerConnectionId: null,
         tokenHash: seat.tokenHash ? decodedHash(seat.tokenHash) : null,
-        recentOperationIds: new Map(),
+        recentOperationIds: new Map((Array.isArray(seat.recentOperationIds) ? seat.recentOperationIds : []).slice(-MAX_RECENT_OPERATION_IDS).map(id => [id, null])),
       };
     });
     room.lastActiveAt = this.now();
@@ -1762,7 +1877,20 @@ export function createRealtimeServer(options = {}) {
       if (req.method === "PUT" && url.pathname === "/api/account/preferences") { const accountId = await account(req); const input = await readJson(req); if (input.personalSkinId) { const catalog = await appearanceCatalog.read(); if (!(catalog.skins || []).some((skin) => skin?.id === input.personalSkinId && skin.status === "Approved")) throw Object.assign(new Error("Choose a published skin."), { status: 400, code: "INVALID_INPUT" }); } return json(res, 200, { preferences: await accountHistory.savePreferences(accountId, input) }); }
       if (req.method === "GET" && url.pathname === "/api/account/export") { const accountId = await account(req); return json(res, 200, { export: await accountHistory.export(accountId) }); }
       if (req.method === "DELETE" && url.pathname === "/api/account") { const identity = await accountIdentity(req); await accountHistory.deleteAccount(identity.providerSubject); return json(res, 204, {}); }
-      if (req.method === "POST" && url.pathname === "/api/account/games") { const accountId = await account(req); const before = await accountHistory.summary(accountId); const game = await accountHistory.saveGame(accountId, await readJson(req)); const history = await accountHistory.summary(accountId); const known = new Set(before.achievements.map(achievement => achievement.id)); return json(res, 201, { game, unlockedAchievements: history.achievements.filter(achievement => !known.has(achievement.id)) }); }
+      if (req.method === "POST" && url.pathname === "/api/account/games") {
+        const accountId = await account(req);
+        const input = await readJson(req);
+        if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).some(key => !["roomCode", "gameId", "deckId"].includes(key))
+          || typeof input.roomCode !== "string" || !/^[A-Z0-9]{6}$/.test(input.roomCode)
+          || typeof input.gameId !== "string" || !/^[A-Za-z0-9_-]{16}$/.test(input.gameId)
+          || (input.deckId != null && (typeof input.deckId !== "string" || !/^deck_[A-Za-z0-9-]{1,80}$/.test(input.deckId)))) {
+          throw Object.assign(new Error("Refresh Fivefold Arc to save a verified game result"), { status: 400, code: "COMPLETION_REQUIRED" });
+        }
+        await service.ensureRoom(input.roomCode);
+        const completion = service.completedSeat(input.roomCode, connectionId, input.gameId);
+        const legacySourceGameId = [input.roomCode, completion.completedAt, completion.seatId].join(":");
+        return json(res, 201, await accountHistory.saveCompletedGame(accountId, { ...completion, legacySourceGameId }, input.deckId));
+      }
       if (req.method === "POST" && url.pathname === "/api/account/decks") { const accountId = await account(req); return json(res, 201, { deck: await accountHistory.createDeck(accountId, await readJson(req)) }); }
       if (req.method === "GET" && url.pathname === "/api/account/decks") { const accountId = await account(req); return json(res, 200, { decks: await accountHistory.decks(accountId, { includeArchived: url.searchParams.get("archived") === "all" }) }); }
       if (req.method === "PATCH" && parts[0] === "api" && parts[1] === "account" && parts[2] === "decks" && parts[3]) { const accountId = await account(req); return json(res, 200, { deck: await accountHistory.updateDeck(accountId, parts[3], await readJson(req)) }); }
@@ -1847,7 +1975,7 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "GET" && parts[3] === "playtest-notes") return json(res, 200, service.listPlaytestNotes(code, connectionId));
         if (req.method === "POST" && parts[3] === "playtest-notes") return json(res, 201, service.addPlaytestNote(code, connectionId, await readJson(req)));
         if (req.method === "GET" && parts[3] === "playtest-recap") return json(res, 200, service.playtestRecap(code, connectionId));
-        if (req.method === "GET" && parts[3] === "match-moment") { const recentAccoladeIds = (url.searchParams.get('recentAccoladeIds') || '').split(',').filter(id => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)).slice(0, 5); return json(res, 200, service.personalMatchMoment(code, connectionId, recentAccoladeIds)); }
+        if (req.method === "GET" && parts[3] === "match-moment") { const recentAccoladeIds = (url.searchParams.get('recentAccoladeIds') || '').split(',').filter(id => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)).slice(0, 5); return json(res, 200, service.personalMatchMoment(code, connectionId, recentAccoladeIds, url.searchParams.get("gameId"))); }
         if (req.method === "POST" && parts[3] === "field-test") return json(res, 201, service.recordFieldTest(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "client-diagnostics") return json(res, 201, service.recordClientDiagnostic(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "quick-feedback") return json(res, 201, service.recordQuickFeedback(code, connectionId, await readJson(req)));

@@ -5,6 +5,33 @@ import { join } from "node:path";
 import test from "node:test";
 import { FirebasePlaytestLedger, createPlaytestLedgerFromEnv } from "../src/playtest-ledger.js";
 
+test("conditional ledger writes retry a lost race against the newest data", async () => {
+  let stored = { games: ["first"] };
+  let tag = '"a"';
+  let conflict = true;
+  const ledger = new FirebasePlaytestLedger({
+    databaseUrl: "https://fixture.invalid",
+    fetchImpl: async (_url, options) => {
+      if (!options.method) {
+        assert.equal(options.headers["x-firebase-etag"], "true");
+        return Response.json(stored, { headers: { etag: tag } });
+      }
+      assert.equal(options.headers["if-match"], tag);
+      if (conflict) {
+        conflict = false;
+        tag = '"b"';
+        stored = { games: ["first", "concurrent"] };
+        return Response.json(stored, { status: 412, headers: { etag: tag } });
+      }
+      stored = JSON.parse(options.body);
+      return Response.json(stored);
+    },
+  });
+  ledger.accessToken = async () => "fixture-token";
+  await ledger.update("profile.json", current => ({ games: [...current.games, "ours"] }));
+  assert.deepEqual(stored.games, ["first", "concurrent", "ours"]);
+});
+
 test("creates the Firebase ledger from a protected service-account file", async () => {
   const directory = await mkdtemp(join(tmpdir(), "fivefold-firebase-"));
   const credentialPath = join(directory, "staging-service-account.json");

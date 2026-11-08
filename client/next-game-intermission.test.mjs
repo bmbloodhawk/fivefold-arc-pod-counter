@@ -57,7 +57,7 @@ test('pod setup separates first-game players from future seat capacity', () => {
 
 test('the end-game flow uses distinct winner, accolade, achievement, and ready stages', () => {
   assert.match(app, /const automaticSavePromises = new Map\(\); const dismissedVictoryKeys = new Set\(\);/);
-  assert.match(app, /automaticSavePromises\.set\(key, saveGameToHistory\(\{ automatic: true, gameKey: key \}\)\);/);
+  assert.match(app, /automaticSavePromises\.set\(key, saving\);/);
   assert.match(app, /function advanceEndGameFlow\(key\)/);
   assert.match(app, /victoryStage === 'winner'/);
   assert.match(app, /victoryStage = 'accolade';/);

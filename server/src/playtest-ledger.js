@@ -172,6 +172,30 @@ export class FirebasePlaytestLedger {
     return response.json();
   }
 
+  // Conditional PUT keeps a profile's save and its unlock decisions in one write.
+  async update(path, change) {
+    const token = await this.accessToken();
+    const url = this.databaseUrl + "/" + path;
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const read = await this.fetch(url, { headers: { authorization: "Bearer " + token, "x-firebase-etag": "true" } });
+      if (!read.ok) throw new Error("Firebase conditional read failed (" + read.status + ")");
+      const current = await read.json();
+      const next = change(current);
+      if (next === current) return current;
+      const tag = current == null ? "null_etag" : read.headers.get("etag");
+      if (!tag) throw new Error("Firebase did not return a conditional write tag");
+      const write = await this.fetch(url, {
+        method: "PUT",
+        headers: { authorization: "Bearer " + token, "content-type": "application/json", "if-match": tag },
+        body: JSON.stringify(next),
+      });
+      if (write.status === 412) continue;
+      if (!write.ok) throw new Error("Firebase conditional write failed (" + write.status + ")");
+      return next;
+    }
+    throw Object.assign(new Error("Your history changed while saving. Try again."), { status: 503, code: "HISTORY_BUSY" });
+  }
+
   async accessToken() {
     if (this.token && this.token.expiresAt > this.now() + 60_000) return this.token.value;
     const { createSign } = await import("node:crypto");
@@ -246,8 +270,13 @@ export function publicSeat(seat) {
   };
 }
 
+export function activeGameDurationMs(turn, completedAt) {
+  if (turn.gameStartedAt == null) return 0;
+  const stop = turn.pausedAt == null ? completedAt : Math.min(completedAt, turn.pausedAt);
+  return Math.max(0, stop - turn.gameStartedAt);
+}
+
 export function recapFromRoom(room, completedAt) {
-  const gameStartedAt = room.turn.gameStartedAt;
   const lastTurnAt = room.turn.turnStartedAt;
   const result = room.gameResult;
   return {
@@ -256,7 +285,7 @@ export function recapFromRoom(room, completedAt) {
     roomCode: room.code,
     createdAt: room.createdAt,
     completedAt,
-    durationMs: gameStartedAt ? Math.max(0, completedAt - gameStartedAt) : 0,
+    durationMs: activeGameDurationMs(room.turn, completedAt),
     playerCount: room.config.playerCount,
     startingLife: room.config.startingLife,
     players: room.seats.filter((seat) => seat.claimed).map(publicSeat),

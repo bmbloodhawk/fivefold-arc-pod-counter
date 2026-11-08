@@ -556,8 +556,7 @@ test('signed-in accounts keep private deck details and personal history tools', 
   assert.match(app, /\/api\/account\/preferences/);
   assert.match(app, /profile-tabs/);
   assert.match(html, /Achievements uncovered/);
-  assert.match(app, /transport\.getPersonalMatchMoment\(await loadRecentAccoladeIds\(\)\)/);
-  assert.match(app, /counterTotals,/);
+  assert.match(app, /saved\?\.moment \? saved : transport\.getPersonalMatchMoment/);
   assert.match(app, /More await\./);
   assert.match(app, /achievement-rarity-tabs/);
   assert.match(app, /data-achievement-rarity-tab/);
@@ -597,12 +596,10 @@ test('My decks keeps the editor above saved decks and confirms commander colors'
 });
 
 test('completed signed-in games save automatically without a final player action', () => {
-  assert.match(app, /automaticSavePromises\.set\(key, saveGameToHistory\(\{ automatic: true, gameKey: key \}\)\);/);
-  assert.match(app, /const token = automatic \? await currentAccountToken\(\) : await currentAccountToken\(\) \|\| await googleAccountToken\(\);/);
-  assert.match(app, /automaticallySavedGameKey = gameKey/);
+  assert.match(app, /const saving = saveGameToHistory\(\{ automatic: true, gameKey: key \}\);/);
+  assert.match(app, /automaticSavePromises\.set\(key, saving\);/);
+  assert.match(app, /if \(!token && !automatic\) token = await googleAccountToken\(\);/);
   assert.match(app, /Game saved automatically/);
-  assert.match(app, /state\?\.sessionKind === 'development'/);
-  assert.match(app, /sourceGameId: `\$\{state\.podCode\}:\$\{result\.decidedAt\}:\$\{seatId\}`/);
 });
 
 test('radiation is prompted after turn handoff and resolved from the entered mill result', () => {

@@ -3,6 +3,9 @@ import { createHash, randomUUID } from "node:crypto";
 const accountPath = (accountId) => `account-history/accounts/${encodeURIComponent(accountId)}.json`;
 const gamesPath = (accountId) => `account-history/games/${encodeURIComponent(accountId)}.json`;
 const decksPath = (accountId) => `account-history/decks/${encodeURIComponent(accountId)}.json`;
+const progressPath = (accountId) => `account-history/verified-progress/${encodeURIComponent(accountId)}.json`;
+const completionClaimPath = (key) => `account-history/completion-claims/${key}.json`;
+const AWARD_RULE_VERSION = 1;
 const subjectKey = (subject) => createHash("sha256").update(String(subject)).digest("hex");
 const text = (value, max) => {
   if (value == null || value === "") return null;
@@ -34,12 +37,26 @@ const longTermContext = (games) => {
   return { games, wins, deckGames, deckWins };
 };
 const longTermRarity = (tier) => tier >= 8 ? 'legendary' : tier >= 6 ? 'epic' : tier >= 3 ? 'rare' : 'uncommon';
-const nextLongTermAchievement = ({ accountId, gameId, games, earnedIds }) => {
+function trackMeasurement(track, context, triggeringGame) {
+  if (!triggeringGame) return track.metric(context);
+  switch (track.id) {
+    case 'crowns': return triggeringGame.won ? context.wins.length : 0;
+    case 'deck-mastery': return context.deckGames.get(triggeringGame.deckId) ?? 0;
+    case 'deck-victory': return triggeringGame.won ? context.deckWins.get(triggeringGame.deckId) ?? 0 : 0;
+    case 'resilience': return triggeringGame.achievementFacts?.lowestLife <= 5 ? track.metric(context) : 0;
+    case 'endurance': return triggeringGame.achievementFacts?.durationMs >= 3_600_000 ? track.metric(context) : 0;
+    default: return track.metric(context);
+  }
+}
+
+const nextLongTermAchievement = ({ accountId, gameId, games, earnedIds, triggeringGame }) => {
   const context = longTermContext(games); const earned = new Set(earnedIds || []);
   const definitions = new Map(longTermDefinitions().map(item => [item.id, item]));
   const candidates = LONG_TERM_TRACKS.flatMap((track) => {
     const index = track.thresholds.findIndex((_, tier) => !earned.has(`long-${track.id}-${tier + 1}`));
-    return index >= 0 && track.metric(context) >= track.thresholds[index] ? [definitions.get(`long-${track.id}-${index + 1}`)] : [];
+    if (index < 0) return [];
+    const measured = trackMeasurement(track, context, triggeringGame);
+    return measured >= track.thresholds[index] ? [{ ...definitions.get(`long-${track.id}-${index + 1}`), measured }] : [];
   });
   const ordered = candidates.sort((a, b) => a.id.localeCompare(b.id));
   if (!ordered.length) return null;
@@ -61,7 +78,7 @@ const achievementRarity = (id) => {
   return 'common';
 };
 
-const achievementsFor = ({ games, decks, bestWinStreak, monthCount, playedColors, longTermAchievementIds = [] }) => {
+const achievementsFor = ({ games, bestWinStreak, monthCount, playedColors, longTermAchievementIds = [], storedLegacyIds }) => {
   const wins = games.filter(game => game.won);
   const tableSizes = new Set(games.map(game => game.tableSize));
   const deckGames = new Map(); games.filter(game => game.deckId).forEach(game => deckGames.set(game.deckId, (deckGames.get(game.deckId) || 0) + 1));
@@ -170,22 +187,80 @@ const achievementsFor = ({ games, decks, bestWinStreak, monthCount, playedColors
       ['known-to-legends', 'Known to the Legends', 'Received 1,000 commander damage across saved games.', 1000],
     ]),
   ];
-  const legacy = definitions.filter(([, , , reached]) => reached).map(([id, title, detail]) => ({ id, title, detail, rarity: achievementRarity(id) }));
+  const legacy = definitions.filter(([id, , , reached]) => storedLegacyIds ? storedLegacyIds.has(id) : reached).map(([id, title, detail]) => ({ id, title, detail, rarity: achievementRarity(id) }));
   const longTerm = longTermDefinitions().filter(item => longTermAchievementIds.includes(item.id)).map(item => ({ id: item.id, title: item.title, detail: item.detail, rarity: longTermRarity(item.tier) }));
   return [...legacy, ...longTerm];
 };
+
+function legacyDeckColors(games, decks) {
+  const usedDecks = new Set(games.map(game => game.deckId).filter(Boolean));
+  return decks.filter(deck => usedDecks.has(deck.deckId)).flatMap(deck => deck.colors || []);
+}
+
+function gamesInCurrentMonth(games, now) {
+  const month = new Date(now);
+  return games.filter(game => {
+    const saved = new Date(game.savedAt);
+    return saved.getFullYear() === month.getFullYear() && saved.getMonth() === month.getMonth();
+  });
+}
+
+function rewardInputs(games, now, playedColors, verified = false) {
+  const timestamp = game => game.completedAt ?? game.savedAt;
+  let bestWinStreak = 0;
+  let streak = 0;
+  for (const game of [...games].sort((a, b) => timestamp(a) - timestamp(b))) {
+    streak = game.won ? streak + 1 : 0;
+    bestWinStreak = Math.max(bestWinStreak, streak);
+  }
+  let monthCount = gamesInCurrentMonth(games, now).length;
+  if (verified) {
+    // Evaluate the month of this save in UTC. The award stays earned afterward.
+    const month = new Date(now).toISOString().slice(0, 7);
+    monthCount = games.filter(game => Number.isFinite(game.savedAt) && new Date(game.savedAt).toISOString().slice(0, 7) === month).length;
+  }
+  return { games, bestWinStreak, monthCount, playedColors: new Set(playedColors) };
+}
+
+function initialProgress(games, decks, now) {
+  const legacyColors = [...new Set(legacyDeckColors(games, decks))];
+  const existing = achievementsFor(rewardInputs(games, now, legacyColors));
+  return {
+    legacyColors,
+    awards: Object.fromEntries(existing.map(award => [award.id, { historical: true }])),
+    games: {},
+  };
+}
+
+function recentAccolades(games) {
+  return [...games].reverse().sort((a, b) => b.savedAt - a.savedAt)
+    .map(game => game.accoladeId).filter(Boolean).slice(0, 5);
+}
+
+function longTermIds(account, progress) {
+  return [...new Set([
+    ...(Array.isArray(account.longTermAchievementIds) ? account.longTermAchievementIds : []),
+    ...Object.keys(progress?.awards || {}).filter(id => id.startsWith("long-")),
+  ])];
+}
 
 export class MemoryAccountHistoryStore {
   constructor() { this.values = new Map(); }
   async read(path) { return this.values.get(path) ?? null; }
   async write(path, value) { this.values.set(path, value); }
+  async update(path, change) {
+    const current = this.values.get(path) ?? null;
+    const next = change(current);
+    if (next !== current) this.values.set(path, next);
+    return next;
+  }
 }
 
 // This works with the existing server-only Firebase client, whose read/write
 // methods use service-account credentials and never expose them to a phone.
 export class AccountHistory {
   constructor({ store, now = () => Date.now(), createId = () => randomUUID() } = {}) {
-    if (!store?.read || !store?.write) throw new TypeError("Account history storage is required");
+    if (!store?.read || !store?.write || !store?.update) throw new TypeError("Account history requires storage with conditional updates");
     this.store = store; this.now = now; this.createId = createId;
   }
 
@@ -195,9 +270,10 @@ export class AccountHistory {
     const existing = await this.store.read(mappingPath);
     if (existing?.accountId) return existing.accountId;
     const accountId = `acct_${this.createId()}`;
-    await this.store.write(mappingPath, { accountId });
     await this.store.write(accountPath(accountId), { accountId, createdAt: this.now(), consentVersion: null });
-    return accountId;
+    const mapping = await this.store.update(mappingPath, current => current || { accountId });
+    if (mapping.accountId !== accountId) await this.store.write(accountPath(accountId), null);
+    return mapping.accountId;
   }
 
   async skinAccess(accountId) {
@@ -213,6 +289,88 @@ export class AccountHistory {
     const grants = Array.isArray(account.skinEntitlements) ? account.skinEntitlements : [];
     if (!grants.some(item => item.skinId === skinId)) grants.push({ skinId, source, grantedAt: this.now() });
     await this.store.write(accountPath(accountId), { ...account, skinEntitlements: grants }); return grants;
+  }
+
+  // Only the room service constructs a completed seat for this method.
+  async saveCompletedGame(accountId, completion, deckId = null) {
+    if (completion.sessionKind !== "standard") {
+      throw Object.assign(new Error("Practice games do not count toward profile achievements"), { status: 409, code: "PRACTICE_GAME" });
+    }
+    const [account, legacyRecords, deckRecords] = await Promise.all([
+      this.store.read(accountPath(accountId)),
+      this.store.read(gamesPath(accountId)),
+      this.store.read(decksPath(accountId)),
+    ]);
+    if (!account) throw Object.assign(new Error("This profile is unavailable"), { status: 409, code: "PROFILE_UNAVAILABLE" });
+    const legacyGames = Object.values(legacyRecords || {});
+    const decks = Object.values(deckRecords || {});
+    const key = subjectKey(completion.gameId + ":" + completion.seatId);
+    const ownershipProof = subjectKey(key + ":" + accountId);
+    const claim = await this.store.update(completionClaimPath(key), current => current || { ownershipProof });
+    if (claim.ownershipProof !== ownershipProof) {
+      throw Object.assign(new Error("This seat's result was already saved to a profile"), { status: 409, code: "COMPLETION_ALREADY_CLAIMED" });
+    }
+
+    // Replays use the same canonical key. The chosen card, game and awards
+    // commit together. A retry can finish a claim after an interrupted write.
+    const path = progressPath(accountId);
+    const savedAt = this.now();
+    const gameId = "game_" + this.createId();
+    let result;
+    await this.store.update(path, current => {
+      if (current?.closed) throw Object.assign(new Error("This profile is unavailable"), { status: 409, code: "PROFILE_UNAVAILABLE" });
+      const progress = current || initialProgress(legacyGames, decks, savedAt);
+      if (progress.removed?.[key]) {
+        throw Object.assign(new Error("This saved game was removed"), { status: 409, code: "COMPLETION_REMOVED" });
+      }
+      const existing = progress.games?.[key] || legacyGames.find(game => game.sourceGameId && game.sourceGameId === completion.legacySourceGameId);
+      if (existing) {
+        const moment = completion.moments.find(item => item.id === existing.accoladeId) || completion.moments[0];
+        result = { game: existing, moment, unlockedAchievements: [] };
+        return current;
+      }
+
+      const beforeGames = [...legacyGames, ...Object.values(progress.games || {})];
+      const recent = recentAccolades(beforeGames);
+      const moment = completion.moments.find(item => !recent.includes(item.id)) || completion.moments[0];
+      const game = {
+        ...completion.game,
+        gameId, savedAt,
+        startedAt: completion.startedAt,
+        completedAt: completion.completedAt,
+        deckId: decks.some(deck => deck.deckId === deckId) ? deckId : null,
+        accoladeId: moment.id,
+        completionVerified: true,
+      };
+      const afterGames = [...beforeGames, game];
+      const previousColors = [...(progress.legacyColors || []), ...beforeGames.flatMap(item => item.playedColors || [])];
+      const before = new Set(achievementsFor(rewardInputs(beforeGames, savedAt, previousColors, true)).map(item => item.id));
+      const after = achievementsFor(rewardInputs(afterGames, savedAt, [...previousColors, ...(game.playedColors || [])], true));
+      const awards = { ...progress.awards };
+      const unlockedAchievements = after.filter(item => !before.has(item.id) && !awards[item.id]);
+      const evidence = { gameId, earnedAt: savedAt, ruleVersion: AWARD_RULE_VERSION };
+      for (const award of unlockedAchievements) awards[award.id] = evidence;
+
+      const earnedIds = longTermIds(account, progress);
+      const next = nextLongTermAchievement({ accountId, gameId, games: afterGames, earnedIds, triggeringGame: game });
+      if (next) {
+        const { id, title, detail, tier, target, measured } = next;
+        awards[id] = { ...evidence, target, measured };
+        unlockedAchievements.push({ id, title, detail, rarity: longTermRarity(tier) });
+      }
+      result = { game, moment, unlockedAchievements };
+      return { ...progress, awards, games: { ...progress.games, [key]: game } };
+    });
+    return result;
+  }
+
+  async preserveLegacyAwards(accountId) {
+    const [current, legacyRecords, deckRecords] = await Promise.all([
+      this.store.read(progressPath(accountId)), this.store.read(gamesPath(accountId)), this.store.read(decksPath(accountId)),
+    ]);
+    if (current || !Object.keys(legacyRecords || {}).length) return;
+    const initial = initialProgress(Object.values(legacyRecords), Object.values(deckRecords || {}), this.now());
+    await this.store.update(progressPath(accountId), progress => progress || initial);
   }
 
   async saveGame(accountId, input = {}) {
@@ -283,6 +441,7 @@ export class AccountHistory {
     const commanderColors = input.commanderColors === undefined ? normalizeDeckCommanderColors(deck.commanderColors, commanderNames.length) : normalizeDeckCommanderColors(input.commanderColors, commanderNames.length);
     const colors = input.colors === undefined ? deck.colors : [...new Set(input.colors)];
     if (!Array.isArray(colors) || colors.some(color => !["W", "U", "B", "R", "G"].includes(color))) throw new TypeError("Deck colors are invalid");
+    if (input.colors !== undefined) await this.preserveLegacyAwards(accountId);
     const updated = { ...deck, ...input, commanderNames, commanderColors, commanderName: commanderNames.join(" / "), colors, ...(input.name !== undefined ? { name: text(input.name, 120) } : {}), ...(input.notes !== undefined ? { notes: text(input.notes, 500) } : {}), updatedAt: this.now() }; await this.store.write(decksPath(accountId), { ...decks, [deckId]: updated }); return updated;
   }
 
@@ -303,14 +462,38 @@ export class AccountHistory {
 
   async removeGame(accountId, gameId) {
     if (!/^game_[A-Za-z0-9-]{1,80}$/.test(gameId || "")) throw new TypeError("Game is invalid");
-    const games = (await this.store.read(gamesPath(accountId))) || {}; if (!games[gameId]) return false;
-    delete games[gameId]; await this.store.write(gamesPath(accountId), games); return true;
+    await this.preserveLegacyAwards(accountId);
+    let removed = false;
+    await this.store.update(progressPath(accountId), progress => {
+      const entry = Object.entries(progress?.games || {}).find(([, game]) => game.gameId === gameId);
+      removed = Boolean(entry);
+      if (!entry) return progress;
+      const [key] = entry;
+      const games = { ...progress.games };
+      delete games[key];
+      const awards = Object.fromEntries(Object.entries(progress.awards || {}).map(([id, evidence]) => [
+        id, evidence.gameId === gameId ? { evidenceRemoved: true } : evidence,
+      ]));
+      return { ...progress, games, awards, removed: { ...progress.removed, [key]: true } };
+    });
+    if (removed) return true;
+    let removedLegacy = false;
+    await this.store.update(gamesPath(accountId), games => {
+      removedLegacy = Boolean(games?.[gameId]);
+      if (!removedLegacy) return games;
+      const remaining = { ...games };
+      delete remaining[gameId];
+      return remaining;
+    });
+    return removedLegacy;
   }
 
   async removeDeck(accountId, deckId) {
     if (!/^deck_[A-Za-z0-9-]{1,80}$/.test(deckId || "")) throw new TypeError("Deck is invalid");
     const decks = (await this.store.read(decksPath(accountId))) || {}; if (!decks[deckId]) return false;
-    delete decks[deckId]; await this.store.write(decksPath(accountId), decks); return true;
+    await this.preserveLegacyAwards(accountId);
+    const remaining = { ...decks };
+    delete remaining[deckId]; await this.store.write(decksPath(accountId), remaining); return true;
   }
 
   async markAchievementRarityViewed(accountId, rarity) {
@@ -324,20 +507,35 @@ export class AccountHistory {
   }
 
   async summary(accountId) {
-    const account = (await this.store.read(accountPath(accountId))) || { accountId };
-    const games = Object.values((await this.store.read(gamesPath(accountId))) || {}).sort((a, b) => b.savedAt - a.savedAt);
-    const wins = games.filter((game) => game.won).length;
-    const deckStats = Object.values((await this.store.read(decksPath(accountId))) || {}).map(deck => { const deckGames = games.filter(game => game.deckId === deck.deckId); const deckWins = deckGames.filter(game => game.won).length; return { deckId: deck.deckId, name: deck.name || deck.commanderName, gamesPlayed: deckGames.length, wins: deckWins, winRate: deckGames.length ? deckWins / deckGames.length : null }; });
-    const chronologicalGames = [...games].reverse(); let bestWinStreak = 0; let currentWinStreak = 0; chronologicalGames.forEach(game => { currentWinStreak = game.won ? currentWinStreak + 1 : 0; bestWinStreak = Math.max(bestWinStreak, currentWinStreak); });
-    const thisMonth = new Date(this.now()); const monthGames = games.filter(game => { const date = new Date(game.savedAt); return date.getFullYear() === thisMonth.getFullYear() && date.getMonth() === thisMonth.getMonth(); });
-    const decks = Object.values((await this.store.read(decksPath(accountId))) || {}); const playedColors = new Set(decks.filter(deck => games.some(game => game.deckId === deck.deckId)).flatMap(deck => deck.colors || []));
+    const [record, legacyRecords, deckRecords, progress] = await Promise.all([
+      this.store.read(accountPath(accountId)), this.store.read(gamesPath(accountId)),
+      this.store.read(decksPath(accountId)), this.store.read(progressPath(accountId)),
+    ]);
+    const account = record || { accountId };
+    const legacyGames = Object.values(legacyRecords || {});
+    const allGames = [...legacyGames, ...Object.values(progress?.games || {})];
+    const games = [...allGames].sort((a, b) => b.savedAt - a.savedAt);
+    const wins = games.filter(game => game.won).length;
+    const decks = Object.values(deckRecords || {});
+    const deckStats = decks.map(deck => {
+      const deckGames = games.filter(game => game.deckId === deck.deckId);
+      const deckWins = deckGames.filter(game => game.won).length;
+      return { deckId: deck.deckId, name: deck.name || deck.commanderName, gamesPlayed: deckGames.length, wins: deckWins, winRate: deckGames.length ? deckWins / deckGames.length : null };
+    });
+    const now = this.now();
+    const monthGames = gamesInCurrentMonth(games, now);
     const seen = new Set(Array.isArray(account.seenAchievementIds) ? account.seenAchievementIds : []);
-    const longTermAchievementIds = Array.isArray(account.longTermAchievementIds) ? account.longTermAchievementIds : [];
-    const achievements = achievementsFor({ games, decks, bestWinStreak, monthCount: monthGames.length, playedColors, longTermAchievementIds }).map(achievement => ({ ...achievement, isNew: !seen.has(achievement.id) }));
-    // Object insertion order is the save order. It remains reliable even when
-    // several games are recorded within the same millisecond.
-    const recentAccoladeIds = Object.values((await this.store.read(gamesPath(accountId))) || {}).reverse().map(game => game.accoladeId).filter(Boolean).slice(0, 5);
-    return { gamesPlayed: games.length, wins, winRate: games.length ? wins / games.length : null, counterTotals: lifetimeCounterTotals(games), recentGames: games.slice(0, 12), games, deckStats, achievements, recentAccoladeIds, thisMonth: { gamesPlayed: monthGames.length, wins: monthGames.filter(game => game.won).length } };
+    const storedLegacyIds = progress && !progress.closed ? new Set(Object.keys(progress.awards || {})) : undefined;
+    const inputs = rewardInputs(legacyGames, now, storedLegacyIds ? [] : legacyDeckColors(legacyGames, decks));
+    const achievements = achievementsFor({
+      ...inputs, storedLegacyIds, longTermAchievementIds: longTermIds(account, progress),
+    }).map(achievement => ({ ...achievement, isNew: !seen.has(achievement.id) }));
+    return {
+      gamesPlayed: games.length, wins, winRate: games.length ? wins / games.length : null,
+      counterTotals: lifetimeCounterTotals(games), recentGames: games.slice(0, 12), games, deckStats,
+      achievements, recentAccoladeIds: recentAccolades(allGames),
+      thisMonth: { gamesPlayed: monthGames.length, wins: monthGames.filter(game => game.won).length },
+    };
   }
 
   async export(accountId) {
@@ -349,6 +547,8 @@ export class AccountHistory {
     const mappingPath = `account-history/subjects/${subjectKey(providerSubject)}.json`;
     const mapping = await this.store.read(mappingPath);
     if (!mapping?.accountId) return false;
+    // Close the progression record first so an in-flight save cannot recreate it.
+    await this.store.update(progressPath(mapping.accountId), () => ({ closed: true }));
     await Promise.all([
       this.store.write(gamesPath(mapping.accountId), null),
       this.store.write(decksPath(mapping.accountId), null),
