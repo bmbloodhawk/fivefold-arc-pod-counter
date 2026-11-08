@@ -80,6 +80,62 @@ test('a delayed manual refresh returns the newer snapshot already received over 
   }
 });
 
+test('a locked post-game adjustment adopts confirmed state without interrupting the stream', async () => {
+  const originals = Object.fromEntries(['fetch', 'EventSource', 'document', 'localStorage'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  const playing = { code: 'POD123', version: 1, lifecycle: { status: 'playing' } };
+  const complete = { ...playing, version: 2, lifecycle: { status: 'complete' } };
+  const intermission = { ...playing, version: 3, lifecycle: { status: 'intermission' } };
+  const locked = { ok: false, status: 409, json: async () => ({ error: { code: 'GAME_NOT_PLAYING' }, snapshot: complete }) };
+  const states = [];
+  const statuses = [];
+  let adapter;
+  let requests = 0;
+  let finishDelayedAdjustment;
+  try {
+    globalThis.document = { visibilityState: 'visible' };
+    globalThis.EventSource = FakeEventSource;
+    globalThis.localStorage = { getItem: () => null, setItem: () => {} };
+    globalThis.fetch = async url => {
+      const path = new URL(url).pathname;
+      if (path === '/api/connections') return response({ connectionId: 'connection-1' });
+      if (path === '/api/rooms') return response({ snapshot: playing, seatId: 0, reclaimToken: 'pod-token' });
+      if (path === '/api/rooms/POD123/adjust') {
+        requests += 1;
+        if (requests === 1) return locked;
+        return new Promise(resolve => { finishDelayedAdjustment = () => resolve(locked); });
+      }
+      throw new Error('Unexpected request: ' + path);
+    };
+
+    const { RealtimeAdapter } = await import('./realtime.js');
+    adapter = new RealtimeAdapter({ apiBase: 'https://pod.test' });
+    adapter.addEventListener('state', event => states.push(event.detail.version));
+    adapter.addEventListener('status', event => statuses.push(event.detail));
+    await adapter.createRoom({ playerCount: 2, startingLife: 40 });
+    const stream = FakeEventSource.instances.at(-1);
+    const adjustment = { counter: 'life', delta: -1, operationId: 'post-game-lock-test' };
+
+    assert.deepEqual(await adapter.adjust(adjustment), { locked: true });
+    assert.deepEqual(adapter.snapshot, complete);
+
+    const delayed = adapter.adjust(adjustment);
+    stream.emit('snapshot', { data: JSON.stringify(intermission) });
+    finishDelayedAdjustment();
+    assert.deepEqual(await delayed, { locked: true });
+    assert.deepEqual(adapter.snapshot, intermission);
+    assert.deepEqual(states, [1, 2, 3]);
+    assert.deepEqual(statuses, ['waiting', 'connected']);
+    assert.equal(stream.closed, false);
+    assert.equal(requests, 2);
+  } finally {
+    adapter?.clearSession();
+    for (const [key, descriptor] of Object.entries(originals)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else delete globalThis[key];
+    }
+  }
+});
+
 test('30-second snapshot safety polling pauses while an SSE reconnect is pending', async () => {
   const originals = Object.fromEntries(['fetch', 'EventSource', 'document', 'localStorage', 'setInterval', 'clearInterval'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   const intervals = [];

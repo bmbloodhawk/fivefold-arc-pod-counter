@@ -125,7 +125,14 @@ export class RealtimeAdapter extends EventTarget {
       }
       if (!this.#isCurrentSession(epoch)) return { ignored: true };
       this.#acceptSnapshot(result.snapshot, epoch); return result;
-    } catch (error) { if (!this.#isCurrentSession(epoch)) return { ignored: true }; throw error; }
+    } catch (error) {
+      if (!this.#isCurrentSession(epoch)) return { ignored: true };
+      if (error.status === 409 && error.code === 'GAME_NOT_PLAYING' && error.payload?.snapshot) {
+        this.#acceptSnapshot(error.payload.snapshot, epoch);
+        return { locked: true };
+      }
+      throw error;
+    }
   }
 
   /** Owner-only commander count mutation. The server rejects a stale snapshot with 409. */

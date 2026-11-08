@@ -61,8 +61,8 @@ test('the end-game flow uses distinct winner, accolade, achievement, and ready s
   assert.match(app, /function advanceEndGameFlow\(key\)/);
   assert.match(app, /victoryStage === 'winner'/);
   assert.match(app, /victoryStage = 'accolade';/);
-  assert.match(app, /if \(!showAchievementUnlocks\(key\)\) void beginIntermission\(\);/);
-  assert.match(app, /dom\.achievementDialog\.addEventListener\('close'.*void beginIntermission\(\)/);
+  assert.match(app, /if \(!showAchievementUnlocks\(key\)\) void beginIntermission\(key\);/);
+  assert.match(app, /dom\.achievementDialog\.addEventListener\('close'[\s\S]*?void beginIntermission\(gameKey\)/);
   assert.match(page, /id="victoryDialog"[^>]*data-stage/);
   assert.match(page, /id="personalMatchMoment"/);
   assert.doesNotMatch(page, /id="nextGameButton"/);

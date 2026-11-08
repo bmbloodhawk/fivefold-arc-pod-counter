@@ -36,7 +36,7 @@ test('shared life sends one net adjustment for a rapid correction burst', () => 
   assert.match(app, /document\.addEventListener\('visibilitychange',[\s\S]*?lifeBatcher\.flush\(\)/);
   assert.match(app, /if \(!optimisticLifeDelta\) \{ clearTimeout\(lifeChangeTimer\); lifeChange = null; render\(\); \}/);
   assert.match(app, /optimisticLifeDelta -= delta;\s*try \{\s*const result = await transport\.adjust\(\{ counter: 'life', delta, operationId \}\)/);
-  assert.match(app, /if \(result\.ignored \|\| result\.local\) return;/);
+  assert.match(app, /if \(result\.ignored \|\| result\.local \|\| result\.locked\) return;/);
 });
 
 test('turn status shows the shared table turn in its existing compact status row', () => {
@@ -468,7 +468,7 @@ test('the confirmed winner, personal accolade, and next-game setup are separate 
   assert.match(app, /accoladeArtUrl\(moment\.art \|\| moment\.title\)/);
   assert.doesNotMatch(html, /id="nextGameButton"/);
   assert.match(app, /function finishEndGameFlow\(key\)/);
-  assert.match(app, /if \(!showAchievementUnlocks\(key\)\) void beginIntermission\(\);/);
+  assert.match(app, /if \(!showAchievementUnlocks\(key\)\) void beginIntermission\(key\);/);
   assert.match(html, /id="intermissionPanel"[\s\S]*id="intermissionReadyButton"[\s\S]*id="intermissionStartButton"/);
   assert.match(styles, /\.personal-match-art \{[\s\S]*background-size: cover/);
   assert.doesNotMatch(styles, /\.personal-match-art \{[^}]*opacity:/);
@@ -484,7 +484,7 @@ test('achievements follow the personal match accolade before the ready screen', 
   assert.match(app, /function showAchievementUnlocks\(gameKey\)/);
   assert.match(app, /unlockedAchievementsByGame\.set\(gameKey, unlockedAchievements\)/);
   assert.match(app, /function advanceEndGameFlow\(key\)/);
-  assert.match(app, /dom\.achievementDialog\.addEventListener\('close'.*void beginIntermission\(\)/);
+  assert.match(app, /dom\.achievementDialog\.addEventListener\('close'[\s\S]*?void beginIntermission\(gameKey\)/);
   assert.match(app, /const achievementCardHtml = \(achievement, showNew = false\)/);
   assert.match(app, /unlocked\.map\(achievement =>/);
   assert.match(styles, /\.achievement-card\[data-rarity="legendary"\]/);

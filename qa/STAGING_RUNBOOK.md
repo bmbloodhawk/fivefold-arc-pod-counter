@@ -26,7 +26,7 @@ Run this on the staging URL before requesting a public release:
 - Eliminate the host and a non-host in separate games.
 - Put one phone in the background for 30 seconds, return, and make one change from each phone.
 - Refresh one phone while the other stays in the pod; confirm both still converge.
-- Complete a game and walk through every post-game screen.
+- Complete a game. Have the guest dismiss the post-game screens first, then the host. Both phones should reach next-game setup without a connection warning.
 - Start a second game, then leave the table and create a new pod.
 
 Record the staging URL, commit SHA, phones/browsers, pass/fail result, and any
