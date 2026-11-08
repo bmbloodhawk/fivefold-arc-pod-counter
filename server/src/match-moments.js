@@ -140,7 +140,8 @@ function earnedMatchMoments({ seat, seats, winnerSeatId, context = {} }) {
   if (average !== null) {
     add(['Speedrunner', 'Lightning Round', 'No Notes'], 'You had the fastest average recorded turn.', `Average turn: ${Math.round(average / 1000)} sec`);
   }
-  if (seat.seatId === winnerSeatId) add(['Last One Standing', 'Table Monarch', 'Arc Victor'], 'The table ran out of answers.', 'Winner');
+  if (seat.seatId === winnerSeatId && context.finishReason === 'last_player_standing') add(['Last One Standing', 'Table Monarch', 'Arc Victor'], 'You were the final remaining player.', 'Last player standing');
+  if (seat.seatId === winnerSeatId && context.finishReason === 'declared_winner') add(['Table Victor'], 'Your table recorded the win.', 'Declared winner', null);
   // Expansion catalog: each condition is deliberately stricter or mixed so it
   // adds a new moment instead of duplicating an existing accolade.
   if (m.lostHalfLifeInOneTurn) add(['Turning Point'], 'One brutal turn changed the whole game.', `Lost ${m.largestLifeLossInTurn} life in one turn`, 'arc-turning-point-v1');
@@ -172,10 +173,16 @@ function earnedMatchMoments({ seat, seats, winnerSeatId, context = {} }) {
   return earned;
 }
 
-// These matches describe ordinary activity or an outcome the winner screen
-// already explains. Keep their definitions and art for historical cards.
+export const RECENT_ACCOLADE_LIMIT = 5;
+
+const COMPLETION_TITLES = {
+  complete: 'Arc Complete', company: 'Pod Company', order: 'Turn Order', chronicle: 'Table Chronicle',
+  format: 'Format Finish', life: 'Starting Line', clock: 'Clock Record', result: 'Result Recorded',
+  finish: 'Finish Call', turn: 'Turn Logged', place: 'Place Recorded', closing: 'Closing Total',
+};
+const COMPLETION_IDS = new Set(Object.values(COMPLETION_TITLES).map(accoladeId));
 const ROUTINE_MOMENTS = new Set([
-  'arc-complete', 'last-one-standing', 'table-anchor', 'long-haul', 'wide-table-veteran', 'table-tale',
+  'last-one-standing', 'table-victor', 'table-anchor', 'long-haul', 'wide-table-veteran', 'table-tale',
   'opening-ceremony', 'poison-snack', 'health-potion-hoarder', 'reactor-core', 'glowing-problem', 'all-systems-lit',
 ]);
 const SIGNATURE_MOMENTS = new Set([
@@ -197,81 +204,179 @@ const FAMILIES = [
   ['quick-study', 'speedrunner', 'steady-hands'],
 ];
 const familyById = new Map(FAMILIES.flatMap(group => group.map((id, rank) => [id, { family: group[0], rank }])));
-const momentLevel = id => SIGNATURE_MOMENTS.has(id) ? 2 : ROUTINE_MOMENTS.has(id) ? 0 : 1;
 const momentFamily = id => familyById.get(id)?.family || id;
 
-function strongestByFamily(options) {
-  const selected = new Map();
-  for (const option of options) {
-    const family = momentFamily(option.id);
-    const existing = selected.get(family);
-    if (!existing || familyById.get(option.id)?.rank < familyById.get(existing.id)?.rank) selected.set(family, option);
-  }
-  return [...selected.values()];
+function momentLevel(id) {
+  if (COMPLETION_IDS.has(id)) return 0;
+  if (ROUTINE_MOMENTS.has(id)) return 1;
+  return SIGNATURE_MOMENTS.has(id) ? 3 : 2;
 }
 
-function recentlyCelebrated(id, recentIds) {
-  return recentIds.some(value => {
+function recentIndex(id, recentIds) {
+  return recentIds.findIndex(value => {
     if (!value) return false;
     const recent = accoladeId(value);
     return momentFamily(recent) === momentFamily(id) && momentLevel(recent) >= momentLevel(id);
   });
 }
 
-export function chooseMatchMoment(moments, recentIds = []) {
-  const fresh = moments.find(moment => moment.id && !recentlyCelebrated(moment.id, recentIds));
-  return fresh || moments.find(moment => moment.kind === 'recap') || moments[0];
+function strongestByFamily(options) {
+  const selected = new Map();
+  for (const option of options) {
+    const family = momentFamily(option.id);
+    const previous = selected.get(family);
+    if (!previous || momentLevel(option.id) > momentLevel(previous.id)
+      || (momentLevel(option.id) === momentLevel(previous.id) && familyById.get(option.id)?.rank < familyById.get(previous.id)?.rank)) {
+      selected.set(family, option);
+    }
+  }
+  return [...selected.values()];
 }
 
-function matchRecap(seat, winnerSeatId, context) {
-  const minutes = Math.floor((context.durationMs || 0) / 60_000);
-  const turns = seat.matchMoment?.turnCount || 0;
-  const facts = [
-    minutes ? minutes + ' min' : context.durationMs > 0 ? 'Less than 1 min' : '',
-    turns ? turns + (turns === 1 ? ' recorded turn' : ' recorded turns') : '',
-  ].filter(Boolean);
-  return {
-    kind: 'recap',
-    id: null,
-    title: 'Game complete',
-    line: seat.seatId === winnerSeatId ? 'You won this game.' : 'Your table finished the game.',
-    fact: facts.join(' · '),
+export function chooseMatchMoment(moments = [], recentIds = []) {
+  const cards = moments.filter(moment => moment?.id);
+  const fresh = cards.find(moment => recentIndex(moment.id, recentIds) < 0);
+  if (fresh) return fresh;
+  let leastRecent = null;
+  let oldestIndex = -1;
+  for (const moment of cards) {
+    const index = recentIndex(moment.id, recentIds);
+    if (index > oldestIndex) { leastRecent = moment; oldestIndex = index; }
+  }
+  return leastRecent;
+}
+
+function completionChoices(seat, seats, winnerSeatId, context) {
+  const position = seats.indexOf(seat) + 1;
+  const seatLabel = 'Seat ' + (seat.seatId + 1);
+  const m = seat.matchMoment;
+  const options = [];
+  const add = (name, line, fact, art = null) => {
+    options.push({ titles: [COMPLETION_TITLES[name]], line, fact, art, completion: true });
   };
+  add('complete', 'You finished this game at the table.', seatLabel + ' · Game finished', 'arc-complete');
+  if (seats.length > 1) add('company', 'You shared a table with other players.', seats.length + '-player game · ' + seatLabel);
+  const starter = seats.findIndex(item => item.seatId === context.startingSeatId);
+  if (starter >= 0) {
+    const order = (position - 1 - starter + seats.length) % seats.length + 1;
+    add('order', 'Your place in the opening rotation.', 'Position ' + order + ' of ' + seats.length + ' in the opening order');
+  }
+  if (m?.tableGameNumber > 0) add('chronicle', 'This result adds a chapter at your table.', 'Completed game ' + m.tableGameNumber + ' for this seat');
+  const format = { commander: 'Commander', casual: 'Casual', custom: 'Custom' }[context.gameFormat];
+  if (format) add('format', 'You completed a game in this format.', format + ' · ' + seatLabel);
+  if (Number.isFinite(m?.startingLife)) add('life', 'You finished a game using this starting life.', 'Table started at ' + m.startingLife + ' life · ' + seatLabel);
+  if (Number.isFinite(context.durationMs)) {
+    const minutes = Math.floor(context.durationMs / 60_000);
+    add('clock', 'Your table recorded its playing time.', (minutes ? minutes + ' min recorded' : 'Less than 1 min recorded') + ' · ' + seatLabel);
+  }
+  if (seats.some(item => item.seatId === winnerSeatId)) {
+    const result = seat.seatId === winnerSeatId ? 'Win recorded' : 'Participating seat';
+    add('result', 'Your seat was included in the finished result.', result + ' · ' + seatLabel);
+  }
+  if (context.finishReason === 'declared_winner' || context.finishReason === 'last_player_standing') {
+    const reason = context.finishReason === 'declared_winner' ? 'Winner declared' : 'Last player standing';
+    add('finish', 'The table recorded how this game ended.', reason + ' · ' + seatLabel);
+  }
+  if (Number.isFinite(seat.counters?.life)) add('closing', 'Your seat’s life total was recorded at the finish.', seat.counters.life + ' life at the finish · ' + seatLabel);
+  if (m?.turnCount > 0) add('turn', 'You logged play through the turn tracker.', m.turnCount + (m.turnCount === 1 ? ' recorded turn' : ' recorded turns'));
+  const place = (context.finishingOrder?.indexOf(seat.seatId) ?? -1) + 1;
+  if (place > 0) add('place', 'Your finish is recorded in the table order.', 'Place ' + place + ' of ' + seats.length);
+  return options;
+}
+
+function rankOptions(options, recent, seed) {
+  const ranked = strongestByFamily(options.map(option => {
+    const id = accoladeId(option.titles[0]);
+    return { ...option, id, recentAt: recentIndex(id, recent), tiebreak: seededIndex(seed + ':' + id, 0x100000000) };
+  }));
+  return ranked.sort((a, b) => {
+    if ((a.recentAt < 0) !== (b.recentAt < 0)) return Number(a.recentAt >= 0) - Number(b.recentAt >= 0);
+    return b.recentAt - a.recentAt || momentLevel(b.id) - momentLevel(a.id) || a.tiebreak - b.tiebreak;
+  });
 }
 
 export function tableMatchMomentDecisions({ seats, winnerSeatId, seed, recentCategoriesBySeat = {}, recentAccoladeIdsBySeat = {}, context = {} }) {
-  const candidates = seats.filter(seat => seat.claimed !== false).map(seat => {
-    const matched = earnedMatchMoments({ seat, seats, winnerSeatId, context });
-    const scored = matched.map(option => ({ ...option, id: accoladeId(option.titles[0]) }));
-    const strongest = Math.max(0, ...scored.map(option => momentLevel(option.id)));
-    const recent = [...(recentCategoriesBySeat[seat.seatId] || []), ...(recentAccoladeIdsBySeat[seat.seatId] || [])];
-    const fresh = strongest ? strongestByFamily(scored.filter(option => momentLevel(option.id) === strongest && !recentlyCelebrated(option.id, recent))) : [];
-    return { seat, matched, strongest, fresh };
-  });
-  const used = new Set();
-  const selected = new Map();
-  for (const { seat, matched, strongest, fresh } of candidates.sort((a, b) => a.fresh.length - b.fresh.length || a.seat.seatId - b.seat.seatId)) {
-    const recap = matchRecap(seat, winnerSeatId, context);
-    const eligibleCategories = matched.map(option => option.titles[0]);
-    if (!fresh.length) {
-      selected.set(seat.seatId, {
-        moment: recap, alternatives: [], eligibleCategories,
-        selectionReason: strongest ? 'A similar highlight was celebrated recently' : 'Routine finish',
-      });
-      continue;
+  const starters = seats.filter(seat => seat.claimed !== false);
+  const entries = starters.map(seat => {
+    const matched = earnedMatchMoments({ seat, seats: starters, winnerSeatId, context });
+    const finish = completionChoices(seat, starters, winnerSeatId, context);
+    const recent = [...(recentAccoladeIdsBySeat[seat.seatId] || []), ...(recentCategoriesBySeat[seat.seatId] || [])];
+    const seatSeed = String(seed) + ':' + seat.seatId;
+    return { seat, matched, finish, options: rankOptions([...matched, ...finish], recent, seatSeed), order: seededIndex(seatSeed, 0x100000000) };
+  }).sort((a, b) => momentLevel(b.options[0].id) - momentLevel(a.options[0].id) || a.order - b.order);
+
+  // Each reserved family belongs to one seat. A profile can pick a fresh
+  // alternate within its own reservation without duplicating another seat.
+  const owners = new Map();
+  const matchedSeats = new Set();
+  function reserve(entry, freshOnly, visited = new Set()) {
+    // These milestones may be filtered later by the account's own table count.
+    const options = entry.options.filter(option => option.id !== 'table-trilogy' && option.id !== 'familiar-seats'
+      && (!freshOnly || option.recentAt < 0));
+    for (const option of options) {
+      const family = momentFamily(option.id);
+      if (visited.has(family) || owners.has(family)) continue;
+      owners.set(family, entry);
+      matchedSeats.add(entry);
+      return true;
     }
-    const unused = fresh.filter(option => !used.has(option.id));
-    const pool = unused.length ? unused : fresh;
-    const chosen = pool[seededIndex(String(seed) + ':' + seat.seatId, pool.length)];
-    used.add(chosen.id);
-    const toMoment = option => named(String(seed) + ':' + seat.seatId + ':' + option.titles[0], option.titles, option.line, option.fact, option.art);
-    const alternatives = [...fresh.filter(option => option !== chosen).map(toMoment), recap];
-    selected.set(seat.seatId, {
-      moment: toMoment(chosen), alternatives, eligibleCategories,
-      selectionReason: strongest === 2 ? 'Specific standout recorded' : 'Distinct match moment recorded',
-    });
+    for (const option of options) {
+      const family = momentFamily(option.id);
+      if (visited.has(family)) continue;
+      visited.add(family);
+      const other = owners.get(family);
+      if (other && reserve(other, freshOnly, visited)) {
+        owners.set(family, entry);
+        matchedSeats.add(entry);
+        return true;
+      }
+    }
+    return false;
   }
-  return selected;
+
+  for (const entry of entries) reserve(entry, true);
+  for (const entry of entries) if (!matchedSeats.has(entry)) reserve(entry, false);
+
+  // Spread unclaimed alternatives across the eligible seats.
+  let added;
+  do {
+    added = false;
+    for (const entry of entries) {
+      const extra = entry.options.find(option => !owners.has(momentFamily(option.id)));
+      if (!extra) continue;
+      owners.set(momentFamily(extra.id), entry);
+      added = true;
+    }
+  } while (added);
+
+  const titleIds = new Map();
+  for (const entry of entries) {
+    for (const option of entry.options) {
+      if (owners.get(momentFamily(option.id)) !== entry) continue;
+      for (const title of option.titles) {
+        if (!titleIds.has(title)) titleIds.set(title, option.id);
+        else if (titleIds.get(title) !== option.id) titleIds.set(title, null);
+      }
+    }
+  }
+
+  return new Map(entries.map(entry => {
+    const { seat, matched, finish, options } = entry;
+    const owned = options.filter(option => owners.get(momentFamily(option.id)) === entry);
+    const chosen = owned[0] || { ...finish[0], id: accoladeId(finish[0].titles[0]) };
+    const toMoment = option => {
+      // An alternate title can also be another accolade's canonical name.
+      const titles = option.titles.filter((title, index) => index === 0 || titleIds.get(title) === option.id);
+      const moment = named(String(seed) + ':' + seat.seatId + ':' + option.id, titles, option.line, option.fact, option.art);
+      return option.completion ? { ...moment, completion: true } : moment;
+    };
+    const alternatives = owned.slice(1).map(toMoment);
+    const selectionReason = chosen.completion ? 'Recorded completion fact'
+      : momentLevel(chosen.id) === 3 ? 'Specific standout recorded' : 'Distinct match moment recorded';
+    return [seat.seatId, {
+      moment: toMoment(chosen), alternatives, eligibleCategories: matched.map(option => option.titles[0]), selectionReason,
+    }];
+  }));
 }
 
 export function tableMatchMoments(input) { return new Map([...tableMatchMomentDecisions(input)].map(([seatId, decision]) => [seatId, decision.moment])); }

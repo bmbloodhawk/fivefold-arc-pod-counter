@@ -5,7 +5,7 @@ import { extname, resolve, sep } from "node:path";
 import QRCode from "qrcode";
 import { activeGameDurationMs, NullPlaytestLedger, recapFromRoom } from "./playtest-ledger.js";
 import { ProductMeasurement } from "./product-measurement.js";
-import { blankMatchMoment, chooseMatchMoment, recordMatchMoment, recordTurnMoment, tableMatchMomentDecisions } from "./match-moments.js";
+import { blankMatchMoment, chooseMatchMoment, RECENT_ACCOLADE_LIMIT, recordMatchMoment, recordTurnMoment, tableMatchMomentDecisions } from "./match-moments.js";
 
 const JOIN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const MUTABLE_COUNTERS = new Set(["life", "radiation", "poison", "energy", "generic", "commanderDamage"]);
@@ -727,6 +727,10 @@ export class RoomService {
       }
       const context = {
         durationMs: activeGameDurationMs(room.turn, completedAt),
+        startingSeatId: room.turn.startingPlayerSeatId,
+        gameFormat: room.config.gameFormat,
+        finishReason: room.gameResult.reason,
+        finishingOrder: room.gameResult.finishingOrder,
         everyStarterTwoTurns: starters.every(seat => (seat.matchMoment.turnCount || 0) >= 2),
         eliminatedSeatIds: starters.filter(seatIsEliminated).map(seat => seat.seatId),
       };
@@ -750,7 +754,7 @@ export class RoomService {
       room.gameAccolades = Object.fromEntries([...decisions].map(([seatId, decision]) => [seatId, decision.moment]));
       if (sessionKind === "standard") {
         for (const [seatId, { moment }] of decisions) {
-          room.recentAccoladeCategories[seatId] = [moment.id || "", ...(room.recentAccoladeCategories[seatId] || [])].slice(0, 2);
+          room.recentAccoladeCategories[seatId] = [moment.id, ...(room.recentAccoladeCategories[seatId] || [])].slice(0, RECENT_ACCOLADE_LIMIT);
         }
       }
       recap.accolades = starters.map(seat => {
@@ -1984,7 +1988,7 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "GET" && parts[3] === "playtest-notes") return json(res, 200, service.listPlaytestNotes(code, connectionId));
         if (req.method === "POST" && parts[3] === "playtest-notes") return json(res, 201, service.addPlaytestNote(code, connectionId, await readJson(req)));
         if (req.method === "GET" && parts[3] === "playtest-recap") return json(res, 200, service.playtestRecap(code, connectionId));
-        if (req.method === "GET" && parts[3] === "match-moment") { const recentAccoladeIds = (url.searchParams.get('recentAccoladeIds') || '').split(',').filter(id => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)).slice(0, 5); return json(res, 200, service.personalMatchMoment(code, connectionId, recentAccoladeIds, url.searchParams.get("gameId"))); }
+        if (req.method === "GET" && parts[3] === "match-moment") { const recentAccoladeIds = (url.searchParams.get('recentAccoladeIds') || '').split(',').filter(id => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)).slice(0, RECENT_ACCOLADE_LIMIT); return json(res, 200, service.personalMatchMoment(code, connectionId, recentAccoladeIds, url.searchParams.get("gameId"))); }
         if (req.method === "POST" && parts[3] === "field-test") return json(res, 201, service.recordFieldTest(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "client-diagnostics") return json(res, 201, service.recordClientDiagnostic(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "quick-feedback") return json(res, 201, service.recordQuickFeedback(code, connectionId, await readJson(req)));

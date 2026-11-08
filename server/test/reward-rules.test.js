@@ -110,8 +110,12 @@ test('recent accolade history does not remove the finished duration from selecti
   room.advance(60 * MINUTE + 1);
   room.finish();
 
-  assert.equal(room.moment().moment.category, 'Late Chapter');
-  assert.equal(room.moment(1, ['opening-ceremony']).moment.category, 'Late Chapter');
+  const seats = [0, 1].map(seatId => ({ seatId, ...room.moment(seatId, ['opening-ceremony']) }));
+  assert.ok(seats.every(seat => seat.achievementFacts.durationMs === 60 * MINUTE + 1));
+  const lateChapter = seats.filter(seat => seat.moment.id === 'late-chapter');
+  assert.equal(lateChapter.length, 1);
+  assert.equal(lateChapter[0].moment.fact, '60 minutes');
+  assert.notEqual(room.moment(lateChapter[0].seatId, ['late-chapter']).moment.id, 'late-chapter');
 });
 
 test('undoing a handoff removes its contribution to turn and reclaim awards', () => {

@@ -5,7 +5,7 @@ renamed, removed, or re-tiered. The new tracks are sequential: only the next
 unearned tier in each track may be granted, and a completed game grants at
 most one new long-term achievement overall.
 
-## 60-achievement catalog
+## Original 60-achievement catalog
 
 | Track | 10 sequential named rewards and thresholds |
 | --- | --- |
@@ -16,12 +16,42 @@ most one new long-term achievement overall.
 | Resilience | Close Call 3; Narrow Escape 5; Clinging On 10; Last Reserve 20; Refuse to Fall 35; Hard to Kill 55; Scarred Survivor 80; Against the Odds 120; Death Defied 175; Unbroken 250 games reaching 5 life or less |
 | Endurance | After Hours 3; Long Evening 5; Patient Table 10; Night Shift 20; Marathon Pod 35; Midnight Ritual 55; Long Vigil 80; Endless Turn 120; Table Eternal 175; Timekeeper 250 games lasting at least one hour |
 
+## Table Days
+
+These milestones count separate UTC dates on which the profile saved a
+server-verified finish. The completion timestamp supplies the date, so saving
+an older game later cannot move its credit. Wins and saved deck choices are
+optional. Multiple finishes on the same date count once.
+
+| Verified play days | Reward |
+| ---: | --- |
+| 50 | A Place at the Table |
+| 100 | A Hundred Gatherings |
+| 125 | Table Habit |
+| 150 | The Standing Invitation |
+| 175 | Gathering Ground |
+| 200 | Two Hundred Returns |
+| 225 | Kept the Ritual |
+| 250 | Common Ground |
+| 275 | Circle Keeper |
+| 300 | Three Hundred Table Days |
+| 325 | The Regulars’ Ledger |
+| 350 | The Long Tradition |
+| 450 | The Open Circle |
+| 500 | Five Hundred Gatherings |
+| 550 | Hall of Gatherings |
+| 600 | Lantern Keeper |
+| 650 | The Table Endures |
+| 750 | Arc Through Seasons |
+| 1,000 | A Thousand Table Days |
+
 ## Rules
 
 - Unlock order is fixed within each track.
 - New accounts start at the first tier. Existing accounts receive no retroactive
   burst; their next qualifying saved game unlocks at most one new achievement.
 - If several tracks qualify after one game, choose one deterministically from
-  the completed game ID and account ID; preserve the others for later games.
+  the saved game ID and account ID. Another contributing finish can release a
+  waiting tier. For Table Days, that finish must add a distinct date.
 - No unique achievement artwork is required. Existing compact rarity treatment
   remains the presentation.

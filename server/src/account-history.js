@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { chooseMatchMoment } from "./match-moments.js";
+import { chooseMatchMoment, RECENT_ACCOLADE_LIMIT } from "./match-moments.js";
 
 const accountPath = (accountId) => `account-history/accounts/${encodeURIComponent(accountId)}.json`;
 const gamesPath = (accountId) => `account-history/games/${encodeURIComponent(accountId)}.json`;
@@ -22,12 +22,31 @@ const normalizeDeckCommanderColors = (value, count) => {
 };
 
 const COUNTER_TOTAL_KEYS = ["poison", "energy", "radiation", "commanderDamage"];
+const UTC_DAY_MS = 86_400_000;
+
+function verifiedCompletionDay(game) {
+  if (game.completionVerified !== true || !Number.isFinite(game.completedAt)) return null;
+  return Math.floor(game.completedAt / UTC_DAY_MS);
+}
 const LONG_TERM_TRACKS = [
   { id: 'chronicle', measure: 'Saved games', thresholds: [175, 225, 300, 400, 550, 700, 900, 1200, 1500, 2000], titles: ['Footnotes', 'Margins', 'Bound Volume', 'Archive Shelf', 'Grand Archive', 'Librarian', 'Living Record', 'Stonebound Ledger', 'Endless Chronicle', 'The Whole Library'], metric: ({ games }) => games.length },
   { id: 'crowns', measure: 'Recorded wins', thresholds: [75, 100, 150, 200, 300, 400, 500, 650, 800, 1000], titles: ['Crown Reserve', 'Crown Vault', 'Crown Hall', 'Crown Bearer', 'Crowned Path', 'Crown Treasury', 'Crown Dominion', 'Crown Regent', 'Crown Eternal', 'Thousand Crowns'], metric: ({ wins }) => wins.length },
   { id: 'deck-mastery', measure: 'Games with one saved deck', thresholds: [15, 25, 40, 60, 90, 125, 175, 250, 350, 500], titles: ['Trusted Hand', 'Well-Shuffled', 'Battle-Tested', 'Signature Spellbook', 'Veteran List', 'Seasoned Sleeve', 'Known Lines', 'Masterwork', 'Living Decklist', 'One With the Deck'], metric: ({ deckGames }) => Math.max(0, ...deckGames.values()) },
   { id: 'deck-victory', measure: 'Wins with one saved deck', thresholds: [5, 10, 20, 35, 55, 80, 120, 175, 250, 350], titles: ['First Trophy', 'Winning Hand', 'Proven Build', 'Pod Favorite', 'Reliable Closer', 'Victory Lap', 'Champion List', 'Hall of Wins', 'Crowned Commander', 'Unbeaten Legend'], metric: ({ deckWins }) => Math.max(0, ...deckWins.values()) },
   { id: 'resilience', measure: 'Games reaching 5 life or less', thresholds: [3, 5, 10, 20, 35, 55, 80, 120, 175, 250], titles: ['Close Call', 'Narrow Escape', 'Clinging On', 'Last Reserve', 'Refuse to Fall', 'Hard to Kill', 'Scarred Survivor', 'Against the Odds', 'Death Defied', 'Unbroken'], metric: ({ games }) => games.filter(game => game.achievementFacts?.lowestLife <= 5).length },
+  {
+    id: 'table-days',
+    measure: 'Separate UTC dates with a verified finish',
+    thresholds: [50, 100, 125, 150, 175, 200, 225, 250, 275, 300, 325, 350, 450, 500, 550, 600, 650, 750, 1000],
+    titles: [
+      'A Place at the Table', 'A Hundred Gatherings', 'Table Habit', 'The Standing Invitation',
+      'Gathering Ground', 'Two Hundred Returns', 'Kept the Ritual', 'Common Ground',
+      'Circle Keeper', 'Three Hundred Table Days', 'The Regulars’ Ledger', 'The Long Tradition',
+      'The Open Circle', 'Five Hundred Gatherings', 'Hall of Gatherings', 'Lantern Keeper',
+      'The Table Endures', 'Arc Through Seasons', 'A Thousand Table Days',
+    ],
+    metric: ({ completionDays }) => completionDays.size,
+  },
   { id: 'endurance', measure: 'Games lasting at least one hour', thresholds: [3, 5, 10, 20, 35, 55, 80, 120, 175, 250], titles: ['After Hours', 'Long Evening', 'Patient Table', 'Night Shift', 'Marathon Pod', 'Midnight Ritual', 'Long Vigil', 'Endless Turn', 'Table Eternal', 'Timekeeper'], metric: ({ games }) => games.filter(game => game.achievementFacts?.durationMs >= 3_600_000).length },
 ];
 const longTermDefinitions = () => LONG_TERM_TRACKS.flatMap((track) => track.thresholds.map((target, index) => ({ id: `long-${track.id}-${index + 1}`, track: track.id, title: track.titles[index], detail: `${track.measure}: ${target}.`, target, tier: index })));
@@ -35,7 +54,12 @@ const longTermContext = (games) => {
   const wins = games.filter(game => game.won); const deckGames = new Map(); const deckWins = new Map();
   games.filter(game => game.deckId).forEach(game => deckGames.set(game.deckId, (deckGames.get(game.deckId) || 0) + 1));
   wins.filter(game => game.deckId).forEach(game => deckWins.set(game.deckId, (deckWins.get(game.deckId) || 0) + 1));
-  return { games, wins, deckGames, deckWins };
+  const completionDays = new Map();
+  for (const game of games) {
+    const day = verifiedCompletionDay(game);
+    if (day !== null) completionDays.set(day, (completionDays.get(day) || 0) + 1);
+  }
+  return { games, wins, deckGames, deckWins, completionDays };
 };
 const longTermRarity = (tier) => tier >= 8 ? 'legendary' : tier >= 6 ? 'epic' : tier >= 3 ? 'rare' : 'uncommon';
 function trackMeasurement(track, context, triggeringGame) {
@@ -46,6 +70,10 @@ function trackMeasurement(track, context, triggeringGame) {
     case 'deck-victory': return triggeringGame.won ? context.deckWins.get(triggeringGame.deckId) ?? 0 : 0;
     case 'resilience': return triggeringGame.achievementFacts?.lowestLife <= 5 ? track.metric(context) : 0;
     case 'endurance': return triggeringGame.achievementFacts?.durationMs >= 3_600_000 ? track.metric(context) : 0;
+    case 'table-days': {
+      const day = verifiedCompletionDay(triggeringGame);
+      return day !== null && context.completionDays.get(day) === 1 ? track.metric(context) : 0;
+    }
     default: return track.metric(context);
   }
 }
@@ -237,10 +265,9 @@ function initialProgress(games, decks, now) {
   };
 }
 
-function recentAccolades(games, limitByGames = false) {
-  const ordered = [...games].reverse().sort((a, b) => b.savedAt - a.savedAt);
-  const window = limitByGames ? ordered.slice(0, 5) : ordered;
-  return window.map(game => game.accoladeId).filter(Boolean).slice(0, 5);
+function recentAccolades(games) {
+  return [...games].reverse().sort((a, b) => b.savedAt - a.savedAt)
+    .map(game => game.accoladeId).filter(Boolean).slice(0, RECENT_ACCOLADE_LIMIT);
 }
 
 function longTermIds(account, progress) {
@@ -340,7 +367,7 @@ export class AccountHistory {
       }
       const existing = progress.games?.[key] || legacyGames.find(game => game.sourceGameId && game.sourceGameId === completion.legacySourceGameId);
       if (existing) {
-        const moment = completion.moments.find(item => (item.id ?? null) === (existing.accoladeId ?? null)) || completion.moments[0];
+        const moment = completion.moments.find(item => item?.id && item.id === existing.accoladeId) || null;
         result = { game: existing, moment, unlockedAchievements: [] };
         return current;
       }
@@ -352,7 +379,7 @@ export class AccountHistory {
         if (item.id === "familiar-seats") return tableGameNumber === 5;
         return true;
       });
-      const moment = chooseMatchMoment(moments, recentAccolades(beforeGames, true));
+      const moment = chooseMatchMoment(moments, recentAccolades(beforeGames));
       const game = {
         ...completion.game,
         tableRef,

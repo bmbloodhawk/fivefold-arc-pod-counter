@@ -285,7 +285,9 @@ test('a custom starting value of five life is not a tracked close call', async (
   const saved = await f.save(game, { connectionId: game.host });
   assert.equal(saved.status, 201);
   assert.ok(!saved.data.unlockedAchievements.some(award => award.id === 'last-breath' || award.id === 'hanging-by-a-thread'));
-  assert.equal(saved.data.moment.kind, 'recap');
+  assert.equal(saved.data.game.achievementFacts.lowestLife, undefined);
+  assert.equal(saved.data.moment.kind, 'accolade');
+  assert.doesNotMatch(saved.data.moment.fact, /Lowest (recorded )?life:/);
 });
 
 test('a completed loss at negative life is saved, and custom games never award Commander turn milestones', async (t) => {

@@ -465,7 +465,9 @@ test('the confirmed winner, personal accolade, and next-game setup are separate 
   assert.match(app, /function accoladeArtUrl\(title\).*assets\/accolades/s);
   assert.match(app, /function winnerArtUrl\(winner, gameKey\).*last-one-standing.*table-monarch.*arc-victor/s);
   assert.match(app, /winnerArtUrl\(winner, key\)/);
-  assert.match(app, /accoladeArtUrl\(moment\.art \|\| moment\.title\)/);
+  assert.match(app, /dom\.personalMatchArt\.hidden = !art;/);
+  assert.match(app, /accoladeArtUrl\(art\)/);
+  assert.match(html, /YOUR ACCOLADE/);
   assert.doesNotMatch(html, /id="nextGameButton"/);
   assert.match(app, /function finishEndGameFlow\(key\)/);
   assert.match(app, /if \(!showAchievementUnlocks\(key\)\) void beginIntermission\(key\);/);

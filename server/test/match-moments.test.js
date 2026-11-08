@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { blankMatchMoment, personalMatchMoment, recordMatchMoment, recordTurnMoment, tableMatchMomentDecisions } from '../src/match-moments.js';
+import { blankMatchMoment, chooseMatchMoment, personalMatchMoment, recordMatchMoment, recordTurnMoment, tableMatchMomentDecisions } from '../src/match-moments.js';
 
 function seat(seatId, name, commanderNames = []) {
   return { seatId, name, commanderNames, counters: { life: 40 }, matchMoment: blankMatchMoment(40) };
@@ -72,14 +72,21 @@ test('recovery tracking counts only play that continues after a reclaim', () => 
   assert.equal(alex.matchMoment.turnsAfterReclaim, 1);
 });
 
-test('an ordinary win has a plain recap and a traceable reason', () => {
+test('a routine loss shows a completion accolade supported by the finished game', () => {
   const alex = seat(0, 'Alex'); const sam = seat(1, 'Sam');
-  const decision = tableMatchMomentDecisions({ seats: [alex, sam], winnerSeatId: 0, seed: 'test', context: { durationMs: 42 * 60_000 } }).get(0);
-  assert.equal(decision.moment.kind, 'recap');
-  assert.equal(decision.moment.id, null);
-  assert.equal(decision.moment.fact, '42 min');
-  assert.deepEqual(decision.eligibleCategories, ['Last One Standing']);
-  assert.equal(decision.selectionReason, 'Routine finish');
+  alex.counters.life = 18;
+  const context = { durationMs: 42 * 60_000, startingSeatId: 1, gameFormat: 'commander', finishReason: 'declared_winner' };
+  const decisions = tableMatchMomentDecisions({ seats: [alex, sam], winnerSeatId: 1, seed: 'test', context });
+  const { moment, alternatives, selectionReason } = decisions.get(0);
+  assert.equal(moment.kind, 'accolade');
+  assert.equal(moment.completion, true);
+  assert.equal(selectionReason, 'Recorded completion fact');
+  const facts = new Set([moment, ...alternatives].map(card => card.fact));
+  const actualGameFacts = ['Seat 1 · Game finished', '2-player game · Seat 1', 'Position 2 of 2 in the opening order',
+    'Completed game 1 for this seat', 'Commander · Seat 1', 'Table started at 40 life · Seat 1',
+    '42 min recorded · Seat 1', 'Participating seat · Seat 1', 'Winner declared · Seat 1', '18 life at the finish · Seat 1'];
+  assert.ok([...facts].every(fact => actualGameFacts.includes(fact)));
+  assert.equal(decisions.get(1).moment.id, 'table-victor');
 });
 
 test('a recovery receives the winner’s highlight over routine play', () => {
@@ -146,12 +153,20 @@ test('recent profile accolades are avoided without adding profile state to a roo
 test('seeds choose different eligible accolades without changing a completed-game result', () => {
   const alex = seat(0, 'Alex'); const sam = seat(1, 'Sam');
   Object.assign(alex.matchMoment, { lifeGained: 25, energyGained: 10 });
-  const first = tableMatchMomentDecisions({ seats: [alex, sam], winnerSeatId: 99, seed: 'variety-a' }).get(0);
-  const replay = tableMatchMomentDecisions({ seats: [alex, sam], winnerSeatId: 99, seed: 'variety-a' }).get(0);
-  const second = tableMatchMomentDecisions({ seats: [alex, sam], winnerSeatId: 99, seed: 'variety-b' }).get(0);
-  assert.equal(first.moment.id, replay.moment.id);
-  assert.notEqual(first.moment.id, second.moment.id);
-  assert.equal(first.selectionReason, 'Distinct match moment recorded');
+  const decide = seed => tableMatchMomentDecisions({ seats: [alex, sam], winnerSeatId: 99, seed }).get(0);
+  assert.deepEqual(decide('variety-a'), decide('variety-a'));
+  const moments = new Set(Array.from({ length: 20 }, (_, index) => decide('variety-' + index).moment.id));
+  assert.deepEqual(moments, new Set(['power-surge', 'second-serving']));
+  assert.equal(decide('variety-a').selectionReason, 'Distinct match moment recorded');
+});
+
+test('profile recency chooses a fresh reserved card or the least recently shown eligible card', () => {
+  const recovery = { id: 'phoenix-return' };
+  const clock = { id: 'clock-record' };
+  const finish = { id: 'arc-complete' };
+  const options = [recovery, clock, finish];
+  assert.equal(chooseMatchMoment(options, ['second-wind', 'clock-record']), finish);
+  assert.equal(chooseMatchMoment(options, ['arc-complete', 'phoenix-return', 'clock-record']), clock);
 });
 
 test('Legend Collector goes only to the unique player hit by the most different commanders', () => {

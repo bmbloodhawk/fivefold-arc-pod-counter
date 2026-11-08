@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { runInNewContext } from 'node:vm';
 
 const [app, page, transport] = await Promise.all([
   readFile(new URL('./app.js', import.meta.url), 'utf8'),
@@ -54,6 +55,51 @@ test('pod setup separates first-game players from future seat capacity', () => {
   assert.match(app, /const seatCapacity = Number\(form\.get\('seatCapacity'\)\);/);
   assert.match(transport, /async createRoom\(\{ playerCount, seatCapacity = playerCount,/);
 });
+
+for (const { name, moment, earned, title } of [
+  { name: 'a routine result', moment: { kind: 'recap', title: 'Game complete', line: 'Your table finished the game.', fact: '45 min' }, earned: true, title: 'Arc Complete' },
+  { name: 'an unavailable match moment', moment: null, earned: false, title: 'Arc Complete' },
+  { name: 'a standout result', moment: { kind: 'accolade', title: 'Phoenix Return', category: 'Phoenix Return', fact: 'Lowest life: 4 · +15 recovered' }, earned: true, title: 'Phoenix Return' },
+]) {
+  test(name + ' shows an accolade before any achievement or next-game setup', async () => {
+    const key = 'completed-game';
+    const events = [];
+    const hint = { textContent: '' };
+    const dom = {
+      victoryDialog: { open: true, dataset: { stage: 'winner' }, setAttribute() {}, close() { this.open = false; } },
+      achievementDialog: { open: false },
+      personalMatchMoment: { hidden: true, toggleAttribute() {} },
+      personalMatchMomentTitle: {}, personalMatchMomentLine: {}, personalMatchMomentFact: {},
+      personalMatchArt: { dataset: {}, style: {} },
+    };
+    const context = {
+      dom, state: { gameResult: { gameId: key } }, victoryStage: 'winner',
+      victoryKey: result => result.gameId, accoladeArtUrl: name => name,
+      dismissedVictoryKeys: new Set(), automaticSavePromises: new Map(), personalMomentPromises: new Map(),
+      $: () => hint,
+      showAchievementUnlocks() {
+        if (earned) events.push('achievement');
+        return earned;
+      },
+      beginIntermission() { events.push('next game'); },
+    };
+    const start = app.indexOf('function showPersonalMatchMoment(');
+    const end = app.indexOf('async function loadSaveGameDecks(', start);
+    const flow = runInNewContext(app.slice(start, end) + '\n({ showPersonalMatchMoment, advanceEndGameFlow })', context);
+
+    if (moment) flow.showPersonalMatchMoment(moment);
+    flow.advanceEndGameFlow(key);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(dom.victoryDialog.dataset.stage, 'accolade');
+    assert.equal(dom.personalMatchMomentTitle.textContent, title);
+    assert.deepEqual(events, []);
+
+    flow.advanceEndGameFlow(key);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(dom.victoryDialog.open, false);
+    assert.deepEqual(events, [earned ? 'achievement' : 'next game']);
+  });
+}
 
 test('the end-game flow uses distinct winner, accolade, achievement, and ready stages', () => {
   assert.match(app, /const automaticSavePromises = new Map\(\); const dismissedVictoryKeys = new Set\(\);/);

@@ -106,11 +106,13 @@ function byNumber(games, number) {
   return games[number - 1].saved;
 }
 
-function assertQuiet(games, numbers) {
+function assertNoRepeatedRecovery(games, numbers) {
   for (const number of numbers) {
     const result = byNumber(games, number);
-    assert.equal(result.moment.kind, 'recap', 'game ' + number + ' should show a plain recap');
-    assert.equal(result.game.accoladeId ?? null, null, 'game ' + number + ' should not save an accolade');
+    assert.equal(result.moment.kind, 'accolade', 'game ' + number + ' should show an accolade');
+    assert.equal(result.game.accoladeId, result.moment.id);
+    assert.ok(result.moment.id && result.moment.fact);
+    assert.doesNotMatch(result.moment.fact, /Lowest (recorded )?life:/, 'game ' + number + ' should avoid a repeated recovery');
   }
 }
 
@@ -150,7 +152,7 @@ function assertProgress({ games, snapshots, retry }, t) {
   assert.deepEqual(retry.unlockedAchievements, []);
 }
 
-test('steady saved-deck play preserves profile milestones while routine and repeated moments stay quiet', async (t) => {
+test('steady saved-deck play preserves profile milestones while routine finishes and close repeats get a different accolade', async (t) => {
   const replay = await playThrough('steady');
   assertProgress(replay, t);
   for (const number of CHECKPOINTS) {
@@ -159,7 +161,7 @@ test('steady saved-deck play preserves profile milestones while routine and repe
   }
   assert.ok(replay.snapshots.get(25).achievements.some(award => award.id === 'long-deck-mastery-1'));
 
-  assertQuiet(replay.games, [1, 3, 4, 6, 25, 100]);
+  assertNoRepeatedRecovery(replay.games, [1, 3, 4, 6, 25, 100]);
   assertRecovery(replay.games, 2);
   assertRecovery(replay.games, 15);
 });
@@ -173,7 +175,7 @@ test('varied low-win play earns profile milestones and remembers recent recovery
   assert.ok(middle.achievements.some(award => award.id === 'long-resilience-1'));
   assert.equal(replay.snapshots.get(100).wins, VARIED_WINS.size);
 
-  assertQuiet(replay.games, [1, 3, 4, 11, 25, 100]);
+  assertNoRepeatedRecovery(replay.games, [1, 3, 4, 11, 25, 100]);
   assertRecovery(replay.games, 2);
   assertRecovery(replay.games, 15);
 });

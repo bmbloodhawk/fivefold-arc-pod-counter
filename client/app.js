@@ -332,11 +332,8 @@ function winnerArtUrl(winner, gameKey) { const variants = ['last-one-standing', 
 const achievementRarityLabel = (rarity) => ({ common: 'Common', uncommon: 'Uncommon', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' })[rarity] || 'Common';
 const achievementRarityMark = (rarity) => ({ common: '◇', uncommon: '✦', rare: '✧', epic: '✹', legendary: '✪' })[rarity] || '◇';
 const achievementCardHtml = (achievement, showNew = false) => { const rarity = achievement.rarity || 'common'; return `<article class="achievement-card" data-rarity="${escapeHtml(rarity)}"><span aria-hidden="true">${achievementRarityMark(rarity)}</span><div><small class="achievement-rarity">${escapeHtml(achievementRarityLabel(rarity))}</small><strong>${escapeHtml(achievement.title)}</strong><small>${escapeHtml(achievement.detail)}</small>${showNew && achievement.isNew ? '<b class="achievement-card-new">New</b>' : ''}</div></article>`; };
-const STAGING_SAMPLE_ACHIEVEMENT = Object.freeze({ id: 'staging-sample-achievement', rarity: 'common', title: 'Testing the Arc', detail: 'Sample achievement shown only in the test environment.', isNew: true });
-const STAGING_SAMPLE_MATCH_MOMENT = Object.freeze({ title: 'Practice Makes Ready', line: 'A test-table accolade for checking the end-game flow.', fact: 'This card appears only in the test environment.', art: 'arc-complete', category: 'staging', variant: 0 });
 function showAchievementUnlocks(gameKey) {
-  const earned = unlockedAchievementsByGame.get(gameKey) || [];
-  const unlocked = isStagingEnvironment ? [...earned, STAGING_SAMPLE_ACHIEVEMENT] : earned;
+  const unlocked = unlockedAchievementsByGame.get(gameKey) || [];
   if (!unlocked.length || dom.achievementDialog.open) return false;
   dom.achievementDialog.dataset.gameKey = gameKey;
   dom.achievementTitle.textContent = unlocked.length === 1 ? 'Achievement uncovered' : `${unlocked.length} achievements uncovered`;
@@ -345,17 +342,19 @@ function showAchievementUnlocks(gameKey) {
   dom.achievementDialog.showModal(); return true;
 }
 function showPersonalMatchMoment(moment) {
-  if (!moment) return false;
-  const recap = moment.kind === 'recap';
-  dom.personalMatchMoment.querySelector('.eyebrow').textContent = recap ? 'Your game recap' : 'Your match moment';
-  dom.personalMatchMomentTitle.textContent = moment.title;
-  dom.personalMatchArt.hidden = recap;
-  dom.personalMatchArt.dataset.category = moment.category || '';
-  dom.personalMatchArt.dataset.variant = String(moment.variant || 0);
-  dom.personalMatchArt.style.backgroundImage = recap ? '' : 'url("' + accoladeArtUrl(moment.art || moment.title) + '")';
-  dom.personalMatchMomentLine.textContent = moment.line;
-  dom.personalMatchMomentFact.textContent = moment.fact;
-  dom.personalMatchMomentFact.hidden = !moment.fact;
+  const card = !moment || moment.kind === 'recap'
+    ? { title: 'Arc Complete', category: 'Arc Complete', line: 'You completed this game.', fact: 'Game finished', art: 'arc-complete' }
+    : moment;
+  const art = card.art;
+  dom.personalMatchMomentTitle.textContent = card.title;
+  dom.personalMatchMoment.toggleAttribute('data-text-card', !art);
+  dom.personalMatchArt.hidden = !art;
+  dom.personalMatchArt.dataset.category = card.category || '';
+  dom.personalMatchArt.dataset.variant = String(card.variant || 0);
+  dom.personalMatchArt.style.backgroundImage = art ? 'url("' + accoladeArtUrl(art) + '")' : '';
+  dom.personalMatchMomentLine.textContent = card.line;
+  dom.personalMatchMomentFact.textContent = card.fact;
+  dom.personalMatchMomentFact.hidden = !card.fact;
   dom.personalMatchMoment.hidden = false;
   return true;
 }
@@ -372,12 +371,15 @@ function finishEndGameFlow(key) {
 function advanceEndGameFlow(key) {
   if (!dom.victoryDialog.open) return;
   if (victoryStage === 'winner') {
-    const showAccoladeOrContinue = () => {
+    const showAccoladeStage = () => {
       if (!dom.victoryDialog.open || key !== victoryKey(state?.gameResult)) return;
-      if (!dom.personalMatchMoment.hidden) { victoryStage = 'accolade'; dom.victoryDialog.dataset.stage = victoryStage; $('#victoryTapHint').textContent = 'Tap anywhere to continue'; return; }
-      finishEndGameFlow(key);
+      if (dom.personalMatchMoment.hidden) showPersonalMatchMoment(null);
+      victoryStage = 'accolade';
+      dom.victoryDialog.dataset.stage = victoryStage;
+      dom.victoryDialog.setAttribute('aria-labelledby', 'personalMatchMomentTitle');
+      $('#victoryTapHint').textContent = 'Tap anywhere to continue';
     };
-    void (personalMomentPromises.get(key) || Promise.resolve()).then(showAccoladeOrContinue, showAccoladeOrContinue);
+    void (personalMomentPromises.get(key) || Promise.resolve()).then(showAccoladeStage, showAccoladeStage);
     return;
   }
   finishEndGameFlow(key);
@@ -427,17 +429,17 @@ function renderVictory() {
     const saving = saveGameToHistory({ automatic: true, gameKey: key });
     automaticSavePromises.set(key, saving);
     dom.personalMatchMoment.hidden = true; dom.personalMatchMoment.classList.remove('achievement-reveal');
-    const momentRequest = isStagingEnvironment ? Promise.resolve({ moment: STAGING_SAMPLE_MATCH_MOMENT })
-      : state.localSimulation ? Promise.resolve({ moment: null })
+    const momentRequest = state.localSimulation ? Promise.resolve({ moment: null })
       : saving.then(saved => {
         if (victoryKey(state?.gameResult) !== key) return { moment: null };
         return saved?.moment ? saved : transport.getPersonalMatchMoment([], result.gameId);
       });
-    personalMomentPromises.set(key, momentRequest.then(({ moment }) => {
+    const showAccolade = ({ moment } = {}) => {
       if (victoryKey(state?.gameResult) !== key) return false;
       return showPersonalMatchMoment(moment);
-    }).catch(() => false));
-    if (!dom.victoryDialog.open) { victoryStage = 'winner'; dom.victoryDialog.dataset.stage = victoryStage; victoryDismissReady = false; dom.victoryDialog.showModal(); $('#victoryTapHint').textContent = 'Game complete'; clearTimeout(victoryDismissTimer); victoryDismissTimer = setTimeout(() => { victoryDismissReady = true; $('#victoryTapHint').textContent = 'Tap anywhere to continue'; }, 1200); }
+    };
+    personalMomentPromises.set(key, momentRequest.then(showAccolade, () => showAccolade()));
+    if (!dom.victoryDialog.open) { victoryStage = 'winner'; dom.victoryDialog.dataset.stage = victoryStage; dom.victoryDialog.setAttribute('aria-labelledby', 'victoryTitle'); victoryDismissReady = false; dom.victoryDialog.showModal(); $('#victoryTapHint').textContent = 'Game complete'; clearTimeout(victoryDismissTimer); victoryDismissTimer = setTimeout(() => { victoryDismissReady = true; $('#victoryTapHint').textContent = 'Tap anywhere to continue'; }, 1200); }
   }
 }
 function openQuickFeedback() { if (!state?.gameResult || state.localSimulation || state.feedbackPromptSeatId !== transport.seatId || localStorage.getItem('fivefold-arc:quick-feedback-until') > Date.now()) return; $('#quickFeedbackDialog').showModal(); }
@@ -696,7 +698,7 @@ async function saveGameToHistory({ automatic = false, gameKey = victoryKey(state
     savedGameKey = gameKey;
     savedGameMoment = saved.moment;
     dom.saveGameButton.textContent = automatic ? 'Game saved automatically' : 'Game saved';
-    if (!automatic && dom.victoryDialog.open && !isStagingEnvironment) showPersonalMatchMoment(saved.moment);
+    if (!automatic && dom.victoryDialog.open) showPersonalMatchMoment(saved.moment);
     const { unlockedAchievements = [] } = saved;
     if (unlockedAchievements.length) {
       unlockedAchievementsByGame.set(gameKey, unlockedAchievements);

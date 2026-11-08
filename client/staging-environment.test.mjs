@@ -17,8 +17,8 @@ test('the staging deployment is isolated, free-tier, and visibly marked', () => 
   assert.match(styles, /\.staging-environment-banner/);
 });
 
-test('staging always supplies a sample achievement reveal without changing real achievements', () => {
+test('staging uses the same earned rewards as the normal end-game flow', () => {
   assert.match(app, /const isStagingEnvironment = location\.hostname === stagingHostname;/);
-  assert.match(app, /const STAGING_SAMPLE_ACHIEVEMENT = Object\.freeze\(/);
-  assert.match(app, /const unlocked = isStagingEnvironment \? \[\.\.\.earned, STAGING_SAMPLE_ACHIEVEMENT\] : earned;/);
+  assert.match(app, /const unlocked = unlockedAchievementsByGame\.get\(gameKey\) \|\| \[\];/);
+  assert.doesNotMatch(app, /STAGING_SAMPLE_(?:ACHIEVEMENT|MATCH_MOMENT)/);
 });
