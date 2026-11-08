@@ -6,6 +6,7 @@ import { createInteractionAdvice } from './card-interaction-advice.js?v=1';
 import { commanderFallbackLabel } from './commander-source-flow.js?v=1';
 import { currentAccountToken, emailAccountToken, googleAccountToken, restoredAccountToken, sendAccountPasswordReset, signOutAccount } from './account-auth.js?v=6';
 import { JoinQrScanner } from './join-qr-scanner.js?v=3';
+import { GameWakeLock } from './game-wake-lock.js?v=1';
 
 const appearancePreviewMode = new URLSearchParams(location.search).get('appearance-preview') === '1';
 const appearanceParams = new URLSearchParams(location.search);
@@ -15,6 +16,7 @@ const LOCAL_DEMO_IDLE_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 const LOCAL_DEMO_STATE_KEY = 'fivefold-arc-test-state';
 const INTERFACE_STYLE_KEY = 'fivefold-arc:interface-style';
 const DEVICE_APPEARANCE_KEY = 'fivefold-arc:device-appearance';
+const SCREEN_AWAKE_KEY = 'fivefold-arc:screen-awake';
 const DEVELOPER_MODE_KEY = 'fivefold-arc:developer-mode';
 const IDENTITY_ORDER = ['W', 'U', 'B', 'R', 'G'];
 const IDENTITY_COLORS = { W: '#efe4c7', U: '#67a6d5', B: '#a089bd', R: '#d57a68', G: '#70a97a' };
@@ -32,12 +34,14 @@ const dom = {
   lobbyControls: $('#lobbyControls'), lobbyStatus: $('#lobbyStatus'), lobbyInviteCode: $('#lobbyInviteCode'), lobbyRoster: $('#lobbyRoster'), copyLobbyJoinLinkButton: $('#copyLobbyJoinLinkButton'), showJoinQrButton: $('#showJoinQrButton'), showJoinQrMenuButton: $('#showJoinQrMenuButton'), firstPlayerOptions: $('#firstPlayerOptions'), startingSeatField: $('#startingSeatField'), startingSeat: $('#startingSeat'), chooseFirstButton: $('#chooseFirstButton'), winnerFirstButton: $('#winnerFirstButton'), randomFirstButton: $('#randomFirstButton'), startGameButton: $('#startGameButton'), nextGameConfirmDialog: $('#nextGameConfirmDialog'), nextGameConfirmForm: $('#nextGameConfirmForm'), nextGameConfirmDetail: $('#nextGameConfirmDetail'), nextGameConfirmRoster: $('#nextGameConfirmRoster'), confirmNextGameStart: $('#confirmNextGameStart'), startingRollDialog: $('#startingRollDialog'), startingRollStatus: $('#startingRollStatus'), rollMyD20Button: $('#rollMyD20Button'), startingRollCanvas: $('#startingRollCanvas'), startingRollFinalDice: $('#startingRollFinalDice'), startingRollOverlays: $('#startingRollOverlays'), startingRollLive: $('#startingRollLive'), turnCueDialog: $('#turnCueDialog'), turnCueForm: $('#turnCueForm'), turnSoundDialog: $('#turnSoundDialog'), turnSoundForm: $('#turnSoundForm'), turnSoundChoice: $('#turnSoundChoice'), turnSoundVolume: $('#turnSoundVolume'), turnSoundVolumeValue: $('#turnSoundVolumeValue'), previewTurnSoundButton: $('#previewTurnSoundButton'), turnSoundPreferencesButton: $('#turnSoundPreferencesButton'), turnBanner: $('#turnBanner'), turnLabel: $('#turnLabel'), turnPlayer: $('#turnPlayer'), turnElapsed: $('#turnElapsed'), gameTimer: $('#gameTimer'), lastTurnSummary: $('#lastTurnSummary'), turnActions: $('#turnActions'), endTurnButton: $('#endTurnButton'), undoTurnButton: $('#undoTurnButton'), pauseTurnButton: $('#pauseTurnButton'), toggleTurnTrackingButton: $('#toggleTurnTrackingButton'), toggleTurnCuesButton: $('#toggleTurnCuesButton'), toggleDeviceCuesButton: $('#toggleDeviceCuesButton'), toggleTouchFeedbackButton: $('#toggleTouchFeedbackButton'), turnActionDetail: $('#turnActionDetail'),
   commanderCountDialog: $('#commanderCountDialog'), commanderCountDetail: $('#commanderCountDetail'), commanderCountForm: $('#commanderCountForm'), saveCommanderCountButton: $('#saveCommanderCountButton'), commanderDeckField: $('#commanderDeckField'), commanderDeck: $('#commanderDeck'), joinQrDialog: $('#joinQrDialog'), joinQrImage: $('#joinQrImage'), joinQrCode: $('#joinQrCode'), shareJoinLinkButton: $('#shareJoinLinkButton'), copyJoinLinkButton: $('#copyJoinLinkButton'),
   commanderTaxQuickButton: $('#commanderTaxQuickButton'), commanderTaxDialog: $('#commanderTaxDialog'), commanderTaxDetail: $('#commanderTaxDetail'), commanderTaxList: $('#commanderTaxList'), toggleInterfaceStyleButton: $('#toggleInterfaceStyleButton'),
+  toggleScreenAwakeButton: $('#toggleScreenAwakeButton'), screenAwakeState: $('#screenAwakeState'),
   cardCameraButton: $('#cardCameraButton'), cardCameraDialog: $('#cardCameraDialog'), cardAdvisorForm: $('#cardAdvisorForm'), firstCardTitle: $('#firstCardTitle'), secondCardTitle: $('#secondCardTitle'), interactionSituation: $('#interactionSituation'), cardLookupStatus: $('#cardLookupStatus'), cardLookupResult: $('#cardLookupResult'), achievementDialog: $('#achievementDialog'), achievementTitle: $('#achievementTitle'), achievementSummary: $('#achievementSummary'), achievementUnlockList: $('#achievementUnlockList'),
   customLifeButton: $('#customLifeButton'), customLifeDialog: $('#customLifeDialog'), customLifeForm: $('#customLifeForm'), customLifeAmount: $('#customLifeAmount'), cancelCustomLifeButton: $('#cancelCustomLifeButton'), radiationDialog: $('#radiationDialog'), radiationForm: $('#radiationForm'), radiationDetail: $('#radiationDetail'), radiationNonlandCount: $('#radiationNonlandCount'), resolveRadiationButton: $('#resolveRadiationButton'), playtestNotesButton: $('#playtestNotesButton'), playtestRecapButton: $('#playtestRecapButton'), fieldTestButton: $('#fieldTestButton'), markDevelopmentButton: $('#markDevelopmentButton'), fieldTestDialog: $('#fieldTestDialog'), fieldTestForm: $('#fieldTestForm'), fieldTestStatus: $('#fieldTestStatus'), savedPlaytestsButton: $('#savedPlaytestsButton'), lockDeveloperModeButton: $('#lockDeveloperModeButton'), developerModeDialog: $('#developerModeDialog'), developerModeForm: $('#developerModeForm'), developerModeKey: $('#developerModeKey'), developerModeStatus: $('#developerModeStatus'), unlockDeveloperModeButton: $('#unlockDeveloperModeButton'), refreshTableButton: $('#refreshTableButton'), playtestNotesDialog: $('#playtestNotesDialog'), playtestNotesForm: $('#playtestNotesForm'), playtestNotesList: $('#playtestNotesList'), playtestNoteText: $('#playtestNoteText'), playtestNoteStatus: $('#playtestNoteStatus'), playtestRecapDialog: $('#playtestRecapDialog'), playtestRecapContent: $('#playtestRecapContent'), savedPlaytestsDialog: $('#savedPlaytestsDialog'), savedPlaytestsContent: $('#savedPlaytestsContent')
 };
 const winnerCondition = $('#winnerCondition');
 dom.lobbyMount.append(dom.lobbyControls);
 const transport = new RealtimeAdapter({ apiBase: apiBaseFromPage() });
+const gameWakeLock = new GameWakeLock();
 const diagnosticAssetVersion = new URL(import.meta.url).searchParams.get('v');
 const DIAGNOSTIC_BUILD = /^\d{1,8}$/.test(diagnosticAssetVersion) ? diagnosticAssetVersion : 'unknown';
 const reportedDiagnostics = new Set();
@@ -119,6 +123,8 @@ let startingRollTimers = [];
 let startingRollSequence = 0;
 let lastStartingRollKey = null;
 let turnCueAudio = null;
+let keepScreenAwake = true;
+try { keepScreenAwake = localStorage.getItem(SCREEN_AWAKE_KEY) !== 'off'; } catch { /* The setting still works for this session. */ }
 function deviceTurnCuesEnabled() { try { return localStorage.getItem('fivefold-arc:turn-cues') !== 'off'; } catch { return true; } }
 function setDeviceTurnCues(enabled) { try { localStorage.setItem('fivefold-arc:turn-cues', enabled ? 'on' : 'off'); } catch { /* preference is optional */ } }
 function turnSound() { try { const sound = localStorage.getItem('fivefold-arc:turn-sound'); return ['ding', 'chime', 'bell', 'two-note', 'tap'].includes(sound) ? sound : 'ding'; } catch { return 'ding'; } }
@@ -602,7 +608,22 @@ async function signInWithEmailPassword() {
 }
 function openMyProfile() { myGamesDialog.showModal(); void showMyGames(); }
 function tableViewForState() { if (state?.lifecycle?.status === 'intermission') return dom.intermission; return state?.turn?.gameStarted ? dom.game : dom.lobby; }
-function showView(view) { const activeView = view === dom.game && state ? tableViewForState() : view; dom.views.forEach(item => { item.hidden = item !== activeView; }); window.scrollTo({ top: 0, behavior: 'instant' }); }
+function syncGameWakeLock() {
+  const active = Boolean(!appearancePreviewMode && !dom.game.hidden && state?.turn?.gameStarted && !state.gameResult && (state.lifecycle?.status ?? 'playing') === 'playing');
+  const supported = gameWakeLock.supported;
+  const label = keepScreenAwake ? ': on' : ': off';
+  dom.toggleScreenAwakeButton.hidden = !active;
+  dom.toggleScreenAwakeButton.disabled = !supported;
+  dom.toggleScreenAwakeButton.setAttribute('aria-pressed', String(supported && keepScreenAwake));
+  dom.screenAwakeState.textContent = supported ? label : ': unavailable';
+  void gameWakeLock.sync({ active, enabled: keepScreenAwake });
+}
+function showView(view) {
+  const activeView = view === dom.game && state ? tableViewForState() : view;
+  dom.views.forEach(item => { item.hidden = item !== activeView; });
+  syncGameWakeLock();
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}
 function savedTables() { try { const tables = JSON.parse(localStorage.getItem(SAVED_TABLES_KEY)); return Array.isArray(tables) ? tables.filter(table => /^[A-Z0-9]{6}$/.test(table?.code)).slice(0, 8) : []; } catch { return []; } }
 function saveTable() {
   if (!state || state.localSimulation || !/^[A-Z0-9]{6}$/.test(state.podCode)) return;
@@ -1009,6 +1030,7 @@ function render() {
   renderTurnFlow();
   renderCoinTossNotice();
   renderVictory();
+  syncGameWakeLock();
   renderCommanderTaxDialog();
   renderMutationAvailability();
   dom.toggleInterfaceStyleButton.textContent = `Interface style: ${interfaceStyle === 'dial' ? 'Dial' : 'Button'}`;
@@ -1790,6 +1812,16 @@ document.addEventListener('pointerup', event => { const button = event.target.cl
 dom.endTurnButton.addEventListener('click', handoffTurn); dom.undoTurnButton.addEventListener('click', undoTurnHandoff); dom.pauseTurnButton.addEventListener('click', toggleTurnPause); dom.toggleTurnTrackingButton.addEventListener('click', toggleTurnTracking); dom.toggleTurnCuesButton.addEventListener('click', openTurnCueDialog); dom.turnCueForm.addEventListener('submit', async event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); const mode = String(new FormData(dom.turnCueForm).get('cueMode') || 'off'); prepareTurnCueAudio(false, mode); if (await setTurnCue(mode)) dom.turnCueDialog.close('confirm'); }); dom.toggleDeviceCuesButton.addEventListener('click', () => { setDeviceTurnCues(!deviceTurnCuesEnabled()); render(); }); dom.toggleTouchFeedbackButton.addEventListener('click', () => { setTouchFeedback(!touchFeedbackEnabled()); render(); });
 dom.turnSoundPreferencesButton.addEventListener('click', openTurnSoundDialog); dom.turnSoundVolume.addEventListener('input', () => { dom.turnSoundVolumeValue.value = `${dom.turnSoundVolume.value}%`; }); dom.previewTurnSoundButton.addEventListener('click', () => { setTurnSound(dom.turnSoundChoice.value, Number(dom.turnSoundVolume.value)); playTurnCue(true); }); dom.turnSoundForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); setTurnSound(dom.turnSoundChoice.value, Number(dom.turnSoundVolume.value)); dom.turnSoundDialog.close('confirm'); render(); }); dom.toggleInterfaceStyleButton.addEventListener('click', () => setInterfaceStyle(interfaceStyle === 'dial' ? 'button' : 'dial', { persistAccount: true }));
 dom.startingSeat.addEventListener('change', () => { pendingStartingSeatId = Number(dom.startingSeat.value); renderTurnFlow(); }); dom.chooseFirstButton.addEventListener('click', () => chooseStartingPlayer(pendingStartingSeatId ?? Number(dom.startingSeat.value))); dom.winnerFirstButton.addEventListener('click', () => { if (Number.isInteger(state?.lastGameWinnerSeatId)) chooseStartingPlayer(state.lastGameWinnerSeatId); }); dom.randomFirstButton.addEventListener('click', () => chooseStartingPlayer()); dom.startGameButton.addEventListener('click', startGame);
+dom.toggleScreenAwakeButton.addEventListener('click', () => {
+  keepScreenAwake = !keepScreenAwake;
+  try { localStorage.setItem(SCREEN_AWAKE_KEY, keepScreenAwake ? 'on' : 'off'); } catch { /* The setting still works for this session. */ }
+  syncGameWakeLock();
+});
+window.addEventListener('storage', event => {
+  if (event.key !== SCREEN_AWAKE_KEY) return;
+  keepScreenAwake = event.newValue !== 'off';
+  syncGameWakeLock();
+});
 const syncGameMenuScrollLock = () => { const open = !dom.gameMenu.hidden; dom.gameMenuBackdrop.hidden = !open; document.documentElement.classList.toggle('game-menu-open', open); document.body.classList.toggle('game-menu-open', open); };
 new MutationObserver(syncGameMenuScrollLock).observe(dom.gameMenu, { attributes: true, attributeFilter: ['hidden'] }); syncGameMenuScrollLock();
 function closeGameMenu() { dom.gameMenu.hidden = true; dom.gameMenuBackdrop.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); }
