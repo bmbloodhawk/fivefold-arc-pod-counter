@@ -14,12 +14,14 @@ test('Commander Magnet requires ten damage from one commander, not ten damage sp
 
   recordMatchMoment(defender, { counter: 'commanderDamage', delta: 6, commanderSourceId: 'seat-1-commander-a', lifeAfter: 34, gameStarted: true });
   recordMatchMoment(defender, { counter: 'commanderDamage', delta: 5, commanderSourceId: 'seat-2-commander-a', lifeAfter: 29, gameStarted: true });
-  assert.notEqual(personalMatchMoment({ seat: defender, seats, winnerSeatId: 99, seed: 'test' }).category, 'Commander Magnet');
+  const decide = () => tableMatchMomentDecisions({ seats, winnerSeatId: 99, seed: 'test' }).get(0);
+  assert.ok(!decide().eligibleCategories.includes('Commander Magnet'));
 
   recordMatchMoment(defender, { counter: 'commanderDamage', delta: 4, commanderSourceId: 'seat-1-commander-a', lifeAfter: 25, gameStarted: true });
-  const moment = personalMatchMoment({ seat: defender, seats, winnerSeatId: 99, seed: 'test' });
-  assert.equal(moment.category, 'Commander Magnet');
-  assert.match(moment.fact, /10 from Niv-Mizzet/);
+  assert.ok(decide().eligibleCategories.includes('Commander Magnet'));
+  const largerTable = personalMatchMoment({ seat: defender, seats: [defender, niv, atraxa, seat(3, 'Mira'), seat(4, 'Jay')], winnerSeatId: 99, seed: 'test' });
+  assert.equal(largerTable.category, 'Commander Magnet');
+  assert.match(largerTable.fact, /10 from Niv-Mizzet/);
 });
 
 test('match moments ignore setup changes and preserve the low-life and comeback priorities', () => {
@@ -70,31 +72,37 @@ test('recovery tracking counts only play that continues after a reclaim', () => 
   assert.equal(alex.matchMoment.turnsAfterReclaim, 1);
 });
 
-test('accolade decisions retain eligible categories and the selection reason for review', () => {
+test('an ordinary win has a plain recap and a traceable reason', () => {
   const alex = seat(0, 'Alex'); const sam = seat(1, 'Sam');
-  const decisions = tableMatchMomentDecisions({ seats: [alex, sam], winnerSeatId: 0, seed: 'test' });
-  const decision = decisions.get(0);
-  assert.equal(decision.moment.category, 'Last One Standing');
+  const decision = tableMatchMomentDecisions({ seats: [alex, sam], winnerSeatId: 0, seed: 'test', context: { durationMs: 42 * 60_000 } }).get(0);
+  assert.equal(decision.moment.kind, 'recap');
+  assert.equal(decision.moment.id, null);
+  assert.equal(decision.moment.fact, '42 min');
   assert.deepEqual(decision.eligibleCategories, ['Last One Standing']);
-  assert.equal(decision.selectionReason, 'Highest-priority unused eligible accolade');
+  assert.equal(decision.selectionReason, 'Routine finish');
 });
 
-test('a tracked winner moment outranks the generic win while titles rotate by game', () => {
-  const alex = seat(0, 'Alex'); const sam = seat(1, 'Sam'); const seats = [alex, sam];
+test('a recovery receives the winner’s highlight over routine play', () => {
+  const alex = seat(0, 'Alex'); const sam = seat(1, 'Sam');
   recordMatchMoment(alex, { counter: 'life', delta: -36, lifeAfter: 4, gameStarted: true });
   recordMatchMoment(alex, { counter: 'life', delta: 10, lifeAfter: 14, gameStarted: true });
-  const winnerDecision = tableMatchMomentDecisions({ seats, winnerSeatId: 0, seed: 'winner-story' }).get(0);
-  assert.notEqual(winnerDecision.moment.category, 'Last One Standing');
-  assert.ok(['Tracked match moment selected over generic win', 'Deterministic choice from fresh eligible accolades'].includes(winnerDecision.selectionReason));
+  Object.assign(alex.matchMoment, { turnCount: 5, energyGained: 5 });
+  const winner = tableMatchMomentDecisions({ seats: [alex, sam], winnerSeatId: 0, seed: 'winner-story' }).get(0);
+  assert.equal(winner.moment.kind, 'accolade');
+  assert.equal(winner.moment.category, 'Arc Victor');
+  assert.match(winner.moment.fact, /Lowest life: 4/);
+  assert.equal(winner.selectionReason, 'Specific standout recorded');
+});
 
-  const rotating = seat(0, 'Jordan'); const other = seat(1, 'Casey'); const rotationSeats = [rotating, other];
-  recordMatchMoment(rotating, { counter: 'poison', delta: 5, lifeAfter: 40, gameStarted: true });
-  recordMatchMoment(rotating, { counter: 'energy', delta: 5, lifeAfter: 40, gameStarted: true });
-  const first = tableMatchMomentDecisions({ seats: rotationSeats, winnerSeatId: 99, seed: 'game-a' }).get(0);
-  const second = tableMatchMomentDecisions({ seats: rotationSeats, winnerSeatId: 99, seed: 'game-b' }).get(0);
-  assert.ok(['Poison Snack', 'Reactor Core'].includes(first.moment.category));
-  assert.ok(['Poison Snack', 'Reactor Core'].includes(second.moment.category));
-  assert.notEqual(first.moment.id, second.moment.id);
+test('recovery evidence must follow the low and survival requires a real near-lethal poison count', () => {
+  const alex = seat(0, 'Alex'); const sam = seat(1, 'Sam');
+  Object.assign(alex.matchMoment, { lowestLife: 4, lifeGained: 30, lifeGainedAfterLow: 0, poisonGained: 9, peakPoison: 5 });
+  const decide = context => tableMatchMomentDecisions({ seats: [alex, sam], winnerSeatId: 1, seed: 'recovery', context }).get(0);
+  assert.ok(!decide({}).eligibleCategories.includes('Comeback Kid'));
+  assert.ok(!decide({}).eligibleCategories.includes('Poison Proof'));
+  alex.matchMoment.peakPoison = 9;
+  assert.ok(!decide({ eliminatedSeatIds: [0] }).eligibleCategories.includes('Poison Proof'));
+  assert.ok(decide({}).eligibleCategories.includes('Poison Proof'));
 });
 
 test('expanded accolades use only recorded game facts and an existing illustration key', () => {
@@ -102,14 +110,14 @@ test('expanded accolades use only recorded game facts and an existing illustrati
   Object.assign(alex.matchMoment, { lifeGained: 25, reclaimedDuringGame: true, turnsAfterReclaim: 2, actionsAfterReclaim: 3, poisonGained: 8, energyGained: 10, radiationGained: 10, usedLocalD20: true, tableGameNumber: 3, commanderDamageBySource: { 'seat-1-commander-a': 5, 'seat-1-commander-b': 5 } });
   const decision = tableMatchMomentDecisions({ seats, winnerSeatId: 99, seed: 'expanded' }).get(0);
   assert.ok(['Signal Kept', 'Charged and Glowing', 'Hazard Triad', 'Opening Ceremony'].every(category => decision.eligibleCategories.includes(category)));
-  assert.ok(['second-serving', 'back-in-the-fight', 'commander-crossfire', 'hazard-pay', 'power-surge', 'arc-hazards-v1', 'table-trilogy'].includes(decision.moment.art));
+  assert.ok(['arc-signal-kept-v1', 'arc-hazard-triad-v1'].includes(decision.moment.art));
 });
 
 test('new gameplay accolades use already-recorded facts and share their visual families', () => {
   const alex = seat(0, 'Alex'); const sam = seat(1, 'Sam'); const seats = [alex, sam];
   Object.assign(alex.matchMoment, {
     lowestLife: 3, lifeGained: 45, lifeGainedAfterLow: 16, actionsAfterLow: 4, lifeLostOnOwnTurn: 12,
-    poisonGained: 9, energyGained: 20, radiationGained: 15, playerCountAtStart: 6, turnCount: 5,
+    poisonGained: 9, peakPoison: 9, energyGained: 20, radiationGained: 15, playerCountAtStart: 6, turnCount: 5,
     commanderDamageBySource: { 'seat-1-commander-a': 2, 'seat-2-commander-a': 2, 'seat-3-commander-a': 2 },
   });
   const decision = tableMatchMomentDecisions({ seats, winnerSeatId: 99, seed: 'new-gameplay' }).get(0);
@@ -122,28 +130,28 @@ test('new gameplay accolades use already-recorded facts and share their visual f
 
 test('recent table accolades are avoided when another meaningful moment is available', () => {
   const alex = seat(0, 'Alex'); const sam = seat(1, 'Sam');
-  Object.assign(alex.matchMoment, { poisonGained: 5, energyGained: 5 });
-  const decision = tableMatchMomentDecisions({ seats: [alex, sam], winnerSeatId: 99, seed: 'fresh', recentCategoriesBySeat: { 0: ['Poison Snack'] } }).get(0);
-  assert.equal(decision.moment.category, 'Reactor Core');
+  Object.assign(alex.matchMoment, { poisonGained: 8, energyGained: 10 });
+  const decision = tableMatchMomentDecisions({ seats: [alex, sam], winnerSeatId: 99, seed: 'fresh', recentCategoriesBySeat: { 0: ['Ninth Life'] } }).get(0);
+  assert.equal(decision.moment.category, 'Power Surge');
 });
 
 test('recent profile accolades are avoided without adding profile state to a room', () => {
   const alex = seat(0, 'Alex'); const sam = seat(1, 'Sam');
-  Object.assign(alex.matchMoment, { poisonGained: 5, energyGained: 5 });
-  const decision = tableMatchMomentDecisions({ seats: [alex, sam], winnerSeatId: 99, seed: 'profile-fresh', recentAccoladeIdsBySeat: { 0: ['poison-snack'] } }).get(0);
-  assert.equal(decision.moment.category, 'Reactor Core');
-  assert.equal(decision.moment.id, 'reactor-core');
+  Object.assign(alex.matchMoment, { poisonGained: 8, energyGained: 10 });
+  const decision = tableMatchMomentDecisions({ seats: [alex, sam], winnerSeatId: 99, seed: 'profile-fresh', recentAccoladeIdsBySeat: { 0: ['ninth-life'] } }).get(0);
+  assert.equal(decision.moment.category, 'Power Surge');
+  assert.equal(decision.moment.id, 'power-surge');
 });
 
 test('seeds choose different eligible accolades without changing a completed-game result', () => {
   const alex = seat(0, 'Alex'); const sam = seat(1, 'Sam');
-  Object.assign(alex.matchMoment, { poisonGained: 5, energyGained: 5, radiationGained: 5 });
+  Object.assign(alex.matchMoment, { lifeGained: 25, energyGained: 10 });
   const first = tableMatchMomentDecisions({ seats: [alex, sam], winnerSeatId: 99, seed: 'variety-a' }).get(0);
   const replay = tableMatchMomentDecisions({ seats: [alex, sam], winnerSeatId: 99, seed: 'variety-a' }).get(0);
   const second = tableMatchMomentDecisions({ seats: [alex, sam], winnerSeatId: 99, seed: 'variety-b' }).get(0);
   assert.equal(first.moment.id, replay.moment.id);
   assert.notEqual(first.moment.id, second.moment.id);
-  assert.equal(first.selectionReason, 'Deterministic choice from fresh eligible accolades');
+  assert.equal(first.selectionReason, 'Distinct match moment recorded');
 });
 
 test('Legend Collector goes only to the unique player hit by the most different commanders', () => {

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import test from 'node:test';
 import { AccountHistory, MemoryAccountHistoryStore } from '../src/account-history.js';
-import { createRealtimeServer } from '../src/app.js';
+import { createRealtimeServer, RoomService } from '../src/app.js';
 import { MemoryPlaytestLedger } from '../src/playtest-ledger.js';
 
 const HOUR = 3_600_000;
@@ -36,11 +36,11 @@ async function fixture(t) {
     });
     return { status: response.status, data: response.status === 204 ? null : await response.json() };
   }
-  function start({ sessionKind = 'standard', gameFormat = 'commander' } = {}) {
+  function start({ sessionKind = 'standard', gameFormat = 'commander', startingLife = 40 } = {}) {
     now += 1000;
     const host = service.createConnection().connectionId;
     const guest = service.createConnection().connectionId;
-    const made = service.createRoom(host, { playerCount: 2, startingLife: 40, gameFormat });
+    const made = service.createRoom(host, { playerCount: 2, startingLife, gameFormat });
     const code = made.snapshot.code;
     const join = service.claimSeat(code, guest, { seatId: 1 });
     if (sessionKind !== 'standard') service.setSessionKind(code, host, { baseVersion: join.snapshot.version, sessionKind });
@@ -54,6 +54,11 @@ async function fixture(t) {
         return service.declareWinner(code, host, { baseVersion: version(), winnerSeatId: 0 }).snapshot;
       },
       nextGameSetup() { return service.beginIntermission(code, host, { baseVersion: version() }); },
+      startAgain() {
+        service.beginIntermission(code, host, { baseVersion: version() });
+        for (const owner of [host, guest]) service.setNextGameReady(code, owner, { baseVersion: version() });
+        service.startGame(code, host, { baseVersion: version() });
+      },
     };
   }
   const save = (game, options = {}) => request('games', { body: game.reference, connectionId: game.guest, ...options });
@@ -79,8 +84,19 @@ test('only the server-recorded completed seat can create profile progression', a
   assert.equal(saved.data.game.won, false);
   assert.ok(saved.data.unlockedAchievements.some(award => award.id === 'first-chronicle'));
   assert.ok(!saved.data.unlockedAchievements.some(award => award.id === 'settling-in'));
+  assert.ok(!saved.data.unlockedAchievements.some(award => award.id === 'flash-victory'));
   assert.equal((await f.history()).gamesPlayed, 1);
   assert.ok(!JSON.stringify(await f.history()).includes(game.code));
+});
+
+test('a short Commander game earns Flash Victory when turns were recorded', async (t) => {
+  const f = await fixture(t);
+  const game = f.start();
+  f.service.handoffTurn(game.code, game.host, { baseVersion: f.service.room(game.code).version });
+  game.finish(15 * 60_000);
+  const saved = await f.save(game);
+  assert.equal(saved.data.game.achievementFacts.handoffCount, 1);
+  assert.ok(saved.data.unlockedAchievements.some(award => award.id === 'flash-victory'));
 });
 
 test('exactly an hour still qualifies after next-game setup and retries never release twice', async (t) => {
@@ -135,6 +151,39 @@ test('deleting a saved game preserves awards but cannot restart its progression'
   assert.equal((await f.save(game)).status, 409);
 });
 
+test('one account receives credit for a game once even when two of its devices own seats', async (t) => {
+  const f = await fixture(t);
+  const game = f.start();
+  game.finish(HOUR);
+  const connections = [game.guest, game.host];
+  const competing = await Promise.all(connections.map(connectionId => f.save(game, { connectionId })));
+  assert.deepEqual(competing.map(result => result.status).sort(), [201, 409]);
+  assert.equal((await f.history()).gamesPlayed, 1);
+  const otherConnection = connections[competing.findIndex(result => result.status === 409)];
+  assert.equal((await f.save(game, { connectionId: otherConnection, token: 'player-b' })).status, 201);
+});
+
+test('a new profile at a shared seat starts its own verified table count', async (t) => {
+  const f = await fixture(t);
+  const game = f.start();
+  for (let count = 1; count <= 4; count++) {
+    game.finish(30 * 60_000);
+    assert.equal((await f.save(game)).status, 201);
+    game.startAgain();
+  }
+  game.finish(30 * 60_000);
+  const newcomer = await f.save(game, { token: 'player-b' });
+  assert.equal(newcomer.status, 201);
+  assert.equal(newcomer.data.game.achievementFacts.tableGameNumber, 1);
+  assert.ok(!newcomer.data.unlockedAchievements.some(award => award.id === 'one-more-before-bed'));
+  assert.notEqual(newcomer.data.game.accoladeId, 'familiar-seats');
+  game.startAgain();
+  game.finish(30 * 60_000);
+  const regular = await f.save(game);
+  assert.equal(regular.data.game.achievementFacts.tableGameNumber, 5);
+  assert.ok(regular.data.unlockedAchievements.some(award => award.id === 'one-more-before-bed'));
+});
+
 test('development games do not grant progress even through manual saves', async (t) => {
   const f = await fixture(t);
   const practice = f.start({ sessionKind: 'development' });
@@ -181,6 +230,62 @@ test('older progress is preserved and a deferred Endurance tier waits for a qual
   assert.equal((await f.save(qualifying)).status, 201);
   profile = await f.history();
   assert.ok(profile.achievements.some(award => award.id === 'long-endurance-2'));
+});
+
+test('a resumed room deduplicates accepted play and keeps its finished evidence through another restore', async (t) => {
+  const f = await fixture(t);
+  const game = f.start();
+  const action = { counter: 'energy', delta: 10, operationId: 'synthetic-applied-energy-op' };
+  f.service.adjustOwnSeat(game.code, game.guest, action);
+
+  async function restore() {
+    const service = new RoomService({ now: f.clock, ledger: f.ledger });
+    await service.restoreRoom(game.code, game.made.hostRecoveryKey);
+    const host = service.createConnection().connectionId;
+    const guest = service.createConnection().connectionId;
+    service.claimSeat(game.code, host, { seatId: 0, reclaimToken: game.made.reclaimToken });
+    service.claimSeat(game.code, guest, { seatId: 1, reclaimToken: game.join.reclaimToken });
+    return { service, host, guest };
+  }
+
+  const resumed = await restore();
+  const repeated = resumed.service.adjustOwnSeat(game.code, resumed.guest, action);
+  assert.equal(repeated.deduplicated, true);
+  assert.equal(repeated.snapshot.seats[1].counters.energy, 10);
+  resumed.service.declareWinner(game.code, resumed.host, {
+    baseVersion: resumed.service.room(game.code).version, winnerSeatId: 0,
+  });
+
+  const restarted = await restore();
+  const completion = restarted.service.completedSeat(game.code, restarted.guest, game.reference.gameId);
+  const id = await f.accountHistory.ensureAccount('restarted-profile');
+  const saved = await f.accountHistory.saveCompletedGame(id, completion);
+  assert.equal(saved.game.counterTotals.energy, 10);
+  assert.ok(!saved.unlockedAchievements.some(award => award.id === 'capacitor-discharge'));
+});
+
+test('a replacement at the same seat cannot save the previous player’s completed result', async (t) => {
+  const f = await fixture(t);
+  const game = f.start();
+  game.finish(HOUR);
+  const reference = game.reference;
+  game.nextGameSetup();
+  f.service.leaveIntermission(game.code, game.guest, { baseVersion: f.service.room(game.code).version });
+  const replacement = f.service.createConnection().connectionId;
+  f.service.claimSeat(game.code, replacement, { seatId: 1 });
+  const save = await f.save(game, { connectionId: replacement, body: reference, token: 'replacement' });
+  assert.equal(save.status, 403);
+  assert.equal((await f.history('replacement')).gamesPlayed, 0);
+});
+
+test('a custom starting value of five life is not a tracked close call', async (t) => {
+  const f = await fixture(t);
+  const game = f.start({ gameFormat: 'custom', startingLife: 5 });
+  game.finish(30 * 60_000);
+  const saved = await f.save(game, { connectionId: game.host });
+  assert.equal(saved.status, 201);
+  assert.ok(!saved.data.unlockedAchievements.some(award => award.id === 'last-breath' || award.id === 'hanging-by-a-thread'));
+  assert.equal(saved.data.moment.kind, 'recap');
 });
 
 test('a completed loss at negative life is saved, and custom games never award Commander turn milestones', async (t) => {

@@ -346,12 +346,16 @@ function showAchievementUnlocks(gameKey) {
 }
 function showPersonalMatchMoment(moment) {
   if (!moment) return false;
+  const recap = moment.kind === 'recap';
+  dom.personalMatchMoment.querySelector('.eyebrow').textContent = recap ? 'Your game recap' : 'Your match moment';
   dom.personalMatchMomentTitle.textContent = moment.title;
-  dom.personalMatchArt.dataset.category = moment.category;
+  dom.personalMatchArt.hidden = recap;
+  dom.personalMatchArt.dataset.category = moment.category || '';
   dom.personalMatchArt.dataset.variant = String(moment.variant || 0);
-  dom.personalMatchArt.style.backgroundImage = `url("${accoladeArtUrl(moment.art || moment.title)}")`;
+  dom.personalMatchArt.style.backgroundImage = recap ? '' : 'url("' + accoladeArtUrl(moment.art || moment.title) + '")';
   dom.personalMatchMomentLine.textContent = moment.line;
   dom.personalMatchMomentFact.textContent = moment.fact;
+  dom.personalMatchMomentFact.hidden = !moment.fact;
   dom.personalMatchMoment.hidden = false;
   return true;
 }
@@ -433,7 +437,7 @@ function renderVictory() {
       if (victoryKey(state?.gameResult) !== key) return false;
       return showPersonalMatchMoment(moment);
     }).catch(() => false));
-    if (!dom.victoryDialog.open) { victoryStage = 'winner'; dom.victoryDialog.dataset.stage = victoryStage; victoryDismissReady = false; dom.victoryDialog.showModal(); clearTimeout(victoryDismissTimer); victoryDismissTimer = setTimeout(() => { victoryDismissReady = true; $('#victoryTapHint').textContent = 'Tap anywhere to continue'; }, 1200); }
+    if (!dom.victoryDialog.open) { victoryStage = 'winner'; dom.victoryDialog.dataset.stage = victoryStage; victoryDismissReady = false; dom.victoryDialog.showModal(); $('#victoryTapHint').textContent = 'Game complete'; clearTimeout(victoryDismissTimer); victoryDismissTimer = setTimeout(() => { victoryDismissReady = true; $('#victoryTapHint').textContent = 'Tap anywhere to continue'; }, 1200); }
   }
 }
 function openQuickFeedback() { if (!state?.gameResult || state.localSimulation || state.feedbackPromptSeatId !== transport.seatId || localStorage.getItem('fivefold-arc:quick-feedback-until') > Date.now()) return; $('#quickFeedbackDialog').showModal(); }

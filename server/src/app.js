@@ -5,7 +5,7 @@ import { extname, resolve, sep } from "node:path";
 import QRCode from "qrcode";
 import { activeGameDurationMs, NullPlaytestLedger, recapFromRoom } from "./playtest-ledger.js";
 import { ProductMeasurement } from "./product-measurement.js";
-import { blankMatchMoment, recordMatchMoment, recordTurnMoment, tableMatchMomentDecisions } from "./match-moments.js";
+import { blankMatchMoment, chooseMatchMoment, recordMatchMoment, recordTurnMoment, tableMatchMomentDecisions } from "./match-moments.js";
 
 const JOIN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const MUTABLE_COUNTERS = new Set(["life", "radiation", "poison", "energy", "generic", "commanderDamage"]);
@@ -728,6 +728,7 @@ export class RoomService {
       const context = {
         durationMs: activeGameDurationMs(room.turn, completedAt),
         everyStarterTwoTurns: starters.every(seat => (seat.matchMoment.turnCount || 0) >= 2),
+        eliminatedSeatIds: starters.filter(seatIsEliminated).map(seat => seat.seatId),
       };
       room.recentAccoladeCategories ||= {};
       const decisions = tableMatchMomentDecisions({ seats: starters, winnerSeatId: room.gameResult.winnerSeatId, seed: room.gameId, recentCategoriesBySeat: room.recentAccoladeCategories, context });
@@ -749,14 +750,17 @@ export class RoomService {
       room.gameAccolades = Object.fromEntries([...decisions].map(([seatId, decision]) => [seatId, decision.moment]));
       if (sessionKind === "standard") {
         for (const [seatId, { moment }] of decisions) {
-          room.recentAccoladeCategories[seatId] = [moment.category, ...(room.recentAccoladeCategories[seatId] || []).filter(category => category !== moment.category)].slice(0, 3);
+          room.recentAccoladeCategories[seatId] = [moment.id || "", ...(room.recentAccoladeCategories[seatId] || [])].slice(0, 2);
         }
       }
       recap.accolades = starters.map(seat => {
         const { moment, eligibleCategories, selectionReason } = decisions.get(seat.seatId);
         return { seatId: seat.seatId, name: seat.name, moment, eligibleCategories, selectionReason };
       });
-      recap.accoladeCounts = recap.accolades.reduce((counts, selection) => ({ ...counts, [selection.moment.category]: (counts[selection.moment.category] || 0) + 1 }), {});
+      recap.accoladeCounts = recap.accolades.reduce((counts, { moment }) => {
+        if (moment.id) counts[moment.category] = (counts[moment.category] || 0) + 1;
+        return counts;
+      }, {});
       // The result event precedes finalization, so also persist the frozen evidence.
       this.ledger.recovery(this.recoveryRecord(room, completedAt));
     }
@@ -798,7 +802,11 @@ export class RoomService {
     if (!record || !seat.tokenHash || record.ownerHash !== encodedHash(seat.tokenHash)) {
       throw Object.assign(new Error("Only a participating seat can use this result"), { status: 403, code: "NOT_COMPLETED_SEAT" });
     }
-    return { gameId, seatId: seat.seatId, startedAt: completed.startedAt, completedAt: completed.completedAt, sessionKind: completed.sessionKind, game: record.game, moments: record.moments };
+    return {
+      gameId, seatId: seat.seatId, tableIdentity: encodedHash(room.hostRecoveryKeyHash),
+      startedAt: completed.startedAt, completedAt: completed.completedAt,
+      sessionKind: completed.sessionKind, game: record.game, moments: record.moments,
+    };
   }
 
   personalMatchMoment(code, connectionId, recentAccoladeIds = [], gameId) {
@@ -812,7 +820,7 @@ export class RoomService {
     }
     const { game, moments } = this.completedSeat(code, connectionId, requested);
     return {
-      moment: moments.find(moment => !recentAccoladeIds.includes(moment.id)) || moments[0],
+      moment: chooseMatchMoment(moments, recentAccoladeIds),
       counterTotals: game.counterTotals,
       achievementFacts: game.achievementFacts,
     };
@@ -844,7 +852,7 @@ export class RoomService {
         commanderDamage: matchMoment.commanderDamageReceived || 0,
       },
       achievementFacts: {
-        lowestLife: matchMoment.lowestLife,
+        ...(matchMoment.lowestLife > 5 || matchMoment.lowestLife < matchMoment.startingLife ? { lowestLife: matchMoment.lowestLife } : {}),
         lifeGained: matchMoment.lifeGained || 0,
         lifeGainedAfterLow: matchMoment.lifeGainedAfterLow || 0,
         actionsAfterLow: matchMoment.actionsAfterLow || 0,
@@ -939,6 +947,7 @@ export class RoomService {
       seat.claimed = true;
       seat.tokenHash = tokenHash(reclaimToken);
       seat.completedGamesAtTable = 0;
+      delete room.recentAccoladeCategories?.[seat.seatId];
       seat.recentOperationIds = new Map();
       seat.name = name;
       seat.commanderCount = commanderCount;

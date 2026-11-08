@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { chooseMatchMoment } from "./match-moments.js";
 
 const accountPath = (accountId) => `account-history/accounts/${encodeURIComponent(accountId)}.json`;
 const gamesPath = (accountId) => `account-history/games/${encodeURIComponent(accountId)}.json`;
@@ -129,7 +130,11 @@ const achievementsFor = ({ games, bestWinStreak, monthCount, playedColors, longT
     ['second-lap', 'Second Lap', 'Every player took at least three recorded turns in a four-player game.', games.some(game => game.achievementFacts?.playerCountAtStart >= 4 && game.achievementFacts.everyStarterThreeTurns === 1)],
     ['six-around', 'Six Around', 'Every player took at least two recorded turns in a six-player game.', games.some(game => game.achievementFacts?.playerCountAtStart >= 6 && game.achievementFacts.everyStarterTwoTurns === 1)],
     ['no-seat-left-behind', 'No Seat Left Behind', 'Every player took at least three recorded turns in a six-player game.', games.some(game => game.achievementFacts?.playerCountAtStart >= 6 && game.achievementFacts.everyStarterThreeTurns === 1)],
-    ['flash-victory', 'Flash Victory', 'Completed a Commander game in five table turns or fewer.', games.some(game => game.achievementFacts?.tableTurnNumber > 0 && game.achievementFacts.tableTurnNumber <= 5)],
+    ['flash-victory', 'Flash Victory', 'Completed a Commander game in five table turns or fewer.', games.some(game => {
+      const facts = game.achievementFacts;
+      return facts?.tableTurnNumber > 0 && facts.tableTurnNumber <= 5
+        && (game.completionVerified !== true || facts.handoffCount > 0);
+    })],
     ['deep-into-the-night', 'Deep Into the Night', 'Completed a Commander game that reached 20 table turns.', games.some(game => game.achievementFacts?.tableTurnNumber >= 20)],
     ['saga-at-the-table', 'Saga at the Table', 'Completed a four-player-or-larger Commander game that reached 25 table turns.', games.some(game => game.tableSize >= 4 && game.achievementFacts?.tableTurnNumber >= 25)],
     ['the-long-goodbye', 'The Long Goodbye', 'Completed a four-player-or-larger Commander game that reached 30 table turns.', games.some(game => game.tableSize >= 4 && game.achievementFacts?.tableTurnNumber >= 30)],
@@ -232,9 +237,10 @@ function initialProgress(games, decks, now) {
   };
 }
 
-function recentAccolades(games) {
-  return [...games].reverse().sort((a, b) => b.savedAt - a.savedAt)
-    .map(game => game.accoladeId).filter(Boolean).slice(0, 5);
+function recentAccolades(games, limitByGames = false) {
+  const ordered = [...games].reverse().sort((a, b) => b.savedAt - a.savedAt);
+  const window = limitByGames ? ordered.slice(0, 5) : ordered;
+  return window.map(game => game.accoladeId).filter(Boolean).slice(0, 5);
 }
 
 function longTermIds(account, progress) {
@@ -304,9 +310,12 @@ export class AccountHistory {
     if (!account) throw Object.assign(new Error("This profile is unavailable"), { status: 409, code: "PROFILE_UNAVAILABLE" });
     const legacyGames = Object.values(legacyRecords || {});
     const decks = Object.values(deckRecords || {});
-    const key = subjectKey(completion.gameId + ":" + completion.seatId);
-    const ownershipProof = subjectKey(key + ":" + accountId);
-    const claim = await this.store.update(completionClaimPath(key), current => current || { ownershipProof });
+    const key = subjectKey(completion.gameId);
+    const seatKey = subjectKey(completion.gameId + ":" + completion.seatId);
+    const tableRef = subjectKey(accountId + ":" + completion.tableIdentity);
+    const ownershipProof = subjectKey(seatKey + ":" + accountId);
+    const claimPath = completionClaimPath(seatKey);
+    const claim = await this.store.update(claimPath, current => current || { ownershipProof });
     if (claim.ownershipProof !== ownershipProof) {
       throw Object.assign(new Error("This seat's result was already saved to a profile"), { status: 409, code: "COMPLETION_ALREADY_CLAIMED" });
     }
@@ -317,29 +326,42 @@ export class AccountHistory {
     const savedAt = this.now();
     const gameId = "game_" + this.createId();
     let result;
+    let savedForAnotherSeat = false;
     await this.store.update(path, current => {
       if (current?.closed) throw Object.assign(new Error("This profile is unavailable"), { status: 409, code: "PROFILE_UNAVAILABLE" });
       const progress = current || initialProgress(legacyGames, decks, savedAt);
+      const savedSeat = progress.seats?.[key];
+      if (savedSeat && savedSeat !== seatKey) {
+        savedForAnotherSeat = true;
+        return current;
+      }
       if (progress.removed?.[key]) {
         throw Object.assign(new Error("This saved game was removed"), { status: 409, code: "COMPLETION_REMOVED" });
       }
       const existing = progress.games?.[key] || legacyGames.find(game => game.sourceGameId && game.sourceGameId === completion.legacySourceGameId);
       if (existing) {
-        const moment = completion.moments.find(item => item.id === existing.accoladeId) || completion.moments[0];
+        const moment = completion.moments.find(item => (item.id ?? null) === (existing.accoladeId ?? null)) || completion.moments[0];
         result = { game: existing, moment, unlockedAchievements: [] };
         return current;
       }
 
       const beforeGames = [...legacyGames, ...Object.values(progress.games || {})];
-      const recent = recentAccolades(beforeGames);
-      const moment = completion.moments.find(item => !recent.includes(item.id)) || completion.moments[0];
+      const tableGameNumber = 1 + beforeGames.filter(game => game.tableRef === tableRef).length;
+      const moments = completion.moments.filter(item => {
+        if (item.id === "table-trilogy") return tableGameNumber === 3;
+        if (item.id === "familiar-seats") return tableGameNumber === 5;
+        return true;
+      });
+      const moment = chooseMatchMoment(moments, recentAccolades(beforeGames, true));
       const game = {
         ...completion.game,
+        tableRef,
+        achievementFacts: { ...completion.game.achievementFacts, tableGameNumber },
         gameId, savedAt,
         startedAt: completion.startedAt,
         completedAt: completion.completedAt,
         deckId: decks.some(deck => deck.deckId === deckId) ? deckId : null,
-        accoladeId: moment.id,
+        accoladeId: moment?.id ?? null,
         completionVerified: true,
       };
       const afterGames = [...beforeGames, game];
@@ -359,8 +381,13 @@ export class AccountHistory {
         unlockedAchievements.push({ id, title, detail, rarity: longTermRarity(tier) });
       }
       result = { game, moment, unlockedAchievements };
-      return { ...progress, awards, games: { ...progress.games, [key]: game } };
+      return { ...progress, awards, games: { ...progress.games, [key]: game }, seats: { ...progress.seats, [key]: seatKey } };
     });
+    if (savedForAnotherSeat) {
+      // The other seat can still be saved to its own profile.
+      await this.store.update(claimPath, current => current?.ownershipProof === ownershipProof ? null : current);
+      throw Object.assign(new Error("This game is already saved for another seat on this profile"), { status: 409, code: "GAME_ALREADY_SAVED_TO_PROFILE" });
+    }
     return result;
   }
 
