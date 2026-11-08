@@ -86,3 +86,59 @@ test('the QR scanner can read a native camera photo when live preview is unavail
 
   assert.equal(await scanner.scanImageFile({}), 'ARC7K2');
 });
+
+function mockGlobal(t, name, value) {
+  const original = Object.getOwnPropertyDescriptor(globalThis, name);
+  Object.defineProperty(globalThis, name, { configurable: true, writable: true, value });
+  t.after(() => {
+    if (original) Object.defineProperty(globalThis, name, original);
+    else delete globalThis[name];
+  });
+}
+
+test('the default frame callbacks run with their browser receiver', async t => {
+  const scheduled = [];
+  const cancelled = [];
+  mockGlobal(t, 'requestAnimationFrame', function (callback) {
+    assert.ok(this === globalThis);
+    scheduled.push(callback);
+    return 7;
+  });
+  mockGlobal(t, 'cancelAnimationFrame', function (frame) {
+    assert.ok(this === globalThis);
+    cancelled.push(frame);
+  });
+  const stream = { getTracks: () => [] };
+  const mediaDevices = { async getUserMedia() { return stream; } };
+  const video = { srcObject: null, play: async () => {} };
+  const scanner = new JoinQrScanner({ mediaDevices, decoder: () => null });
+
+  await scanner.start(video, () => {});
+  assert.equal(scheduled.length, 1);
+  scanner.stop(video);
+  assert.deepEqual(cancelled, [7]);
+});
+
+test('the photo fallback draws the image into a bounded canvas before decoding', async t => {
+  let hasPhoto = false;
+  const blank = new Uint8ClampedArray([0, 0, 0, 0]);
+  const photoPixel = new Uint8ClampedArray([255, 255, 255, 255]);
+  const canvas = {
+    getContext: () => ({
+      drawImage() { hasPhoto = true; },
+      getImageData() { return { data: hasPhoto ? photoPixel : blank }; },
+    }),
+  };
+  mockGlobal(t, 'document', { createElement: () => canvas });
+  mockGlobal(t, 'Image', class {
+    naturalWidth = 4032;
+    naturalHeight = 3024;
+    set src(_url) { this.onload(); }
+  });
+  const decoder = data => data === photoPixel ? { data: 'https://example.test/?join=ARC7K2' } : null;
+  const scanner = new JoinQrScanner({ decoder });
+
+  assert.equal(await scanner.scanImageFile(new Blob()), 'ARC7K2');
+  assert.equal(canvas.width, 2048);
+  assert.equal(canvas.height, 1536);
+});

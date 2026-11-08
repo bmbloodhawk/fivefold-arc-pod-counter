@@ -11,6 +11,8 @@ function canRetryWithGenericCamera(error) {
   return ['TypeError', 'OverconstrainedError'].includes(error?.name) || /illegal invocation/i.test(String(error?.message || ''));
 }
 
+const MAX_PHOTO_EDGE = 2048;
+
 async function readImagePixels(file) {
   if (!(file instanceof Blob)) throw new Error('Choose a photo from your phone camera.');
   const objectUrl = URL.createObjectURL(file);
@@ -21,10 +23,15 @@ async function readImagePixels(file) {
       image.onerror = () => reject(new Error('That photo could not be read. Try taking it again.'));
       image.src = objectUrl;
     });
+    const { naturalWidth, naturalHeight } = image;
+    if (!naturalWidth || !naturalHeight) throw new Error('That photo could not be read. Try taking it again.');
+    const scale = Math.min(1, MAX_PHOTO_EDGE / Math.max(naturalWidth, naturalHeight));
     const canvas = document.createElement('canvas');
-    canvas.width = image.naturalWidth;
-    canvas.height = image.naturalHeight;
+    canvas.width = Math.max(1, Math.round(naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(naturalHeight * scale));
     const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) throw new Error('That photo could not be read. Try taking it again.');
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
     return { data: context.getImageData(0, 0, canvas.width, canvas.height).data, width: canvas.width, height: canvas.height };
   } finally {
     URL.revokeObjectURL(objectUrl);
@@ -34,7 +41,13 @@ async function readImagePixels(file) {
 // The decoder runs entirely on the current video frame. Nothing from the
 // camera is uploaded or retained after a matching pod code is found.
 export class JoinQrScanner {
-  constructor({ mediaDevices = globalThis.navigator?.mediaDevices, decoder = globalThis.jsQR, requestFrame = globalThis.requestAnimationFrame, cancelFrame = globalThis.cancelAnimationFrame, imageReader = readImagePixels } = {}) {
+  constructor({
+    mediaDevices = globalThis.navigator?.mediaDevices,
+    decoder = globalThis.jsQR,
+    requestFrame = callback => globalThis.requestAnimationFrame(callback),
+    cancelFrame = frame => globalThis.cancelAnimationFrame(frame),
+    imageReader = readImagePixels,
+  } = {}) {
     this.mediaDevices = mediaDevices;
     this.decoder = decoder;
     this.requestFrame = requestFrame;

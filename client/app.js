@@ -5,7 +5,7 @@ import { connectionPresentation } from './connection-state.js?v=1';
 import { createInteractionAdvice } from './card-interaction-advice.js?v=1';
 import { commanderFallbackLabel } from './commander-source-flow.js?v=1';
 import { currentAccountToken, emailAccountToken, googleAccountToken, restoredAccountToken, sendAccountPasswordReset, signOutAccount } from './account-auth.js?v=6';
-import { JoinQrScanner } from './join-qr-scanner.js?v=3';
+import { JoinQrScanner } from './join-qr-scanner.js?v=4';
 import { GameWakeLock } from './game-wake-lock.js?v=1';
 
 const appearancePreviewMode = new URLSearchParams(location.search).get('appearance-preview') === '1';
@@ -687,9 +687,9 @@ function showJoinQrCameraFallback(show) { dom.joinQrCameraFallback.hidden = !sho
 function joinQrCameraErrorMessage(error) {
   if (error?.name === 'NotAllowedError') return 'Camera permission is blocked. Allow camera access for this site, then try again.';
   if (error?.name === 'NotReadableError') return 'The camera is busy in another app or browser tab. Close it there, then try again.';
-  if (error?.name === 'NotFoundError') return 'No camera is available to this browser. Enter the six-character pod code instead.';
-  if (error?.name === 'OverconstrainedError') return 'This phone could not select a usable camera. Enter the six-character pod code instead.';
-  return 'Could not open the camera on this browser. Enter the six-character pod code instead.';
+  if (error?.name === 'NotFoundError') return 'No camera is available to this browser.';
+  if (error?.name === 'OverconstrainedError') return 'This phone could not select a usable camera.';
+  return 'Could not open the camera on this browser.';
 }
 async function openJoinQrScanner() {
   dom.joinQrScannerStatus.textContent = 'Opening the rear camera…';
@@ -706,7 +706,7 @@ async function openJoinQrScanner() {
     else stopJoinQrScanner();
   } catch (error) {
     stopJoinQrScanner();
-    dom.joinQrScannerStatus.textContent = `${joinQrCameraErrorMessage(error)} Use your phone camera instead.`;
+    dom.joinQrScannerStatus.textContent = `${joinQrCameraErrorMessage(error)} Tap Take a QR photo, then confirm the photo.`;
     showJoinQrCameraFallback(true);
   }
 }
