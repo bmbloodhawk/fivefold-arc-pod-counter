@@ -1,0 +1,330 @@
+/* The renderer owns all shapes and layers. A skin supplies only validated colors
+   and a named treatment. Nothing here changes layout, targets, or state cues. */
+html[data-collection-treatment] {
+  --collection-tint: color-mix(in srgb, var(--collection-accent) 13%, transparent);
+  --collection-line: color-mix(in srgb, var(--collection-accent) 18%, transparent);
+  --collection-shadow: #07090c;
+  --collection-key-fill: var(--collection-accent);
+  --collection-key-ink: var(--collection-action-ink);
+  --collection-seat-corner: 8px;
+  --collection-key-corner: 8px;
+  --collection-bezel-corner: 50%;
+  --collection-bezel-cut: none;
+  --collection-number: Georgia, "Times New Roman", serif;
+  --collection-panel-finish: inset 0 1px var(--collection-line);
+  --collection-ring-finish: inset 0 0 0 5px var(--collection-background), inset 0 0 0 6px var(--collection-line);
+  --collection-nav-fill: var(--collection-tint);
+}
+
+html[data-collection-treatment="grid"] {
+  --collection-grid-line: color-mix(in srgb, var(--collection-accent) 10%, transparent);
+  --collection-page-art:
+    linear-gradient(90deg, var(--collection-grid-line) 1px, transparent 1px) 50% 0 / 26px 26px,
+    linear-gradient(var(--collection-grid-line) 1px, transparent 1px) 50% 0 / 26px 26px;
+  --collection-face-art: repeating-conic-gradient(var(--collection-line) 0 1deg, transparent 1deg 15deg);
+  --collection-seat-corner: 2px;
+  --collection-key-corner: 2px;
+  --collection-bezel-corner: 18%;
+  --collection-key-fill: var(--collection-surface);
+  --collection-key-ink: var(--collection-accent);
+  --collection-number: ui-monospace, Consolas, monospace;
+  --collection-panel-finish: inset 3px 0 var(--collection-line);
+}
+
+html[data-collection-treatment="inlay"] {
+  --collection-page-art:
+    radial-gradient(ellipse at 50% 14%, var(--collection-tint), transparent 62%),
+    repeating-linear-gradient(98deg, transparent 0 10px, var(--collection-tint) 11px, transparent 12px 28px);
+  --collection-face-art:
+    repeating-radial-gradient(ellipse at 50% 58%, transparent 0 25px, var(--collection-line) 26px 27px, transparent 28px 31px);
+  --collection-seat-corner: 16px 16px 5px 5px;
+  --collection-key-corner: 22px;
+  --collection-ring-finish: inset 0 0 0 7px var(--collection-surface), inset 0 0 0 9px var(--collection-line);
+  --collection-panel-finish: inset 0 0 0 3px var(--collection-background), inset 0 0 0 4px var(--collection-line);
+}
+
+html[data-collection-treatment="glass"] {
+  --collection-page-art:
+    repeating-linear-gradient(164deg, var(--collection-tint) 0 1px, transparent 2px 22px, var(--collection-tint) 23px 48px, transparent 49px 95px);
+  --collection-face-art:
+    radial-gradient(ellipse at 54% 92%, var(--collection-line), transparent 58%),
+    repeating-linear-gradient(164deg, var(--collection-line) 0 1px, transparent 2px 13px);
+  --collection-seat-corner: 4px 16px;
+  --collection-key-corner: 4px 16px;
+  --collection-number: system-ui, sans-serif;
+  --collection-ring-finish: inset 0 -14px var(--collection-line), inset 0 5px var(--collection-line);
+  --collection-panel-finish: inset 0 3px var(--collection-line);
+}
+
+html[data-collection-treatment="radial"] {
+  --collection-page-art:
+    radial-gradient(ellipse at 50% 38%, var(--collection-line), transparent 55%),
+    repeating-conic-gradient(from 0deg at 50% 40%, transparent 0 14deg, var(--collection-tint) 15deg, transparent 16deg 30deg);
+  --collection-face-art:
+    radial-gradient(circle, var(--collection-background) 0 61%, transparent 62%),
+    repeating-conic-gradient(from 7deg, var(--collection-line) 0 12deg, transparent 13deg 18deg);
+  --collection-seat-corner: 4px 4px 16px 16px;
+  --collection-key-corner: 6px;
+  --collection-ring-finish: inset 0 0 0 4px var(--collection-surface), 0 0 22px var(--collection-line);
+  --collection-panel-finish: inset 0 -4px var(--collection-line);
+  --collection-nav-fill: linear-gradient(0deg, var(--collection-line), transparent 80%);
+}
+
+html[data-collection-treatment="weave"] {
+  --collection-tint: color-mix(in srgb, var(--collection-accent) 8%, transparent);
+  --collection-page-art:
+    radial-gradient(ellipse at 50% 0, var(--collection-line), transparent 75%),
+    repeating-linear-gradient(45deg, transparent 0 4px, var(--collection-tint) 5px, transparent 6px 10px),
+    repeating-linear-gradient(-45deg, transparent 0 4px, var(--collection-tint) 5px, transparent 6px 10px);
+  --collection-face-art:
+    radial-gradient(ellipse at 50% 54%, var(--collection-surface) 0 50%, transparent 51%),
+    repeating-conic-gradient(var(--collection-line) 0 1deg, transparent 1deg 5deg);
+  --collection-seat-corner: 25px 25px 5px 5px;
+  --collection-key-corner: 25px 25px 5px 5px;
+  --collection-bezel-corner: 50% 50% 26% 26%;
+  --collection-panel-finish: inset 0 4px var(--collection-line), inset 0 -4px var(--collection-background);
+}
+
+html[data-collection-treatment="facet"] {
+  --collection-page-art:
+    linear-gradient(140deg, var(--collection-line) 0 18%, transparent 18% 57%, var(--collection-tint) 57% 73%, transparent 73%),
+    linear-gradient(40deg, var(--collection-line) 0 12%, transparent 12% 70%, var(--collection-tint) 70%);
+  --collection-face-art:
+    linear-gradient(135deg, var(--collection-line) 0 25%, transparent 25% 75%, var(--collection-line) 75%),
+    repeating-linear-gradient(45deg, transparent 0 12px, var(--collection-tint) 13px, transparent 14px);
+  --collection-seat-corner: 2px 12px 2px 12px;
+  --collection-key-corner: 2px 12px 2px 12px;
+  --collection-bezel-corner: 0;
+  --collection-bezel-cut: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
+  --collection-number: system-ui, sans-serif;
+  --collection-panel-finish: inset -3px 3px var(--collection-line);
+  --collection-nav-fill: linear-gradient(140deg, var(--collection-line), transparent 75%);
+}
+
+html[data-collection-treatment] body:has(#gameView:not([hidden]), #lobbyView:not([hidden]), #intermissionView:not([hidden])) {
+  background: var(--collection-page-art), var(--collection-background);
+}
+html[data-collection-treatment] :is(#gameView, #lobbyView, #intermissionView, #victoryDialog, #connectionDialog, .brand-bar) {
+  --ink: var(--collection-text);
+  --muted: var(--collection-muted);
+  --paper: var(--collection-text);
+  --brass: var(--collection-accent);
+  --brass-dark: var(--collection-border);
+  --line: var(--collection-border);
+  --surface: var(--collection-surface);
+  --surface-2: var(--collection-surface);
+}
+html[data-collection-treatment] .brand-bar {
+  background: var(--collection-background);
+  border-color: var(--collection-border);
+}
+html[data-collection-treatment] #gameView :is(.pod-seat, .turn-banner, .game-menu),
+html[data-collection-treatment] #intermissionView :is(#intermissionPanel, .intermission-roster),
+html[data-collection-treatment] #lobbyView .lobby-controls {
+  background: var(--collection-surface);
+  border-color: var(--collection-border);
+  border-radius: var(--collection-seat-corner);
+  color: var(--collection-text);
+  box-shadow: var(--collection-panel-finish);
+}
+html[data-collection-treatment] #gameView .pod-seat:is(.active, .turn-active) {
+  border-color: var(--collection-accent);
+}
+html[data-collection-treatment] #gameView .counter-stage::before {
+  z-index: 1;
+  background: var(--identity-seal, transparent);
+}
+html[data-collection-treatment] #gameView .counter-stage::after {
+  background: var(--collection-face-art), var(--collection-background);
+  border-color: var(--collection-border);
+  border-radius: var(--collection-bezel-corner);
+  clip-path: var(--collection-bezel-cut);
+  box-shadow: var(--collection-ring-finish);
+}
+html:is([data-collection-treatment="grid"], [data-collection-treatment="weave"], [data-collection-treatment="facet"]) #gameView[data-interface-style="dial"] .counter-stage::after {
+  transform: translate(-50%, -50%);
+  transition: none;
+}
+html[data-collection-treatment] #gameView .counter-sigil { opacity: .24; }
+html[data-collection-treatment] #gameView :is(.main-value, .seat-life) {
+  color: var(--collection-text);
+  font-family: var(--collection-number);
+  text-shadow: 0 2px 6px var(--collection-shadow);
+}
+html[data-collection-treatment] #gameView :is(.counter-mode, .counter-context) {
+  color: var(--collection-accent);
+}
+html[data-collection-treatment] #gameView :is(.adjust-controls button, .custom-life-button, .commander-tax-quick button, .selected-source-button, .inline-commander-choice) {
+  background: var(--collection-surface);
+  border-color: var(--collection-border);
+  border-radius: var(--collection-key-corner);
+  color: var(--collection-text);
+  box-shadow: var(--collection-panel-finish);
+}
+html[data-collection-treatment] #gameView .end-turn-button:not(:disabled) {
+  background: var(--collection-key-fill);
+  border-color: var(--collection-accent);
+  border-radius: var(--collection-key-corner);
+  color: var(--collection-key-ink);
+  box-shadow: var(--collection-panel-finish);
+}
+html[data-collection-treatment] #gameView .mode-nav {
+  background: var(--collection-background);
+  border-color: var(--collection-border);
+}
+html[data-collection-treatment] #gameView .mode-nav button,
+html[data-collection-treatment] #gameView .mode-nav button small { color: var(--collection-muted); }
+html[data-collection-treatment] #gameView .mode-nav button.active {
+  background: var(--collection-nav-fill);
+  border-bottom-color: var(--collection-accent);
+  color: var(--collection-accent);
+}
+html[data-collection-treatment] #gameView .mode-nav button.active small { color: var(--collection-accent); }
+html[data-collection-treatment] .victory-dialog-content { background-color: var(--collection-surface); }
+
+/* Illustrated scenes use the same control layout as the base renderer. */
+html[data-collection-artwork] {
+  --collection-art-width: min(84vw, 380px);
+}
+html[data-collection-artwork] body:has(#gameView:not([hidden]), #lobbyView:not([hidden]), #intermissionView:not([hidden])) {
+  background:
+    linear-gradient(180deg, rgb(8 7 9 / .17), transparent 38%, rgb(8 7 9 / .34)),
+    var(--collection-backdrop-image) center top / cover no-repeat,
+    var(--collection-background);
+}
+html[data-collection-artwork] #gameView .counter-stage::after {
+  width: var(--collection-art-width);
+  background:
+    var(--collection-bezel-image) center / contain no-repeat,
+    radial-gradient(closest-side, color-mix(in srgb, var(--collection-background) 94%, transparent) 0 65%, color-mix(in srgb, var(--collection-background) 64%, transparent) 78%, transparent 100%);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  clip-path: none;
+  opacity: 1;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  transition: none;
+}
+html[data-collection-artwork] #gameView :is(.counter-mode, .counter-context) {
+  text-shadow: 0 1px 2px var(--collection-shadow), 0 0 5px var(--collection-shadow);
+}
+html[data-collection-artwork] #gameView .counter-sigil { opacity: .09; }
+
+html[data-collection-artwork][data-collection-treatment="radial"] {
+  --collection-emblem-face: linear-gradient(138deg, #de8a58 0 2%, #4f2419 15%, #261310 64%, #683521);
+  --collection-emblem-cut: polygon(16% 0, 84% 0, 100% 21%, 100% 79%, 84% 100%, 16% 100%, 0 79%, 0 21%);
+  --collection-emblem-edge: #bf7755;
+}
+html[data-collection-artwork][data-collection-treatment="weave"] {
+  --collection-emblem-face: linear-gradient(150deg, #958363, #274738 18%, #132c22 72%, #726244);
+  --collection-emblem-corner: 46% 46% 22% 22%;
+  --collection-emblem-edge: #8b9460;
+}
+html[data-collection-artwork][data-collection-treatment="facet"] {
+  --collection-emblem-face: linear-gradient(143deg, #d9c8f2, #3e3857 21%, #1d192c 63%, #7d7095);
+  --collection-emblem-cut: polygon(26% 0, 74% 0, 100% 26%, 100% 74%, 74% 100%, 26% 100%, 0 74%, 0 26%);
+  --collection-emblem-edge: #a898c3;
+}
+html[data-collection-artwork] #gameView :is(.pod-seat, .turn-banner, .commander-tax-quick button) {
+  background: linear-gradient(152deg, color-mix(in srgb, var(--collection-emblem-edge) 14%, var(--collection-surface)), var(--collection-surface) 56%);
+}
+html[data-collection-artwork] #gameView .mode-nav button::before {
+  content: "";
+  grid-area: 1 / 1;
+  width: 32px;
+  height: 30px;
+  background: var(--collection-emblem-face);
+  border-radius: var(--collection-emblem-corner, 3px);
+  box-shadow: inset 0 0 0 1px var(--collection-emblem-edge);
+  clip-path: var(--collection-emblem-cut, none);
+  opacity: .76;
+  pointer-events: none;
+}
+html[data-collection-artwork] #gameView .mode-nav button > svg {
+  grid-area: 1 / 1;
+  position: relative;
+  color: var(--collection-accent);
+  filter: drop-shadow(0 1px 1px #080809);
+}
+html[data-collection-artwork] #gameView .mode-nav button > small { grid-area: 2 / 1; }
+html[data-collection-artwork] #gameView .mode-nav button.active::before {
+  box-shadow: inset 0 0 0 2px var(--collection-accent);
+  opacity: 1;
+}
+
+@media (max-width: 599px) and (max-height: 640px) {
+  html[data-collection-artwork] { --collection-art-width: min(77vw, 42dvh); }
+  html[data-collection-artwork] #gameView .mode-nav button::before {
+    width: 27px;
+    height: 25px;
+  }
+}
+
+/* Give this private review the same short-screen layout as Collection review. */
+:where(html[data-private-skin-review]) .end-turn-button {
+  border-color: #d5af70;
+  background: #594326;
+  color: #fff4df;
+  backdrop-filter: none;
+}
+:where(html[data-private-skin-review]) .end-turn-button:not(:disabled):active { background: #725630; }
+html[data-private-skin-review] #quickTestButton:not([hidden]) { display: block; }
+:where(html[data-private-skin-review]) #gameView #moreButton { min-width: 44px; min-height: 44px; }
+:where(html[data-private-skin-review]) .dial-gesture:focus-visible { outline: 2px solid var(--brass); outline-offset: -4px; }
+
+/* The offline warning takes priority over the preceding recovery confirmation. */
+:where(html[data-private-skin-review]) #disconnectBanner:not([hidden]) + #syncBanner { display: none; }
+
+/* Keep a tall action stack below the readout when it would otherwise cover
+   the counter. The same layout applies to both turn states. */
+@media (max-width: 599px) {
+  :where(html[data-private-skin-review]) #gameView[data-interface-style="dial"]:is([data-counter-mode="commander"]:not([data-dial-side-seat-count="0"]), :has(#disconnectBanner:not([hidden]), #syncBanner:not([hidden]))) >
+    :is(#turnActions, .commander-tax-quick, .side-seats:not([hidden]), .source-panel) {
+    position: relative;
+    inset: auto;
+    margin: var(--dial-control-gap) 0 0;
+    transform: none;
+    scroll-margin-bottom: calc(var(--mode-nav-height) + env(safe-area-inset-bottom) + 12px);
+  }
+}
+@media (max-width: 599px) and (max-height: 740px) {
+  :where(html[data-private-skin-review]) #gameView[data-interface-style="dial"]:is([data-counter-mode="commander"], :not([data-dial-side-seat-count="0"])) >
+    :is(#turnActions, .commander-tax-quick, .side-seats:not([hidden]), .source-panel) {
+    position: relative;
+    inset: auto;
+    margin: var(--dial-control-gap) 0 0;
+    transform: none;
+    scroll-margin-bottom: calc(var(--mode-nav-height) + env(safe-area-inset-bottom) + 12px);
+  }
+  :where(html[data-private-skin-review]) #gameView[data-interface-style="dial"] .counter-stage {
+    min-height: clamp(200px, calc(70dvh - 190px), 300px);
+  }
+  :where(html[data-private-skin-review]) #gameView[data-interface-style="dial"] .dial-controls { min-height: min(78vw, 42dvh); }
+  :where(html[data-private-skin-review]) #gameView[data-interface-style="dial"] .dial-gesture {
+    width: min(88vw, 42dvh);
+    height: min(88vw, 42dvh);
+  }
+}
+
+@media (max-width: 599px) {
+  :where(html[data-private-skin-review]) #gameView .mode-nav { z-index: 12; }
+  html:where([data-private-skin-review]):has(#gameView:not([hidden])) { scroll-padding-bottom: calc(var(--mode-nav-height) + env(safe-area-inset-bottom) + 10px); }
+}
+@media (max-width: 599px) and (max-height: 640px) {
+  :where(html[data-private-skin-review]) #disconnectBanner { padding-block: 7px; }
+  :where(html[data-private-skin-review]) #gameView[data-interface-style="dial"][data-your-turn] >
+    :is(#turnActions, .commander-tax-quick, .side-seats:not([hidden]), .source-panel) {
+    position: relative;
+    inset: auto;
+    margin: var(--dial-control-gap) 0 0;
+    transform: none;
+    scroll-margin-bottom: calc(var(--mode-nav-height) + env(safe-area-inset-bottom) + 12px);
+  }
+  :where(html[data-private-skin-review]) #gameView[data-interface-style="dial"] .counter-stage::before,
+  :where(html[data-private-skin-review]) #gameView[data-interface-style="dial"] .counter-stage::after,
+  :where(html[data-private-skin-review]) #gameView[data-interface-style="dial"] .counter-sigil,
+  :where(html[data-private-skin-review]) #gameView[data-interface-style="dial"] .dial-gesture { width: min(77vw, 36dvh); }
+  :where(html[data-private-skin-review]) #gameView[data-interface-style="dial"] .dial-gesture { height: min(77vw, 36dvh); }
+  :where(html[data-private-skin-review]) #gameView[data-interface-style="dial"] .dial-controls { min-height: min(77vw, 36dvh); }
+}

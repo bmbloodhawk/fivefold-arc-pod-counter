@@ -7,6 +7,7 @@ import { commanderFallbackLabel } from './commander-source-flow.js?v=1';
 import { currentAccountToken, emailAccountToken, googleAccountToken, restoredAccountToken, sendAccountPasswordReset, signOutAccount } from './account-auth.js?v=6';
 import { JoinQrScanner } from './join-qr-scanner.js?v=4';
 import { GameWakeLock } from './game-wake-lock.js?v=1';
+import { applyCollectionVisual } from './collection-visual.js?v=3';
 
 const appearancePreviewMode = new URLSearchParams(location.search).get('appearance-preview') === '1';
 const appearanceParams = new URLSearchParams(location.search);
@@ -168,6 +169,10 @@ let gameDefaultLayout = null;
 let accountPreferences = null;
 let publishedSkins = [];
 let activeGameSkinId = '';
+let appearanceRequestGeneration = 0;
+let pendingGameSkinId = '';
+let stagingReviewSkins = [];
+let stagingReviewChoice;
 let dialPointer = null;
 let pendingIntermissionKey = null;
 async function reconcileLifeWriteError(error) {
@@ -236,7 +241,7 @@ function developerHost() { return Boolean(state && (state.localSimulation || tra
 function renderDeveloperTools() {
   const visible = developerMode && developerHost();
   [dom.playtestRecapButton, dom.fieldTestButton, dom.markDevelopmentButton, dom.savedPlaytestsButton, dom.lockDeveloperModeButton].forEach(button => { button.hidden = !visible; });
-  dom.quickTestButton.hidden = !developerMode;
+  dom.quickTestButton.hidden = !developerMode && stagingReviewChoice === undefined;
   dom.localSimulationField.hidden = !developerMode;
 }
 async function verifyDeveloperKey(key) {
@@ -458,14 +463,81 @@ async function loadGameDefaultLayout() { try { const response = await fetch('/ap
 const publishedSkinStyle = document.createElement('style'); publishedSkinStyle.textContent = 'html.game-skin-active body{background:radial-gradient(circle at var(--skin-atmosphere-position,50% 0%),color-mix(in srgb,var(--skin-atmosphere,#000) calc(var(--skin-atmosphere-strength,0) * 100%),transparent),transparent 58%),var(--bg);background-size:cover;background-position:center}html.game-skin-active #gameView .pod-seat{border-radius:var(--skin-seat-radius,8px);border-color:color-mix(in srgb,#5b594f calc(var(--skin-seat-border,70) * 1%),transparent);background:color-mix(in srgb,var(--surface) calc(var(--skin-seat-opacity,100) * 1%),transparent);backdrop-filter:blur(calc(var(--skin-seat-blur,0) * 1px))}html.game-skin-active #gameView[data-appearance-seat="flat"] .pod-seat{border-radius:0;box-shadow:none}html.game-skin-active #gameView[data-appearance-seat="glass"] .pod-seat{background:color-mix(in srgb,var(--surface) calc(var(--skin-seat-opacity,100) * .72%),transparent)}html.game-skin-active #gameView .end-turn-button{border-radius:var(--skin-button-radius,8px);border-color:color-mix(in srgb,var(--brass) calc(var(--skin-button-border,70) * 1%),transparent);background:color-mix(in srgb,var(--brass) calc(var(--skin-button-opacity,100) * 1%),transparent);backdrop-filter:blur(calc(var(--skin-button-blur,0) * 1px))}html.game-skin-active #gameView[data-appearance-button="outline"] .end-turn-button{background:transparent;color:var(--brass)}html.game-skin-active #gameView .pod-strip{translate:var(--skin-pod-strip-x,0) var(--skin-pod-strip-y,0);scale:var(--skin-pod-strip-scale,1);transform-origin:center}html.game-skin-active #gameView .counter-readout{translate:var(--skin-counter-readout-x,0) var(--skin-counter-readout-y,0);scale:var(--skin-counter-readout-scale,1);transform-origin:center}html.game-skin-active #gameView .dial-gesture{translate:var(--skin-dial-surface-x,0) var(--skin-dial-surface-y,0);scale:var(--skin-dial-surface-scale,1);transform-origin:center}html.game-skin-active #gameView .source-panel{translate:var(--skin-commander-damage-x,0) var(--skin-commander-damage-y,0);scale:var(--skin-commander-damage-scale,1);transform-origin:center}html.game-skin-active #gameView #turnActions{translate:var(--skin-turn-actions-x,0) var(--skin-turn-actions-y,0);scale:var(--skin-turn-actions-scale,1);transform-origin:center}html.game-skin-active #gameView .adjust-controls{translate:var(--skin-adjust-controls-x,0) var(--skin-adjust-controls-y,0);scale:var(--skin-adjust-controls-scale,1);transform-origin:center}html.game-skin-active #gameView .custom-life-button{translate:var(--skin-custom-life-x,0) var(--skin-custom-life-y,0);scale:var(--skin-custom-life-scale,1);transform-origin:center}html.game-skin-active #gameView .commander-tax-quick{translate:var(--skin-commander-tax-x,0) var(--skin-commander-tax-y,0);scale:var(--skin-commander-tax-scale,1);transform-origin:center}html.game-skin-active #gameView .mode-nav{translate:var(--skin-mode-nav-x,0) var(--skin-mode-nav-y,0);scale:var(--skin-mode-nav-scale,1);transform-origin:center}'; document.head.append(publishedSkinStyle);
 const publishedSkinArtStyle = document.createElement('style'); publishedSkinArtStyle.textContent = 'html.game-skin-active .mode-nav img{width:22px;height:22px;object-fit:contain}html.game-skin-active .counter-sigil img{width:100%;height:100%;object-fit:contain}html.game-skin-active .skin-overlay{position:absolute;inset:0;z-index:2;width:100%;height:100%;object-fit:cover;pointer-events:none;mix-blend-mode:var(--skin-overlay-blend,normal);opacity:var(--skin-overlay-opacity,.3);transform:scale(var(--skin-overlay-scale,1));transform-origin:center}html.game-skin-active .skin-dial-art{object-fit:contain;transform:scale(var(--skin-overlay-scale,1)) rotate(var(--dial-seal-rotation,0deg))}html.game-skin-active .pod-seat{position:relative;overflow:hidden}html.game-skin-active .pod-seat>.seat-name,html.game-skin-active .pod-seat>.seat-life,html.game-skin-active .dial-controls>*:not(.skin-overlay){position:relative;z-index:3}'; document.head.append(publishedSkinArtStyle);
 const publishedDialArtStyle = document.createElement('style'); publishedDialArtStyle.textContent = 'html.game-skin-active #gameView .dial-gesture{position:absolute;z-index:1;overflow:visible;transform-origin:50% 50%}html.game-skin-active #gameView .dial-step{position:relative;z-index:2}html.game-skin-active .dial-gesture>.skin-overlay{border-radius:0;object-fit:contain;object-position:center;transform:scale(var(--skin-overlay-scale,1)) rotate(var(--dial-seal-rotation,0deg));transform-origin:50% 50%;will-change:transform}'; document.head.append(publishedDialArtStyle);
-function deviceAppearanceChoice() { try { const choice = localStorage.getItem(DEVICE_APPEARANCE_KEY) || ''; return choice === 'table' || choice === 'standard' || /^[A-Za-z0-9_-]{1,80}$/.test(choice) ? choice : ''; } catch { return ''; } }
-function setDeviceAppearanceChoice(choice) { try { if (choice) localStorage.setItem(DEVICE_APPEARANCE_KEY, choice); else localStorage.removeItem(DEVICE_APPEARANCE_KEY); } catch { /* Preference is optional for guests. */ } }
-function renderDeviceAppearanceChoice() { const shared = state?.tableSkinId || ''; const sharedSkin = publishedSkins.find(skin => skin.id === shared); const choice = deviceAppearanceChoice(); const visible = Boolean(state && (shared || publishedSkins.length)); dom.deviceAppearanceField.hidden = !visible; if (!visible) return; const choices = [`<option value="">Automatic — my saved or table appearance</option>`]; if (shared) choices.push(`<option value="table">Table appearance — ${escapeHtml(sharedSkin?.name || 'shared choice')}</option>`); choices.push('<option value="standard">Standard appearance</option>'); choices.push(...publishedSkins.filter(skin => skin.id !== shared).map(skin => `<option value="${escapeHtml(skin.id)}">My appearance — ${escapeHtml(skin.name)}</option>`)); dom.deviceAppearanceChoice.innerHTML = choices.join(''); dom.deviceAppearanceChoice.value = [...dom.deviceAppearanceChoice.options].some(option => option.value === choice) ? choice : ''; }
+function deviceAppearanceChoice() { if (stagingReviewChoice !== undefined) return stagingReviewChoice; try { const choice = localStorage.getItem(DEVICE_APPEARANCE_KEY) || ''; return choice === 'table' || choice === 'standard' || /^[A-Za-z0-9_-]{1,80}$/.test(choice) ? choice : ''; } catch { return ''; } }
+function setDeviceAppearanceChoice(choice) { if (stagingReviewChoice !== undefined) { stagingReviewChoice = choice; return; } try { if (choice) localStorage.setItem(DEVICE_APPEARANCE_KEY, choice); else localStorage.removeItem(DEVICE_APPEARANCE_KEY); } catch { /* Preference is optional for guests. */ } }
+function renderDeviceAppearanceChoice() { const shared = state?.tableSkinId || ''; const sharedSkin = publishedSkins.find(skin => skin.id === shared); const choice = deviceAppearanceChoice(); const visible = Boolean(state && (shared || publishedSkins.length || stagingReviewSkins.length)); dom.deviceAppearanceField.hidden = !visible; if (!visible) return; const choices = [`<option value="">Automatic — my saved or table appearance</option>`]; if (shared) choices.push(`<option value="table">Table appearance — ${escapeHtml(sharedSkin?.name || 'shared choice')}</option>`); choices.push('<option value="standard">Standard appearance</option>'); choices.push(...publishedSkins.filter(skin => skin.id !== shared).map(skin => `<option value="${escapeHtml(skin.id)}">My appearance — ${escapeHtml(skin.name)}</option>`)); choices.push(...stagingReviewSkins.map(skin => `<option value="${escapeHtml(skin.id)}">Review — ${escapeHtml(skin.name)}</option>`)); dom.deviceAppearanceChoice.innerHTML = choices.join(''); dom.deviceAppearanceChoice.value = [...dom.deviceAppearanceChoice.options].some(option => option.value === choice) ? choice : ''; }
 async function loadPublishedSkinChoices(selectedId = '') { try { const response = await fetch('/api/game-skins', { cache: 'no-store' }); if (!response.ok) return; publishedSkins = (await response.json()).skins || []; const options = publishedSkins.map(skin => `<option value="${escapeHtml(skin.id)}">${escapeHtml(skin.name)}</option>`).join(''); accountPersonalSkin.innerHTML = `<option value="">Standard shared appearance</option>${options}`; accountPersonalSkin.value = publishedSkins.some(skin => skin.id === selectedId) ? selectedId : ''; const tableSkin = $('#tableSkin'); if (tableSkin) tableSkin.innerHTML = `<option value="">Standard appearance</option>${options}`; renderDeviceAppearanceChoice(); void applySelectedAppearance(); } catch { /* A skin catalog outage never blocks play. */ } }
-function clearPublishedSkin() { const root = document.documentElement; root.classList.remove('game-skin-active'); root.removeAttribute('data-game-skin'); ['--bg','--surface','--surface-2','--ink','--muted','--brass','--brass-dark'].forEach(name => root.style.removeProperty(name)); document.body.style.backgroundImage = ''; document.body.style.backgroundSize = ''; document.body.style.backgroundPosition = ''; dom.game.removeAttribute('data-appearance-seat'); dom.game.removeAttribute('data-appearance-button'); document.querySelectorAll('.skin-overlay').forEach(node => node.remove()); const seal = $('.counter-sigil'); if (seal) seal.innerHTML = baseSealMarkup; baseModeNavMarkup.forEach((markup, mode) => { const button = $(`[data-mode="${mode}"]`); if (button) button.innerHTML = markup; }); }
+function clearPublishedSkin() { const root = document.documentElement; if (root.hasAttribute('data-collection-treatment')) applyCollectionVisual(root, null); root.classList.remove('game-skin-active'); root.removeAttribute('data-game-skin'); ['--bg','--surface','--surface-2','--ink','--muted','--brass','--brass-dark'].forEach(name => root.style.removeProperty(name)); document.body.style.backgroundImage = ''; document.body.style.backgroundSize = ''; document.body.style.backgroundPosition = ''; dom.game.removeAttribute('data-appearance-seat'); dom.game.removeAttribute('data-appearance-button'); document.querySelectorAll('.skin-overlay').forEach(node => node.remove()); const seal = $('.counter-sigil'); if (seal) seal.innerHTML = baseSealMarkup; baseModeNavMarkup.forEach((markup, mode) => { const button = $(`[data-mode="${mode}"]`); if (button) button.innerHTML = markup; }); }
 function applyPublishedSkin(skin) { const root = document.documentElement; root.classList.add('game-skin-active'); root.dataset.gameSkin = skin.id; root.style.setProperty('--bg', skin.background || '#080808'); root.style.setProperty('--surface', skin.surface || '#161616'); root.style.setProperty('--surface-2', skin.surface || '#161616'); root.style.setProperty('--ink', skin.text || '#f4ecd9'); root.style.setProperty('--muted', skin.muted || '#afa590'); root.style.setProperty('--brass', skin.accent || '#d8ae61'); root.style.setProperty('--brass-dark', skin.secondary || '#6e552a'); root.style.setProperty('--skin-atmosphere', skin.atmosphereColor || skin.secondary || '#000'); root.style.setProperty('--skin-atmosphere-strength', String(Math.min(0.8, Math.max(0, Number(skin.atmosphereStrength || 0) / 100)))); root.style.setProperty('--skin-atmosphere-position', skin.atmospherePosition === 'bottom' ? '50% 100%' : skin.atmospherePosition === 'center' ? '50% 50%' : '50% 0%'); root.style.setProperty('--skin-seat-radius', `${Math.min(24, Math.max(0, Number(skin.seatRadius) || 8))}px`); ['seat','button'].forEach(prefix => { root.style.setProperty(`--skin-${prefix}-opacity`, String(Math.min(100, Math.max(35, Number(skin[`${prefix}Opacity`]) || 100)))); root.style.setProperty(`--skin-${prefix}-blur`, String(Math.min(16, Math.max(0, Number(skin[`${prefix}Blur`]) || 0)))); root.style.setProperty(`--skin-${prefix}-border`, String(Math.min(100, Math.max(0, Number(skin[`${prefix}Border`]) || 70)))); }); root.style.setProperty('--skin-button-radius', `${Math.min(24, Math.max(0, Number(skin.buttonRadius) || 8))}px`); const layout = skin.modeLayouts?.[interfaceStyle] || skin.componentLayout || {}; const regions = { podStrip: 'pod-strip', counterReadout: 'counter-readout', dialSurface: 'dial-surface', commanderDamage: 'commander-damage', turnActions: 'turn-actions', adjustControls: 'adjust-controls', customLife: 'custom-life', commanderTax: 'commander-tax', modeNav: 'mode-nav' }; Object.entries(regions).forEach(([key, css]) => { const placement = layout.componentLayout?.[key] || {}; root.style.setProperty(`--skin-${css}-x`, `${Math.min(100, Math.max(-100, Number(placement.x) || 0))}px`); root.style.setProperty(`--skin-${css}-y`, `${Math.min(140, Math.max(-140, Number(placement.y) || 0))}px`); root.style.setProperty(`--skin-${css}-scale`, String(Math.min(140, Math.max(70, Number(placement.scale) || 100)) / 100)); }); dom.game.dataset.appearanceSeat = skin.seatTreatment || 'raised'; dom.game.dataset.appearanceButton = skin.buttonTreatment || 'solid'; if (skin.backgroundData) { document.body.style.backgroundImage = `linear-gradient(rgb(0 0 0 / .32), rgb(0 0 0 / .32)), url("${skin.backgroundData}")`; document.body.style.backgroundSize = `${Math.min(200, Math.max(50, Number(skin.backgroundScale) || 100))}% auto`; document.body.style.backgroundPosition = `${Math.min(100, Math.max(0, Number(skin.backgroundPositionX) || 50))}% ${Math.min(100, Math.max(0, Number(skin.backgroundPositionY) || 50))}%`; } }
 function applyPublishedSkinArt(skin) { document.querySelectorAll('.skin-overlay').forEach(node => node.remove()); const seal = $('.counter-sigil'); if (seal && skin.sealData) { seal.replaceChildren(); const image = new Image(); image.alt = ''; image.src = skin.sealData; seal.append(image); } Object.entries(skin.symbolData || {}).forEach(([mode, data]) => { const button = $(`[data-mode="${mode}"]`); if (!button || !data) return; button.replaceChildren(); const image = new Image(); image.alt = ''; image.src = data; image.style.transform = `scale(${Math.min(2, Math.max(.6, Number(skin.symbolScale?.[mode]) || 100) / 100)})`; const label = document.createElement('small'); label.textContent = mode === 'commander' ? 'Cmdr' : mode; button.append(image, label); }); const add = (target, data, slot) => { if (!target || !data) return; const image = new Image(); image.className = `skin-overlay${slot === 'dial' && skin.dialArtSpin ? ' skin-dial-art' : ''}`; image.alt = ''; image.src = data; image.style.setProperty('--skin-overlay-opacity', String(Math.min(70, Math.max(0, Number(skin.overlayOpacity?.[slot]) || 0)) / 100)); image.style.setProperty('--skin-overlay-scale', String(Math.min(1.6, Math.max(.5, Number(skin.overlayScale?.[slot]) || 100) / 100))); image.style.setProperty('--skin-overlay-blend', skin.overlayBlend?.[slot] || 'normal'); target.append(image); }; document.querySelectorAll('.pod-seat').forEach(seat => add(seat, skin.overlayData?.seat, 'seat')); add($('.counter-stage'), skin.overlayData?.counter, 'counter'); add($('.dial-gesture'), skin.overlayData?.dial, 'dial'); }
-async function applySelectedAppearance() { const shared = state?.tableSkinId || ''; const personal = accountPreferences?.usePersonalSkin ? accountPreferences.personalSkinId : ''; const deviceChoice = deviceAppearanceChoice(); const selectedSkin = publishedSkins.some(skin => skin.id === deviceChoice) ? deviceChoice : ''; const id = deviceChoice === 'standard' ? '' : deviceChoice === 'table' ? shared : selectedSkin || personal || shared; if (!id) { activeGameSkinId = ''; clearPublishedSkin(); return; } if (activeGameSkinId === id) return; try { const response = await fetch(`/api/game-skins/${encodeURIComponent(id)}`, { cache: 'no-store' }); if (!response.ok) throw new Error(); const skin = (await response.json()).skin; activeGameSkinId = id; applyPublishedSkin(skin); if (state) render(); applyPublishedSkinArt(skin); } catch { activeGameSkinId = ''; clearPublishedSkin(); } }
+async function applySelectedAppearance() {
+  const shared = state?.tableSkinId || '';
+  const personal = accountPreferences?.usePersonalSkin ? accountPreferences.personalSkinId : '';
+  const deviceChoice = deviceAppearanceChoice();
+  const reviewSkin = stagingReviewSkins.find(skin => skin.id === deviceChoice);
+  const publishedChoice = publishedSkins.some(skin => skin.id === deviceChoice) ? deviceChoice : '';
+  const id = deviceChoice === 'standard' ? '' : deviceChoice === 'table' ? shared : reviewSkin?.id || publishedChoice || personal || shared;
+  if (id && pendingGameSkinId === id) return;
+  const generation = ++appearanceRequestGeneration;
+  pendingGameSkinId = '';
+  if (id && activeGameSkinId === id) return;
+  if (!id) {
+    activeGameSkinId = '';
+    clearPublishedSkin();
+    return;
+  }
+  if (reviewSkin) {
+    clearPublishedSkin();
+    applyCollectionVisual(document.documentElement, reviewSkin.visual, reviewSkin.artwork);
+    activeGameSkinId = id;
+    return;
+  }
+  pendingGameSkinId = id;
+  try {
+    const response = await fetch(`/api/game-skins/${encodeURIComponent(id)}`, { cache: 'no-store' });
+    if (!response.ok) throw new Error();
+    const { skin } = await response.json();
+    if (generation !== appearanceRequestGeneration) return;
+    if (document.documentElement.hasAttribute('data-collection-treatment')) clearPublishedSkin();
+    activeGameSkinId = id;
+    applyPublishedSkin(skin);
+    if (state) render();
+    applyPublishedSkinArt(skin);
+  } catch {
+    if (generation !== appearanceRequestGeneration) return;
+    activeGameSkinId = '';
+    clearPublishedSkin();
+  } finally {
+    if (generation === appearanceRequestGeneration) pendingGameSkinId = '';
+  }
+}
+async function loadStagingAppearanceReview() {
+  const storageKey = 'fivefold-arc:staging-appearance-review';
+  const linkKey = new URLSearchParams(location.hash.slice(1)).get('skin-review');
+  let reviewKey = linkKey;
+  try { reviewKey ||= sessionStorage.getItem(storageKey); } catch { /* Storage is optional. */ }
+  if (!reviewKey) return;
+  if (linkKey) history.replaceState(history.state, '', location.pathname + location.search);
+  const banner = $('.staging-environment-banner');
+  try {
+    if (!/^[A-Za-z0-9_-]{43}$/.test(reviewKey)) throw new Error();
+    const { unlockStagingAppearanceReview } = await import('./staging-appearance-review.js?v=1');
+    const response = await fetch('./staging-appearance-pack.enc?v=1', { cache: 'no-store' });
+    if (!response.ok) throw new Error();
+    const { skins, initialChoice } = await unlockStagingAppearanceReview(new Uint8Array(await response.arrayBuffer()), reviewKey);
+    try { sessionStorage.setItem(storageKey, reviewKey); } catch { /* Storage is optional. */ }
+    stagingReviewSkins = skins;
+    stagingReviewChoice = initialChoice;
+    document.documentElement.setAttribute('data-private-skin-review', '');
+    banner.textContent = 'TEST ENVIRONMENT · Private skin review';
+    dom.quickTestButton.hidden = false;
+    renderDeviceAppearanceChoice();
+    void applySelectedAppearance();
+  } catch {
+    try { sessionStorage.removeItem(storageKey); } catch { /* Storage is optional. */ }
+    banner.textContent = 'TEST ENVIRONMENT · Skin review link is unavailable';
+  }
+}
 function applyAccountPreferences(preferences) {
   accountPreferredName.value = preferences.preferredName || ''; accountDefaultPlayerCount.value = String(preferences.defaultPlayerCount || 4); accountDefaultRoundLimit.value = preferences.defaultRoundLimitMinutes || '';
   accountPreferences = preferences; accountUsePersonalSkin.checked = Boolean(preferences.usePersonalSkin); void loadPublishedSkinChoices(preferences.personalSkinId || '');
@@ -1750,7 +1822,20 @@ $('#joinStepTwoNext').addEventListener('click', () => { if (/^P[1-8]$/.test(dom.
 signInButton.addEventListener('click', openSignIn); continueGuestButton.addEventListener('click', enterApp);
 $('#createPodButton').addEventListener('click', () => showView(dom.create)); $('#joinPodButton').addEventListener('click', () => { showView(dom.join); dom.joinCodeStatus.textContent = ''; }); $('#changePodButton').addEventListener('click', () => showView(dom.join)); $$('[data-back]').forEach(button => button.addEventListener('click', () => { renderSavedTables(); showView(dom.landing); })); $('#podCode').addEventListener('input', event => { event.currentTarget.value = event.currentTarget.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); }); $('#joinSeat').addEventListener('change', () => { dom.joinName.placeholder = dom.joinSeat.value; renderJoinSeatClaim(); }); dom.joinCodeForm.addEventListener('submit', async event => { event.preventDefault(); await refreshJoinSeats(); }); dom.scanJoinQrButton.addEventListener('click', () => void openJoinQrScanner()); dom.joinQrScannerDialog.addEventListener('close', stopJoinQrScanner); $$('input[name="commanderCount"], input[name="joinCommanderCount"]').forEach(input => input.addEventListener('change', refreshSetupCommanderNames)); $$('input[name="gameFormat"]').forEach(input => input.addEventListener('change', () => { if (selectedGameFormat() === 'casual') { $('input[name="startingLife"][value="20"]').checked = true; $('input[name="playerCount"][value="2"]').checked = true; } updateFormatSetup(); }));
 dom.joinQrCameraInput.addEventListener('change', event => void readJoinQrCameraPhoto(event));
-$('#quickTestButton').addEventListener('click', () => { const saved = loadLocal(); if (saved) { transport.useLocal(); state = saved; showTableView(); render(); } else beginLocalGame({}); });
+$('#quickTestButton').addEventListener('click', async () => {
+  const saved = loadLocal();
+  if (saved) {
+    transport.useLocal();
+    state = saved;
+    showTableView();
+    render();
+  } else beginLocalGame({});
+  if (stagingReviewChoice !== undefined && !state.turn.gameStarted && state.lifecycle?.status === 'lobby') {
+    await startGame();
+    showTableView();
+    render();
+  }
+});
 $('#createPodButton').addEventListener('click', () => void loadSetupDecks()); $('#joinPodButton').addEventListener('click', () => void loadSetupDecks());
 $('#createPodButton').addEventListener('click', () => { selectedDeckId = ''; try { sessionStorage.removeItem('fivefold-arc:selected-deck'); } catch {} dom.createDeck.value = ''; });
 $('#joinSignInDeckButton').addEventListener('click', () => openSignIn({ returnToJoin: true }));
@@ -1933,7 +2018,11 @@ transport.addEventListener('protocolerror', () => recordClientDiagnostic('protoc
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js').catch(() => {});
 const deepJoinCode = new URLSearchParams(location.search).get('join');
 if (!appearancePreviewMode && /^[A-Z0-9]{6}$/i.test(deepJoinCode || '')) openJoinCode(deepJoinCode);
-if (!appearancePreviewMode) { void loadGameDefaultLayout(); void loadPublishedSkinChoices(); }
+if (!appearancePreviewMode) {
+  void loadGameDefaultLayout();
+  void loadPublishedSkinChoices();
+  if (isStagingEnvironment) void loadStagingAppearanceReview();
+}
 if (!appearancePreviewMode) void restoreSavedAccountSession();
 if (appearancePreviewMode) {
   transport.useLocal();
