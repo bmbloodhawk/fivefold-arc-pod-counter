@@ -105,7 +105,7 @@ function recordClientDiagnostic(kind, extra = {}) {
   const heap = performance.memory?.usedJSHeapSize;
   void transport.recordClientDiagnostic({ kind, build: DIAGNOSTIC_BUILD, viewport: diagnosticViewport(), deviceMemoryGb: diagnosticDeviceMemory(), visibility: document.visibilityState === 'hidden' ? 'hidden' : 'visible', jsHeapMb: Number.isFinite(heap) ? Math.round(heap / 1_048_576) : null, ...extra }).catch(() => {});
 }
-const accountChoice = $('#accountChoice'); const playActions = $('#playActions'); const signInButton = $('#signInButton'); const continueGuestButton = $('#continueGuestButton'); const myGamesButton = $('#myGamesButton'); const myGamesDialog = $('#myGamesDialog'); const myGamesStatus = $('#myGamesStatus'); const myGamesContent = $('#myGamesContent'); const myGamesSignInButton = $('#myGamesSignInButton'); const emailSignInFields = $('#emailSignInFields'); const emailSignInButton = $('#emailSignInButton'); const forgotPasswordButton = $('#forgotPasswordButton'); const createAccountButton = $('#createAccountButton'); const exportAccountButton = $('#exportAccountButton'); const deleteAccountButton = $('#deleteAccountButton'); const signOutButton = $('#signOutButton'); const accountEmail = $('#accountEmail'); const accountPassword = $('#accountPassword'); const accountPreferredNameField = $('#accountPreferredNameField'); const accountPreferredName = $('#accountPreferredName'); const accountDefaultPlayerCountField = $('#accountDefaultPlayerCountField'); const accountDefaultPlayerCount = $('#accountDefaultPlayerCount'); const accountDefaultRoundLimitField = $('#accountDefaultRoundLimitField'); const accountDefaultRoundLimit = $('#accountDefaultRoundLimit'); const saveAccountPreferencesButton = $('#saveAccountPreferencesButton'); const myDecksButton = $('#myDecksButton'); const myDecksDialog = $('#myDecksDialog'); const myDecksStatus = $('#myDecksStatus'); const myDecksContent = $('#myDecksContent'); const myDecksSignInButton = $('#myDecksSignInButton'); const createDeckButton = $('#createDeckButton'); const findDeckColorsButton = $('#findDeckColorsButton'); const deckCommanderStatus = $('#deckCommanderStatus'); const deckCommanderName = $('#deckCommanderName'); const deckCommanderNameTwo = $('#deckCommanderNameTwo'); const deckCommanderNameTwoField = $('#deckCommanderNameTwoField'); const deckName = $('#deckName'); const deckNotes = $('#deckNotes'); const deckFavorite = $('#deckFavorite');
+const signInButton = $('#signInButton'); const myGamesButton = $('#myGamesButton'); const myGamesDialog = $('#myGamesDialog'); const myGamesStatus = $('#myGamesStatus'); const myGamesContent = $('#myGamesContent'); const myGamesSignInButton = $('#myGamesSignInButton'); const emailSignInFields = $('#emailSignInFields'); const emailSignInButton = $('#emailSignInButton'); const forgotPasswordButton = $('#forgotPasswordButton'); const createAccountButton = $('#createAccountButton'); const exportAccountButton = $('#exportAccountButton'); const deleteAccountButton = $('#deleteAccountButton'); const signOutButton = $('#signOutButton'); const accountEmail = $('#accountEmail'); const accountPassword = $('#accountPassword'); const accountPreferredNameField = $('#accountPreferredNameField'); const accountPreferredName = $('#accountPreferredName'); const accountDefaultPlayerCountField = $('#accountDefaultPlayerCountField'); const accountDefaultPlayerCount = $('#accountDefaultPlayerCount'); const accountDefaultRoundLimitField = $('#accountDefaultRoundLimitField'); const accountDefaultRoundLimit = $('#accountDefaultRoundLimit'); const saveAccountPreferencesButton = $('#saveAccountPreferencesButton'); const myDecksButton = $('#myDecksButton'); const myDecksDialog = $('#myDecksDialog'); const myDecksStatus = $('#myDecksStatus'); const myDecksContent = $('#myDecksContent'); const myDecksSignInButton = $('#myDecksSignInButton'); const createDeckButton = $('#createDeckButton'); const findDeckColorsButton = $('#findDeckColorsButton'); const deckCommanderStatus = $('#deckCommanderStatus'); const deckCommanderName = $('#deckCommanderName'); const deckCommanderNameTwo = $('#deckCommanderNameTwo'); const deckCommanderNameTwoField = $('#deckCommanderNameTwoField'); const deckName = $('#deckName'); const deckNotes = $('#deckNotes'); const deckFavorite = $('#deckFavorite');
 myGamesStatus.setAttribute('role', 'status');
 const baseSealMarkup = $('.counter-sigil')?.innerHTML || ''; const baseModeNavMarkup = new Map($$('[data-mode]').map(button => [button.dataset.mode, button.innerHTML]));
 const accountSignedInStatus = $('#accountSignedInStatus');
@@ -114,6 +114,9 @@ const accountInterfaceStyleField = $('#accountInterfaceStyleField'); const accou
 let state = null;
 let developerMode = sessionStorage.getItem(DEVELOPER_MODE_KEY) === 'on';
 const SAVED_TABLES_KEY = 'fivefold-arc:saved-tables';
+const clearPastTablesButton = $('#clearPastTablesButton');
+const clearPastTablesDialog = $('#clearPastTablesDialog');
+const clearPastTablesError = $('#clearPastTablesError');
 let lifeChange = null;
 let lifeChangeTimer = null;
 let coinTossNotice = null;
@@ -662,13 +665,11 @@ function applyAccountPreferences(preferences, skins = []) {
 }
 async function finishAccountSignIn(token) {
   if (!token) throw new Error('Sign-in did not return an account session.');
-  // A valid Firebase session is enough to enter the app. Profile preferences
-  // are optional enrichment and must not throw a Face ID sign-in back to the
-  // guest gate during a brief account-service or network failure.
+  // A valid Firebase session enables account actions even if profile preferences are unavailable.
   resetAwardProfile();
   const profileEpoch = awardProfileEpoch;
   clearAccountAppearance();
-  enterApp(true);
+  renderHomeAccount(true);
   try {
     const preferencesResponse = await fetch('/api/account/preferences', { headers: { authorization: 'Bearer ' + token } });
     if (preferencesResponse.ok) {
@@ -688,7 +689,7 @@ async function restoreSavedAccountSession() {
     const token = await restoredAccountToken();
     if (!token) return;
     if (profileEpoch !== awardProfileEpoch) return;
-    enterApp(true);
+    renderHomeAccount(true);
     const response = await fetch('/api/account/preferences', { headers: { authorization: `Bearer ${token}` } });
     if (response.ok) {
       const { preferences, skins } = await response.json();
@@ -708,7 +709,7 @@ async function showMyGames() {
     const token = await currentAccountToken();
     if (!token) { myGamesDialog.close(); openSignIn(); return; }
     const response = await fetch('/api/account/history', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) throw new Error('Your games are not available yet.');
-    const history = (await response.json()).history; enterApp(true); void loadSetupDecks(); myGamesSignInButton.hidden = true; emailSignInButton.hidden = true; emailSignInFields.hidden = true; accountPassword.value = ''; forgotPasswordButton.hidden = true; createAccountButton.hidden = true; exportAccountButton.hidden = false; deleteAccountButton.hidden = false; signOutButton.hidden = false; accountPreferredNameField.hidden = false; saveAccountPreferencesButton.hidden = false;
+    const history = (await response.json()).history; renderHomeAccount(true); void loadSetupDecks(); myGamesSignInButton.hidden = true; emailSignInButton.hidden = true; emailSignInFields.hidden = true; accountPassword.value = ''; forgotPasswordButton.hidden = true; createAccountButton.hidden = true; exportAccountButton.hidden = false; deleteAccountButton.hidden = false; signOutButton.hidden = false; accountPreferredNameField.hidden = false; saveAccountPreferencesButton.hidden = false;
     const preferencesResponse = await fetch('/api/account/preferences', { headers: { authorization: `Bearer ${token}` } }); const { preferences, skins } = preferencesResponse.ok ? await preferencesResponse.json() : { preferences: { preferredName: null, defaultPlayerCount: 4, defaultRoundLimitMinutes: null, interfaceStyle: 'dial', personalSkinId: null, usePersonalSkin: false } }; applyAccountPreferences(preferences, skins); accountDefaultPlayerCountField.hidden = false; accountDefaultRoundLimitField.hidden = false; accountInterfaceStyleField.hidden = false; accountPersonalSkinField.hidden = false; accountUsePersonalSkinField.hidden = false; if (preferences.preferredName) { dom.createName.value ||= preferences.preferredName; dom.joinName.value ||= preferences.preferredName; } const playerDefault = $(`input[name="playerCount"][value="${preferences.defaultPlayerCount || 4}"]`); if (playerDefault) playerDefault.checked = true; dom.roundLimitMinutes.value ||= preferences.defaultRoundLimitMinutes || '';
     myGamesStatus.textContent = `${history.wins} wins in ${history.gamesPlayed} games${history.gamesPlayed ? ` · ${Math.round(history.winRate * 100)}% win rate` : ''}`;
     const historyItems = history.games || history.recentGames;
@@ -736,7 +737,7 @@ async function showMyDecks(signIn = false) {
     const token = signIn ? await googleAccountToken() : await currentAccountToken();
     if (!token) { myDecksStatus.textContent = 'Sign in to keep private deck notes.'; myDecksSignInButton.hidden = false; createDeckButton.disabled = true; return; }
     const response = await fetch('/api/account/decks?archived=all', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) throw new Error('Your decks are not available yet.');
-    const decks = (await response.json()).decks; savedDecks = decks; enterApp(true); myDecksStatus.textContent = decks.length ? `${decks.length} saved deck${decks.length === 1 ? '' : 's'}` : 'No saved decks yet.'; myDecksContent.innerHTML = decks.length ? `<ul>${decks.map(deck => `<li><strong>${deck.favorite ? '★ ' : ''}${escapeHtml(deck.commanderName)}</strong>${deck.archived ? ' <small>Archived</small>' : ''}${deck.name ? `<br><small>${escapeHtml(deck.name)}</small>` : ''}${deck.colors?.length ? `<br><small>${escapeHtml(deck.colors.join(' '))}</small>` : ''}${deck.notes ? `<br><small>${escapeHtml(deck.notes)}</small>` : ''}<br><button type="button" class="text-action" data-edit-deck="${escapeHtml(deck.deckId)}">Edit</button> <button type="button" class="text-action" data-toggle-favorite="${escapeHtml(deck.deckId)}">${deck.favorite ? 'Unfavorite' : 'Favorite'}</button> <button type="button" class="text-action" data-toggle-archive="${escapeHtml(deck.deckId)}">${deck.archived ? 'Restore' : 'Archive'}</button> <button type="button" class="text-action" data-export-deck="${escapeHtml(deck.deckId)}">Export deck</button> <button type="button" class="text-action" data-remove-deck="${escapeHtml(deck.deckId)}">Remove</button></li>`).join('')}</ul>` : ''; myDecksContent.hidden = !decks.length; myDecksSignInButton.hidden = true; createDeckButton.disabled = false;
+    const decks = (await response.json()).decks; savedDecks = decks; renderHomeAccount(true); myDecksStatus.textContent = decks.length ? `${decks.length} saved deck${decks.length === 1 ? '' : 's'}` : 'No saved decks yet.'; myDecksContent.innerHTML = decks.length ? `<ul>${decks.map(deck => `<li><strong>${deck.favorite ? '★ ' : ''}${escapeHtml(deck.commanderName)}</strong>${deck.archived ? ' <small>Archived</small>' : ''}${deck.name ? `<br><small>${escapeHtml(deck.name)}</small>` : ''}${deck.colors?.length ? `<br><small>${escapeHtml(deck.colors.join(' '))}</small>` : ''}${deck.notes ? `<br><small>${escapeHtml(deck.notes)}</small>` : ''}<br><button type="button" class="text-action" data-edit-deck="${escapeHtml(deck.deckId)}">Edit</button> <button type="button" class="text-action" data-toggle-favorite="${escapeHtml(deck.deckId)}">${deck.favorite ? 'Unfavorite' : 'Favorite'}</button> <button type="button" class="text-action" data-toggle-archive="${escapeHtml(deck.deckId)}">${deck.archived ? 'Restore' : 'Archive'}</button> <button type="button" class="text-action" data-export-deck="${escapeHtml(deck.deckId)}">Export deck</button> <button type="button" class="text-action" data-remove-deck="${escapeHtml(deck.deckId)}">Remove</button></li>`).join('')}</ul>` : ''; myDecksContent.hidden = !decks.length; myDecksSignInButton.hidden = true; createDeckButton.disabled = false;
   } catch (error) { myDecksStatus.textContent = error?.message || 'Your decks are not available yet.'; myDecksSignInButton.hidden = false; createDeckButton.disabled = true; }
 }
 function setDeckColors(colors) { const confirmed = normaliseIdentity(colors); $$('input[name="deckColors"]').forEach(input => { input.checked = confirmed.includes(input.value); }); }
@@ -803,13 +804,18 @@ async function signOut() {
     await signOutAccount();
     selectedDeckId = ''; setupDecks = []; savedDecks = [];
     clearAccountAppearance();
-    enterApp(false);
+    renderHomeAccount(false);
     if (myGamesDialog.open) myGamesDialog.close(); if (myDecksDialog.open) myDecksDialog.close();
   } catch (error) {
     myGamesStatus.textContent = error?.message || 'Sign-out did not finish. Please try again.';
   } finally { signOutButton.disabled = false; }
 }
-function enterApp(signedIn = false) { accountChoice.hidden = true; playActions.hidden = false; myGamesButton.setAttribute('aria-disabled', String(!signedIn)); myDecksButton.setAttribute('aria-disabled', String(!signedIn)); accountSignedInStatus.hidden = !signedIn; renderSavedTables(); }
+function renderHomeAccount(signedIn) {
+  accountSignedInStatus.hidden = !signedIn;
+  myGamesButton.disabled = !signedIn;
+  myDecksButton.disabled = !signedIn;
+  signInButton.hidden = signedIn;
+}
 function openSignIn({ returnToJoin = false } = {}) { pendingSignInReturn = returnToJoin ? { view: 'join', code: $('#podCode').value.trim().toUpperCase(), step: joinStep } : null; myGamesDialog.querySelector('#myGamesTitle').textContent = 'Sign in'; myGamesStatus.textContent = 'Save your profile, games, and decks. Guest play is always available.'; myGamesContent.hidden = true; accountPreferredNameField.hidden = true; accountDefaultPlayerCountField.hidden = true; accountDefaultRoundLimitField.hidden = true; accountPersonalSkinField.hidden = true; accountUsePersonalSkinField.hidden = true; accountSkinRewards.hidden = true; emailSignInFields.hidden = true; accountPassword.value = ''; myGamesSignInButton.hidden = false; emailSignInButton.hidden = false; emailSignInButton.textContent = 'Use email'; emailSignInButton.classList.replace('primary-action', 'secondary-action'); myGamesSignInButton.classList.replace('secondary-action', 'primary-action'); forgotPasswordButton.hidden = true; createAccountButton.hidden = true; saveAccountPreferencesButton.hidden = true; exportAccountButton.hidden = true; deleteAccountButton.hidden = true; signOutButton.hidden = true; myGamesDialog.showModal(); }
 let emailSignInInFlight = false;
 async function signInWithEmailPassword() {
@@ -844,11 +850,11 @@ function saveTable() {
   const entry = { code: state.podCode, seatId: transport.seatId, name: displayName(state.players.find(player => player.id === state.ownerPlayerId)), isHost: transport.seatId === state.hostSeatId, lastUsedAt: Date.now() };
   try { localStorage.setItem(SAVED_TABLES_KEY, JSON.stringify([entry, ...savedTables().filter(table => table.code !== entry.code || table.seatId !== entry.seatId)].slice(0, 8))); } catch { /* Storage is optional; reclaim remains available when the browser can retain it. */ }
 }
-function latestRecoverableHostPodCode() {
+function latestRecoverableHostTable() {
   const recoverableCodes = new Set(transport.hostRecoveryPodCodes());
   return savedTables()
     .filter(table => table.isHost && recoverableCodes.has(table.code))
-    .sort((left, right) => Number(right.lastUsedAt || 0) - Number(left.lastUsedAt || 0))[0]?.code || '';
+    .sort((left, right) => Number(right.lastUsedAt || 0) - Number(left.lastUsedAt || 0))[0];
 }
 function resetAwardProfile() {
   awardProfileEpoch += 1;
@@ -918,11 +924,35 @@ async function saveGameToHistory({ automatic = false, gameKey = victoryKey(state
     if (awardProfileEpoch === profileEpoch && savingGameKey === gameKey) savingGameKey = null;
   }
 }
-function renderSavedTables() {
-  const tables = savedTables();
-  dom.savedTables.hidden = tables.length === 0;
+function renderSavedTables(cleared = false) {
+  const tables = savedTables().filter(table => !table.recoveryOnly);
+  dom.savedTables.hidden = tables.length === 0 && !cleared;
+  clearPastTablesButton.hidden = tables.length === 0;
+  $('#savedTablesMessage').textContent = cleared ? 'Past tables cleared from this device.' : 'Return to a saved seat on this device.';
   dom.savedTablesList.innerHTML = tables.map(table => `<button class="saved-table-button" type="button" data-saved-code="${escapeHtml(table.code)}"><span><strong>Pod ${escapeHtml(table.code)}</strong><br><span>${escapeHtml(table.name || `P${Number(table.seatId) + 1}`)} · ${table.isHost ? 'host' : `P${Number(table.seatId) + 1}`}</span></span><em>Return</em></button>`).join('');
   dom.savedTablesList.querySelectorAll('[data-saved-code]').forEach(button => button.addEventListener('click', () => openJoinCode(button.dataset.savedCode)));
+}
+function clearPastTables(event) {
+  if (event.submitter?.value !== 'confirm') return;
+  event.preventDefault();
+  try {
+    const host = latestRecoverableHostTable();
+    if (host) {
+      // Keep the latest host lookup for Recover my host pod.
+      localStorage.setItem(SAVED_TABLES_KEY, JSON.stringify([{
+        code: host.code, seatId: host.seatId, isHost: true, recoveryOnly: true,
+      }]));
+    } else {
+      localStorage.removeItem(SAVED_TABLES_KEY);
+    }
+  } catch {
+    clearPastTablesError.hidden = false;
+    clearPastTablesError.textContent = 'Could not clear the table list on this device. Please try again.';
+    return;
+  }
+  clearPastTablesDialog.close('confirm');
+  renderSavedTables(true);
+  $('#savedTablesTitle').focus();
 }
 async function openJoinCode(code) {
   const normalizedCode = String(code || '').toUpperCase();
@@ -1958,7 +1988,12 @@ function showJoinStep(step) { joinStep = step; $$('[data-join-step]').forEach(se
 function skipCreateCommanders() { dom.createCommanderNames.querySelectorAll('input[name^="commanderName"]').forEach(input => { input.value = ''; delete input.dataset.commanderColors; }); showCreateStep(5); }
 $('#createStepOneNext').addEventListener('click', () => showCreateStep(2)); $('#createStepTwoNext').addEventListener('click', () => showCreateStep(3)); $('#createStepThreeNext').addEventListener('click', () => showCreateStep(selectedGameFormat() === 'commander' ? 4 : 5)); $('#createStepFourSkip').addEventListener('click', skipCreateCommanders); $('#createStepFourNext').addEventListener('click', async () => { const { unresolved } = await confirmUnresolvedCommanderDetails(dom.createCommanderNames, selectedCommanderCount('commanderCount')); if (!unresolved.length) showCreateStep(5); }); $$('[data-create-back]').forEach(button => button.addEventListener('click', () => showCreateStep(Math.max(1, createStep - 1))));
 $('#joinStepTwoNext').addEventListener('click', () => { if (/^P[1-8]$/.test(dom.joinSeat.value)) showJoinStep(3); }); $('#joinStepThreeNext').addEventListener('click', () => showJoinStep(4)); $$('[data-join-back]').forEach(button => button.addEventListener('click', () => showJoinStep(Math.max(2, joinStep - 1))));
-signInButton.addEventListener('click', openSignIn); continueGuestButton.addEventListener('click', enterApp);
+signInButton.addEventListener('click', () => openSignIn());
+clearPastTablesButton.addEventListener('click', () => {
+  clearPastTablesError.hidden = true;
+  clearPastTablesDialog.showModal();
+});
+clearPastTablesDialog.querySelector('form').addEventListener('submit', clearPastTables);
 $('#createPodButton').addEventListener('click', () => showView(dom.create)); $('#joinPodButton').addEventListener('click', () => { showView(dom.join); dom.joinCodeStatus.textContent = ''; }); $('#changePodButton').addEventListener('click', () => showView(dom.join)); $$('[data-back]').forEach(button => button.addEventListener('click', () => { renderSavedTables(); showView(dom.landing); })); $('#podCode').addEventListener('input', event => { event.currentTarget.value = event.currentTarget.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); }); $('#joinSeat').addEventListener('change', () => { dom.joinName.placeholder = dom.joinSeat.value; renderJoinSeatClaim(); }); dom.joinCodeForm.addEventListener('submit', async event => { event.preventDefault(); await refreshJoinSeats(); }); dom.scanJoinQrButton.addEventListener('click', () => void openJoinQrScanner()); dom.joinQrScannerDialog.addEventListener('close', stopJoinQrScanner); $$('input[name="commanderCount"], input[name="joinCommanderCount"]').forEach(input => input.addEventListener('change', refreshSetupCommanderNames)); $$('input[name="gameFormat"]').forEach(input => input.addEventListener('change', () => { if (selectedGameFormat() === 'casual') { $('input[name="startingLife"][value="20"]').checked = true; $('input[name="playerCount"][value="2"]').checked = true; } updateFormatSetup(); }));
 dom.joinQrCameraInput.addEventListener('change', event => void readJoinQrCameraPhoto(event));
 $('#quickTestButton').addEventListener('click', async () => {
@@ -2025,7 +2060,7 @@ $('#createForm').addEventListener('submit', async event => {
   showSharedGame(result.snapshot);
 });
 $('#joinForm').addEventListener('submit', async event => { event.preventDefault(); const form = new FormData(event.currentTarget); const code = $('#podCode').value.trim().toUpperCase(); const ownerPlayerId = $('#joinSeat').value; if (!/^P[1-8]$/.test(ownerPlayerId)) return showError(new Error('Wait for this pod’s open seats to load, then choose one.')); const seatId = Number(ownerPlayerId.slice(1)) - 1; const commanderCount = Number(form.get('joinCommanderCount')); const commanderNames = commanderNamesFromForm(form, commanderCount); const commanderColors = commanderColorsFromFields(dom.joinCommanderNames, commanderCount); const ownerName = String(form.get('name') || '').trim() || ownerPlayerId; try { const room = await transport.inspectRoom(code); if (!room.snapshot.seats[seatId] || (room.snapshot.seats[seatId].claimed && !transport.hasStoredReclaimToken(code, seatId))) throw new Error('That seat is no longer open. Choose one of the available seats.'); const result = await transport.claimRoom({ code, seatId, name: ownerName, commanderCount, commanderNames, commanderColors }); showSharedGame(result.snapshot); } catch (error) { showError(error); } });
-$('#recoverPodButton').addEventListener('click', async () => { const code = latestRecoverableHostPodCode(); if (!code) return showError(new Error('This phone does not have a saved host pod to recover.')); try { const { snapshot } = await transport.restoreRoom(code); const host = snapshot.seats[snapshot.hostSeatId]; const result = await transport.claimRoom({ code, seatId: snapshot.hostSeatId, name: host.name, commanderCount: host.commanderCount, commanderNames: host.commanderNames, commanderColors: host.commanderColors }); showSharedGame(result.snapshot); } catch (error) { showError(error); } });
+$('#recoverPodButton').addEventListener('click', async () => { const code = latestRecoverableHostTable()?.code; if (!code) return showError(new Error('This phone does not have a saved host pod to recover.')); try { const { snapshot } = await transport.restoreRoom(code); const host = snapshot.seats[snapshot.hostSeatId]; const result = await transport.claimRoom({ code, seatId: snapshot.hostSeatId, name: host.name, commanderCount: host.commanderCount, commanderNames: host.commanderNames, commanderColors: host.commanderColors }); showSharedGame(result.snapshot); } catch (error) { showError(error); } });
 dom.showJoinQrButton.addEventListener('click', openJoinQr); dom.showJoinQrMenuButton.addEventListener('click', () => { dom.gameMenu.hidden = true; openJoinQr(); }); dom.showIntermissionJoinQrButton.addEventListener('click', openJoinQr);
 dom.shareJoinLinkButton.addEventListener('click', async () => { try { if (!navigator.share) throw new Error('Sharing is not available on this phone.'); await navigator.share({ title: 'Join my Fivefold Arc table', text: `Join pod ${state.podCode}`, url: joinLink() }); } catch (error) { if (error.name !== 'AbortError') showError(error); } });
 dom.copyJoinLinkButton.addEventListener('click', () => copyJoinLink(dom.copyJoinLinkButton));
@@ -2107,7 +2142,7 @@ myGamesDialog.querySelector('form').addEventListener('submit', event => { event.
 emailSignInButton.addEventListener('click', async () => { const showingEmailFields = !emailSignInFields.hidden; emailSignInFields.hidden = false; forgotPasswordButton.hidden = false; createAccountButton.hidden = false; emailSignInButton.textContent = 'Sign in with email'; emailSignInButton.classList.replace('secondary-action', 'primary-action'); myGamesSignInButton.classList.replace('primary-action', 'secondary-action'); if (!showingEmailFields) { myGamesStatus.textContent = 'Enter your email and password, then choose Sign in with email.'; accountEmail.focus(); return; } await signInWithEmailPassword(); });
 forgotPasswordButton.addEventListener('click', async () => { if (!accountEmail.value) { accountEmail.focus(); myGamesStatus.textContent = 'Enter the email address for your account first.'; return; } try { await sendAccountPasswordReset(accountEmail.value); myGamesStatus.textContent = 'Password-reset email sent. Check your inbox and spam folder.'; } catch (error) { myGamesStatus.textContent = error?.message || 'The password-reset email could not be sent.'; } });
 createAccountButton.addEventListener('click', async () => { try { await finishAccountSignIn(await emailAccountToken(accountEmail.value, accountPassword.value, true)); } catch (error) { myGamesStatus.textContent = error?.message || 'Account creation did not work.'; } });
-myDecksButton.addEventListener('click', () => { if (myDecksButton.getAttribute('aria-disabled') === 'true') return openSignIn(); myDecksDialog.showModal(); showMyDecks(); });
+myDecksButton.addEventListener('click', () => { myDecksDialog.showModal(); showMyDecks(); });
 myDecksSignInButton.addEventListener('click', () => showMyDecks(true)); saveAccountPreferencesButton.addEventListener('click', () => void saveAccountPreferences());
 async function accountTokenForSkin(id) {
   if (!unlockedSkinChoices().some(skin => skin.id === id)) return null;
