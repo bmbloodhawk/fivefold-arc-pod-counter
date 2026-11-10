@@ -31,3 +31,25 @@ Run this on the staging URL before requesting a public release:
 
 Record the staging URL, commit SHA, phones/browsers, pass/fail result, and any
 connection banner or error text. A failed item blocks public deployment.
+
+## Room recovery restart test
+
+1. Open staging on both phones and confirm **TEST ENVIRONMENT**. Start a fresh
+   two-player game. Set the two life totals to 37 and 35 and verify both phones
+   show them.
+2. In staging **Developer Space → Diagnostics → Room recovery**, enter the room
+   code and select **Check save**. Record the last successful save time and
+   saved version. Check again until the saved version matches the live version.
+   If the save cannot be verified, resolve that before the restart.
+3. Confirm no other staging tables are in use. With both phones still on the
+   table, select **Manual Deploy → Restart service** for
+   **fivefold-arc-pod-counter-staging** in Render. Use the staging deploy event
+   to confirm the restart and wait for
+   [staging health](https://fivefold-arc-pod-counter-staging.onrender.com/health).
+4. Check that both phones return to their own seats at the same room with life
+   totals 37 and 35. Change one total by 1 and check that both phones show the
+   same result once. Select **Check save** again and verify a fresh confirmed
+   save for the resulting version.
+5. Record the build, phones and browsers, saved versions, restored scores, and
+   any reconnect message. If either phone gets a different state, preserve the
+   room and its diagnostics for review.

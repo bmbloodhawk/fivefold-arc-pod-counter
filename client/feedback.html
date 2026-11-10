@@ -31,7 +31,16 @@
       <div id="tabs" class="tabs" aria-label="Developer review sections"><button type="button" data-tab="feedback" class="active">Player feedback</button><button type="button" data-tab="insights">Test insights</button><button type="button" data-tab="diagnostics">Diagnostics</button><button type="button" data-tab="card-data">Card data</button><button type="button" data-tab="studio">Appearance Studio</button></div>
       <section id="feedbackPanel"><div id="filters" class="filters" aria-label="Feedback status filters"></div><div id="notes"></div></section>
       <section id="insightsPanel" hidden><p>Automatic metrics come from qualified standard games in Diagnostics. Host-reported field tests add physical-table and player-feedback context. This page excludes names, room codes, device identifiers, raw taps, and free-text observations.</p><div id="insights"></div></section>
-      <section id="diagnosticsPanel" hidden><p>Search a room code or game reference to review retained server-confirmed changes and saved table snapshots. This is developer-only and never contains seat credentials, device identifiers, IP addresses, or raw tap data.</p><section class="insight-list"><h2>Current connected play</h2><p>Live aggregate only. This does not reveal players, rooms, or gameplay.</p><div id="activeActivity" class="insight-grid"><p>Open Diagnostics to load current activity.</p></div><div class="actions"><button id="activeActivityButton" type="button">Refresh live activity</button></div></section><section class="insight-list"><h2>Qualification policy · v2</h2><p>Qualified standard requires a started game, 3+ turn passes, activity from 2+ seats, and the greater of 3 minutes or 25 seconds per recorded pass. Review this definition after 12 qualified standard tables or 30 days; change it deliberately and version the next policy.</p></section><div class="actions"><button id="recentDiagnosticsButton" type="button">Recent games</button></div><form id="diagnosticForm" class="diagnostic-search"><input id="diagnosticQuery" aria-label="Room code or game reference" autocomplete="off" placeholder="Room code or game reference" required><button type="submit">Find game</button></form><p id="diagnosticStatus" role="status" aria-live="polite"></p><div id="diagnosticResults"></div></section>
+      <section id="diagnosticsPanel" hidden><p>Search a room code or game reference to review retained server-confirmed changes and saved table snapshots. This is developer-only and never contains seat credentials, device identifiers, IP addresses, or raw tap data.</p>
+      <section class="insight-list" aria-labelledby="recoverySaveHeading">
+        <h2 id="recoverySaveHeading">Room recovery</h2>
+        <form id="recoverySaveForm" class="diagnostic-search">
+          <input id="recoverySaveRoomCode" aria-label="Room code for recovery save" placeholder="Room code" autocomplete="off" autocapitalize="characters" maxlength="6" pattern="[A-Za-z0-9]{6}" required>
+          <button type="submit">Check save</button>
+        </form>
+        <p id="recoverySaveStatus" role="status">Enter a room code to check its last successful save.</p>
+      </section>
+      <section class="insight-list"><h2>Current connected play</h2><p>Live aggregate only. This does not reveal players, rooms, or gameplay.</p><div id="activeActivity" class="insight-grid"><p>Open Diagnostics to load current activity.</p></div><div class="actions"><button id="activeActivityButton" type="button">Refresh live activity</button></div></section><section class="insight-list"><h2>Qualification policy · v2</h2><p>Qualified standard requires a started game, 3+ turn passes, activity from 2+ seats, and the greater of 3 minutes or 25 seconds per recorded pass. Review this definition after 12 qualified standard tables or 30 days; change it deliberately and version the next policy.</p></section><div class="actions"><button id="recentDiagnosticsButton" type="button">Recent games</button></div><form id="diagnosticForm" class="diagnostic-search"><input id="diagnosticQuery" aria-label="Room code or game reference" autocomplete="off" placeholder="Room code or game reference" required><button type="submit">Find game</button></form><p id="diagnosticStatus" role="status" aria-live="polite"></p><div id="diagnosticResults"></div></section>
       <section id="cardDataPanel" hidden><p>Commander color lookup uses the deployed local card index. Normal player traffic never downloads card data or calls Scryfall.</p><section class="insight-list"><h2>Automatic refresh</h2><p>GitHub checks MTGJSON weekly, verifies its checksum, and commits a new snapshot only when card identities change. The normal connected deployment then releases that verified snapshot.</p><div class="actions"><a class="workflow-link" href="https://github.com/bmbloodhawk/fivefold-arc-pod-counter/actions/workflows/refresh-card-identity-index.yml" target="_blank" rel="noopener noreferrer">Open manual card-data refresh</a></div><p>This opens GitHub’s protected workflow. Run it only when an early update is genuinely needed, then confirm the resulting deployment before an event.</p></section></section>
     </section>
   </main>
@@ -62,6 +71,51 @@
     const diagnosticDuration = value => !value ? 'Duration unavailable' : value < 60_000 ? `${Math.round(value / 1000)} sec` : `${Math.round(value / 60000)} min`;
     const counterSummary = game => Object.entries(game.counterChanges || {}).map(([counter, count]) => `${count} ${counter === 'commanderDamage' ? 'commander' : counter}`).join(' · ') || 'No counter changes retained';
     function renderDiagnosticMatches(games, { review = false } = {}) { const visible = review && diagnosticFilter === 'review' ? games.filter(game => game.flags?.length) : review && diagnosticFilter === 'incomplete' ? games.filter(game => game.outcome === 'Reset early') : review && diagnosticFilter === 'qualified' ? games.filter(game => game.sessionKind === 'standard' && game.qualified) : review && diagnosticFilter === 'development' ? games.filter(game => game.sessionKind === 'development') : games; diagnosticResults.innerHTML = `${review ? `<div class="diagnostic-filters"><button type="button" data-diagnostic-filter="all" class="${diagnosticFilter === 'all' ? 'active' : ''}">All recent</button><button type="button" data-diagnostic-filter="qualified" class="${diagnosticFilter === 'qualified' ? 'active' : ''}">Qualified standard</button><button type="button" data-diagnostic-filter="review" class="${diagnosticFilter === 'review' ? 'active' : ''}">Needs review</button><button type="button" data-diagnostic-filter="incomplete" class="${diagnosticFilter === 'incomplete' ? 'active' : ''}">Reset early</button><button type="button" data-diagnostic-filter="development" class="${diagnosticFilter === 'development' ? 'active' : ''}">Development</button></div>` : ''}${visible.length ? visible.map(game => `<button class="diagnostic-match" type="button" data-game-id="${escapeHtml(game.gameId)}"><header><span>Room ${escapeHtml(game.roomCode || 'unavailable')}</span><span>${escapeHtml(game.sessionKind === 'development' ? 'Development run' : game.qualified ? 'Qualified standard' : 'Exploratory table')}</span></header><div class="diagnostic-facts"><span>${escapeHtml(String(game.playerCount || '?'))} players</span><span>${escapeHtml(diagnosticDuration(game.durationMs))}</span><span>${game.handoffCount || 0} turn passes</span><span>${game.gameplaySeatCount || 0} active seats</span><span>${game.eventCount} confirmed changes</span><span>${game.snapshotCount || 0} snapshots</span></div><footer><span>${escapeHtml(counterSummary(game))}</span><span class="diagnostic-flag">${escapeHtml(game.flags?.join(' · ') || '')}</span></footer></button>`).join('') : '<p class="empty">No games match this review filter.</p>'}`; diagnosticResults.querySelectorAll('[data-game-id]').forEach(button => button.addEventListener('click', () => openDiagnostic(button.dataset.gameId))); diagnosticResults.querySelectorAll('[data-diagnostic-filter]').forEach(button => button.addEventListener('click', () => { diagnosticFilter = button.dataset.diagnosticFilter; renderDiagnosticMatches(recentDiagnostics, { review:true }); })); }
+    const recoverySaveForm = document.querySelector('#recoverySaveForm');
+    const recoverySaveRoomCode = document.querySelector('#recoverySaveRoomCode');
+    const recoverySaveStatus = document.querySelector('#recoverySaveStatus');
+    let recoverySaveRequest = 0;
+
+    async function loadRecoverySave() {
+      const roomCode = recoverySaveRoomCode.value.trim().toUpperCase();
+      const request = ++recoverySaveRequest;
+      recoverySaveStatus.textContent = `Checking room ${roomCode}…`;
+      try {
+        const response = await fetch(`/api/feedback/diagnostics/recovery?roomCode=${encodeURIComponent(roomCode)}`, {
+          headers: { 'x-feedback-portal-key': key.value },
+          cache: 'no-store',
+        });
+        const payload = await response.json();
+        if (request !== recoverySaveRequest) return;
+        if (!response.ok) {
+          recoverySaveStatus.textContent = payload.error?.message || 'Could not check the room save.';
+          return;
+        }
+        const save = payload.recoverySave;
+        if (save.status === 'not_configured') {
+          recoverySaveStatus.textContent = 'Durable room storage is unavailable on this deployment.';
+          return;
+        }
+        if (save.status === 'missing') {
+          recoverySaveStatus.textContent = `No recovery save was found for room ${roomCode}.`;
+          return;
+        }
+        if (save.status !== 'saved') {
+          recoverySaveStatus.textContent = `Could not verify the save for room ${roomCode}. Check again before restarting.`;
+          return;
+        }
+        const confirmed = save.savedAt
+          ? `Last successful save for room ${roomCode}: ${new Date(save.savedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' })}.`
+          : `Room ${roomCode} has an older save without a confirmation time.`;
+        const savedVersion = `Saved version ${save.savedVersion}.`;
+        const liveVersion = save.liveVersion == null ? '' : `Live version ${save.liveVersion}.`;
+        const lag = save.liveVersion > save.savedVersion ? 'The live room is ahead of this save. Check again before restarting.' : '';
+        recoverySaveStatus.textContent = [confirmed, savedVersion, liveVersion, lag].filter(Boolean).join(' ');
+      } catch {
+        if (request === recoverySaveRequest) recoverySaveStatus.textContent = 'Could not check the room save. Try again.';
+      }
+    }
+
     async function searchDiagnostics() { diagnosticStatus.textContent = 'Searching retained games…'; diagnosticResults.textContent = ''; const response = await fetch(`/api/feedback/diagnostics?query=${encodeURIComponent(diagnosticQuery.value.trim())}`, { headers: { 'x-feedback-portal-key': key.value }, cache:'no-store' }); const payload = await response.json(); if (!response.ok) { diagnosticStatus.textContent = payload.error?.message || 'Could not search retained games.'; return; } if (!payload.matches?.length) { diagnosticStatus.textContent = 'No retained game matched that room or game reference.'; return; } diagnosticStatus.textContent = ''; renderDiagnosticMatches(payload.matches); }
     async function loadRecentDiagnostics() { diagnosticStatus.textContent = 'Loading recent retained games…'; diagnosticResults.textContent = ''; const response = await fetch('/api/feedback/diagnostics/recent', { headers: { 'x-feedback-portal-key': key.value }, cache:'no-store' }); const payload = await response.json(); if (!response.ok) { diagnosticStatus.textContent = payload.error?.message || 'Could not load recent games.'; return; } if (!payload.games?.length) { diagnosticStatus.textContent = 'No retained games are available yet.'; return; } recentDiagnostics = payload.games; diagnosticFilter = 'all'; diagnosticStatus.textContent = 'Qualified standard uses policy v2: started game, 3 passes, 2 active seats, and the greater of 3 minutes or 25 seconds per pass. Flags indicate a review opportunity, not a confirmed defect.'; renderDiagnosticMatches(recentDiagnostics, { review:true }); }
     async function loadActiveActivity() { activeActivity.textContent = 'Loading live activity…'; try { const response = await fetch('/api/feedback/activity', { headers: { 'x-feedback-portal-key': key.value }, cache:'no-store' }); const payload = await response.json(); if (!response.ok) throw new Error(payload.error?.message || 'Could not load live activity.'); const activity = payload.activity || {}; activeActivity.innerHTML = `<article class="insight"><strong>${Number(activity.activePlayers) || 0}</strong><span>Connected players</span></article><article class="insight"><strong>${Number(activity.activeTables) || 0}</strong><span>Open tables</span></article><article class="insight"><strong>${Number(activity.playingTables) || 0}</strong><span>Playing tables</span></article>`; } catch (error) { activeActivity.innerHTML = `<p class="empty">${escapeHtml(error.message)}</p>`; } }
@@ -80,6 +134,7 @@
       form.hidden = true; inbox.hidden = false; status.textContent = '';
     }
     form.addEventListener('submit', async event => { event.preventDefault(); try { await loadFeedback(); } catch (error) { status.textContent = error.message; } });
+    recoverySaveForm.addEventListener('submit', event => { event.preventDefault(); void loadRecoverySave(); });
     diagnosticForm.addEventListener('submit', event => { event.preventDefault(); searchDiagnostics(); });
     recentDiagnosticsButton.addEventListener('click', loadRecentDiagnostics);
     activeActivityButton.addEventListener('click', () => void loadActiveActivity());
