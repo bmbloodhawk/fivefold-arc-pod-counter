@@ -1,4 +1,4 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=85';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=86';
 import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=73';
 import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=114';
 import { connectionPresentation } from './connection-state.js?v=1';
@@ -17,6 +17,7 @@ const LOCAL_DEMO_IDLE_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 const LOCAL_DEMO_STATE_KEY = 'fivefold-arc-test-state';
 const INTERFACE_STYLE_KEY = 'fivefold-arc:interface-style';
 const DEVICE_APPEARANCE_KEY = 'fivefold-arc:device-appearance';
+const STAGING_REVIEW_CHOICE_KEY = 'fivefold-arc:staging-appearance-review-choice';
 const SCREEN_AWAKE_KEY = 'fivefold-arc:screen-awake';
 const DEVELOPER_MODE_KEY = 'fivefold-arc:developer-mode';
 const IDENTITY_ORDER = ['W', 'U', 'B', 'R', 'G'];
@@ -108,6 +109,7 @@ const accountChoice = $('#accountChoice'); const playActions = $('#playActions')
 myGamesStatus.setAttribute('role', 'status');
 const baseSealMarkup = $('.counter-sigil')?.innerHTML || ''; const baseModeNavMarkup = new Map($$('[data-mode]').map(button => [button.dataset.mode, button.innerHTML]));
 const accountSignedInStatus = $('#accountSignedInStatus');
+const accountSkinRewards = $('#accountSkinRewards');
 const accountInterfaceStyleField = $('#accountInterfaceStyleField'); const accountInterfaceStyle = $('#accountInterfaceStyle'); const accountPersonalSkinField = $('#accountPersonalSkinField'); const accountPersonalSkin = $('#accountPersonalSkin'); const accountUsePersonalSkinField = $('#accountUsePersonalSkinField'); const accountUsePersonalSkin = $('#accountUsePersonalSkin');
 let state = null;
 let developerMode = sessionStorage.getItem(DEVELOPER_MODE_KEY) === 'on';
@@ -168,6 +170,7 @@ let interfaceStyle = (() => { try { return localStorage.getItem(INTERFACE_STYLE_
 let gameDefaultLayout = null;
 let accountPreferences = null;
 let publishedSkins = [];
+let accountSkinChoices = [];
 let activeGameSkinId = '';
 let appearanceRequestGeneration = 0;
 let pendingGameSkinId = '';
@@ -272,7 +275,7 @@ function stateFromSnapshot(snapshot) {
   const turn = snapshot.turn || { activeSeatId: 0, gameStarted: true, gameStartedAt: Date.now(), turnStartedAt: Date.now(), turnNumber: 1, roundEndsAt: null, startingPlayerSeatId: 0, startingPlayerRoll: null, lastHandoff: null, trackingEnabled: true, cueMode: 'off', pausedAt: null };
   return {
     playerCount: snapshot.config.playerCount, seatCapacity: snapshot.config.seatCapacity || snapshot.config.playerCount, startingLife: snapshot.config.startingLife, gameFormat: snapshot.config.gameFormat || 'commander', roundLimitMinutes: snapshot.config.roundLimitMinutes || null, commanderSources, commanderCastCounts: castCountsFromSnapshot(snapshot, commanderSources), ownerPlayerId, activePlayerId, turnSeatId: `P${turn.activeSeatId + 1}`, turn,
-    localSimulation: false, podCode: snapshot.code, version: snapshot.version, hostSeatId: snapshot.hostSeatId, tableSkinId: snapshot.config.tableSkinId || '', sessionKind: snapshot.sessionKind || 'standard', feedbackPromptSeatId: snapshot.feedbackPromptSeatId, lastCoinToss: snapshot.lastCoinToss || null, gameResult: snapshot.gameResult ? { ...snapshot.gameResult, gameId: snapshot.completedGameId, saveEligible: snapshot.completedGameEligible === true } : null, lifecycle: snapshot.lifecycle || { status: snapshot.turn?.gameStarted ? 'playing' : 'lobby', seatIds: snapshot.seats.filter(seat => seat.claimed).map(seat => seat.seatId), readySeatIds: [] }, lastGameWinnerSeatId: Number.isInteger(snapshot.lastGameWinnerSeatId) ? snapshot.lastGameWinnerSeatId : null, mode: previous?.mode || 'life', selectedSourceId: previous?.selectedSourceId || null,
+    localSimulation: false, podCode: snapshot.code, version: snapshot.version, hostSeatId: snapshot.hostSeatId, tableSkinId: snapshot.config.tableSkinId || '', earnedTableSkinName: snapshot.config.earnedTableSkinName || '', sessionKind: snapshot.sessionKind || 'standard', feedbackPromptSeatId: snapshot.feedbackPromptSeatId, lastCoinToss: snapshot.lastCoinToss || null, gameResult: snapshot.gameResult ? { ...snapshot.gameResult, gameId: snapshot.completedGameId, saveEligible: snapshot.completedGameEligible === true } : null, lifecycle: snapshot.lifecycle || { status: snapshot.turn?.gameStarted ? 'playing' : 'lobby', seatIds: snapshot.seats.filter(seat => seat.claimed).map(seat => seat.seatId), readySeatIds: [] }, lastGameWinnerSeatId: Number.isInteger(snapshot.lastGameWinnerSeatId) ? snapshot.lastGameWinnerSeatId : null, mode: previous?.mode || 'life', selectedSourceId: previous?.selectedSourceId || null,
     players: snapshot.seats.map(seat => ({ id: `P${seat.seatId + 1}`, name: seat.name, commanderCount: seat.commanderCount === 2 ? 2 : 1, commanderNames: seat.commanderNames || [], commanderColors: (seat.commanderColors || []).map(normaliseIdentity), life: seat.counters.life, poison: seat.counters.poison, poisonReceived: seat.counterTotals?.poison || 0, commanderDamage: damageFromSnapshot(seat, commanderSources), radiation: seat.counters.radiation ?? 0, energy: seat.counters.energy, generic: seat.counters.generic, alternateElimination: seat.alternateElimination || null, connectionStatus: seat.connected ? 'connected' : seat.claimed ? 'disconnected' : 'waiting', eliminated: false, lethalCause: null, warning: null }))
   };
 }
@@ -463,24 +466,104 @@ async function loadGameDefaultLayout() { try { const response = await fetch('/ap
 const publishedSkinStyle = document.createElement('style'); publishedSkinStyle.textContent = 'html.game-skin-active body{background:radial-gradient(circle at var(--skin-atmosphere-position,50% 0%),color-mix(in srgb,var(--skin-atmosphere,#000) calc(var(--skin-atmosphere-strength,0) * 100%),transparent),transparent 58%),var(--bg);background-size:cover;background-position:center}html.game-skin-active #gameView .pod-seat{border-radius:var(--skin-seat-radius,8px);border-color:color-mix(in srgb,#5b594f calc(var(--skin-seat-border,70) * 1%),transparent);background:color-mix(in srgb,var(--surface) calc(var(--skin-seat-opacity,100) * 1%),transparent);backdrop-filter:blur(calc(var(--skin-seat-blur,0) * 1px))}html.game-skin-active #gameView[data-appearance-seat="flat"] .pod-seat{border-radius:0;box-shadow:none}html.game-skin-active #gameView[data-appearance-seat="glass"] .pod-seat{background:color-mix(in srgb,var(--surface) calc(var(--skin-seat-opacity,100) * .72%),transparent)}html.game-skin-active #gameView .end-turn-button{border-radius:var(--skin-button-radius,8px);border-color:color-mix(in srgb,var(--brass) calc(var(--skin-button-border,70) * 1%),transparent);background:color-mix(in srgb,var(--brass) calc(var(--skin-button-opacity,100) * 1%),transparent);backdrop-filter:blur(calc(var(--skin-button-blur,0) * 1px))}html.game-skin-active #gameView[data-appearance-button="outline"] .end-turn-button{background:transparent;color:var(--brass)}html.game-skin-active #gameView .pod-strip{translate:var(--skin-pod-strip-x,0) var(--skin-pod-strip-y,0);scale:var(--skin-pod-strip-scale,1);transform-origin:center}html.game-skin-active #gameView .counter-readout{translate:var(--skin-counter-readout-x,0) var(--skin-counter-readout-y,0);scale:var(--skin-counter-readout-scale,1);transform-origin:center}html.game-skin-active #gameView .dial-gesture{translate:var(--skin-dial-surface-x,0) var(--skin-dial-surface-y,0);scale:var(--skin-dial-surface-scale,1);transform-origin:center}html.game-skin-active #gameView .source-panel{translate:var(--skin-commander-damage-x,0) var(--skin-commander-damage-y,0);scale:var(--skin-commander-damage-scale,1);transform-origin:center}html.game-skin-active #gameView #turnActions{translate:var(--skin-turn-actions-x,0) var(--skin-turn-actions-y,0);scale:var(--skin-turn-actions-scale,1);transform-origin:center}html.game-skin-active #gameView .adjust-controls{translate:var(--skin-adjust-controls-x,0) var(--skin-adjust-controls-y,0);scale:var(--skin-adjust-controls-scale,1);transform-origin:center}html.game-skin-active #gameView .custom-life-button{translate:var(--skin-custom-life-x,0) var(--skin-custom-life-y,0);scale:var(--skin-custom-life-scale,1);transform-origin:center}html.game-skin-active #gameView .commander-tax-quick{translate:var(--skin-commander-tax-x,0) var(--skin-commander-tax-y,0);scale:var(--skin-commander-tax-scale,1);transform-origin:center}html.game-skin-active #gameView .mode-nav{translate:var(--skin-mode-nav-x,0) var(--skin-mode-nav-y,0);scale:var(--skin-mode-nav-scale,1);transform-origin:center}'; document.head.append(publishedSkinStyle);
 const publishedSkinArtStyle = document.createElement('style'); publishedSkinArtStyle.textContent = 'html.game-skin-active .mode-nav img{width:22px;height:22px;object-fit:contain}html.game-skin-active .counter-sigil img{width:100%;height:100%;object-fit:contain}html.game-skin-active .skin-overlay{position:absolute;inset:0;z-index:2;width:100%;height:100%;object-fit:cover;pointer-events:none;mix-blend-mode:var(--skin-overlay-blend,normal);opacity:var(--skin-overlay-opacity,.3);transform:scale(var(--skin-overlay-scale,1));transform-origin:center}html.game-skin-active .skin-dial-art{object-fit:contain;transform:scale(var(--skin-overlay-scale,1)) rotate(var(--dial-seal-rotation,0deg))}html.game-skin-active .pod-seat{position:relative;overflow:hidden}html.game-skin-active .pod-seat>.seat-name,html.game-skin-active .pod-seat>.seat-life,html.game-skin-active .dial-controls>*:not(.skin-overlay){position:relative;z-index:3}'; document.head.append(publishedSkinArtStyle);
 const publishedDialArtStyle = document.createElement('style'); publishedDialArtStyle.textContent = 'html.game-skin-active #gameView .dial-gesture{position:absolute;z-index:1;overflow:visible;transform-origin:50% 50%}html.game-skin-active #gameView .dial-step{position:relative;z-index:2}html.game-skin-active .dial-gesture>.skin-overlay{border-radius:0;object-fit:contain;object-position:center;transform:scale(var(--skin-overlay-scale,1)) rotate(var(--dial-seal-rotation,0deg));transform-origin:50% 50%;will-change:transform}'; document.head.append(publishedDialArtStyle);
-function deviceAppearanceChoice() { if (stagingReviewChoice !== undefined) return stagingReviewChoice; try { const choice = localStorage.getItem(DEVICE_APPEARANCE_KEY) || ''; return choice === 'table' || choice === 'standard' || /^[A-Za-z0-9_-]{1,80}$/.test(choice) ? choice : ''; } catch { return ''; } }
-function setDeviceAppearanceChoice(choice) { if (stagingReviewChoice !== undefined) { stagingReviewChoice = choice; return; } try { if (choice) localStorage.setItem(DEVICE_APPEARANCE_KEY, choice); else localStorage.removeItem(DEVICE_APPEARANCE_KEY); } catch { /* Preference is optional for guests. */ } }
-function renderDeviceAppearanceChoice() { const shared = state?.tableSkinId || ''; const sharedSkin = publishedSkins.find(skin => skin.id === shared); const choice = deviceAppearanceChoice(); const visible = Boolean(state && (shared || publishedSkins.length || stagingReviewSkins.length)); dom.deviceAppearanceField.hidden = !visible; if (!visible) return; const choices = [`<option value="">Automatic — my saved or table appearance</option>`]; if (shared) choices.push(`<option value="table">Table appearance — ${escapeHtml(sharedSkin?.name || 'shared choice')}</option>`); choices.push('<option value="standard">Standard appearance</option>'); choices.push(...publishedSkins.filter(skin => skin.id !== shared).map(skin => `<option value="${escapeHtml(skin.id)}">My appearance — ${escapeHtml(skin.name)}</option>`)); choices.push(...stagingReviewSkins.map(skin => `<option value="${escapeHtml(skin.id)}">Review — ${escapeHtml(skin.name)}</option>`)); dom.deviceAppearanceChoice.innerHTML = choices.join(''); dom.deviceAppearanceChoice.value = [...dom.deviceAppearanceChoice.options].some(option => option.value === choice) ? choice : ''; }
-async function loadPublishedSkinChoices(selectedId = '') { try { const response = await fetch('/api/game-skins', { cache: 'no-store' }); if (!response.ok) return; publishedSkins = (await response.json()).skins || []; const options = publishedSkins.map(skin => `<option value="${escapeHtml(skin.id)}">${escapeHtml(skin.name)}</option>`).join(''); accountPersonalSkin.innerHTML = `<option value="">Standard shared appearance</option>${options}`; accountPersonalSkin.value = publishedSkins.some(skin => skin.id === selectedId) ? selectedId : ''; const tableSkin = $('#tableSkin'); if (tableSkin) tableSkin.innerHTML = `<option value="">Standard appearance</option>${options}`; renderDeviceAppearanceChoice(); void applySelectedAppearance(); } catch { /* A skin catalog outage never blocks play. */ } }
+function deviceAppearanceChoice() {
+  if (stagingReviewChoice !== undefined) return stagingReviewChoice;
+  try { return localStorage.getItem(DEVICE_APPEARANCE_KEY) || ''; } catch { return ''; }
+}
+function setDeviceAppearanceChoice(choice) {
+  try {
+    if (stagingReviewChoice !== undefined) {
+      stagingReviewChoice = choice;
+      sessionStorage.setItem(STAGING_REVIEW_CHOICE_KEY, choice);
+    } else if (choice) {
+      localStorage.setItem(DEVICE_APPEARANCE_KEY, choice);
+    } else {
+      localStorage.removeItem(DEVICE_APPEARANCE_KEY);
+    }
+  } catch { /* Preferences are optional. */ }
+}
+function unlockedSkinChoices() {
+  return accountSkinChoices.filter(skin => skin.state === 'unlocked' || skin.state === 'new');
+}
+function renderProfileSkinChoices(selectedId = accountPreferences?.personalSkinId || '') {
+  const choices = [...publishedSkins, ...unlockedSkinChoices()];
+  accountPersonalSkin.innerHTML = '<option value="">Standard shared appearance</option>' + choices.map(skinOption).join('');
+  accountPersonalSkin.value = choices.some(skin => skin.id === selectedId) ? selectedId : '';
+  accountSkinRewards.querySelector('ul').innerHTML = accountSkinChoices.map(skin =>
+    '<li><strong>' + escapeHtml(skin.name) + '</strong> <span>' + (skin.state === 'locked' ? 'Locked' : 'Unlocked') +
+    '</span><small>' + escapeHtml(skin.achievement.detail) + '</small></li>').join('');
+  accountSkinRewards.hidden = accountPersonalSkinField.hidden || !accountSkinChoices.length;
+  const tableSkin = $('#tableSkin');
+  const oldChoice = tableSkin.value;
+  tableSkin.innerHTML = tableSkinOptions([...publishedSkins, ...unlockedSkinChoices()]);
+  if ([...tableSkin.options].some(option => option.value === oldChoice)) tableSkin.value = oldChoice;
+}
+function skinOption(skin) {
+  return '<option value="' + escapeHtml(skin.id) + '">' + escapeHtml(skin.name) + '</option>';
+}
+function tableSkinOptions(skins) {
+  return '<option value="">Standard appearance</option>' + skins.map(skinOption).join('');
+}
+function renderDeviceAppearanceChoice() {
+  const shared = state?.tableSkinId || '';
+  const choice = deviceAppearanceChoice();
+  const earned = unlockedSkinChoices().filter(skin => !stagingReviewSkins.some(review => review.id === 'review:' + skin.id));
+  const skins = [...publishedSkins, ...earned, ...stagingReviewSkins];
+  dom.deviceAppearanceField.hidden = !state || (!shared && !skins.length);
+  if (dom.deviceAppearanceField.hidden) return;
+  const choices = ['<option value="">Automatic — my saved or table appearance</option>'];
+  if (shared) choices.push('<option value="table">Use table appearance</option>');
+  choices.push('<option value="standard">Standard appearance</option>', ...skins.map(skinOption));
+  dom.deviceAppearanceChoice.innerHTML = choices.join('');
+  dom.deviceAppearanceChoice.value = [...dom.deviceAppearanceChoice.options].some(option => option.value === choice) ? choice : '';
+}
+async function loadPublishedSkinChoices() {
+  try {
+    const response = await fetch('/api/game-skins', { cache: 'no-store' });
+    if (!response.ok) return;
+    publishedSkins = (await response.json()).skins || [];
+    renderProfileSkinChoices();
+    renderDeviceAppearanceChoice();
+    void applySelectedAppearance();
+  } catch { /* A skin catalog outage never blocks play. */ }
+}
+async function refreshAccountSkinChoices(token, profileEpoch) {
+  try {
+    const response = await fetch('/api/account/skin-access', { headers: { authorization: 'Bearer ' + token } });
+    if (!response.ok) return;
+    const { access } = await response.json();
+    if (profileEpoch !== awardProfileEpoch) return;
+    accountSkinChoices = access.skins || [];
+    renderProfileSkinChoices(accountPersonalSkin.value);
+    renderDeviceAppearanceChoice();
+    void applySelectedAppearance();
+  } catch { /* Refresh the profile on its next open. */ }
+}
 function clearPublishedSkin() { const root = document.documentElement; if (root.hasAttribute('data-collection-treatment')) applyCollectionVisual(root, null); root.classList.remove('game-skin-active'); root.removeAttribute('data-game-skin'); ['--bg','--surface','--surface-2','--ink','--muted','--brass','--brass-dark'].forEach(name => root.style.removeProperty(name)); document.body.style.backgroundImage = ''; document.body.style.backgroundSize = ''; document.body.style.backgroundPosition = ''; dom.game.removeAttribute('data-appearance-seat'); dom.game.removeAttribute('data-appearance-button'); document.querySelectorAll('.skin-overlay').forEach(node => node.remove()); const seal = $('.counter-sigil'); if (seal) seal.innerHTML = baseSealMarkup; baseModeNavMarkup.forEach((markup, mode) => { const button = $(`[data-mode="${mode}"]`); if (button) button.innerHTML = markup; }); }
 function applyPublishedSkin(skin) { const root = document.documentElement; root.classList.add('game-skin-active'); root.dataset.gameSkin = skin.id; root.style.setProperty('--bg', skin.background || '#080808'); root.style.setProperty('--surface', skin.surface || '#161616'); root.style.setProperty('--surface-2', skin.surface || '#161616'); root.style.setProperty('--ink', skin.text || '#f4ecd9'); root.style.setProperty('--muted', skin.muted || '#afa590'); root.style.setProperty('--brass', skin.accent || '#d8ae61'); root.style.setProperty('--brass-dark', skin.secondary || '#6e552a'); root.style.setProperty('--skin-atmosphere', skin.atmosphereColor || skin.secondary || '#000'); root.style.setProperty('--skin-atmosphere-strength', String(Math.min(0.8, Math.max(0, Number(skin.atmosphereStrength || 0) / 100)))); root.style.setProperty('--skin-atmosphere-position', skin.atmospherePosition === 'bottom' ? '50% 100%' : skin.atmospherePosition === 'center' ? '50% 50%' : '50% 0%'); root.style.setProperty('--skin-seat-radius', `${Math.min(24, Math.max(0, Number(skin.seatRadius) || 8))}px`); ['seat','button'].forEach(prefix => { root.style.setProperty(`--skin-${prefix}-opacity`, String(Math.min(100, Math.max(35, Number(skin[`${prefix}Opacity`]) || 100)))); root.style.setProperty(`--skin-${prefix}-blur`, String(Math.min(16, Math.max(0, Number(skin[`${prefix}Blur`]) || 0)))); root.style.setProperty(`--skin-${prefix}-border`, String(Math.min(100, Math.max(0, Number(skin[`${prefix}Border`]) || 70)))); }); root.style.setProperty('--skin-button-radius', `${Math.min(24, Math.max(0, Number(skin.buttonRadius) || 8))}px`); const layout = skin.modeLayouts?.[interfaceStyle] || skin.componentLayout || {}; const regions = { podStrip: 'pod-strip', counterReadout: 'counter-readout', dialSurface: 'dial-surface', commanderDamage: 'commander-damage', turnActions: 'turn-actions', adjustControls: 'adjust-controls', customLife: 'custom-life', commanderTax: 'commander-tax', modeNav: 'mode-nav' }; Object.entries(regions).forEach(([key, css]) => { const placement = layout.componentLayout?.[key] || {}; root.style.setProperty(`--skin-${css}-x`, `${Math.min(100, Math.max(-100, Number(placement.x) || 0))}px`); root.style.setProperty(`--skin-${css}-y`, `${Math.min(140, Math.max(-140, Number(placement.y) || 0))}px`); root.style.setProperty(`--skin-${css}-scale`, String(Math.min(140, Math.max(70, Number(placement.scale) || 100)) / 100)); }); dom.game.dataset.appearanceSeat = skin.seatTreatment || 'raised'; dom.game.dataset.appearanceButton = skin.buttonTreatment || 'solid'; if (skin.backgroundData) { document.body.style.backgroundImage = `linear-gradient(rgb(0 0 0 / .32), rgb(0 0 0 / .32)), url("${skin.backgroundData}")`; document.body.style.backgroundSize = `${Math.min(200, Math.max(50, Number(skin.backgroundScale) || 100))}% auto`; document.body.style.backgroundPosition = `${Math.min(100, Math.max(0, Number(skin.backgroundPositionX) || 50))}% ${Math.min(100, Math.max(0, Number(skin.backgroundPositionY) || 50))}%`; } }
 function applyPublishedSkinArt(skin) { document.querySelectorAll('.skin-overlay').forEach(node => node.remove()); const seal = $('.counter-sigil'); if (seal && skin.sealData) { seal.replaceChildren(); const image = new Image(); image.alt = ''; image.src = skin.sealData; seal.append(image); } Object.entries(skin.symbolData || {}).forEach(([mode, data]) => { const button = $(`[data-mode="${mode}"]`); if (!button || !data) return; button.replaceChildren(); const image = new Image(); image.alt = ''; image.src = data; image.style.transform = `scale(${Math.min(2, Math.max(.6, Number(skin.symbolScale?.[mode]) || 100) / 100)})`; const label = document.createElement('small'); label.textContent = mode === 'commander' ? 'Cmdr' : mode; button.append(image, label); }); const add = (target, data, slot) => { if (!target || !data) return; const image = new Image(); image.className = `skin-overlay${slot === 'dial' && skin.dialArtSpin ? ' skin-dial-art' : ''}`; image.alt = ''; image.src = data; image.style.setProperty('--skin-overlay-opacity', String(Math.min(70, Math.max(0, Number(skin.overlayOpacity?.[slot]) || 0)) / 100)); image.style.setProperty('--skin-overlay-scale', String(Math.min(1.6, Math.max(.5, Number(skin.overlayScale?.[slot]) || 100) / 100))); image.style.setProperty('--skin-overlay-blend', skin.overlayBlend?.[slot] || 'normal'); target.append(image); }; document.querySelectorAll('.pod-seat').forEach(seat => add(seat, skin.overlayData?.seat, 'seat')); add($('.counter-stage'), skin.overlayData?.counter, 'counter'); add($('.dial-gesture'), skin.overlayData?.dial, 'dial'); }
 async function applySelectedAppearance() {
   const shared = state?.tableSkinId || '';
-  const personal = accountPreferences?.usePersonalSkin ? accountPreferences.personalSkinId : '';
+  const earned = unlockedSkinChoices();
+  const available = [...publishedSkins, ...earned];
+  const savedId = accountPreferences?.usePersonalSkin ? accountPreferences.personalSkinId : '';
+  const personal = available.some(skin => skin.id === savedId) ? savedId : '';
   const deviceChoice = deviceAppearanceChoice();
   const reviewSkin = stagingReviewSkins.find(skin => skin.id === deviceChoice);
-  const publishedChoice = publishedSkins.some(skin => skin.id === deviceChoice) ? deviceChoice : '';
-  const id = deviceChoice === 'standard' ? '' : deviceChoice === 'table' ? shared : reviewSkin?.id || publishedChoice || personal || shared;
-  if (id && pendingGameSkinId === id) return;
+  const personalChoice = available.some(skin => skin.id === deviceChoice) ? deviceChoice : '';
+  const ownChoice = reviewSkin?.id || personalChoice || personal;
+  const followsTable = deviceChoice === 'table' || (deviceChoice !== 'standard' && !ownChoice);
+  const id = followsTable ? shared : deviceChoice === 'standard' ? '' : ownChoice;
+  const sharedAchievement = Boolean(followsTable && id && state?.earnedTableSkinName && !state.localSimulation);
+  const key = sharedAchievement ? 'room:' + state.podCode + ':' + id : id;
+  if (key && pendingGameSkinId === key) return;
   const generation = ++appearanceRequestGeneration;
   pendingGameSkinId = '';
-  if (id && activeGameSkinId === id) return;
+  if (key && activeGameSkinId === key) return;
+  if (activeGameSkinId.startsWith('room:')) {
+    activeGameSkinId = '';
+    clearPublishedSkin();
+  }
   if (!id) {
     activeGameSkinId = '';
     clearPublishedSkin();
@@ -492,12 +575,35 @@ async function applySelectedAppearance() {
     activeGameSkinId = id;
     return;
   }
-  pendingGameSkinId = id;
+  pendingGameSkinId = key;
   try {
-    const response = await fetch(`/api/game-skins/${encodeURIComponent(id)}`, { cache: 'no-store' });
+    if (sharedAchievement) {
+      const skin = await transport.sharedAchievementSkin();
+      if (generation !== appearanceRequestGeneration) return;
+      if (skin?.id !== id) throw new Error();
+      clearPublishedSkin();
+      applyCollectionVisual(document.documentElement, skin.visual, skin.artwork);
+      activeGameSkinId = key;
+      return;
+    }
+    const headers = {};
+    const isEarned = earned.some(skin => skin.id === id);
+    if (isEarned) {
+      const token = await currentAccountToken();
+      if (generation !== appearanceRequestGeneration) return;
+      if (!token) throw new Error();
+      headers.authorization = 'Bearer ' + token;
+    }
+    const response = await fetch('/api/game-skins/' + encodeURIComponent(id), { headers, cache: 'no-store' });
     if (!response.ok) throw new Error();
     const { skin } = await response.json();
     if (generation !== appearanceRequestGeneration) return;
+    if (isEarned) {
+      clearPublishedSkin();
+      applyCollectionVisual(document.documentElement, skin.visual, skin.artwork);
+      activeGameSkinId = id;
+      return;
+    }
     if (document.documentElement.hasAttribute('data-collection-treatment')) clearPublishedSkin();
     activeGameSkinId = id;
     applyPublishedSkin(skin);
@@ -521,13 +627,19 @@ async function loadStagingAppearanceReview() {
   const banner = $('.staging-environment-banner');
   try {
     if (!/^[A-Za-z0-9_-]{43}$/.test(reviewKey)) throw new Error();
-    const { unlockStagingAppearanceReview } = await import('./staging-appearance-review.js?v=2');
+    const { unlockStagingAppearanceReview } = await import('./staging-appearance-review.js?v=3');
     const response = await fetch('./staging-appearance-pack.enc?v=2', { cache: 'no-store' });
     if (!response.ok) throw new Error();
     const { skins, initialChoice } = await unlockStagingAppearanceReview(new Uint8Array(await response.arrayBuffer()), reviewKey);
-    try { sessionStorage.setItem(storageKey, reviewKey); } catch { /* Storage is optional. */ }
     stagingReviewSkins = skins;
     stagingReviewChoice = initialChoice;
+    try {
+      const saved = sessionStorage.getItem(storageKey) === reviewKey ? sessionStorage.getItem(STAGING_REVIEW_CHOICE_KEY) : null;
+      if (saved === '' || saved === 'table' || saved === 'standard'
+        || publishedSkins.some(skin => skin.id === saved) || skins.some(skin => skin.id === saved)
+        || unlockedSkinChoices().some(skin => skin.id === saved)) stagingReviewChoice = saved;
+      sessionStorage.setItem(storageKey, reviewKey);
+    } catch { /* Storage is optional. */ }
     document.documentElement.setAttribute('data-private-skin-review', '');
     banner.textContent = 'TEST ENVIRONMENT · Private skin review';
     dom.quickTestButton.hidden = false;
@@ -538,9 +650,13 @@ async function loadStagingAppearanceReview() {
     banner.textContent = 'TEST ENVIRONMENT · Skin review link is unavailable';
   }
 }
-function applyAccountPreferences(preferences) {
+function applyAccountPreferences(preferences, skins = []) {
   accountPreferredName.value = preferences.preferredName || ''; accountDefaultPlayerCount.value = String(preferences.defaultPlayerCount || 4); accountDefaultRoundLimit.value = preferences.defaultRoundLimitMinutes || '';
-  accountPreferences = preferences; accountUsePersonalSkin.checked = Boolean(preferences.usePersonalSkin); void loadPublishedSkinChoices(preferences.personalSkinId || '');
+  accountPreferences = preferences;
+  accountSkinChoices = skins;
+  accountUsePersonalSkin.checked = Boolean(preferences.usePersonalSkin);
+  renderProfileSkinChoices();
+  renderDeviceAppearanceChoice();
   setInterfaceStyle(preferences.interfaceStyle, { persistAccount: false });
   void applySelectedAppearance();
 }
@@ -550,12 +666,15 @@ async function finishAccountSignIn(token) {
   // are optional enrichment and must not throw a Face ID sign-in back to the
   // guest gate during a brief account-service or network failure.
   resetAwardProfile();
+  const profileEpoch = awardProfileEpoch;
+  clearAccountAppearance();
   enterApp(true);
   try {
-    const preferencesResponse = await fetch('/api/account/preferences', { headers: { authorization: `Bearer ${token}` } });
+    const preferencesResponse = await fetch('/api/account/preferences', { headers: { authorization: 'Bearer ' + token } });
     if (preferencesResponse.ok) {
-      const preferences = (await preferencesResponse.json()).preferences;
-      applyAccountPreferences(preferences); if (preferences.preferredName) { dom.createName.value ||= preferences.preferredName; dom.joinName.value ||= preferences.preferredName; } const playerDefault = $(`input[name="playerCount"][value="${preferences.defaultPlayerCount || 4}"]`); if (playerDefault) playerDefault.checked = true; dom.roundLimitMinutes.value ||= preferences.defaultRoundLimitMinutes || '';
+      const { preferences, skins } = await preferencesResponse.json();
+      if (profileEpoch !== awardProfileEpoch) return;
+      applyAccountPreferences(preferences, skins); if (preferences.preferredName) { dom.createName.value ||= preferences.preferredName; dom.joinName.value ||= preferences.preferredName; } const playerDefault = $(`input[name="playerCount"][value="${preferences.defaultPlayerCount || 4}"]`); if (playerDefault) playerDefault.checked = true; dom.roundLimitMinutes.value ||= preferences.defaultRoundLimitMinutes || '';
     }
   } catch { /* The signed-in play experience remains available. */ }
   await loadSetupDecks(); myGamesDialog.close();
@@ -564,14 +683,17 @@ async function finishAccountSignIn(token) {
   else showView(dom.landing);
 }
 async function restoreSavedAccountSession() {
+  const profileEpoch = awardProfileEpoch;
   try {
     const token = await restoredAccountToken();
     if (!token) return;
+    if (profileEpoch !== awardProfileEpoch) return;
     enterApp(true);
     const response = await fetch('/api/account/preferences', { headers: { authorization: `Bearer ${token}` } });
     if (response.ok) {
-      const preferences = (await response.json()).preferences;
-      applyAccountPreferences(preferences);
+      const { preferences, skins } = await response.json();
+      if (profileEpoch !== awardProfileEpoch) return;
+      applyAccountPreferences(preferences, skins);
       if (preferences.preferredName) { dom.createName.value ||= preferences.preferredName; dom.joinName.value ||= preferences.preferredName; }
       const playerDefault = $(`input[name="playerCount"][value="${preferences.defaultPlayerCount || 4}"]`);
       if (playerDefault) playerDefault.checked = true;
@@ -581,13 +703,13 @@ async function restoreSavedAccountSession() {
   } catch { /* A missing or expired Firebase session leaves guest play unchanged. */ }
 }
 async function showMyGames() {
-  myGamesContent.hidden = true; myGamesStatus.textContent = 'Loading your profile…'; myGamesSignInButton.hidden = true;
+  myGamesContent.hidden = true; accountSkinRewards.hidden = true; myGamesStatus.textContent = 'Loading your profile…'; myGamesSignInButton.hidden = true;
   try {
     const token = await currentAccountToken();
     if (!token) { myGamesDialog.close(); openSignIn(); return; }
     const response = await fetch('/api/account/history', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) throw new Error('Your games are not available yet.');
     const history = (await response.json()).history; enterApp(true); void loadSetupDecks(); myGamesSignInButton.hidden = true; emailSignInButton.hidden = true; emailSignInFields.hidden = true; accountPassword.value = ''; forgotPasswordButton.hidden = true; createAccountButton.hidden = true; exportAccountButton.hidden = false; deleteAccountButton.hidden = false; signOutButton.hidden = false; accountPreferredNameField.hidden = false; saveAccountPreferencesButton.hidden = false;
-    const preferencesResponse = await fetch('/api/account/preferences', { headers: { authorization: `Bearer ${token}` } }); const preferences = preferencesResponse.ok ? (await preferencesResponse.json()).preferences : { preferredName: null, defaultPlayerCount: 4, defaultRoundLimitMinutes: null, interfaceStyle: 'dial', personalSkinId: null, usePersonalSkin: false }; applyAccountPreferences(preferences); accountDefaultPlayerCountField.hidden = false; accountDefaultRoundLimitField.hidden = false; accountInterfaceStyleField.hidden = false; accountPersonalSkinField.hidden = false; accountUsePersonalSkinField.hidden = false; if (preferences.preferredName) { dom.createName.value ||= preferences.preferredName; dom.joinName.value ||= preferences.preferredName; } const playerDefault = $(`input[name="playerCount"][value="${preferences.defaultPlayerCount || 4}"]`); if (playerDefault) playerDefault.checked = true; dom.roundLimitMinutes.value ||= preferences.defaultRoundLimitMinutes || '';
+    const preferencesResponse = await fetch('/api/account/preferences', { headers: { authorization: `Bearer ${token}` } }); const { preferences, skins } = preferencesResponse.ok ? await preferencesResponse.json() : { preferences: { preferredName: null, defaultPlayerCount: 4, defaultRoundLimitMinutes: null, interfaceStyle: 'dial', personalSkinId: null, usePersonalSkin: false } }; applyAccountPreferences(preferences, skins); accountDefaultPlayerCountField.hidden = false; accountDefaultRoundLimitField.hidden = false; accountInterfaceStyleField.hidden = false; accountPersonalSkinField.hidden = false; accountUsePersonalSkinField.hidden = false; if (preferences.preferredName) { dom.createName.value ||= preferences.preferredName; dom.joinName.value ||= preferences.preferredName; } const playerDefault = $(`input[name="playerCount"][value="${preferences.defaultPlayerCount || 4}"]`); if (playerDefault) playerDefault.checked = true; dom.roundLimitMinutes.value ||= preferences.defaultRoundLimitMinutes || '';
     myGamesStatus.textContent = `${history.wins} wins in ${history.gamesPlayed} games${history.gamesPlayed ? ` · ${Math.round(history.winRate * 100)}% win rate` : ''}`;
     const historyItems = history.games || history.recentGames;
     myGamesContent.innerHTML = `<section><h3>This month</h3><p>${history.thisMonth?.wins || 0} wins in ${history.thisMonth?.gamesPlayed || 0} games.${historyItems[0] ? ` Last saved ${new Date(historyItems[0].savedAt).toLocaleDateString()}.` : ''}</p></section><section><h3>Private milestones</h3><p>${(history.milestones || []).map(item => `${item.reached ? '✓' : '○'} ${escapeHtml(item.label)}`).join(' · ') || 'Save your first game to begin.'}</p></section>${history.deckStats?.length ? `<section><h3>Deck statistics</h3><ul>${history.deckStats.map(stat => `<li>${escapeHtml(stat.name || 'Saved deck')}: ${stat.wins}/${stat.gamesPlayed} wins${stat.gamesPlayed ? ` · ${Math.round(stat.winRate * 100)}%` : ''}</li>`).join('')}</ul></section>` : ''}<section><h3>Game history</h3><label class="select-field">Find a game<input id="gameHistorySearch" type="search" placeholder="Commander or result"></label><ul id="gameHistoryList">${historyItems.map(game => `<li data-history-game><strong>${game.won ? 'Win' : 'Game'} · ${game.tableSize} players${game.place ? ` · ${game.place}${game.place === 1 ? 'st' : game.place === 2 ? 'nd' : game.place === 3 ? 'rd' : 'th'}` : ''}</strong><br><small>${new Date(game.savedAt).toLocaleDateString()}${game.commanderName ? ` · ${escapeHtml(game.commanderName)}` : ''}${game.outcomeDescription ? ` · ${escapeHtml(game.outcomeDescription)}` : ''}</small><br><button type="button" class="text-action" data-remove-game="${escapeHtml(game.gameId)}">Remove</button></li>`).join('') || '<li>No saved games yet.</li>'}</ul></section>`; myGamesContent.hidden = false;
@@ -596,14 +718,14 @@ async function showMyGames() {
     const profileSections = [...myGamesContent.querySelectorAll(':scope > section')];
     const profileSettings = [accountPreferredNameField, accountDefaultPlayerCountField, accountDefaultRoundLimitField, accountInterfaceStyleField, accountPersonalSkinField, accountUsePersonalSkinField, saveAccountPreferencesButton, exportAccountButton, deleteAccountButton, signOutButton];
     const overviewProfileFields = [];
-    profileSettings.forEach(item => { item.hidden = true; }); overviewProfileFields.forEach(item => { item.hidden = false; });
+    profileSettings.forEach(item => { item.hidden = true; }); accountSkinRewards.hidden = true; overviewProfileFields.forEach(item => { item.hidden = false; });
     profileSections.forEach((section, index) => { section.dataset.profilePanel = String(index); section.hidden = index !== 0; });
     const deckStatsIndex = profileSections.findIndex(section => section.querySelector('h3')?.textContent === 'Deck statistics');
     const gameHistoryIndex = profileSections.findIndex(section => section.querySelector('h3')?.textContent === 'Game history');
     const profileTabs = [{ label: 'Overview', panel: 0 }, { label: 'Achievements', panel: 1 }, ...(deckStatsIndex >= 0 ? [{ label: 'Deck stats', panel: deckStatsIndex }] : []), ...(gameHistoryIndex >= 0 ? [{ label: 'Games', panel: gameHistoryIndex }] : []), { label: 'Settings', panel: 'settings' }];
     myGamesContent.insertAdjacentHTML('afterbegin', `<nav class="profile-tabs" aria-label="Profile sections">${profileTabs.map((tab, index) => `<button type="button" data-profile-tab="${tab.panel}"${index ? '' : ' aria-current="page"'}>${tab.label}</button>`).join('')}</nav>`);
     profileSections[1]?.querySelector('h3')?.replaceChildren('Achievements');
-    myGamesContent.querySelectorAll('[data-profile-tab]').forEach(button => button.addEventListener('click', () => { const active = button.dataset.profileTab; profileSections.forEach((section, index) => { section.hidden = String(index) !== active; }); overviewProfileFields.forEach(item => { item.hidden = active !== '0'; }); profileSettings.forEach(item => { item.hidden = active !== 'settings'; }); myGamesContent.querySelectorAll('[data-profile-tab]').forEach(tab => tab.toggleAttribute('aria-current', tab === button)); }));
+    myGamesContent.querySelectorAll('[data-profile-tab]').forEach(button => button.addEventListener('click', () => { const active = button.dataset.profileTab; profileSections.forEach((section, index) => { section.hidden = String(index) !== active; }); overviewProfileFields.forEach(item => { item.hidden = active !== '0'; }); profileSettings.forEach(item => { item.hidden = active !== 'settings'; }); accountSkinRewards.hidden = active !== 'settings' || !accountSkinChoices.length; myGamesContent.querySelectorAll('[data-profile-tab]').forEach(tab => tab.toggleAttribute('aria-current', tab === button)); }));
     myGamesContent.querySelectorAll('[data-achievement-rarity-tab]').forEach(button => button.addEventListener('click', async () => { const rarity = button.dataset.achievementRarityTab; myGamesContent.querySelectorAll('[data-achievement-rarity-panel]').forEach(panel => { panel.hidden = panel.dataset.achievementRarityPanel !== rarity; }); myGamesContent.querySelectorAll('[data-achievement-rarity-tab]').forEach(tab => tab.setAttribute('aria-selected', String(tab === button))); myGamesContent.querySelector('.achievement-folder-prompt')?.setAttribute('hidden', ''); const marker = button.querySelector('.achievement-new-mark'); if (!marker) return; marker.remove(); try { const token = await currentAccountToken(); if (!token) return; const response = await fetch('/api/account/achievements/viewed', { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ rarity }) }); if (!response.ok) throw new Error('Achievement view could not be saved.'); } catch { button.insertAdjacentHTML('beforeend', '<b class="achievement-new-mark" aria-label="New achievements">New</b>'); } }));
     $('#gameHistorySearch')?.addEventListener('input', event => { const query = event.currentTarget.value.trim().toLowerCase(); $$('#gameHistoryList [data-history-game]').forEach(item => { item.hidden = Boolean(query) && !item.textContent.toLowerCase().includes(query); }); });
   } catch (error) { myGamesStatus.textContent = error?.message || 'Your games are not available yet.'; myGamesSignInButton.hidden = false; }
@@ -667,12 +789,20 @@ async function deleteAccountData() {
   if (!response.ok) throw new Error('Your account data could not be deleted.');
   exportAccountButton.hidden = true; deleteAccountButton.hidden = true; myGamesContent.hidden = true; myGamesStatus.textContent = 'Your saved account data has been deleted.';
 }
+function clearAccountAppearance() {
+  accountPreferences = null;
+  accountSkinChoices = [];
+  renderProfileSkinChoices();
+  renderDeviceAppearanceChoice();
+  void applySelectedAppearance();
+}
 async function signOut() {
   signOutButton.disabled = true;
   resetAwardProfile();
   try {
     await signOutAccount();
     selectedDeckId = ''; setupDecks = []; savedDecks = [];
+    clearAccountAppearance();
     enterApp(false);
     if (myGamesDialog.open) myGamesDialog.close(); if (myDecksDialog.open) myDecksDialog.close();
   } catch (error) {
@@ -680,7 +810,7 @@ async function signOut() {
   } finally { signOutButton.disabled = false; }
 }
 function enterApp(signedIn = false) { accountChoice.hidden = true; playActions.hidden = false; myGamesButton.setAttribute('aria-disabled', String(!signedIn)); myDecksButton.setAttribute('aria-disabled', String(!signedIn)); accountSignedInStatus.hidden = !signedIn; renderSavedTables(); }
-function openSignIn({ returnToJoin = false } = {}) { pendingSignInReturn = returnToJoin ? { view: 'join', code: $('#podCode').value.trim().toUpperCase(), step: joinStep } : null; myGamesDialog.querySelector('#myGamesTitle').textContent = 'Sign in'; myGamesStatus.textContent = 'Save your profile, games, and decks. Guest play is always available.'; myGamesContent.hidden = true; accountPreferredNameField.hidden = true; accountDefaultPlayerCountField.hidden = true; accountDefaultRoundLimitField.hidden = true; accountPersonalSkinField.hidden = true; accountUsePersonalSkinField.hidden = true; emailSignInFields.hidden = true; accountPassword.value = ''; myGamesSignInButton.hidden = false; emailSignInButton.hidden = false; emailSignInButton.textContent = 'Use email'; emailSignInButton.classList.replace('primary-action', 'secondary-action'); myGamesSignInButton.classList.replace('secondary-action', 'primary-action'); forgotPasswordButton.hidden = true; createAccountButton.hidden = true; saveAccountPreferencesButton.hidden = true; exportAccountButton.hidden = true; deleteAccountButton.hidden = true; signOutButton.hidden = true; myGamesDialog.showModal(); }
+function openSignIn({ returnToJoin = false } = {}) { pendingSignInReturn = returnToJoin ? { view: 'join', code: $('#podCode').value.trim().toUpperCase(), step: joinStep } : null; myGamesDialog.querySelector('#myGamesTitle').textContent = 'Sign in'; myGamesStatus.textContent = 'Save your profile, games, and decks. Guest play is always available.'; myGamesContent.hidden = true; accountPreferredNameField.hidden = true; accountDefaultPlayerCountField.hidden = true; accountDefaultRoundLimitField.hidden = true; accountPersonalSkinField.hidden = true; accountUsePersonalSkinField.hidden = true; accountSkinRewards.hidden = true; emailSignInFields.hidden = true; accountPassword.value = ''; myGamesSignInButton.hidden = false; emailSignInButton.hidden = false; emailSignInButton.textContent = 'Use email'; emailSignInButton.classList.replace('primary-action', 'secondary-action'); myGamesSignInButton.classList.replace('secondary-action', 'primary-action'); forgotPasswordButton.hidden = true; createAccountButton.hidden = true; saveAccountPreferencesButton.hidden = true; exportAccountButton.hidden = true; deleteAccountButton.hidden = true; signOutButton.hidden = true; myGamesDialog.showModal(); }
 let emailSignInInFlight = false;
 async function signInWithEmailPassword() {
   if (emailSignInInFlight) return;
@@ -773,6 +903,7 @@ async function saveGameToHistory({ automatic = false, gameKey = victoryKey(state
     if (!automatic && dom.victoryDialog.open) showPersonalMatchMoment(saved.moment);
     const { unlockedAchievements = [] } = saved;
     if (unlockedAchievements.length) {
+      if (unlockedAchievements.some(award => award.id.startsWith('appearance-'))) void refreshAccountSkinChoices(token, profileEpoch);
       unlockedAchievementsByGame.set(gameKey, unlockedAchievements);
       if (dismissedVictoryKeys.has(gameKey) && !dom.victoryDialog.open) showAchievementUnlocks(gameKey);
     }
@@ -946,7 +1077,7 @@ function renderCommanderNameFields(container, count, names = [], identities = []
 function selectedCommanderCount(formName) { return Number($(`input[name="${formName}"]:checked`)?.value || 1); }
 function refreshSetupCommanderNames() { renderCommanderNameFields(dom.createCommanderNames, selectedCommanderCount('commanderCount')); renderCommanderNameFields(dom.joinCommanderNames, selectedCommanderCount('joinCommanderCount')); }
 function showTableView() { showView(tableViewForState()); }
-function beginLocalGame(config) { transport.useLocal(); state = { ...createState(config), localDemoLastInteractionAt: Date.now() }; showTableView(); render(); }
+function beginLocalGame(config) { transport.useLocal(); state = { ...createState(config), localDemoLastInteractionAt: Date.now() }; showTableView(); render(); void applySelectedAppearance(); }
 function clearDeepJoinCode() {
   const url = new URL(location.href);
   if (!url.searchParams.has('join')) return;
@@ -1154,7 +1285,15 @@ function render() {
   const tableHost = state.localSimulation || transport.seatId === state.hostSeatId;
   const developerMenuVisible = developerMode && developerHost();
   dom.tableSkinMenuField.hidden = !tableHost;
-  if (tableHost) { dom.tableSkinMenu.innerHTML = `<option value="">Standard appearance</option>${publishedSkins.map(skin => `<option value="${escapeHtml(skin.id)}">${escapeHtml(skin.name)}</option>`).join('')}`; dom.tableSkinMenu.value = state.tableSkinId || ''; dom.tableSkinMenu.disabled = !state.localSimulation && transport.status !== 'connected'; }
+  if (tableHost) {
+    const choices = [...publishedSkins, ...unlockedSkinChoices()];
+    if (state.earnedTableSkinName && !choices.some(skin => skin.id === state.tableSkinId)) {
+      choices.push({ id: state.tableSkinId, name: state.earnedTableSkinName });
+    }
+    dom.tableSkinMenu.innerHTML = tableSkinOptions(choices);
+    dom.tableSkinMenu.value = state.tableSkinId || '';
+    dom.tableSkinMenu.disabled = !state.localSimulation && transport.status !== 'connected';
+  }
   renderDeviceAppearanceChoice();
   renderLifeChange(player);
   dom.activeSeatBar.hidden = !state.localSimulation; $('#resetButton').hidden = !state.localSimulation && transport.seatId !== state.hostSeatId;
@@ -1877,7 +2016,8 @@ $('#createForm').addEventListener('submit', async event => {
   if (dom.localSimulation.checked) return beginLocalGame({ ...config, localSimulation: true, podCode: 'LOCAL' });
   let result;
   try {
-    result = await transport.createRoom({ playerCount, seatCapacity, startingLife: config.startingLife, gameFormat, commanderCount: ownerCommanderCount, commanderNames: ownerCommanderNames, commanderColors: ownerCommanderColors, name: ownerName, roundLimitMinutes, tableSkinId });
+    const accountToken = await accountTokenForSkin(tableSkinId);
+    result = await transport.createRoom({ accountToken, playerCount, seatCapacity, startingLife: config.startingLife, gameFormat, commanderCount: ownerCommanderCount, commanderNames: ownerCommanderNames, commanderColors: ownerCommanderColors, name: ownerName, roundLimitMinutes, tableSkinId });
   } catch (error) {
     showError(error);
     return;
@@ -1969,7 +2109,29 @@ forgotPasswordButton.addEventListener('click', async () => { if (!accountEmail.v
 createAccountButton.addEventListener('click', async () => { try { await finishAccountSignIn(await emailAccountToken(accountEmail.value, accountPassword.value, true)); } catch (error) { myGamesStatus.textContent = error?.message || 'Account creation did not work.'; } });
 myDecksButton.addEventListener('click', () => { if (myDecksButton.getAttribute('aria-disabled') === 'true') return openSignIn(); myDecksDialog.showModal(); showMyDecks(); });
 myDecksSignInButton.addEventListener('click', () => showMyDecks(true)); saveAccountPreferencesButton.addEventListener('click', () => void saveAccountPreferences());
-dom.tableSkinMenu.addEventListener('change', async () => { if (!state || (!state.localSimulation && transport.seatId !== state.hostSeatId)) return; const tableSkinId = dom.tableSkinMenu.value; try { if (state.localSimulation) { state.tableSkinId = tableSkinId; activeGameSkinId = ''; await applySelectedAppearance(); render(); } else await transport.setTableSkin(tableSkinId); } catch (error) { showError(error); render(); } });
+async function accountTokenForSkin(id) {
+  if (!unlockedSkinChoices().some(skin => skin.id === id)) return null;
+  const token = await currentAccountToken();
+  if (!token) throw new Error('Sign in to share an achievement skin.');
+  return token;
+}
+dom.tableSkinMenu.addEventListener('change', async () => {
+  if (!state || (!state.localSimulation && transport.seatId !== state.hostSeatId)) return;
+  const table = state.podCode;
+  const tableSkinId = dom.tableSkinMenu.value;
+  try {
+    if (state.localSimulation) {
+      state.tableSkinId = tableSkinId;
+      activeGameSkinId = '';
+      await applySelectedAppearance();
+      render();
+    } else {
+      const token = await accountTokenForSkin(tableSkinId);
+      if (state?.podCode !== table || transport.seatId !== state.hostSeatId) return;
+      await transport.setTableSkin(tableSkinId, token);
+    }
+  } catch (error) { showError(error); render(); }
+});
 dom.deviceAppearanceChoice.addEventListener('change', () => { setDeviceAppearanceChoice(dom.deviceAppearanceChoice.value); activeGameSkinId = ''; void applySelectedAppearance(); });
 createDeckButton.addEventListener('click', createDeck); findDeckColorsButton.addEventListener('click', () => void confirmDeckCommanderColors()); [deckCommanderName, deckCommanderNameTwo].forEach(input => input.addEventListener('change', () => { deckCommanderColors = []; void confirmDeckCommanderColors(); })); signOutButton.addEventListener('click', () => void signOut());
 myGamesContent.addEventListener('click', event => { const id = event.target.closest('[data-remove-game]')?.dataset.removeGame; if (id) void removeAccountItem('games', id); }); myDecksContent.addEventListener('click', event => { const editId = event.target.closest('[data-edit-deck]')?.dataset.editDeck; const removeId = event.target.closest('[data-remove-deck]')?.dataset.removeDeck; const favoriteId = event.target.closest('[data-toggle-favorite]')?.dataset.toggleFavorite; const archiveId = event.target.closest('[data-toggle-archive]')?.dataset.toggleArchive; const exportId = event.target.closest('[data-export-deck]')?.dataset.exportDeck; if (editId) beginDeckEdit(editId); else if (removeId) void removeAccountItem('decks', removeId); else if (favoriteId) { const label = event.target.textContent === 'Favorite'; void updateSavedDeck(favoriteId, { favorite: label }).catch(error => { myDecksStatus.textContent = error.message; }); } else if (archiveId) { const label = event.target.textContent === 'Archive'; void updateSavedDeck(archiveId, { archived: label }).catch(error => { myDecksStatus.textContent = error.message; }); } else if (exportId) void exportDeckSummary(exportId).catch(error => { myDecksStatus.textContent = error.message; }); });

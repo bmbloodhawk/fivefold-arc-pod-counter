@@ -15,11 +15,11 @@ export class RealtimeAdapter extends EventTarget {
     this.status = 'local'; this.localMode = true; this.stopped = false; this.sessionEpoch = 0;
   }
 
-  async createRoom({ playerCount, seatCapacity = playerCount, startingLife, gameFormat = 'commander', commanderCount = 1, commanderNames = Array.from({ length: commanderCount }, () => ''), commanderColors = Array.from({ length: commanderCount }, () => []), name = 'P1', roundLimitMinutes = null, tableSkinId = null }) {
+  async createRoom({ playerCount, seatCapacity = playerCount, startingLife, gameFormat = 'commander', commanderCount = 1, commanderNames = Array.from({ length: commanderCount }, () => ''), commanderColors = Array.from({ length: commanderCount }, () => []), name = 'P1', roundLimitMinutes = null, tableSkinId = null, accountToken = null }) {
     const epoch = this.#beginSession();
     try {
       if (!await this.#startConnection(epoch)) return { ignored: true };
-      const result = await this.#request('/api/rooms', { method: 'POST', authenticated: true, body: { playerCount, seatCapacity, startingLife, gameFormat, commanderCount, commanderNames, commanderColors, name, ...(roundLimitMinutes ? { roundLimitMinutes } : {}), ...(tableSkinId ? { tableSkinId } : {}) } });
+      const result = await this.#request('/api/rooms', { method: 'POST', authenticated: true, accountToken, body: { playerCount, seatCapacity, startingLife, gameFormat, commanderCount, commanderNames, commanderColors, name, ...(roundLimitMinutes ? { roundLimitMinutes } : {}), ...(tableSkinId ? { tableSkinId } : {}) } });
       if (!this.#isCurrentSession(epoch)) return { ignored: true };
       this.#adoptSeat(result.snapshot.code, result.seatId, result.reclaimToken, result.snapshot, epoch);
       if (result.hostRecoveryKey) { try { localStorage.setItem(this.#recoveryKey(result.snapshot.code), result.hostRecoveryKey); } catch { /* storage optional */ } }
@@ -203,7 +203,13 @@ export class RealtimeAdapter extends EventTarget {
   async setTurnTracking(enabled) { return this.#hostGameRequest('/turn-tracking', { enabled }); }
   async setTurnCues(cueMode) { return this.#hostGameRequest('/turn-cues', { cueMode }); }
   async setSessionKind(sessionKind) { return this.#hostGameRequest('/session-kind', { sessionKind }); }
-  async setTableSkin(tableSkinId) { return this.#hostGameRequest('/table-skin', { tableSkinId: tableSkinId || null }); }
+  async setTableSkin(tableSkinId, accountToken = null) {
+    return this.#hostGameRequest('/table-skin', { tableSkinId: tableSkinId || null }, accountToken);
+  }
+  async sharedAchievementSkin() {
+    const { skin } = await this.#request('/api/rooms/' + this.roomCode + '/table-skin', { authenticated: true });
+    return skin;
+  }
   async setTurnPaused(paused) { return this.#hostGameRequest('/turn-pause', { paused }); }
 
   async declareWinner(winnerSeatId, declarationDetail = '', winCondition = 'other_declared') {
@@ -258,12 +264,12 @@ export class RealtimeAdapter extends EventTarget {
 
   async startGame() { return this.#hostGameRequest('/start-game'); }
 
-  async #hostGameRequest(path, extra = {}) {
+  async #hostGameRequest(path, extra = {}, accountToken = null) {
     if (this.localMode) return { local: true };
     if (this.status !== 'connected' || !this.snapshot) return { blocked: true };
     const epoch = this.sessionEpoch;
     try {
-      const result = await this.#request(`/api/rooms/${this.roomCode}${path}`, { method: 'POST', authenticated: true, body: { baseVersion: this.snapshot.version, ...extra } });
+      const result = await this.#request(`/api/rooms/${this.roomCode}${path}`, { method: 'POST', authenticated: true, accountToken, body: { baseVersion: this.snapshot.version, ...extra } });
       if (!this.#isCurrentSession(epoch)) return { ignored: true };
       this.#acceptSnapshot(result.snapshot, epoch); return result;
     } catch (error) { if (!this.#isCurrentSession(epoch)) return { ignored: true }; return this.#handleConflict(error, epoch); }
@@ -458,10 +464,11 @@ export class RealtimeAdapter extends EventTarget {
 
   #isCurrentSession(epoch) { return epoch === this.sessionEpoch && !this.stopped; }
 
-  async #request(path, { method = 'GET', authenticated = false, body } = {}) {
+  async #request(path, { method = 'GET', authenticated = false, accountToken = null, body } = {}) {
     const headers = {};
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (authenticated && this.connectionId) headers['X-Connection-Id'] = this.connectionId;
+    if (accountToken) headers.Authorization = 'Bearer ' + accountToken;
     let response;
     try { response = await fetch(`${this.apiBase}${path}`, { method, headers, cache: 'no-store', ...(body !== undefined ? { body: JSON.stringify(body) } : {}) }); }
     catch (cause) { const error = new Error('The pod server could not be reached.'); error.cause = cause; throw error; }

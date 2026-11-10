@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { chooseMatchMoment, RECENT_ACCOLADE_LIMIT } from "./match-moments.js";
+import { APPEARANCE_ACHIEVEMENTS, nextAppearanceAchievement } from "./appearance-milestones.js";
 
 const accountPath = (accountId) => `account-history/accounts/${encodeURIComponent(accountId)}.json`;
 const gamesPath = (accountId) => `account-history/games/${encodeURIComponent(accountId)}.json`;
@@ -222,7 +223,8 @@ const achievementsFor = ({ games, bestWinStreak, monthCount, playedColors, longT
   ];
   const legacy = definitions.filter(([id, , , reached]) => storedLegacyIds ? storedLegacyIds.has(id) : reached).map(([id, title, detail]) => ({ id, title, detail, rarity: achievementRarity(id) }));
   const longTerm = longTermDefinitions().filter(item => longTermAchievementIds.includes(item.id)).map(item => ({ id: item.id, title: item.title, detail: item.detail, rarity: longTermRarity(item.tier) }));
-  return [...legacy, ...longTerm];
+  const appearance = Object.values(APPEARANCE_ACHIEVEMENTS).filter(item => storedLegacyIds?.has(item.id));
+  return [...legacy, ...longTerm, ...appearance];
 };
 
 function legacyDeckColors(games, decks) {
@@ -291,6 +293,16 @@ export class MemoryAccountHistoryStore {
 
 // This works with the existing server-only Firebase client, whose read/write
 // methods use service-account credentials and never expose them to a phone.
+export function accountHistoryStoreForEnvironment(store, appEnv) {
+  if (appEnv !== "staging") return store;
+  // Staging can use the existing Firebase connection without sharing profile data.
+  return {
+    read: path => store.read("staging/" + path),
+    write: (path, value) => store.write("staging/" + path, value),
+    update: (path, change) => store.update("staging/" + path, change),
+  };
+}
+
 export class AccountHistory {
   constructor({ store, now = () => Date.now(), createId = () => randomUUID() } = {}) {
     if (!store?.read || !store?.write || !store?.update) throw new TypeError("Account history requires storage with conditional updates");
@@ -316,6 +328,24 @@ export class AccountHistory {
     return { accountId, grants, achievementIds: history.achievements.map(item => item.id) };
   }
 
+  async earnedSkinAwards(accountId, achievementIds) {
+    const [account, progress] = await Promise.all([
+      this.store.read(accountPath(accountId)), this.store.read(progressPath(accountId)),
+    ]);
+    if (!account || progress?.closed) return {};
+    const seen = new Set(Array.isArray(account.seenAchievementIds) ? account.seenAchievementIds : []);
+    // The verified reward ledger and older persisted long-term awards survive
+    // reconnects and game removal. A client preference never grants a skin.
+    const olderEarned = new Set(longTermIds(account));
+    const isRecorded = id => {
+      const award = progress?.awards?.[id];
+      return olderEarned.has(id) || award?.historical === true || award?.evidenceRemoved === true
+        || (typeof award?.gameId === "string" && award.gameId.length > 0
+          && Number.isFinite(award.earnedAt) && Number.isInteger(award.ruleVersion) && award.ruleVersion > 0);
+    };
+    return Object.fromEntries(achievementIds.filter(isRecorded).map(id => [id, seen.has(id) ? "unlocked" : "new"]));
+  }
+
   async grantSkin(accountId, skinId, source = 'grant') {
     if (!/^acct_[A-Za-z0-9-]{1,120}$/.test(accountId || '') || !/^[A-Za-z0-9_-]{1,80}$/.test(skinId || '') || !['grant', 'achievement', 'payment'].includes(source)) throw new TypeError('Skin grant is invalid');
     const account = await this.store.read(accountPath(accountId)); if (!account) throw new TypeError('Account is invalid');
@@ -325,7 +355,7 @@ export class AccountHistory {
   }
 
   // Only the room service constructs a completed seat for this method.
-  async saveCompletedGame(accountId, completion, deckId = null) {
+  async saveCompletedGame(accountId, completion, deckId = null, appearanceAchievementIds = []) {
     if (completion.sessionKind !== "standard") {
       throw Object.assign(new Error("Practice games do not count toward profile achievements"), { status: 409, code: "PRACTICE_GAME" });
     }
@@ -372,7 +402,8 @@ export class AccountHistory {
         return current;
       }
 
-      const beforeGames = [...legacyGames, ...Object.values(progress.games || {})];
+      const verifiedGames = Object.values(progress.games || {});
+      const beforeGames = [...legacyGames, ...verifiedGames];
       const tableGameNumber = 1 + beforeGames.filter(game => game.tableRef === tableRef).length;
       const moments = completion.moments.filter(item => {
         if (item.id === "table-trilogy") return tableGameNumber === 3;
@@ -406,6 +437,15 @@ export class AccountHistory {
         const { id, title, detail, tier, target, measured } = next;
         awards[id] = { ...evidence, target, measured };
         unlockedAchievements.push({ id, title, detail, rarity: longTermRarity(tier) });
+      }
+      if (appearanceAchievementIds.length && game.gameFormat === "commander") {
+        const commanderGames = [...verifiedGames, game]
+          .filter(item => item.completionVerified === true && item.gameFormat === "commander");
+        const appearance = nextAppearanceAchievement(longTermContext(commanderGames), appearanceAchievementIds, awards);
+        if (appearance) {
+          awards[appearance.id] = evidence;
+          unlockedAchievements.push(appearance);
+        }
       }
       result = { game, moment, unlockedAchievements };
       return { ...progress, awards, games: { ...progress.games, [key]: game }, seats: { ...progress.seats, [key]: seatKey } };

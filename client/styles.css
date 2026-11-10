@@ -1495,3 +1495,10 @@ dialog:not(#victoryDialog) { max-height:calc(100dvh - 24px); overflow-y:auto; ov
 .join-qr-scanner-guide { position: absolute; inset: 17%; border: 2px solid rgb(241 234 219 / .9); border-radius: 8px; box-shadow: 0 0 0 999px rgb(0 0 0 / .18); pointer-events: none; }
 .join-qr-camera-fallback { display: block; box-sizing: border-box; text-align: center; }
 .join-qr-camera-fallback input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+
+.account-skin-rewards { margin: 12px 0; }
+.account-skin-rewards h3 { margin: 0 0 6px; font-size: .95rem; }
+.account-skin-rewards ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.account-skin-rewards li { padding: 8px; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface-2); }
+.account-skin-rewards li span { color: var(--brass); font-size: .75rem; font-weight: 800; margin-inline-start: 4px; }
+.account-skin-rewards li small { display: block; margin-top: 3px; color: var(--muted); }

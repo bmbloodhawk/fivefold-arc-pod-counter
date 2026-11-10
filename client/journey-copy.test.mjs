@@ -428,7 +428,7 @@ test('each player can choose a local appearance without changing the shared tabl
   assert.match(html, /id="deviceAppearanceField"[^>]*hidden/);
   assert.match(html, /id="deviceAppearanceChoice"/);
   assert.match(app, /DEVICE_APPEARANCE_KEY = 'fivefold-arc:device-appearance'/);
-  assert.match(app, /Table appearance —/);
+  assert.match(app, /Use table appearance/);
   assert.match(html, /Only this device\. It never changes the table or anyone else’s screen\./);
   assert.match(app, /setDeviceAppearanceChoice\(dom\.deviceAppearanceChoice\.value\)/);
 });
@@ -637,7 +637,7 @@ test('a saved account session restores before the app offers guest play again', 
   assert.match(accountAuth, /export async function restoredAccountToken\(\)[\s\S]*onAuthStateChanged/);
   assert.match(app, /async function restoreSavedAccountSession\(\) \{[\s\S]*const token = await restoredAccountToken\(\);[\s\S]*if \(!token\) return;[\s\S]*enterApp\(true\);/);
   assert.match(app, /if \(!appearancePreviewMode\) void restoreSavedAccountSession\(\);/);
-  assert.match(app, /if \(!token\) return;\s*enterApp\(true\);\s*const response = await fetch\('\/api\/account\/preferences'/);
+  assert.match(app, /if \(!token\) return;\s*if \(profileEpoch !== awardProfileEpoch\) return;\s*enterApp\(true\);\s*const response = await fetch\('\/api\/account\/preferences'/);
 });
 
 test('a completed account sign-in goes directly to the pod choice without loading the profile', () => {
