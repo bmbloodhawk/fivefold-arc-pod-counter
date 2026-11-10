@@ -229,6 +229,15 @@ test('saved tables and QR links return players to a pod without sharing seat cre
   assert.doesNotMatch(html, /reclaimToken/);
 });
 
+test('the shared home table list offers a confirmed device-only clear', () => {
+  const savedTablesSection = html.match(/<section id="savedTables"[\s\S]*?<\/section>/)?.[0];
+  assert.match(savedTablesSection, /id="clearPastTablesButton"[^>]*>Clear past tables/);
+  const dialog = html.match(/<dialog id="clearPastTablesDialog"[\s\S]*?<\/dialog>/)?.[0];
+  assert.match(dialog, /this device/);
+  assert.match(dialog, /value="cancel"[^>]*autofocus>Cancel/);
+  assert.match(dialog, /value="confirm"[^>]*>Clear list/);
+});
+
 test('the local four-player demo expires after a generous idle period instead of restoring stale timers', () => {
   assert.match(app, /const LOCAL_DEMO_IDLE_TIMEOUT_MS = 24 \* 60 \* 60 \* 1000;/);
   assert.match(app, /Date\.now\(\) - lastInteractionAt > LOCAL_DEMO_IDLE_TIMEOUT_MS/);
@@ -546,7 +555,7 @@ test('developer insights distinguish automatic qualified games from host-reporte
 test('host recovery finds the most recent saved host pod on this phone without asking for its code', () => {
   assert.match(html, /No pod code needed\./);
   assert.match(html, /id="recoverPodButton"[^>]*>Recover my host pod/);
-  assert.match(app, /function latestRecoverableHostPodCode\(\)/);
+  assert.match(app, /function latestRecoverableHostTable\(\)/);
   assert.match(app, /transport\.hostRecoveryPodCodes\(\)/);
   assert.match(app, /This phone does not have a saved host pod to recover\./);
   assert.doesNotMatch(app, /Enter the six-character pod code first\./);

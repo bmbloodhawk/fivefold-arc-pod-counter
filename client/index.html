@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Pod Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=239">
+  <link rel="stylesheet" href="styles.css?v=240">
 </head>
 <body>
   <header class="brand-bar">
@@ -38,8 +38,11 @@
         </div>
         <button id="quickTestButton" class="text-action" type="button" hidden>Try a 4-player local table</button>
         <section id="savedTables" class="saved-tables" hidden aria-labelledby="savedTablesTitle">
-          <h2 id="savedTablesTitle">Your tables</h2>
-          <p>Return to a table from this phone. Your seat still requires this phone’s saved reclaim credential.</p>
+          <div class="saved-tables-header">
+            <h2 id="savedTablesTitle" tabindex="-1">Your tables</h2>
+            <button id="clearPastTablesButton" class="text-action" type="button">Clear past tables</button>
+          </div>
+          <p id="savedTablesMessage" role="status">Return to a saved seat on this device.</p>
           <div id="savedTablesList" class="saved-tables-list"></div>
         </section>
         <details class="privacy-note">
@@ -555,6 +558,18 @@
     </form>
   </dialog>
 
+  <dialog id="clearPastTablesDialog" class="confirm-dialog" aria-labelledby="clearPastTablesTitle" aria-describedby="clearPastTablesDetail">
+    <form method="dialog">
+      <h2 id="clearPastTablesTitle">Clear past tables?</h2>
+      <p id="clearPastTablesDetail">This clears the saved table list on this device. You can still rejoin with a pod code or invite link.</p>
+      <p id="clearPastTablesError" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button class="secondary-action" type="submit" value="cancel" autofocus>Cancel</button>
+        <button class="danger-action" type="submit" value="confirm">Clear list</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="leaveTableDialog">
     <form method="dialog">
       <div class="dialog-mark" aria-hidden="true">←</div>
@@ -706,6 +721,6 @@
   <dialog id="myDecksDialog" aria-labelledby="myDecksTitle"><form method="dialog"><h2 id="myDecksTitle">My decks</h2><p id="myDecksStatus">Sign in to keep private deck notes.</p><section id="deckEditor" aria-labelledby="deckEditorTitle"><h3 id="deckEditorTitle">Add a deck</h3><fieldset class="choice-field"><legend>Commanders</legend><div class="segmented commander-count-choice"><label><input type="radio" name="deckCommanderCount" value="1" checked><span>1 commander</span></label><label><input type="radio" name="deckCommanderCount" value="2"><span>2 commanders</span></label></div></fieldset><label class="select-field">Commander 1<input id="deckCommanderName" maxlength="120" autocomplete="off" placeholder="e.g. Atraxa, Praetors’ Voice"></label><label id="deckCommanderNameTwoField" class="select-field" hidden>Commander 2<input id="deckCommanderNameTwo" maxlength="120" autocomplete="off" placeholder="e.g. Tymna the Weaver"></label><button id="findDeckColorsButton" type="button" class="secondary-action">Find commander colors</button><small id="deckCommanderStatus" class="commander-lookup-status" aria-live="polite">We’ll also check the commander colors when you save.</small><fieldset class="choice-field"><legend>Deck colors <small>(checked from your commander when found)</small></legend><label><input name="deckColors" type="checkbox" value="W"> White</label><label><input name="deckColors" type="checkbox" value="U"> Blue</label><label><input name="deckColors" type="checkbox" value="B"> Black</label><label><input name="deckColors" type="checkbox" value="R"> Red</label><label><input name="deckColors" type="checkbox" value="G"> Green</label></fieldset><label class="select-field">Deck name <small>(optional)</small><input id="deckName" maxlength="120" autocomplete="off" placeholder="e.g. Poison counters"></label><label class="select-field">Private notes <small>(optional)</small><textarea id="deckNotes" maxlength="500" placeholder="A reminder for yourself"></textarea></label><label class="select-field"><input id="deckFavorite" type="checkbox"> Favorite this deck</label><div class="dialog-actions"><button id="myDecksSignInButton" type="button" class="secondary-action">Sign in with Google</button><button id="createDeckButton" type="button" class="primary-action">Save deck</button><button value="close" class="secondary-action">Close</button></div></section><section id="savedDeckList" aria-labelledby="savedDeckListTitle"><h3 id="savedDeckListTitle">Saved decks</h3><div id="myDecksContent" hidden></div></section></form></dialog>
 
   <script src="vendor/jsqr.js?v=1"></script>
-  <script type="module" src="app.js?v=282"></script>
+  <script type="module" src="app.js?v=283"></script>
 </body>
 </html>

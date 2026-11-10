@@ -111,6 +111,9 @@ const accountInterfaceStyleField = $('#accountInterfaceStyleField'); const accou
 let state = null;
 let developerMode = sessionStorage.getItem(DEVELOPER_MODE_KEY) === 'on';
 const SAVED_TABLES_KEY = 'fivefold-arc:saved-tables';
+const clearPastTablesButton = $('#clearPastTablesButton');
+const clearPastTablesDialog = $('#clearPastTablesDialog');
+const clearPastTablesError = $('#clearPastTablesError');
 let lifeChange = null;
 let lifeChangeTimer = null;
 let coinTossNotice = null;
@@ -645,11 +648,11 @@ function saveTable() {
   const entry = { code: state.podCode, seatId: transport.seatId, name: displayName(state.players.find(player => player.id === state.ownerPlayerId)), isHost: transport.seatId === state.hostSeatId, lastUsedAt: Date.now() };
   try { localStorage.setItem(SAVED_TABLES_KEY, JSON.stringify([entry, ...savedTables().filter(table => table.code !== entry.code || table.seatId !== entry.seatId)].slice(0, 8))); } catch { /* Storage is optional; reclaim remains available when the browser can retain it. */ }
 }
-function latestRecoverableHostPodCode() {
+function latestRecoverableHostTable() {
   const recoverableCodes = new Set(transport.hostRecoveryPodCodes());
   return savedTables()
     .filter(table => table.isHost && recoverableCodes.has(table.code))
-    .sort((left, right) => Number(right.lastUsedAt || 0) - Number(left.lastUsedAt || 0))[0]?.code || '';
+    .sort((left, right) => Number(right.lastUsedAt || 0) - Number(left.lastUsedAt || 0))[0];
 }
 function resetAwardProfile() {
   awardProfileEpoch += 1;
@@ -718,11 +721,35 @@ async function saveGameToHistory({ automatic = false, gameKey = victoryKey(state
     if (awardProfileEpoch === profileEpoch && savingGameKey === gameKey) savingGameKey = null;
   }
 }
-function renderSavedTables() {
-  const tables = savedTables();
-  dom.savedTables.hidden = tables.length === 0;
+function renderSavedTables(cleared = false) {
+  const tables = savedTables().filter(table => !table.recoveryOnly);
+  dom.savedTables.hidden = tables.length === 0 && !cleared;
+  clearPastTablesButton.hidden = tables.length === 0;
+  $('#savedTablesMessage').textContent = cleared ? 'Past tables cleared from this device.' : 'Return to a saved seat on this device.';
   dom.savedTablesList.innerHTML = tables.map(table => `<button class="saved-table-button" type="button" data-saved-code="${escapeHtml(table.code)}"><span><strong>Pod ${escapeHtml(table.code)}</strong><br><span>${escapeHtml(table.name || `P${Number(table.seatId) + 1}`)} · ${table.isHost ? 'host' : `P${Number(table.seatId) + 1}`}</span></span><em>Return</em></button>`).join('');
   dom.savedTablesList.querySelectorAll('[data-saved-code]').forEach(button => button.addEventListener('click', () => openJoinCode(button.dataset.savedCode)));
+}
+function clearPastTables(event) {
+  if (event.submitter?.value !== 'confirm') return;
+  event.preventDefault();
+  try {
+    const host = latestRecoverableHostTable();
+    if (host) {
+      // Keep the latest host lookup for Recover my host pod.
+      localStorage.setItem(SAVED_TABLES_KEY, JSON.stringify([{
+        code: host.code, seatId: host.seatId, isHost: true, recoveryOnly: true,
+      }]));
+    } else {
+      localStorage.removeItem(SAVED_TABLES_KEY);
+    }
+  } catch {
+    clearPastTablesError.hidden = false;
+    clearPastTablesError.textContent = 'Could not clear the table list on this device. Please try again.';
+    return;
+  }
+  clearPastTablesDialog.close('confirm');
+  renderSavedTables(true);
+  $('#savedTablesTitle').focus();
 }
 async function openJoinCode(code) {
   const normalizedCode = String(code || '').toUpperCase();
@@ -1751,6 +1778,11 @@ function skipCreateCommanders() { dom.createCommanderNames.querySelectorAll('inp
 $('#createStepOneNext').addEventListener('click', () => showCreateStep(2)); $('#createStepTwoNext').addEventListener('click', () => showCreateStep(3)); $('#createStepThreeNext').addEventListener('click', () => showCreateStep(selectedGameFormat() === 'commander' ? 4 : 5)); $('#createStepFourSkip').addEventListener('click', skipCreateCommanders); $('#createStepFourNext').addEventListener('click', async () => { const { unresolved } = await confirmUnresolvedCommanderDetails(dom.createCommanderNames, selectedCommanderCount('commanderCount')); if (!unresolved.length) showCreateStep(5); }); $$('[data-create-back]').forEach(button => button.addEventListener('click', () => showCreateStep(Math.max(1, createStep - 1))));
 $('#joinStepTwoNext').addEventListener('click', () => { if (/^P[1-8]$/.test(dom.joinSeat.value)) showJoinStep(3); }); $('#joinStepThreeNext').addEventListener('click', () => showJoinStep(4)); $$('[data-join-back]').forEach(button => button.addEventListener('click', () => showJoinStep(Math.max(2, joinStep - 1))));
 signInButton.addEventListener('click', () => openSignIn());
+clearPastTablesButton.addEventListener('click', () => {
+  clearPastTablesError.hidden = true;
+  clearPastTablesDialog.showModal();
+});
+clearPastTablesDialog.querySelector('form').addEventListener('submit', clearPastTables);
 $('#createPodButton').addEventListener('click', () => showView(dom.create)); $('#joinPodButton').addEventListener('click', () => { showView(dom.join); dom.joinCodeStatus.textContent = ''; }); $('#changePodButton').addEventListener('click', () => showView(dom.join)); $$('[data-back]').forEach(button => button.addEventListener('click', () => { renderSavedTables(); showView(dom.landing); })); $('#podCode').addEventListener('input', event => { event.currentTarget.value = event.currentTarget.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); }); $('#joinSeat').addEventListener('change', () => { dom.joinName.placeholder = dom.joinSeat.value; renderJoinSeatClaim(); }); dom.joinCodeForm.addEventListener('submit', async event => { event.preventDefault(); await refreshJoinSeats(); }); dom.scanJoinQrButton.addEventListener('click', () => void openJoinQrScanner()); dom.joinQrScannerDialog.addEventListener('close', stopJoinQrScanner); $$('input[name="commanderCount"], input[name="joinCommanderCount"]').forEach(input => input.addEventListener('change', refreshSetupCommanderNames)); $$('input[name="gameFormat"]').forEach(input => input.addEventListener('change', () => { if (selectedGameFormat() === 'casual') { $('input[name="startingLife"][value="20"]').checked = true; $('input[name="playerCount"][value="2"]').checked = true; } updateFormatSetup(); }));
 dom.joinQrCameraInput.addEventListener('change', event => void readJoinQrCameraPhoto(event));
 $('#quickTestButton').addEventListener('click', () => { const saved = loadLocal(); if (saved) { transport.useLocal(); state = saved; showTableView(); render(); } else beginLocalGame({}); });
@@ -1803,7 +1835,7 @@ $('#createForm').addEventListener('submit', async event => {
   showSharedGame(result.snapshot);
 });
 $('#joinForm').addEventListener('submit', async event => { event.preventDefault(); const form = new FormData(event.currentTarget); const code = $('#podCode').value.trim().toUpperCase(); const ownerPlayerId = $('#joinSeat').value; if (!/^P[1-8]$/.test(ownerPlayerId)) return showError(new Error('Wait for this pod’s open seats to load, then choose one.')); const seatId = Number(ownerPlayerId.slice(1)) - 1; const commanderCount = Number(form.get('joinCommanderCount')); const commanderNames = commanderNamesFromForm(form, commanderCount); const commanderColors = commanderColorsFromFields(dom.joinCommanderNames, commanderCount); const ownerName = String(form.get('name') || '').trim() || ownerPlayerId; try { const room = await transport.inspectRoom(code); if (!room.snapshot.seats[seatId] || (room.snapshot.seats[seatId].claimed && !transport.hasStoredReclaimToken(code, seatId))) throw new Error('That seat is no longer open. Choose one of the available seats.'); const result = await transport.claimRoom({ code, seatId, name: ownerName, commanderCount, commanderNames, commanderColors }); showSharedGame(result.snapshot); } catch (error) { showError(error); } });
-$('#recoverPodButton').addEventListener('click', async () => { const code = latestRecoverableHostPodCode(); if (!code) return showError(new Error('This phone does not have a saved host pod to recover.')); try { const { snapshot } = await transport.restoreRoom(code); const host = snapshot.seats[snapshot.hostSeatId]; const result = await transport.claimRoom({ code, seatId: snapshot.hostSeatId, name: host.name, commanderCount: host.commanderCount, commanderNames: host.commanderNames, commanderColors: host.commanderColors }); showSharedGame(result.snapshot); } catch (error) { showError(error); } });
+$('#recoverPodButton').addEventListener('click', async () => { const code = latestRecoverableHostTable()?.code; if (!code) return showError(new Error('This phone does not have a saved host pod to recover.')); try { const { snapshot } = await transport.restoreRoom(code); const host = snapshot.seats[snapshot.hostSeatId]; const result = await transport.claimRoom({ code, seatId: snapshot.hostSeatId, name: host.name, commanderCount: host.commanderCount, commanderNames: host.commanderNames, commanderColors: host.commanderColors }); showSharedGame(result.snapshot); } catch (error) { showError(error); } });
 dom.showJoinQrButton.addEventListener('click', openJoinQr); dom.showJoinQrMenuButton.addEventListener('click', () => { dom.gameMenu.hidden = true; openJoinQr(); }); dom.showIntermissionJoinQrButton.addEventListener('click', openJoinQr);
 dom.shareJoinLinkButton.addEventListener('click', async () => { try { if (!navigator.share) throw new Error('Sharing is not available on this phone.'); await navigator.share({ title: 'Join my Fivefold Arc table', text: `Join pod ${state.podCode}`, url: joinLink() }); } catch (error) { if (error.name !== 'AbortError') showError(error); } });
 dom.copyJoinLinkButton.addEventListener('click', () => copyJoinLink(dom.copyJoinLinkButton));
