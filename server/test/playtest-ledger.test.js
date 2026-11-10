@@ -146,3 +146,32 @@ test("room diagnostics preserve the last confirmed Firebase save through a faile
   assert.deepEqual(rejoined.snapshot.seats.map(seat => [seat.connected, seat.counters.life]), [[true, 38], [true, 37]]);
   await restarted.ledger.flush();
 });
+
+test("direct Firebase account writes send valid JSON for values and null", async () => {
+  const writes = [];
+  const ledger = new FirebasePlaytestLedger({
+    databaseUrl: "https://fixture.invalid",
+    clientEmail: "fixture@example.test",
+    privateKey: "fixture-only",
+    fetchImpl: async (url, options) => {
+      const request = new Request(url, options);
+      assert.equal(request.method, "PUT");
+      assert.equal(request.headers.get("content-type"), "application/json");
+      let value;
+      try {
+        value = JSON.parse(await request.text());
+      } catch {
+        return new Response(null, { status: 400 });
+      }
+      writes.push(value);
+      return Response.json(value);
+    },
+  });
+  ledger.accessToken = async () => "fixture-token";
+
+  const path = "account-history/accounts/acct_fixture.json";
+  const profile = { accountId: "acct_fixture", createdAt: 1_800_000_000_000 };
+  await ledger.write(path, profile);
+  await ledger.write(path, null);
+  assert.deepEqual(writes, [profile, null]);
+});
