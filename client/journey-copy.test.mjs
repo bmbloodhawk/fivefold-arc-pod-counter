@@ -194,16 +194,18 @@ test('a saved active-pod seat rejoins directly without repeating identity setup'
   assert.match(app, /if \(result\?\.snapshot\) \{ showSharedGame\(result\.snapshot\); return true; \}/);
 });
 
-test('the landing page explains the privacy boundary without overclaiming record retention', () => {
-  assert.match(html, /id="signInButton"[^>]*>Sign in/);
-  assert.match(html, /id="continueGuestButton"[^>]*>Continue as guest/);
-  assert.match(html, /id="playActions"[^>]*hidden/);
+test('guest play is available on arrival and account actions start disabled', () => {
+  assert.match(html, /id="playActions" class="action-stack">/);
+  assert.match(html, /id="createPodButton" class="primary-action" type="button">Create a pod/);
   assert.match(html, /id="joinPodButton" class="primary-action" type="button">Join a pod/);
-  assert.match(html, /id="myGamesButton" class="secondary-action account-action" type="button" aria-disabled="true">My profile/);
-  assert.match(html, /id="myDecksButton" class="secondary-action account-action" type="button" aria-disabled="true"/);
+  assert.match(html, /id="myGamesButton"[^>]*\sdisabled>My profile/);
+  assert.match(html, /id="myDecksButton"[^>]*\sdisabled>My decks/);
   assert.match(html, /id="accountSignedInStatus" class="account-signed-in" hidden>Signed in/);
-  assert.match(app, /function enterApp\(signedIn = false\) \{ accountChoice\.hidden = true; playActions\.hidden = false; myGamesButton\.setAttribute\('aria-disabled', String\(!signedIn\)\); myDecksButton\.setAttribute\('aria-disabled', String\(!signedIn\)\);/);
-  assert.match(app, /myDecksButton\.getAttribute\('aria-disabled'\) === 'true'\) return openSignIn\(\)/);
+  assert.match(html, /id="joinPodButton"[\s\S]*id="signInButton"[^>]*>Sign in for profile and decks/);
+  assert.doesNotMatch(html, /Continue as guest/);
+});
+
+test('the landing page explains the privacy boundary without overclaiming record retention', () => {
   assert.doesNotMatch(html, /PHONE-FIRST PLAYTEST/);
   assert.match(html, /Test build · Guest play is always available/);
   assert.match(html, /You can optionally sign in to save your own games and decks\./);
@@ -633,16 +635,16 @@ test('email autofill remains in the dialog and can complete sign-in after Face I
   assert.match(app, /myGamesDialog\.querySelector\('button\[value="close"\]'\)\.addEventListener\('click', \(\) => myGamesDialog\.close\(\)\)/);
 });
 
-test('a saved account session restores before the app offers guest play again', () => {
+test('a saved account session enables account actions before preferences load', () => {
   assert.match(accountAuth, /export async function restoredAccountToken\(\)[\s\S]*onAuthStateChanged/);
-  assert.match(app, /async function restoreSavedAccountSession\(\) \{[\s\S]*const token = await restoredAccountToken\(\);[\s\S]*if \(!token\) return;[\s\S]*enterApp\(true\);/);
+  assert.match(app, /async function restoreSavedAccountSession\(\) \{[\s\S]*const token = await restoredAccountToken\(\);[\s\S]*if \(!token\) return;[\s\S]*renderHomeAccount\(true\);/);
   assert.match(app, /if \(!appearancePreviewMode\) void restoreSavedAccountSession\(\);/);
-  assert.match(app, /if \(!token\) return;\s*enterApp\(true\);\s*const response = await fetch\('\/api\/account\/preferences'/);
+  assert.match(app, /if \(!token\) return;\s*renderHomeAccount\(true\);\s*const response = await fetch\('\/api\/account\/preferences'/);
 });
 
 test('a completed account sign-in goes directly to the pod choice without loading the profile', () => {
   assert.match(app, /async function finishAccountSignIn\(token\)/);
-  assert.match(app, /if \(!token\) throw new Error\('Sign-in did not return an account session\.'\);\s*\/\/ A valid Firebase session[\s\S]*?enterApp\(true\);/);
+  assert.match(app, /if \(!token\) throw new Error\('Sign-in did not return an account session\.'\);[\s\S]*?renderHomeAccount\(true\);/);
   assert.match(app, /await loadSetupDecks\(\); myGamesDialog\.close\(\);/);
   assert.match(app, /else showView\(dom\.landing\);/);
   assert.match(app, /finishAccountSignIn\(await googleAccountToken\(\)\)/);
@@ -672,7 +674,7 @@ test('signing out returns the device to guest play without deleting account data
   assert.match(app, /async function signOut\(\) \{/);
   assert.match(app, /await signOutAccount\(\);/);
   assert.match(app, /selectedDeckId = ''; setupDecks = \[\]; savedDecks = \[\];/);
-  assert.match(app, /enterApp\(false\);/);
+  assert.match(app, /renderHomeAccount\(false\);/);
   assert.match(app, /signOutButton\.addEventListener\('click', \(\) => void signOut\(\)\)/);
 });
 
