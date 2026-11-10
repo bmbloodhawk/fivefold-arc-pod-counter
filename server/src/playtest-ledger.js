@@ -19,7 +19,7 @@ export class NullPlaytestLedger {
   async listRecentDiagnostics() { return []; }
   async readDiagnostics() { return null; }
   async updateFeedback() { throw new Error("Feedback storage is not configured"); }
-  async flush() { return { ok: true }; }
+  async flush() {}
 }
 
 export class MemoryPlaytestLedger {
@@ -72,7 +72,7 @@ export class MemoryPlaytestLedger {
     return diagnosticMetadata({ gameId, roomCode: recap?.roomCode || events.at(-1)?.roomCode || checkpoints[0]?.roomCode, recap: recap ? { ...recap } : null, events, checkpoints, review });
   }
   async updateFeedback(review) { this.records.push({ kind: "feedback_review", record: review }); }
-  async flush() { return { ok: true }; }
+  async flush() {}
 }
 
 // Server-only Firebase writer. The service-account key is supplied through
@@ -92,10 +92,24 @@ export class FirebasePlaytestLedger {
   record(event) { this.enqueue(`playtests/${encodeURIComponent(event.gameId)}/events/${event.sequence}.json`, event); }
   checkpoint(checkpoint) { this.enqueue(`playtests/${encodeURIComponent(checkpoint.gameId)}/checkpoints/${checkpoint.sequence}.json`, checkpoint); }
   complete(recap) { this.enqueue(`playtests/${encodeURIComponent(recap.gameId)}/recap.json`, recap); }
-  recovery(record) { this.enqueue(`recovery/${encodeURIComponent(record.roomCode)}.json`, record); }
+  recovery(record) {
+    this.enqueue(`recovery/${encodeURIComponent(record.roomCode)}.json`, { ...record, savedAt: { ".sv": "timestamp" } });
+  }
   note(note) { this.enqueue(`playtests/${encodeURIComponent(note.gameId)}/notes/${encodeURIComponent(note.noteId)}.json`, note); }
   fieldTest(record) { this.enqueue(`field-tests/${encodeURIComponent(record.gameId)}.json`, record); }
   async readRecovery(roomCode) { return this.read(`recovery/${encodeURIComponent(roomCode)}.json`); }
+  async readRecoverySave(roomCode) {
+    const record = await this.readRecovery(roomCode);
+    if (record == null) return null;
+    const version = record.room?.version;
+    if (record.schemaVersion !== 1 || record.roomCode !== roomCode || record.room?.code !== roomCode
+        || !Number.isSafeInteger(version) || version < 1) throw new Error("Invalid room recovery record");
+    const { savedAt } = record;
+    return {
+      savedVersion: version,
+      savedAt: Number.isSafeInteger(savedAt) && savedAt > 0 && savedAt <= 8.64e15 ? savedAt : null,
+    };
+  }
   async listArchive() {
     const playtests = await this.read("playtests.json") || {};
     return Object.values(playtests).map((item) => item.recap).filter(Boolean);
@@ -135,16 +149,26 @@ export class FirebasePlaytestLedger {
   async updateFeedback(review) { this.enqueue(`playtests/${encodeURIComponent(review.gameId)}/feedback/${encodeURIComponent(review.noteId)}.json`, review); await this.flush(); }
 
   enqueue(path, body) {
-    this.pending = this.pending.then(() => this.writeWithRetry(path, body)).catch((error) => this.logger.error("Fivefold Arc playtest ledger write failed", error));
+    const reportFailure = (error) => this.logger.error("Fivefold Arc playtest ledger write failed", error);
+    // Recovery records can reference live counters. Capture the bytes before the queue waits.
+    let payload;
+    try {
+      payload = JSON.stringify(body);
+    } catch (error) {
+      reportFailure(error);
+      return;
+    }
+    this.pending = this.pending.then(() => this.writeWithRetry(path, payload)).catch(reportFailure);
   }
 
-  async flush() { await this.pending; return { ok: true }; }
+  // Wait for queued attempts. Firebase supplies the timestamp on the saved room record.
+  async flush() { await this.pending; }
 
-  async writeWithRetry(path, body) {
+  async writeWithRetry(path, payload) {
     let lastError;
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
-        await this.write(path, body);
+        await this.write(path, payload);
         return;
       } catch (error) {
         lastError = error;
@@ -153,13 +177,13 @@ export class FirebasePlaytestLedger {
     throw lastError;
   }
 
-  async write(path, body) {
+  async write(path, payload) {
     if (!this.databaseUrl || !this.clientEmail || !this.privateKey) throw new Error("Firebase playtest ledger is missing server credentials");
     const token = await this.accessToken();
     const response = await this.fetch(`${this.databaseUrl}/${path}`, {
       method: "PUT",
       headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-      body: JSON.stringify(body),
+      body: payload,
     });
     if (!response.ok) throw new Error(`Firebase ledger write failed (${response.status})`);
   }

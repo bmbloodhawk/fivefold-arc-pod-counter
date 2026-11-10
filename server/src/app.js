@@ -1663,6 +1663,26 @@ export class RoomService {
     return { snapshot: this.snapshot(room) };
   }
 
+  async developerRecoverySave(roomCode) {
+    let save = null;
+    let status = "not_configured";
+    if (typeof this.ledger.readRecoverySave === "function") {
+      try {
+        save = await this.ledger.readRecoverySave(roomCode);
+        status = save ? "saved" : "missing";
+      } catch {
+        status = "unavailable";
+      }
+    }
+    return {
+      roomCode,
+      status,
+      savedAt: save?.savedAt ?? null,
+      savedVersion: save?.savedVersion ?? null,
+      liveVersion: this.rooms.get(roomCode)?.version ?? null,
+    };
+  }
+
   recoveryRecord(room, updatedAt = this.now()) {
     return {
       schemaVersion: 1, roomCode: room.code, updatedAt,
@@ -1924,6 +1944,12 @@ export function createRealtimeServer(options = {}) {
       if (req.method === "GET" && url.pathname === "/api/feedback") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { notes: await service.ledger.listFeedback() }); }
       if (req.method === "GET" && url.pathname === "/api/feedback/insights") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { insights: await service.developerFieldTestInsights() }); }
       if (req.method === "GET" && url.pathname === "/api/feedback/activity") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { activity: service.developerActivity() }); }
+      if (req.method === "GET" && url.pathname === "/api/feedback/diagnostics/recovery") {
+        feedbackKeyMatches(req.headers["x-feedback-portal-key"]);
+        const roomCode = String(url.searchParams.get("roomCode") || "").trim().toUpperCase();
+        if (!/^[A-Z0-9]{6}$/.test(roomCode)) throw Object.assign(new Error("Enter a six-character room code"), { status: 400, code: "INVALID_INPUT" });
+        return json(res, 200, { recoverySave: await service.developerRecoverySave(roomCode) });
+      }
       if (req.method === "GET" && url.pathname === "/api/feedback/diagnostics") {
         feedbackKeyMatches(req.headers["x-feedback-portal-key"]);
         const query = String(url.searchParams.get("query") || "").trim();
