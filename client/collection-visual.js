@@ -27,12 +27,19 @@ export function parseCollectionVisual(value) {
 const artworkFormats = {
   backdrop: /^data:image\/jpeg;base64,\/9j\/[A-Za-z0-9+/]+={0,2}$/,
   bezel: /^data:image\/png;base64,iVBORw0KGgo[A-Za-z0-9+/]+={0,2}$/,
+  icons: /^data:image\/svg\+xml;base64,PHN2Zy[A-Za-z0-9+/]+={0,2}$/,
 };
 
 export function parseCollectionArtwork(value) {
-  if (!value || typeof value !== "object" || Object.keys(value).length !== 2) return null;
-  const valid = Object.entries(artworkFormats).every(([part, format]) =>
-    typeof value[part] === "string" && value[part].length <= 1_500_000 && format.test(value[part]));
+  if (!value || typeof value !== "object") return null;
+  const hasIcons = Object.hasOwn(value, "icons");
+  if (Object.keys(value).length !== (hasIcons ? 3 : 2)) return null;
+  const valid = Object.entries(artworkFormats).every(([part, format]) => {
+    if (part === "icons" && !hasIcons) return true;
+    const image = value[part];
+    const limit = part === "icons" ? 64_000 : 1_500_000;
+    return typeof image === "string" && image.length <= limit && format.test(image);
+  });
   return valid ? value : null;
 }
 
@@ -40,9 +47,11 @@ export function applyCollectionVisual(root, value, artwork) {
   const visual = parseCollectionVisual(value);
   const art = visual && parseCollectionArtwork(artwork);
   root.toggleAttribute("data-collection-artwork", Boolean(art));
+  root.toggleAttribute("data-collection-icons", Boolean(art?.icons));
   for (const part of Object.keys(artworkFormats)) {
     const property = `--collection-${part}-image`;
-    if (art) root.style.setProperty(property, `url("${art[part]}")`);
+    const image = art?.[part];
+    if (image) root.style.setProperty(property, `url("${image}")`);
     else root.style.removeProperty(property);
   }
   if (!visual) {

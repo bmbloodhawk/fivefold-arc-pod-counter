@@ -141,7 +141,7 @@ html[data-collection-treatment] #gameView .counter-stage::after {
   clip-path: var(--collection-bezel-cut);
   box-shadow: var(--collection-ring-finish);
 }
-html:is([data-collection-treatment="grid"], [data-collection-treatment="weave"], [data-collection-treatment="facet"]) #gameView[data-interface-style="dial"] .counter-stage::after {
+html:is([data-collection-treatment="grid"], [data-collection-treatment="weave"], [data-collection-treatment="facet"]):not([data-collection-artwork]) #gameView[data-interface-style="dial"] .counter-stage::after {
   transform: translate(-50%, -50%);
   transition: none;
 }
@@ -203,8 +203,9 @@ html[data-collection-artwork] #gameView .counter-stage::after {
   clip-path: none;
   opacity: 1;
   pointer-events: none;
+}
+html[data-collection-artwork] #gameView:not([data-interface-style="dial"]) .counter-stage::after {
   transform: translate(-50%, -50%);
-  transition: none;
 }
 html[data-collection-artwork] #gameView :is(.counter-mode, .counter-context) {
   text-shadow: 0 1px 2px var(--collection-shadow), 0 0 5px var(--collection-shadow);
@@ -253,11 +254,33 @@ html[data-collection-artwork] #gameView .mode-nav button.active::before {
   opacity: 1;
 }
 
+/* The illustrated symbols occupy the existing mode button icon slot. */
+html[data-collection-icons] #gameView .mode-nav button > svg { visibility: hidden; }
+html[data-collection-icons] #gameView .mode-nav button::after {
+  content: "";
+  grid-area: 1 / 1;
+  position: relative;
+  width: 24px;
+  height: 24px;
+  background: var(--collection-icons-image) var(--collection-icon-position, 0%) center / 600% 100% no-repeat;
+  filter: drop-shadow(0 1px 1px #080809);
+  pointer-events: none;
+}
+html[data-collection-icons] #gameView .mode-nav [data-mode="commander"] { --collection-icon-position: 20%; }
+html[data-collection-icons] #gameView .mode-nav [data-mode="radiation"] { --collection-icon-position: 40%; }
+html[data-collection-icons] #gameView .mode-nav [data-mode="poison"] { --collection-icon-position: 60%; }
+html[data-collection-icons] #gameView .mode-nav [data-mode="energy"] { --collection-icon-position: 80%; }
+html[data-collection-icons] #gameView .mode-nav [data-mode="generic"] { --collection-icon-position: 100%; }
+
 @media (max-width: 599px) and (max-height: 640px) {
   html[data-collection-artwork] { --collection-art-width: min(77vw, 42dvh); }
   html[data-collection-artwork] #gameView .mode-nav button::before {
     width: 27px;
     height: 25px;
+  }
+  html[data-collection-icons] #gameView .mode-nav button::after {
+    width: 22px;
+    height: 22px;
   }
 }
 

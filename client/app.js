@@ -7,7 +7,7 @@ import { commanderFallbackLabel } from './commander-source-flow.js?v=1';
 import { currentAccountToken, emailAccountToken, googleAccountToken, restoredAccountToken, sendAccountPasswordReset, signOutAccount } from './account-auth.js?v=6';
 import { JoinQrScanner } from './join-qr-scanner.js?v=4';
 import { GameWakeLock } from './game-wake-lock.js?v=1';
-import { applyCollectionVisual } from './collection-visual.js?v=3';
+import { applyCollectionVisual } from './collection-visual.js?v=4';
 
 const appearancePreviewMode = new URLSearchParams(location.search).get('appearance-preview') === '1';
 const appearanceParams = new URLSearchParams(location.search);
@@ -521,8 +521,8 @@ async function loadStagingAppearanceReview() {
   const banner = $('.staging-environment-banner');
   try {
     if (!/^[A-Za-z0-9_-]{43}$/.test(reviewKey)) throw new Error();
-    const { unlockStagingAppearanceReview } = await import('./staging-appearance-review.js?v=1');
-    const response = await fetch('./staging-appearance-pack.enc?v=1', { cache: 'no-store' });
+    const { unlockStagingAppearanceReview } = await import('./staging-appearance-review.js?v=2');
+    const response = await fetch('./staging-appearance-pack.enc?v=2', { cache: 'no-store' });
     if (!response.ok) throw new Error();
     const { skins, initialChoice } = await unlockStagingAppearanceReview(new Uint8Array(await response.arrayBuffer()), reviewKey);
     try { sessionStorage.setItem(storageKey, reviewKey); } catch { /* Storage is optional. */ }

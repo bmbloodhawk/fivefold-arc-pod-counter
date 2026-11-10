@@ -1,4 +1,4 @@
-import { parseCollectionArtwork, parseCollectionVisual } from './collection-visual.js?v=3';
+import { parseCollectionArtwork, parseCollectionVisual } from './collection-visual.js?v=4';
 
 const reviewKeyPattern = /^[A-Za-z0-9_-]{43}$/;
 const skinIdPattern = /^[A-Za-z0-9_-]{1,80}$/;
