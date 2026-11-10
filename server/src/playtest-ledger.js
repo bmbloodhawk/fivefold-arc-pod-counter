@@ -168,7 +168,7 @@ export class FirebasePlaytestLedger {
     let lastError;
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
-        await this.write(path, payload);
+        await this.#writePayload(path, payload);
         return;
       } catch (error) {
         lastError = error;
@@ -177,7 +177,11 @@ export class FirebasePlaytestLedger {
     throw lastError;
   }
 
-  async write(path, payload) {
+  async write(path, body) {
+    return this.#writePayload(path, JSON.stringify(body));
+  }
+
+  async #writePayload(path, payload) {
     if (!this.databaseUrl || !this.clientEmail || !this.privateKey) throw new Error("Firebase playtest ledger is missing server credentials");
     const token = await this.accessToken();
     const response = await this.fetch(`${this.databaseUrl}/${path}`, {
