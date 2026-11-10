@@ -61,10 +61,14 @@ test("staging only serves an earned personal skin after a verified save and rest
   const { snapshot: started } = service.startGame(code, host, { baseVersion: claimed.version });
   const gameId = service.room(code).gameId;
   service.declareWinner(code, host, { baseVersion: started.version, winnerSeatId: 0 });
-  const saved = await post("/api/account/games", { roomCode: code, gameId }, { ...auth, ...connection });
+  const saveFinishedGame = () => post("/api/account/games", { roomCode: code, gameId }, { ...auth, ...connection });
+  const saved = await saveFinishedGame();
   assert.equal(saved.status, 201);
   const result = await saved.json();
-  assert.ok(skinAwards(result).some(award => award.id === "appearance-field-notes"));
+  assert.deepEqual(skinAwards(result).map(award => [award.title, award.unlockedSkinName]), [["Field Journal", "Field Notes"]]);
+  const retry = await saveFinishedGame();
+  assert.equal(retry.status, 201);
+  assert.deepEqual((await retry.json()).unlockedAchievements, []);
   const detail = await request(detailPath, { headers: auth });
   assert.equal(detail.status, 200);
   assert.match(detail.headers.get("cache-control"), /no-store/);

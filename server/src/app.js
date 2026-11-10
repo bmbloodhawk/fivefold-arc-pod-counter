@@ -1889,7 +1889,8 @@ export function createRealtimeServer(options = {}) {
   const earnedSkins = new Map(appEnv === "staging" ? (options.stagingAppearanceSkins ?? [])
     .filter(skin => isAchievementSkin(skin.id))
     .map(skin => [skin.id, { ...skin, achievement: APPEARANCE_ACHIEVEMENTS[skin.id] }]) : []);
-  const appearanceAchievementIds = [...earnedSkins.values()].map(skin => skin.achievement.id);
+  const skinNamesByAchievement = new Map([...earnedSkins.values()].map(skin => [skin.achievement.id, skin.name]));
+  const appearanceAchievementIds = [...skinNamesByAchievement.keys()];
   const profileSkinChoices = async (accountId) => {
     if (!earnedSkins.size) return {};
     const awards = await accountHistory.earnedSkinAwards(accountId, appearanceAchievementIds);
@@ -1988,7 +1989,12 @@ export function createRealtimeServer(options = {}) {
         await service.ensureRoom(input.roomCode);
         const completion = service.completedSeat(input.roomCode, connectionId, input.gameId);
         const legacySourceGameId = [input.roomCode, completion.completedAt, completion.seatId].join(":");
-        return json(res, 201, await accountHistory.saveCompletedGame(accountId, { ...completion, legacySourceGameId }, input.deckId, appearanceAchievementIds));
+        const saved = await accountHistory.saveCompletedGame(accountId, { ...completion, legacySourceGameId }, input.deckId, appearanceAchievementIds);
+        const unlockedAchievements = saved.unlockedAchievements.map(achievement => {
+          const unlockedSkinName = skinNamesByAchievement.get(achievement.id);
+          return unlockedSkinName ? { ...achievement, unlockedSkinName } : achievement;
+        });
+        return json(res, 201, { ...saved, unlockedAchievements });
       }
       if (req.method === "POST" && url.pathname === "/api/account/decks") { const accountId = await account(req); return json(res, 201, { deck: await accountHistory.createDeck(accountId, await readJson(req)) }); }
       if (req.method === "GET" && url.pathname === "/api/account/decks") { const accountId = await account(req); return json(res, 200, { decks: await accountHistory.decks(accountId, { includeArchived: url.searchParams.get("archived") === "all" }) }); }

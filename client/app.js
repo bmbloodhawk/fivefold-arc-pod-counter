@@ -342,7 +342,22 @@ function accoladeArtUrl(title) { return `assets/accolades/${String(title || 'arc
 function winnerArtUrl(winner, gameKey) { const variants = ['last-one-standing', 'table-monarch', 'arc-victor']; const seed = [...String(gameKey || winner?.id || '')].reduce((total, character) => total + character.codePointAt(0), 0); return `assets/accolades/${variants[seed % variants.length]}.png`; }
 const achievementRarityLabel = (rarity) => ({ common: 'Common', uncommon: 'Uncommon', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' })[rarity] || 'Common';
 const achievementRarityMark = (rarity) => ({ common: '◇', uncommon: '✦', rare: '✧', epic: '✹', legendary: '✪' })[rarity] || '◇';
-const achievementCardHtml = (achievement, showNew = false) => { const rarity = achievement.rarity || 'common'; return `<article class="achievement-card" data-rarity="${escapeHtml(rarity)}"><span aria-hidden="true">${achievementRarityMark(rarity)}</span><div><small class="achievement-rarity">${escapeHtml(achievementRarityLabel(rarity))}</small><strong>${escapeHtml(achievement.title)}</strong><small>${escapeHtml(achievement.detail)}</small>${showNew && achievement.isNew ? '<b class="achievement-card-new">New</b>' : ''}</div></article>`; };
+const achievementCardHtml = (achievement, showNew = false) => {
+  const rarity = achievement.rarity || 'common';
+  const skinReward = achievement.unlockedSkinName
+    ? `<small class="achievement-skin-reward">You unlocked the ${escapeHtml(achievement.unlockedSkinName)} skin.</small>`
+    : '';
+  return `<article class="achievement-card" data-rarity="${escapeHtml(rarity)}">
+    <span aria-hidden="true">${achievementRarityMark(rarity)}</span>
+    <div>
+      <small class="achievement-rarity">${escapeHtml(achievementRarityLabel(rarity))}</small>
+      <strong>${escapeHtml(achievement.title)}</strong>
+      ${skinReward}
+      <small>${escapeHtml(achievement.detail)}</small>
+      ${showNew && achievement.isNew ? '<b class="achievement-card-new">New</b>' : ''}
+    </div>
+  </article>`;
+};
 function showAchievementUnlocks(gameKey) {
   const unlocked = unlockedAchievementsByGame.get(gameKey) || [];
   if (!unlocked.length || dom.achievementDialog.open) return false;
