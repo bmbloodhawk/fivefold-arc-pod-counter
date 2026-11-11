@@ -46,6 +46,14 @@ test('archive repair is acknowledged, immutable, idempotent and independent of f
   assert.equal(f.service.room(f.code).seats[0].completedGamesAtTable, before);
 });
 
+test('an acknowledged archive drops the bulky repair recap before later life-recovery snapshots', async () => {
+  const f = finished(); await Promise.resolve();
+  const cached = f.service.room(f.code).completedGames[0];
+  assert.equal(cached.archiveRecap, undefined);
+  assert.ok(cached.source);
+  assert.ok((await f.ledger.listArchive())[0].players.length);
+});
+
 test('Firebase uses one conditional archive PUT initially; identical retries succeed and conflicts never overwrite', async () => {
   let value = null; const methods = [];
   const ledger = new FirebasePlaytestLedger({ databaseUrl: 'https://fixture.invalid',

@@ -1,7 +1,7 @@
 import { createHmac, randomBytes } from 'node:crypto';
 import { competitionError, cleanText, digest, scopePath } from './competitions.js';
 import { tournamentPoints, POINT_UNIT } from './competition-scoring.js';
-import { suggestSeating, validateSeating } from './tournament-seating.js';
+import { suggestSeating, validateSeating, SEATING_RULE_VERSION } from './tournament-seating.js';
 
 const RULES = 'Points: 3 × (table size − average finishing rank) ÷ (table size − 1). Ties share occupied placement points; equal final points share a placing. Timed rounds finish the current turn, then five additional turns total (including extra-turn effects). Surviving players then share the remaining top placement points after host confirmation. Tournament results never change Pod ratings.';
 const integer = (value, min, max, name) => {
@@ -106,7 +106,7 @@ export class Tournaments {
     const actor = this.actor(scope, auth, directory, { admin: true });
     await this.domain.changeDirectory(state => {
       if (actor.identityId && !state.identities[actor.identityId]) throw competitionError('Account data was removed.', 403);
-      state.aliases[`${id}_${scope.joinRequests[key]}`] = { identityId: actor.identityId, name }; return state;
+      state.aliases[`${id}_${scope.joinRequests[key]}`] = { identityId: null, name }; return state;
     });
     return this.get(auth, id);
   }
@@ -119,9 +119,11 @@ export class Tournaments {
         target.status = 'left';
       } else {
         this.actor(scope, auth, directory, { admin: true });
+        if (action === 'cohost' && target.id === scope.creatorId) throw competitionError('The primary event host keeps their role.');
         if (action === 'approve' && target.status === 'pending') target.status = 'active';
         else if (action === 'cohost' && me.id === scope.creatorId && typeof enabled === 'boolean'
-          && target.kind === 'member' && directory.identities[target.identityId] && target.status === 'active') target.role = enabled ? 'admin' : 'participant';
+          && target.kind === 'member' && directory.identities[target.identityId]
+          && (target.status === 'active' || (!enabled && target.status === 'left'))) target.role = enabled ? 'admin' : 'participant';
         else throw competitionError('Choose a valid event action.');
       }
       if (lastRound(scope)?.status === 'draft') lastRound(scope).seatingStale = true;
@@ -142,6 +144,8 @@ export class Tournaments {
     const directory = await this.domain.directory();
     await this.domain.changeScope('tournament', id, scope => {
       this.actor(scope, auth, directory, { admin: true }); const assignment = this.assignment(scope, assignmentId);
+      if (assignment.cancelled) return;
+      if (lastRound(scope)?.status !== 'playing' || !lastRound(scope).assignments.includes(assignment)) throw competitionError('Only a current unplayed Table can be cancelled.', 409);
       const hasStart = Object.values(scope.tables).some(table => Object.values(table.captures).some(command =>
         command.assignmentId === assignmentId && ['accepted', 'captured'].includes(command.status)));
       if (hasStart || assignment.gameId) throw competitionError('A started Table must finish and confirm its result.', 409);
@@ -165,7 +169,7 @@ export class Tournaments {
     if (round.status !== 'playing' || !round.assignments.includes(assignment)) throw competitionError('The tournament host must start this round first.', 409, 'ROUND_NOT_STARTED');
     if (assignment.participantIds.length !== participantIds.length || assignment.participantIds.some(id => !participantIds.includes(id))) throw competitionError('The actual starters must match the reviewed Table assignment.', 409, 'ASSIGNMENT_MISMATCH');
   }
-  async prepareRound(auth, id) {
+  async prepareRound(auth, id, { reseed = false, baseVersion } = {}) {
     const directory = await this.domain.directory(); const roundId = `round_${this.domain.createId()}`;
     const seed = randomBytes(16).toString('hex');
     const assignmentIds = Array.from({ length: 64 }, () => `assignment_${this.domain.createId()}`);
@@ -173,16 +177,19 @@ export class Tournaments {
       this.actor(scope, auth, directory, { admin: true });
       const previous = lastRound(scope);
       if (previous?.status === 'playing') throw competitionError('Confirm every Table before preparing the next round.', 409);
-      if (previous?.status === 'draft' && !previous.seatingStale) return;
+      if (reseed && scope.version !== baseVersion) throw competitionError('Review the latest seating before suggesting again.', 409, 'VERSION_CONFLICT');
+      if (previous?.status === 'draft' && !previous.seatingStale && !reseed) return;
       if (scope.rounds.filter(round => round.status === 'complete').length >= scope.settings.rounds) throw competitionError('All planned rounds are complete.', 409);
       const participants = attending(scope).filter(row => row.kind === 'guest' || directory.identities[row.identityId])
         .map(row => ({ id: row.id, pointsUnits: scope.standings[row.id]?.pointsUnits || 0 }));
       const number = previous?.status === 'draft' ? previous.number : scope.rounds.length + 1;
       const previousTables = scope.rounds.filter(round => round.status === 'complete').flatMap(round =>
         round.assignments.filter(row => !row.cancelled).map(row => row.participantIds));
-      const seating = suggestSeating({ participants, previousTables, preferredSize: scope.settings.preferredSize,
-        priority: scope.settings.priority, roundNumber: number, seed });
+      const inputs = { participants, previousTables, preferredSize: scope.settings.preferredSize,
+        priority: scope.settings.priority, roundNumber: number, seed };
+      const seating = suggestSeating(inputs);
       const round = { id: previous?.status === 'draft' ? previous.id : roundId, number, status: 'draft', seed, seatingStale: false,
+        seatingRuleVersion: SEATING_RULE_VERSION, seatingInputs: inputs, suggestedTables: seating,
         assignments: seating.map((ids, index) => ({ id: assignmentIds[index], participantIds: ids, hostId: ids[0] })) };
       if (previous?.status === 'draft') scope.rounds[scope.rounds.length - 1] = round;
       else scope.rounds.push(round);
@@ -248,6 +255,12 @@ export class Tournaments {
       const round = scope.rounds.find(row => row.assignments.includes(assignment));
       if (me.role !== 'admin' && me.id !== assignment.hostId) throw competitionError('This Table host or an event host must record the turn.', 403);
       if (!round.endsAt || round.status !== 'playing' || assignment.gameId || assignment.cancelled) throw competitionError('This timed Table is not playing.', 409);
+      const command = Object.values(scope.tables).flatMap(table => Object.values(table.captures)).find(row =>
+        row.assignmentId === assignmentId && row.status === 'accepted');
+      if (!command) throw competitionError('Start the assigned Table’s actual game before recording its final turns.', 409, 'TABLE_NOT_STARTED');
+      if (assignment.clock && assignment.clock.sourceGameId !== command.gameId) {
+        delete assignment.clock; assignment.clockActions = {};
+      }
       assignment.clockActions ??= {};
       if (assignment.clockActions[requestId]) {
         if (assignment.clockActions[requestId] !== action) throw competitionError('Conflicting turn retry.', 409);
@@ -255,7 +268,7 @@ export class Tournaments {
       }
       if (action === 'time_called') {
         if (this.domain.now() < round.endsAt) throw competitionError('Round time has not ended.', 409);
-        assignment.clock ??= { phase: 'current_turn', remaining: 5 };
+        assignment.clock ??= { phase: 'current_turn', remaining: 5, sourceGameId: command.gameId };
       } else if (action === 'finish_turn') {
         if (!assignment.clock || assignment.clock.phase === 'done') throw competitionError('Call time first, then record each actual turn.', 409);
         if (assignment.clock.phase === 'current_turn') assignment.clock.phase = 'extra_turns';

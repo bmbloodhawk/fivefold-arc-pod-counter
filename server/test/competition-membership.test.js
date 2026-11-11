@@ -121,3 +121,18 @@ test('public DTOs never expose account IDs, identity IDs, invite hashes or guest
   await assert.rejects(() => f.service.createPod('x', { name: '<script>\n', displayName: 'X' }), { status: 400 });
   await assert.rejects(() => f.service.createPod('x', { name: 'x'.repeat(81), displayName: 'X' }), { status: 400 });
 });
+
+test('admins use the leave flow for their own membership, rather than accidentally removing themselves', async () => {
+  const f = fixture(); const { pod } = await twoMembers(f);
+  await assert.rejects(() => f.service.podMemberAction('a', pod.id, { action: 'remove', targetId: pod.me }), { status: 400 });
+  assert.equal((await f.service.getPod('a', pod.id)).role, 'admin');
+});
+
+test('only an active admin can rename a Pod without changing its memberships or ratings', async () => {
+  const f = fixture(); const { pod } = await twoMembers(f);
+  await assert.rejects(() => f.service.podMemberAction('b', pod.id, { action: 'rename', name: 'Changed' }), { status: 403 });
+  const updated = await f.service.podMemberAction('a', pod.id, { action: 'rename', name: 'Friday friends' });
+  assert.equal(updated.name, 'Friday friends'); assert.deepEqual(updated.members, pod.members);
+  assert.equal(updated.audit.at(-1).action, 'pod_renamed');
+  await assert.rejects(() => f.service.podMemberAction('a', pod.id, { action: 'rename', name: '<bad>' }), { status: 400 });
+});

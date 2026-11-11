@@ -39,6 +39,24 @@ test('HTTP Pod opt-in/ACL/invite/revoke/leave and account erasure are enforced s
   assert.ok(current.members.some(member => member.name === 'Deleted member'));
 });
 
+test('account erasure still redacts existing groups while competition UI and routes are disabled', async t => {
+  const f = await app(t);
+  const pod = (await f.request('/api/competitions/pods', { method: 'POST', body: { name: 'Retained group', displayName: 'Host' } })).data;
+  const invite = (await f.request(`/api/competitions/pod/${pod.id}/invites`, { method: 'POST', body: {} })).data;
+  await f.request('/api/competitions/join', { token: 'member', method: 'POST', body: { token: invite.token, displayName: 'Erase me' } });
+  const disabled = createRealtimeServer({ appEnv: 'test', competitionEraser: f.competitions,
+    accountHistory: new AccountHistory({ store: f.profileStore }), accountVerifier: { verify: async token => ({ providerSubject: token }) } });
+  await new Promise(resolve => disabled.server.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise(resolve => disabled.server.close(resolve)));
+  const origin = `http://127.0.0.1:${disabled.server.address().port}`;
+  assert.equal((await (await fetch(origin + '/api/competitions/config')).json()).enabled, false);
+  const erased = await fetch(origin + '/api/account', { method: 'DELETE', headers: { authorization: 'Bearer member' } });
+  assert.equal(erased.status, 204);
+  const current = (await f.request(`/api/competitions/pod/${pod.id}`)).data;
+  assert.equal(current.members.some(row => row.name === 'Erase me'), false);
+  assert.ok(current.members.some(row => row.name === 'Deleted member'));
+});
+
 test('existing Table start/reset routes seal and retain competition results, without adding hot-path I/O', async t => {
   const f = await app(t);
   const pod = (await f.request('/api/competitions/pods', { method: 'POST', body: { name: 'Table test', displayName: 'Host' } })).data;
@@ -68,4 +86,17 @@ test('guest tournament HTTP entry/reclaim is account-optional and cannot access 
   assert.equal((await f.request(`/api/competitions/tournament/${event.id}`, auth)).status, 200);
   assert.equal((await f.request(`/api/competitions/tournament/${event.id}/rounds/prepare`, { ...auth, method: 'POST', body: {} })).status, 403);
   assert.equal((await f.request(`/api/competitions/tournament/${event.id}`, { token: null, guestToken: 'fake' })).status, 403);
+});
+
+test('signed-in Table join binds an opted-in Pod member before competitive start can seal attendance', async t => {
+  const f = await app(t);
+  const pod = (await f.request('/api/competitions/pods', { method: 'POST', body: { name: 'Automatic seats', displayName: 'Host' } })).data;
+  const invite = (await f.request(`/api/competitions/pod/${pod.id}/invites`, { method: 'POST', body: {} })).data;
+  await f.request('/api/competitions/join', { token: 'member', method: 'POST', body: { token: invite.token, displayName: 'Member' } });
+  const host = f.service.createConnection().connectionId, guest = f.service.createConnection().connectionId;
+  const code = f.service.createRoom(host, { playerCount: 2, startingLife: 40 }).snapshot.code;
+  await f.request('/api/competitions/tables/bind', { method: 'POST', connectionId: host, body: { kind: 'pod', id: pod.id, code } });
+  await f.request(`/api/rooms/${code}/claim`, { token: 'member', method: 'POST', connectionId: guest, body: { seatId: 1, name: 'Member' } });
+  const context = await f.request(`/api/competitions/tables/context?code=${code}`, { token: 'member', connectionId: guest });
+  assert.equal(context.data.seatLinked, true);
 });

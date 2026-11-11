@@ -59,7 +59,7 @@ export async function competitionRoute({ req, url, readBody, account, domain, ta
   }
   if (kind === 'tournament' && action === 'rounds' && method === 'POST') {
     const input = await readBody(); const actor = await auth();
-    if (detail === 'prepare') return ok(await tournaments.prepareRound(actor, id));
+    if (detail === 'prepare') return ok(await tournaments.prepareRound(actor, id, input));
     if (detail === 'seating') return ok(await tournaments.editSeating(actor, id, input));
     if (detail === 'start') return ok(await tournaments.startRound(actor, id, input));
   }

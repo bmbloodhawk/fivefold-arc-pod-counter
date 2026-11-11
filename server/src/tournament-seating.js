@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { competitionError } from './competitions.js';
+export const SEATING_RULE_VERSION = 'seeded-swap-v1';
 
 export function balancedTableSizes(count, preferredSize = 4) {
   if (!Number.isInteger(count) || count < 2 || count > 128) throw competitionError('Seat two to 128 entrants per event.');

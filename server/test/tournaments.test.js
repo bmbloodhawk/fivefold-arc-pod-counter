@@ -6,6 +6,7 @@ import { CompetitionTables } from '../src/competition-tables.js';
 import { RoomService } from '../src/app.js';
 import { MemoryAccountHistoryStore } from '../src/account-history.js';
 import { MemoryPlaytestLedger } from '../src/playtest-ledger.js';
+import { suggestSeating, SEATING_RULE_VERSION } from '../src/tournament-seating.js';
 
 async function fixture({ count = 8, rounds = 2, minutes = null, preferredSize = 4 } = {}) {
   let time = 1000;
@@ -33,7 +34,7 @@ async function playAssignment(f, assignment, { finish = true } = {}) {
     const index = f.entrants.findIndex(entry => entry.me === id);
     return { account: `account_${index}`, name: `Player ${index}`, id };
   });
-  const connections = entrants.map(() => f.service.createConnection().connectionId);
+  const connections = entrants.map(() => f.service.createConnection({ supportedTableProtocols: [1, 2] }).connectionId);
   const created = f.service.createRoom(connections[0], { playerCount: entrants.length, startingLife: 40, name: entrants[0].name });
   const code = created.snapshot.code;
   for (let i = 1; i < entrants.length; i++) f.service.claimSeat(code, connections[i], { seatId: i, name: entrants[i].name });
@@ -63,6 +64,37 @@ test('tournaments are standalone, require signed-in creation, and disclose fixed
   await assert.rejects(() => f.tournaments.get({ accountId: 'outsider' }, f.event.id), { status: 403 });
 });
 
+test('signed-in early leavers and pending entrants retain event resume access in their list', async () => {
+  const f = await fixture({ count: 4 });
+  await f.tournaments.memberAction({ accountId: 'account_0' }, f.event.id, { action: 'leave' });
+  assert.equal((await f.domain.list('account_0')).tournaments[0].id, f.event.id);
+  await f.tournaments.join('organizer', f.invite.token, { displayName: 'Host' });
+  await f.tournaments.memberAction(f.host, f.event.id, { action: 'leave' });
+  assert.equal((await f.domain.list('organizer')).tournaments[0].role, 'admin');
+  await nextRound(f);
+  await f.tournaments.join('late', f.invite.token, { displayName: 'Late' }).catch(error => assert.equal(error.code, 'ENTRY_BETWEEN_ROUNDS'));
+  for (const assignment of (await f.tournaments.get(f.host, f.event.id)).rounds[0].assignments) await playAssignment(f, assignment);
+  const late = await f.tournaments.join('late', f.invite.token, { displayName: 'Late' });
+  assert.equal(late.members.find(row => row.id === late.me).status, 'pending');
+  assert.equal((await f.domain.list('late')).tournaments[0].id, f.event.id);
+});
+
+test('tournament publication and account erasure preserve unrelated Pod ratings and guest aliases', async () => {
+  const f = await fixture({ count: 4, rounds: 1 });
+  const pod = await f.domain.createPod('account_0', { name: 'Independent', displayName: 'Member' });
+  const before = await f.domain.readScope('pod', pod.id);
+  const guest = await f.tournaments.addGuest(f.host, f.event.id, { displayName: 'Attested guest' });
+  const guestRow = guest.members.find(row => row.name === 'Attested guest');
+  await f.tournaments.memberAction(f.host, f.event.id, { action: 'leave', targetId: guestRow.id });
+  const round = await nextRound(f);
+  for (const assignment of round.rounds[0].assignments) await playAssignment(f, assignment);
+  assert.deepEqual(await f.domain.readScope('pod', pod.id), before);
+  await f.domain.eraseAccount('organizer');
+  const remaining = await f.tournaments.get({ accountId: 'account_0' }, f.event.id);
+  assert.equal(remaining.members.find(row => row.id === guestRow.id).name, 'Attested guest');
+  assert.ok(remaining.members.some(row => row.name === 'Deleted member'));
+});
+
 test('guests self-enter without accounts; retries reclaim the same entry, names remain clearly attested', async () => {
   const f = await fixture({ count: 0 });
   const input = { displayName: 'Guest A', requestId: 'guest_request_123' };
@@ -86,6 +118,23 @@ test('optional co-host must be a signed-in entrant and can manage rounds without
   event = await f.tournaments.prepareRound(cohost, f.event.id);
   await f.tournaments.startRound(cohost, f.event.id, { roundId: event.rounds[0].id, baseVersion: event.version });
   assert.equal((await f.tournaments.get(cohost, f.event.id)).rounds[0].status, 'playing');
+});
+
+test('primary host cannot be demoted, and stopping play does not remove event administration or invitations', async () => {
+  const f = await fixture({ count: 4 });
+  await assert.rejects(() => f.tournaments.memberAction(f.host, f.event.id, { action: 'cohost', targetId: f.event.creatorId, enabled: false }), { status: 400 });
+  await f.tournaments.memberAction(f.host, f.event.id, { action: 'leave' });
+  const invite = await f.domain.invite('organizer', 'tournament', f.event.id);
+  assert.equal((await f.domain.preview(invite.token)).kind, 'tournament');
+  await nextRound(f);
+});
+
+test('the primary host can revoke a co-host who stopped playing', async () => {
+  const f = await fixture({ count: 4 }); const targetId = f.entrants[0].me;
+  await f.tournaments.memberAction(f.host, f.event.id, { action: 'cohost', targetId, enabled: true });
+  await f.tournaments.memberAction({ accountId: 'account_0' }, f.event.id, { action: 'leave' });
+  await f.tournaments.memberAction(f.host, f.event.id, { action: 'cohost', targetId, enabled: false });
+  await assert.rejects(() => f.tournaments.prepareRound({ accountId: 'account_0' }, f.event.id), { status: 403 });
 });
 
 test('multiple Tables complete independently, then combined standings unlock the next manual round', async () => {
@@ -139,6 +188,8 @@ test('timer requires time, current-turn finish plus exactly five actual turn com
   const f = await fixture({ count: 4, minutes: 1 }); const event = await nextRound(f);
   const assignment = event.rounds[0].assignments[0];
   const call = (action, requestId) => f.tournaments.clock(f.host, f.event.id, assignment.id, { action, requestId });
+  await assert.rejects(() => call('time_called', 'no_game_exists'), { code: 'TABLE_NOT_STARTED' });
+  await playAssignment(f, assignment, { finish: false });
   await assert.rejects(() => call('time_called', 'before_time_01'), { status: 409 });
   f.advance(60_000);
   await call('time_called', 'call_time_0001');
@@ -167,6 +218,8 @@ test('confirmed timed draw ties actual survivors, creates no fake winner and sav
   await f.tables.reconcile('tournament', f.event.id);
   const detail = await f.tables.detail(f.host, 'tournament', f.event.id, snapshot.completedGameId);
   assert.equal(detail.original.inferredOrder[0].length, 3);
+  await assert.rejects(() => f.tables.confirm(f.host, 'tournament', f.event.id, snapshot.completedGameId,
+    { order: detail.starterIds.map(id => [id]), baseRevision: 0, requestId: 'fake_draw_winner' }), /share the top places/);
   await f.tables.confirm(f.host, 'tournament', f.event.id, snapshot.completedGameId, { order: detail.original.inferredOrder, baseRevision: 0, requestId: 'confirm_timed_draw' });
   const final = await f.tournaments.get(f.host, f.event.id);
   assert.equal(final.status, 'completed');
@@ -194,4 +247,58 @@ test('host-recorded guests can receive scoped reclaim access without an account 
   const replacement = await f.tournaments.guestAccess(f.host, f.event.id, guest.id);
   await assert.rejects(() => f.tournaments.get({ guestToken: capability.guestToken }, f.event.id), { status: 403 });
   assert.equal((await f.tournaments.get({ guestToken: replacement.guestToken }, f.event.id)).me, guest.id);
+});
+
+test('guest-only play uses the same full-order points and preserves self-entered provenance', async () => {
+  const f = await fixture({ count: 0, rounds: 1 }); const entries = [];
+  for (let i = 0; i < 4; i++) entries.push(await f.tournaments.join(null, f.invite.token, { displayName: `Guest ${i}`, requestId: `guest_play_entry_${i}` }));
+  const event = await nextRound(f); const assignment = event.rounds[0].assignments[0];
+  const ordered = assignment.participantIds.map(id => entries.find(entry => entry.me === id));
+  const connections = ordered.map(() => f.service.createConnection().connectionId);
+  const code = f.service.createRoom(connections[0], { playerCount: 4, startingLife: 40 }).snapshot.code;
+  for (let i = 1; i < 4; i++) f.service.claimSeat(code, connections[i], { seatId: i });
+  await f.tables.bind({ guestToken: ordered[0].guestToken }, { kind: 'tournament', id: f.event.id, code, connectionId: connections[0], assignmentId: assignment.id });
+  for (let i = 1; i < 4; i++) await f.tables.claim({ guestToken: ordered[i].guestToken }, { code, connectionId: connections[i] });
+  await f.tables.start(code, connections[0], { baseVersion: f.service.room(code).version });
+  f.service.declareWinner(code, connections[0], { winnerSeatId: 0, baseVersion: f.service.room(code).version });
+  await f.tables.reconcile('tournament', f.event.id);
+  const result = await f.tables.confirm({ guestToken: ordered[0].guestToken }, 'tournament', f.event.id, f.service.room(code).gameId,
+    { order: assignment.participantIds.map(id => [id]), baseRevision: 0, requestId: 'guest_order_confirmation' });
+  assert.ok(result.players.every(row => row.kind === 'guest' && row.provenance === 'self_named_guest'));
+  const final = await f.tournaments.get(f.host, f.event.id);
+  assert.deepEqual(final.standings.map(row => row.points), [3, 2, 1, 0]);
+  assert.ok(final.standings.every(row => row.kind === 'guest' && row.gamesPlayed === 1));
+});
+
+test('saved seating inputs replay the original suggestion after later state changes; explicit reseeding is version guarded', async () => {
+  const f = await fixture(); const event = await f.tournaments.prepareRound(f.host, f.event.id);
+  const scope = await f.domain.readScope('tournament', f.event.id); const original = structuredClone(scope.rounds[0]);
+  assert.equal(original.seatingRuleVersion, SEATING_RULE_VERSION);
+  assert.deepEqual(suggestSeating(original.seatingInputs), original.suggestedTables);
+  await f.tournaments.memberAction(f.host, f.event.id, { action: 'leave', targetId: f.entrants[0].me });
+  assert.deepEqual(suggestSeating(original.seatingInputs), original.suggestedTables);
+  await assert.rejects(() => f.tournaments.prepareRound(f.host, f.event.id, { reseed: true, baseVersion: event.version }), { code: 'VERSION_CONFLICT' });
+  const current = await f.tournaments.get(f.host, f.event.id);
+  await f.tournaments.prepareRound(f.host, f.event.id, { reseed: true, baseVersion: current.version });
+  const next = await f.domain.readScope('tournament', f.event.id);
+  assert.notEqual(next.rounds[0].seed, original.seed);
+  assert.equal(next.rounds[0].seatingInputs.participants.length, 7);
+});
+
+test('timed Tables require draw-capable phones; legacy phones keep ordinary Table access', async () => {
+  const f = await fixture({ count: 4, minutes: 1 }); const event = await nextRound(f);
+  const assignment = event.rounds[0].assignments[0]; const index = f.entrants.findIndex(row => row.me === assignment.hostId);
+  const oldHost = f.service.createConnection({ supportedTableProtocols: [1] }).connectionId;
+  const created = f.service.createRoom(oldHost, { playerCount: 4, startingLife: 40 }); const code = created.snapshot.code;
+  await assert.rejects(() => f.tables.bind(`account_${index}`, { kind: 'tournament', id: f.event.id, code, connectionId: oldHost, assignmentId: assignment.id }), { code: 'TABLE_PROTOCOL_INCOMPATIBLE' });
+  assert.equal(f.service.room(code).protocolVersion, 1);
+  const newHost = f.service.createConnection({ supportedTableProtocols: [1, 2] }).connectionId;
+  f.service.claimSeat(code, newHost, { seatId: 0, reclaimToken: created.reclaimToken });
+  await f.tables.bind(`account_${index}`, { kind: 'tournament', id: f.event.id, code, connectionId: newHost, assignmentId: assignment.id });
+  assert.equal(f.service.room(code).protocolVersion, 2);
+  const oldGuest = f.service.createConnection({ supportedTableProtocols: [1] }).connectionId;
+  assert.throws(() => f.service.claimSeat(code, oldGuest, { seatId: 1 }), { code: 'TABLE_PROTOCOL_INCOMPATIBLE' });
+  // The optional feature must not upgrade or block a normal casual Table.
+  const casual = f.service.createRoom(oldGuest, { playerCount: 2, startingLife: 40 });
+  assert.equal(casual.snapshot.protocolVersion, 1);
 });

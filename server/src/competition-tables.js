@@ -10,6 +10,7 @@ const roster = room => (room.lifecycle?.seatIds || []).map(id => room.seats[id])
 const rosterProof = room => digest(roster(room).map(seat => [seat.seatId, proof(seat)]));
 const live = (member, directory) => member?.status === 'active'
   && (member.kind === 'guest' || Boolean(directory.identities[member.identityId]));
+const TIMED_DRAW_TABLE_PROTOCOL = 2;
 
 // All methods here are setup, explicit administration or completion operations.
 // RoomService never calls this coordinator during a counter mutation or broadcast.
@@ -18,6 +19,7 @@ export class CompetitionTables {
     this.domain = domain; this.service = service; this.ledger = ledger; this.tournaments = tournaments;
     this.service.completionEvidenceEnabled = true;
     this.pendingScopes = new Map();
+    this.pendingClaims = new Map(); this.unresolvedClaims = new Map();
   }
   actor(scope, auth, directory, { admin = false } = {}) {
     const accountId = typeof auth === 'string' ? auth : auth?.accountId;
@@ -39,6 +41,42 @@ export class CompetitionTables {
     if (hostOnly && owner.seatId !== room.hostSeatId) throw competitionError('The Table host must do this.', 403, 'HOST_ONLY');
     return { room, ...owner };
   }
+  requireDrawSupport(room) {
+    for (const seat of room.seats.filter(row => row.claimed && row.ownerConnectionId)) {
+      const connection = this.service.connections.get(seat.ownerConnectionId);
+      if (!connection?.supportedTableProtocols.includes(TIMED_DRAW_TABLE_PROTOCOL)) {
+        throw competitionError('Update every phone at this Table before using timed tournament rounds.', 409, 'TABLE_PROTOCOL_INCOMPATIBLE');
+      }
+    }
+  }
+  enableDrawSupport(room) {
+    this.requireDrawSupport(room);
+    if (room.protocolVersion === TIMED_DRAW_TABLE_PROTOCOL) return false;
+    room.protocolVersion = TIMED_DRAW_TABLE_PROTOCOL; room.version++;
+    this.service.recordLedger(room, 'timed_draw_protocol_enabled', room.hostSeatId, { protocolVersion: TIMED_DRAW_TABLE_PROTOCOL });
+    this.service.broadcast(room);
+    return true;
+  }
+  async claimRoom(code, connectionId, input, resolveAccount) {
+    let release;
+    const barrier = new Promise(resolve => { release = resolve; });
+    const pending = this.pendingClaims.get(code) || new Set(); pending.add(barrier); this.pendingClaims.set(code, pending);
+    try {
+      const accountId = await resolveAccount();
+      const result = this.service.claimSeat(code, connectionId, input);
+      try {
+        await this.claim({ accountId }, { code, connectionId });
+        this.unresolvedClaims.delete(`${code}:${result.seatId}`);
+      } catch (error) {
+        if (error.code === 'COMPETITION_ACCESS') this.unresolvedClaims.delete(`${code}:${result.seatId}`);
+        else {
+          this.unresolvedClaims.set(`${code}:${result.seatId}`, proof(this.service.room(code).seats[result.seatId]));
+          result.competitionWarning = 'Your seat joined. Group linking needs a retry before the host starts the game.';
+        }
+      }
+      return result;
+    } finally { release(); pending.delete(barrier); if (!pending.size) this.pendingClaims.delete(code); }
+  }
   async bind(auth, { kind, id, code, connectionId, assignmentId } = {}) {
     const { room, seat, seatId } = this.own(code, connectionId, true);
     const ownerHash = proof(seat);
@@ -49,6 +87,7 @@ export class CompetitionTables {
     };
     const directory = await this.domain.directory(); const scope = await this.domain.readScope(kind, id);
     const me = this.actor(scope, auth, directory);
+    if (kind === 'tournament' && scope.settings.minutes) this.requireDrawSupport(room);
     const key = tableKey(room);
     const existing = directory.tables[key];
     if (existing && (existing.kind !== kind || existing.id !== id)) throw competitionError('This Table already belongs to another competition.', 409, 'TABLE_ALREADY_LINKED');
@@ -78,6 +117,7 @@ export class CompetitionTables {
       table.seats[seatId] = { participantId: actor.id, ownerHash };
       table.hostId = actor.id;
     });
+    if (kind === 'tournament' && scope.settings.minutes) this.enableDrawSupport(room);
     return this.context(auth, code, connectionId);
   }
   async claim(auth, { code, connectionId } = {}) {
@@ -85,8 +125,13 @@ export class CompetitionTables {
     const ownerHash = proof(seat);
     const binding = await this.binding(room);
     if (!binding) return { linked: false };
-    if (room.turn.gameStarted && !room.gameResult) throw competitionError('Seats are sealed for this game. Your next game can be linked.', 409, 'ROSTER_SEALED');
     const directory = await this.domain.directory();
+    if (room.turn.gameStarted && !room.gameResult) {
+      const scope = await this.domain.readScope(binding.kind, binding.id); const me = this.actor(scope, auth, directory);
+      const sealed = scope.tables[tableKey(room)]?.captures[room.gameId]?.seats.find(row => row.seatId === String(seatId));
+      if (sealed?.ownerHash === ownerHash && sealed.participantId === me.id) return this.context(auth, code, connectionId);
+      throw competitionError('Seats are sealed for this game. Your next game can be linked.', 409, 'ROSTER_SEALED');
+    }
     await this.domain.changeScope(binding.kind, binding.id, scope => {
       const current = this.own(code, connectionId);
       if (proof(current.seat) !== ownerHash || current.seatId !== seatId) throw competitionError('Seat ownership changed. Reclaim before linking.', 403);
@@ -104,6 +149,7 @@ export class CompetitionTables {
       if (duplicate) throw competitionError('One participant can link only one seat.', 409);
       table.seats[seatId] = { participantId: me.id, ownerHash };
     });
+    this.unresolvedClaims.delete(`${code}:${seatId}`);
     return this.context(auth, code, connectionId);
   }
   async context(auth, code, connectionId) {
@@ -120,9 +166,11 @@ export class CompetitionTables {
       me: me.id, host: table?.hostId === me.id, seatLinked: table?.seats[seatId]?.participantId === me.id,
       gameId: capture?.gameId || null, captureStatus: capture?.status || null,
       assignmentId: table?.assignmentId || null,
+      assignedGuests: binding.kind === 'tournament' && table?.assignmentId ? this.tournaments.assignment(scope, table.assignmentId).participantIds
+        .map(id => scope.members[id]).filter(row => row.kind === 'guest').map(row => ({ id: row.id, name: this.domain.name(directory, scope.id, row) })) : [],
       roster: roster(room).map(seat => {
         const linked = table?.seats[seat.seatId]; const member = linked?.ownerHash === proof(seat) && scope.members[linked.participantId];
-        return { seatId: seat.seatId, kind: live(member, directory) ? member.kind : 'guest',
+        return { seatId: seat.seatId, participantId: live(member, directory) ? member.id : null, kind: live(member, directory) ? member.kind : 'guest',
           name: live(member, directory) ? this.domain.name(directory, scope.id, member) : seat.name };
       }),
     };
@@ -154,17 +202,24 @@ export class CompetitionTables {
     const me = this.actor(scope, auth, directory); const table = scope.tables[tableKey(room)];
     const command = table?.captures[room.gameId];
     const assignment = this.tournaments.assignment(scope, command?.assignmentId);
-    if ((me.role !== 'admin' && me.id !== command.hostId) || assignment.clock?.phase !== 'done') throw competitionError('Finish the current turn and all five additional turns first.', 409, 'FIVE_TURNS_REQUIRED');
+    if ((me.role !== 'admin' && me.id !== command.hostId) || assignment.clock?.phase !== 'done'
+      || assignment.clock.sourceGameId !== command.gameId) throw competitionError('Finish the current turn and all five additional turns of this game first.', 409, 'FIVE_TURNS_REQUIRED');
+    this.enableDrawSupport(room);
     return this.service.completeTimedDraw(code, connectionId, { baseVersion });
   }
 
   async start(code, connectionId, input) {
     const { room } = this.own(code, connectionId, true);
+    await Promise.all([...(this.pendingClaims.get(code) || [])]);
+    if (roster(room).some(seat => this.unresolvedClaims.get(`${code}:${seat.seatId}`) === proof(seat))) throw competitionError('A signed-in seat still needs its group link retried before starting.', 409, 'SEAT_LINK_PENDING');
     const binding = await this.binding(room);
     if (!binding) return this.service.startGame(code, connectionId, input);
     await this.reconcile(binding.kind, binding.id);
     const directory = await this.domain.directory(); const key = tableKey(room);
     const before = await this.domain.readScope(binding.kind, binding.id);
+    if (binding.kind === 'tournament' && before.settings.minutes && this.enableDrawSupport(room)) {
+      throw Object.assign(competitionError('The timed Table is ready for updated phones. Review it and start again.', 409, 'VERSION_CONFLICT'), { snapshot: this.service.snapshot(room) });
+    }
     const table = before.tables[key];
     if (!table) throw competitionError('Finish linking this Table before starting.', 409);
     const hostId = table.seats[room.hostSeatId]?.ownerHash === proof(room.seats[room.hostSeatId])
@@ -198,9 +253,13 @@ export class CompetitionTables {
       for (const seat of roster(room)) {
         const linked = table.seats[seat.seatId];
         const member = linked?.ownerHash === proof(seat) && before.members[linked.participantId];
-        if (!live(member, directory)) state.aliases[`${binding.id}_${candidates[seat.seatId]}`] = {
-          identityId: before.members[hostId]?.identityId || null, name: seat.name,
-        };
+        if (!live(member, directory)) {
+          const knownIdentity = member?.kind === 'member' ? member.identityId : null;
+          state.aliases[`${binding.id}_${candidates[seat.seatId]}`] = {
+            identityId: knownIdentity,
+            name: knownIdentity && !state.identities[knownIdentity] ? 'Deleted member' : seat.name,
+          };
+        }
       }
       return state;
     });
@@ -305,7 +364,11 @@ export class CompetitionTables {
           source = frozen?.source;
           if (source) await this.ledger.retrySourceArchive(source, frozen.archiveRecap);
         }
-        if (source) await this.capture(kind, id, table.key, command.gameId, source);
+        if (source) {
+          await this.capture(kind, id, table.key, command.gameId, source);
+          const frozen = this.service.rooms.get(command.roomCode)?.completedGames?.find(item => item.gameId === command.gameId);
+          if (frozen) delete frozen.archiveRecap;
+        }
       }
     }
   }
@@ -347,6 +410,9 @@ export class CompetitionTables {
       if (me.role !== 'admin' && me.id !== game.hostId) throw competitionError('Only this game’s original host or an admin may confirm or correct it.', 403, 'HOST_ONLY');
       rankPlacements(order, game.starterIds);
       const normalized = order.map(group => [...group].sort());
+      if (game.original.kind === 'timed_draw' && JSON.stringify(normalized[0]) !== JSON.stringify([...game.original.inferredOrder[0]].sort())) {
+        throw competitionError('The recorded surviving players must share the top places in a timed draw.');
+      }
       const payloadHash = digest({ order: normalized, reasonCode });
       const previous = game.revisions.find(item => item.requestId === requestId);
       if (previous) {
@@ -370,11 +436,11 @@ export class CompetitionTables {
   }
   detailDto(scope, game, directory) {
     return { gameId: game.gameId, completedAt: game.completedAt, startedAt: game.startedAt, gameFormat: game.gameFormat,
-      provenance: 'Server-verified completion; host-attested finishing order', status: game.revisions.length ? 'confirmed' : 'pending',
+      provenance: game.revisions.length ? 'Completion recorded by the app. Order confirmed by the host.' : 'Completion recorded by the app. Finishing order needs host confirmation.', status: game.revisions.length ? 'confirmed' : 'pending',
       hostId: game.hostId, starterIds: game.starterIds, original: game.original,
       players: game.seats.map(seat => ({ id: seat.participantId, seatId: seat.seatId, kind: seat.kind,
         name: this.domain.name(directory, scope.id, scope.members[seat.participantId]),
-        provenance: seat.kind === 'guest' ? 'organizer_attested_guest' : 'verified_member_seat' })),
+        provenance: seat.kind === 'guest' ? `${scope.members[seat.participantId]?.provenance || 'organizer_attested'}_guest` : 'verified_member_seat' })),
       revisions: game.revisions.map(({ revision, order, reasonCode, by, at }) => ({ revision, order, reasonCode, by,
         actor: this.domain.name(directory, scope.id, scope.members[by]), at })),
       ratingChanges: game.ratingChanges,

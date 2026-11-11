@@ -747,6 +747,7 @@ export class RoomService {
     if (room.ledgerCompletedAt != null) return;
     room.ledgerCompletedAt = completedAt;
     const recap = { ...recapFromRoom(room, completedAt), notes: room.playtestNotes.map(note => ({ ...note })), incomplete };
+    let frozenCompletion;
     if (!incomplete && room.gameResult && room.turn.gameStarted) {
       const starters = gameSeats(room);
       const sessionKind = room.turn.startedAsDevelopment || room.sessionKind === "development" ? "development" : "standard";
@@ -781,6 +782,7 @@ export class RoomService {
           }];
         })),
       };
+      frozenCompletion = finished;
       if (finished.source) recap._competitionSource = { digest: sourceDigest(finished.source), source: finished.source };
       room.completedGames = [...(room.completedGames || []), finished].slice(-RECENT_COMPLETED_GAMES);
       room.gameAccolades = Object.fromEntries([...decisions].map(([seatId, decision]) => [seatId, decision.moment]));
@@ -803,7 +805,12 @@ export class RoomService {
       // The result event precedes finalization, so also persist the frozen evidence.
       this.ledger.recovery(this.recoveryRecord(room, completedAt));
     }
-    this.ledger.complete(recap);
+    const archived = this.ledger.complete(recap);
+    if (frozenCompletion?.source) {
+      // Keep exact repair evidence only until its existing archive write is durable.
+      // This callback performs no I/O and is never awaited by a counter mutation.
+      void Promise.resolve(archived).then(ack => { if (ack?.archived) delete frozenCompletion.archiveRecap; }, () => {});
+    }
   }
 
   recordCompletion(room) {
@@ -1914,6 +1921,7 @@ export function createRealtimeServer(options = {}) {
   });
   const service = options.service ?? new RoomService({ ...options, tableDeviceActivity, completionEvidenceEnabled: Boolean(options.competitions || options.competitionStore), autoRecoverRooms: options.autoRecoverRooms ?? (appEnv === "staging" || durableRecoveryEnabled) });
   const competitions = options.competitions ?? (options.competitionStore ? new Competitions({ store: options.competitionStore, now: options.now }) : null);
+  const competitionEraser = options.competitionEraser ?? competitions;
   const tournaments = competitions ? new Tournaments({ domain: competitions }) : null;
   const competitionTables = competitions ? new CompetitionTables({ domain: competitions, service, ledger: service.ledger, tournaments }) : null;
   if (tournaments) tournaments.tables = competitionTables;
@@ -2047,7 +2055,7 @@ export function createRealtimeServer(options = {}) {
       if (req.method === "GET" && url.pathname === "/api/account/export") { const accountId = await account(req); return json(res, 200, { export: await accountHistory.export(accountId) }); }
       if (req.method === "DELETE" && url.pathname === "/api/account") {
         const identity = await accountIdentity(req);
-        if (competitions) await competitions.eraseAccount(await accountHistory.ensureAccount(identity.providerSubject));
+        if (competitionEraser) await competitionEraser.eraseAccount(await accountHistory.ensureAccount(identity.providerSubject));
         await accountHistory.deleteAccount(identity.providerSubject); return json(res, 204, {});
       }
       if (req.method === "POST" && url.pathname === "/api/account/games") {
@@ -2158,7 +2166,12 @@ export function createRealtimeServer(options = {}) {
           const ownership = service.ownershipStatus(room, connectionId);
           return json(res, 200, { snapshot: service.snapshot(room), ...(ownership ? { ownership } : {}) });
         }
-        if (req.method === "POST" && parts[3] === "claim") return json(res, 200, service.claimSeat(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "claim") {
+          const input = await readJson(req);
+          return json(res, 200, competitionTables && req.headers.authorization
+            ? await competitionTables.claimRoom(code, connectionId, input, () => account(req))
+            : service.claimSeat(code, connectionId, input));
+        }
         if (req.method === "PATCH" && parts[3] === "me") return json(res, 200, service.mutateOwnSeat(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "adjust") return json(res, 200, service.adjustOwnSeat(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "resolve-radiation") return json(res, 200, service.resolveRadiation(code, connectionId, await readJson(req)));

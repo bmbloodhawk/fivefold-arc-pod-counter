@@ -7,7 +7,7 @@ import { AccountHistory, accountHistoryStoreForEnvironment } from "./account-his
 import { loadAppearanceSkins } from "./appearance-collection.js";
 import { createFirebaseIdTokenVerifierFromEnv } from "./firebase-id-token.js";
 import { createLocalCommanderIdentityLookup, loadCardIdentityIndex } from "./card-identity-index.js";
-import { competitionStoreForEnvironment } from './competitions.js';
+import { Competitions, competitionStoreForEnvironment } from './competitions.js';
 import { CompetitionRecovery } from './competition-recovery.js';
 
 const port = Number(process.env.PORT ?? 8787);
@@ -25,8 +25,12 @@ const accountHistory = accountVerifier && typeof ledger.accessToken === "functio
   ? new AccountHistory({ store: accountHistoryStoreForEnvironment(ledger, appEnv) }) : null;
 // Local implementation is shipped disabled until a separately approved release.
 // Separate adapter/token/write queue from live room recovery and personal awards.
-const competitionWriter = process.env.COMPETITIONS_ENABLED === 'true' && accountHistory ? createPlaytestLedgerFromEnv() : null;
-const competitionStore = competitionWriter ? competitionStoreForEnvironment(competitionWriter, appEnv) : null;
+const competitionWriter = accountHistory ? createPlaytestLedgerFromEnv() : null;
+const competitionPrivacyStore = competitionWriter ? competitionStoreForEnvironment(competitionWriter, appEnv) : null;
+const competitionStore = process.env.COMPETITIONS_ENABLED === 'true' ? competitionPrivacyStore : null;
+// Existing shared identities must remain erasable after a feature rollback.
+// This domain has no setup hooks, routes or worker when the feature is disabled.
+const competitionEraser = competitionPrivacyStore ? new Competitions({ store: competitionPrivacyStore }) : null;
 const appearanceSkins = await loadAppearanceSkins({
   path: resolve(staticDir, "appearance-collection.enc"),
   key: process.env.APPEARANCE_PACK_KEY || (appEnv === "staging" ? process.env.STAGING_APPEARANCE_PACK_KEY : ""),
@@ -36,10 +40,9 @@ const appearanceSkins = await loadAppearanceSkins({
 });
 const { server, service, competitions, competitionTables } = createRealtimeServer({
   appEnv, staticDir, ledger, appearanceCatalog, accountVerifier, accountHistory, appearanceSkins,
-  durableRecoveryEnabled, competitionStore, lookupCommanderIdentity: createLocalCommanderIdentityLookup(cardIdentityIndex),
+  durableRecoveryEnabled, competitionStore, competitionEraser, lookupCommanderIdentity: createLocalCommanderIdentityLookup(cardIdentityIndex),
 });
 const competitionRecovery = competitions ? new CompetitionRecovery({ domain: competitions, tables: competitionTables }) : null;
-if (competitionRecovery) await competitionRecovery.discover().catch(error => console.error('Competition recovery discovery pending', error.message));
 const competitionTimer = competitionRecovery ? setInterval(() => { void competitionRecovery.tick(); }, 15_000) : null;
 competitionTimer?.unref();
 const sweepTimer = setInterval(() => service.sweep(), 30_000);
@@ -47,6 +50,8 @@ sweepTimer.unref();
 
 server.listen(port, "0.0.0.0", () => {
   console.log(`Fivefold Arc realtime server listening on port ${port}`);
+  // Optional storage discovery must never delay casual Table availability.
+  void competitionRecovery?.tick();
 });
 
 async function shutdown() {

@@ -104,7 +104,8 @@ export class Competitions {
   }
   member(scope, identityId, { admin = false } = {}) {
     const member = Object.values(scope.members).find(item => item.identityId === identityId);
-    if (!active(member) || (admin && member.role !== 'admin')) {
+    const canAdminEvent = scope.kind === 'tournament' && member?.status === 'left' && member.role === 'admin';
+    if ((!active(member) && !canAdminEvent) || (admin && member.role !== 'admin')) {
       throw competitionError(admin ? 'An active admin is required.' : 'You are not an active member.', 403, 'COMPETITION_ACCESS');
     }
     return member;
@@ -161,7 +162,8 @@ export class Competitions {
       let scope;
       try { scope = await this.readScope(kind, id); }
       catch (error) { if (error.status === 404) continue; throw error; }
-      const me = Object.values(scope.members).find(item => item.identityId === identityId && active(item));
+      const me = Object.values(scope.members).find(item => item.identityId === identityId
+        && (kind === 'pod' ? active(item) : ['active', 'pending', 'left'].includes(item.status)));
       if (!me) continue;
       result[kind === 'pod' ? 'pods' : 'tournaments'].push({ id, kind, name: scope.name, role: me.role, status: scope.status || 'active' });
     }
@@ -178,7 +180,9 @@ export class Competitions {
   }
   validInvite(scope, secretHash) {
     const invite = Object.values(scope.invites).find(item => item.secretHash === secretHash);
-    if (!invite || invite.revoked || invite.expiresAt <= this.now() || !active(scope.members[invite.by])) {
+    const inviter = scope.members[invite?.by];
+    const hostWhoStoppedPlaying = scope.kind === 'tournament' && inviter?.role === 'admin' && inviter.status === 'left';
+    if (!invite || invite.revoked || invite.expiresAt <= this.now() || (!active(inviter) && !hostWhoStoppedPlaying)) {
       throw competitionError('That invite has expired or was revoked.', 404, 'INVITE_UNAVAILABLE');
     }
     return invite;
@@ -237,7 +241,7 @@ export class Competitions {
     await this.setAlias(identityId, id, member.id, name);
     return this.getPod(accountId, id);
   }
-  async podMemberAction(accountId, id, { action, targetId, enabled } = {}) {
+  async podMemberAction(accountId, id, { action, targetId, enabled, name } = {}) {
     const identityId = await this.identity(accountId);
     const directory = await this.directory();
     await this.changeScope('pod', id, scope => {
@@ -252,9 +256,13 @@ export class Competitions {
         me.role = 'admin'; this.audit(scope, 'admin_takeover', me.id); return;
       }
       this.member(scope, identityId, { admin: true });
+      if (action === 'rename') {
+        scope.name = cleanText(name, 'Pod name'); this.audit(scope, 'pod_renamed', me.id); return;
+      }
       const target = scope.members[requiredId(targetId)];
       if (!active(target)) throw competitionError('Choose an active member.');
       if (action === 'remove') {
+        if (target.id === me.id) throw competitionError('Use Leave Pod for your own membership.');
         target.status = 'removed'; target.role = 'member'; target.removedVersion = scope.version;
         this.audit(scope, 'member_removed', me.id, target.id);
       } else if (action === 'admin' && typeof enabled === 'boolean') {

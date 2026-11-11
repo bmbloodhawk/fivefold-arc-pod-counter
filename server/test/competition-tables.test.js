@@ -103,10 +103,14 @@ test('whole Table session belongs to one scope, across successive games and a re
 });
 
 test('archive survives source-cache eviction and a fresh RoomService; pending receipt repairs a missing archive', async () => {
-  const f = await fixture(); await f.start(); f.finish();
+  class FirstArchiveFails extends MemoryPlaytestLedger {
+    complete(recap) { if (!this.failedOnce) { this.failedOnce = true; return; } return super.complete(recap); }
+  }
+  const f = await fixture({ ledger: new FirstArchiveFails() }); await f.start(); f.finish();
   const id = f.service.room(f.code).gameId;
-  const originalRecap = (await f.ledger.listArchive())[0];
-  f.ledger.records = f.ledger.records.filter(item => item.kind !== 'complete');
+  const originalRecap = structuredClone(f.service.room(f.code).completedGames[0].archiveRecap);
+  delete originalRecap._competitionSource;
+  assert.equal(await f.ledger.readArchivedSource(id), null);
   await f.tables.beforeProgress(f.code, f.host, 'begin-intermission');
   assert.equal((await f.ledger.readArchivedSource(id)).gameId, id);
   assert.deepEqual((await f.service.hostArchive(f.code, f.host)).playtests[0], originalRecap);
@@ -222,4 +226,30 @@ test('a concurrent life tap makes reset fail without abandoning the still-playab
   await assert.rejects(() => f.tables.reset(f.code, f.host, { baseVersion: f.service.room(f.code).version }), { code: 'VERSION_CONFLICT' });
   f.finish(); await publish(f);
   assert.equal((await f.domain.getPod('a', f.pod.id)).members[0].gamesPlayed, 1);
+});
+
+test('erasure before a pending start cannot reintroduce the deleted player’s name through a guest fallback', async () => {
+  const f = await fixture(); await f.domain.eraseAccount('b');
+  await f.start(); f.finish(); const result = await publish(f);
+  assert.equal(result.players.find(row => row.seatId === '2').name, 'Deleted member');
+  assert.equal(JSON.stringify((await f.domain.directory()).aliases).includes('"name":"B"'), false);
+});
+
+test('an in-flight signed-in seat registration finishes before an accepted start can freeze eligibility', async () => {
+  const f = await fixture();
+  const invite = await f.domain.invite('a', 'pod', f.pod.id);
+  await f.domain.joinPod('c', invite.token, { displayName: 'C' });
+  const connectionId = f.service.createConnection().connectionId;
+  let release, entered;
+  const gate = new Promise(resolve => { release = resolve; }); const waiting = new Promise(resolve => { entered = resolve; });
+  const claim = f.tables.claim.bind(f.tables);
+  f.tables.claim = async (...args) => { entered(); await gate; return claim(...args); };
+  const joining = f.tables.claimRoom(f.code, connectionId, { seatId: 3, name: 'C' }, async () => 'c');
+  await waiting;
+  let started = false;
+  const starting = f.start().then(result => { started = true; return result; });
+  await new Promise(resolve => setImmediate(resolve)); assert.equal(started, false);
+  release(); await joining; await starting; f.finish(); await publish(f);
+  const pod = await f.domain.getPod('a', f.pod.id);
+  assert.equal(pod.members.find(row => row.name === 'C').ratedGames, 1);
 });

@@ -42,6 +42,7 @@ export class MemoryPlaytestLedger {
     const previous = this.records.find(item => item.kind === 'complete' && item.record.gameId === record.gameId);
     if (record._competitionSource && previous) return;
     this.records.push({ kind: "complete", record: structuredClone(record) });
+    return { archived: true };
   }
   async readArchivedSource(gameId) { return archivedSource(this.records.find(item => item.kind === 'complete' && item.record.gameId === gameId)?.record); }
   async retrySourceArchive(source, recap) {
@@ -106,8 +107,9 @@ export class FirebasePlaytestLedger {
   complete(recap) {
     if (!recap._competitionSource) { this.enqueue(`playtests/${encodeURIComponent(recap.gameId)}/recap.json`, recap); return; }
     const frozen = structuredClone(recap);
-    this.pending = this.pending.then(() => this.createSourceArchive(frozen))
-      .catch(error => this.logger.error('Fivefold Arc completion archive write failed', error));
+    const attempt = this.pending.then(() => this.createSourceArchive(frozen)).then(() => ({ archived: true }));
+    this.pending = attempt.catch(error => this.logger.error('Fivefold Arc completion archive write failed', error));
+    return attempt;
   }
   async readArchivedSource(gameId) { return archivedSource(await this.read(`playtests/${encodeURIComponent(gameId)}/recap.json`)); }
   async retrySourceArchive(source, recap) {
