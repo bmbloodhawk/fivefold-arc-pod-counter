@@ -53,3 +53,17 @@ connection banner or error text. A failed item blocks public deployment.
 5. Record the build, phones and browsers, saved versions, restored scores, and
    any reconnect message. If either phone gets a different state, preserve the
    room and its diagnostics for review.
+
+## Unique devices at tables
+
+- In private Diagnostics, note the **Unique devices at tables** totals.
+- Create a staging table from one updated browser and join it from another.
+  After selecting **Refresh device totals**, each new browser should add one
+  to the three rolling counts.
+- Reconnect, reclaim, or create another table in the same browser. Each period
+  must still count that browser once. A failed seat claim must add zero.
+- Restart staging and refresh the totals. The recorded browser counts must
+  persist. Staging measurements use their own storage namespace.
+- Older installs and browsers that block local storage are outside these counts.
+  The panel shows the collection start time and reports a collection failure
+  when a visit could not be saved during the current server run.

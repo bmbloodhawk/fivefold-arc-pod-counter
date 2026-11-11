@@ -40,7 +40,16 @@
         </form>
         <p id="recoverySaveStatus" role="status">Enter a room code to check its last successful save.</p>
       </section>
-      <section class="insight-list"><h2>Current connected play</h2><p>Live aggregate only. This does not reveal players, rooms, or gameplay.</p><div id="activeActivity" class="insight-grid"><p>Open Diagnostics to load current activity.</p></div><div class="actions"><button id="activeActivityButton" type="button">Refresh live activity</button></div></section><section class="insight-list"><h2>Qualification policy · v2</h2><p>Qualified standard requires a started game, 3+ turn passes, activity from 2+ seats, and the greater of 3 minutes or 25 seconds per recorded pass. Review this definition after 12 qualified standard tables or 30 days; change it deliberately and version the next policy.</p></section><div class="actions"><button id="recentDiagnosticsButton" type="button">Recent games</button></div><form id="diagnosticForm" class="diagnostic-search"><input id="diagnosticQuery" aria-label="Room code or game reference" autocomplete="off" placeholder="Room code or game reference" required><button type="submit">Find game</button></form><p id="diagnosticStatus" role="status" aria-live="polite"></p><div id="diagnosticResults"></div></section>
+      <section class="insight-list"><h2>Current connected play</h2><p>Live aggregate only. This does not reveal players, rooms, or gameplay.</p><div id="activeActivity" class="insight-grid"><p>Open Diagnostics to load current activity.</p></div><div class="actions"><button id="activeActivityButton" type="button">Refresh live activity</button></div></section>
+      <section class="insight-list" aria-labelledby="tableDevicesHeading">
+        <h2 id="tableDevicesHeading">Unique devices at tables</h2>
+        <p>Browsers that successfully created or joined a table. Each browser counts once per period.</p>
+        <div id="tableDevices" class="insight-grid"><p>Open Diagnostics to load device totals.</p></div>
+        <p id="tableDevicesStatus" role="status"></p>
+        <p>Counts begin as browsers update to this release. Clearing browser storage or using another browser creates a separate device count.</p>
+        <div class="actions"><button id="tableDevicesButton" type="button">Refresh device totals</button></div>
+      </section>
+      <section class="insight-list"><h2>Qualification policy · v2</h2><p>Qualified standard requires a started game, 3+ turn passes, activity from 2+ seats, and the greater of 3 minutes or 25 seconds per recorded pass. Review this definition after 12 qualified standard tables or 30 days; change it deliberately and version the next policy.</p></section><div class="actions"><button id="recentDiagnosticsButton" type="button">Recent games</button></div><form id="diagnosticForm" class="diagnostic-search"><input id="diagnosticQuery" aria-label="Room code or game reference" autocomplete="off" placeholder="Room code or game reference" required><button type="submit">Find game</button></form><p id="diagnosticStatus" role="status" aria-live="polite"></p><div id="diagnosticResults"></div></section>
       <section id="cardDataPanel" hidden><p>Commander color lookup uses the deployed local card index. Normal player traffic never downloads card data or calls Scryfall.</p><section class="insight-list"><h2>Automatic refresh</h2><p>GitHub checks MTGJSON weekly, verifies its checksum, and commits a new snapshot only when card identities change. The normal connected deployment then releases that verified snapshot.</p><div class="actions"><a class="workflow-link" href="https://github.com/bmbloodhawk/fivefold-arc-pod-counter/actions/workflows/refresh-card-identity-index.yml" target="_blank" rel="noopener noreferrer">Open manual card-data refresh</a></div><p>This opens GitHub’s protected workflow. Run it only when an early update is genuinely needed, then confirm the resulting deployment before an event.</p></section></section>
     </section>
   </main>
@@ -118,8 +127,45 @@
 
     async function searchDiagnostics() { diagnosticStatus.textContent = 'Searching retained games…'; diagnosticResults.textContent = ''; const response = await fetch(`/api/feedback/diagnostics?query=${encodeURIComponent(diagnosticQuery.value.trim())}`, { headers: { 'x-feedback-portal-key': key.value }, cache:'no-store' }); const payload = await response.json(); if (!response.ok) { diagnosticStatus.textContent = payload.error?.message || 'Could not search retained games.'; return; } if (!payload.matches?.length) { diagnosticStatus.textContent = 'No retained game matched that room or game reference.'; return; } diagnosticStatus.textContent = ''; renderDiagnosticMatches(payload.matches); }
     async function loadRecentDiagnostics() { diagnosticStatus.textContent = 'Loading recent retained games…'; diagnosticResults.textContent = ''; const response = await fetch('/api/feedback/diagnostics/recent', { headers: { 'x-feedback-portal-key': key.value }, cache:'no-store' }); const payload = await response.json(); if (!response.ok) { diagnosticStatus.textContent = payload.error?.message || 'Could not load recent games.'; return; } if (!payload.games?.length) { diagnosticStatus.textContent = 'No retained games are available yet.'; return; } recentDiagnostics = payload.games; diagnosticFilter = 'all'; diagnosticStatus.textContent = 'Qualified standard uses policy v2: started game, 3 passes, 2 active seats, and the greater of 3 minutes or 25 seconds per pass. Flags indicate a review opportunity, not a confirmed defect.'; renderDiagnosticMatches(recentDiagnostics, { review:true }); }
+    const tableDevices = document.querySelector('#tableDevices');
+    const tableDevicesStatus = document.querySelector('#tableDevicesStatus');
+    const tableDevicesButton = document.querySelector('#tableDevicesButton');
+    let tableDevicesRequest = 0;
+
+    async function loadTableDevices() {
+      const request = ++tableDevicesRequest;
+      tableDevicesStatus.textContent = 'Loading recorded devices…';
+      try {
+        const response = await fetch('/api/feedback/device-activity', {
+          headers: { 'x-feedback-portal-key': key.value }, cache: 'no-store',
+        });
+        const payload = await response.json();
+        if (request !== tableDevicesRequest) return;
+        if (!response.ok) throw new Error('Could not load device totals. Try again.');
+        const activity = payload.deviceActivity;
+        if (!activity.configured) {
+          tableDevices.textContent = 'Device counting needs server storage.';
+          tableDevicesStatus.textContent = '';
+          return;
+        }
+        const periods = [['last24Hours', 'Last 24 hours'], ['last7Days', 'Last 7 days'], ['last30Days', 'Last 30 days']];
+        tableDevices.innerHTML = periods.map(([period, label]) => {
+          const count = activity.counts?.[period];
+          return `<article class="insight"><strong>${Number.isSafeInteger(count) && count >= 0 ? count : '—'}</strong><span>${label}</span></article>`;
+        }).join('');
+        const since = activity.collectionStartedAt ? `Collecting since ${date(activity.collectionStartedAt)}.` : 'No table visits recorded yet.';
+        const warning = activity.collectionStatus === 'partial' ? ' Some visits failed to save during this server run. Totals may be low.' : '';
+        tableDevicesStatus.textContent = `${since} Updated ${date(activity.asOf)}.${warning}`;
+      } catch {
+        if (request === tableDevicesRequest) {
+          tableDevices.textContent = 'Device totals are unavailable.';
+          tableDevicesStatus.textContent = 'Try refreshing the totals.';
+        }
+      }
+    }
+
     async function loadActiveActivity() { activeActivity.textContent = 'Loading live activity…'; try { const response = await fetch('/api/feedback/activity', { headers: { 'x-feedback-portal-key': key.value }, cache:'no-store' }); const payload = await response.json(); if (!response.ok) throw new Error(payload.error?.message || 'Could not load live activity.'); const activity = payload.activity || {}; activeActivity.innerHTML = `<article class="insight"><strong>${Number(activity.activePlayers) || 0}</strong><span>Connected players</span></article><article class="insight"><strong>${Number(activity.activeTables) || 0}</strong><span>Open tables</span></article><article class="insight"><strong>${Number(activity.playingTables) || 0}</strong><span>Playing tables</span></article>`; } catch (error) { activeActivity.innerHTML = `<p class="empty">${escapeHtml(error.message)}</p>`; } }
-    function showTab(tab) { if (tab === 'studio') { sessionStorage.setItem('fivefold-arc:developer-key', key.value); location.assign('appearance-studio.html'); return; } const feedback = tab === 'feedback'; const insightsTab = tab === 'insights'; diagnosticsPanel.hidden = tab !== 'diagnostics'; feedbackPanel.hidden = !feedback; insightsPanel.hidden = !insightsTab; cardDataPanel.hidden = tab !== 'card-data'; tabs.querySelectorAll('[data-tab]').forEach(button => button.classList.toggle('active', button.dataset.tab === tab)); if (tab === 'diagnostics') void loadActiveActivity(); }
+    function showTab(tab) { if (tab === 'studio') { sessionStorage.setItem('fivefold-arc:developer-key', key.value); location.assign('appearance-studio.html'); return; } const feedback = tab === 'feedback'; const insightsTab = tab === 'insights'; diagnosticsPanel.hidden = tab !== 'diagnostics'; feedbackPanel.hidden = !feedback; insightsPanel.hidden = !insightsTab; cardDataPanel.hidden = tab !== 'card-data'; tabs.querySelectorAll('[data-tab]').forEach(button => button.classList.toggle('active', button.dataset.tab === tab)); if (tab === 'diagnostics') { void loadActiveActivity(); void loadTableDevices(); } }
     async function updateFeedback(card, nextStatus) {
       const note = allNotes.find(item => item.noteId === card.dataset.note); const ownerNote = card.querySelector('textarea').value;
       const response = await fetch(`/api/feedback/${encodeURIComponent(note.noteId)}`, { method: nextStatus === 'deleted' ? 'DELETE' : 'PATCH', headers: { 'content-type':'application/json', 'x-feedback-portal-key':key.value }, body: JSON.stringify({ gameId:note.gameId, status:nextStatus, ownerNote }) });
@@ -138,6 +184,7 @@
     diagnosticForm.addEventListener('submit', event => { event.preventDefault(); searchDiagnostics(); });
     recentDiagnosticsButton.addEventListener('click', loadRecentDiagnostics);
     activeActivityButton.addEventListener('click', () => void loadActiveActivity());
+    tableDevicesButton.addEventListener('click', () => void loadTableDevices());
     tabs.addEventListener('click', event => { const button = event.target.closest('[data-tab]'); if (button) showTab(button.dataset.tab); });
     document.querySelector('#lockButton').addEventListener('click', () => { key.value = ''; sessionStorage.removeItem('fivefold-arc:developer-key'); inbox.hidden = true; form.hidden = false; notes.textContent = ''; insights.textContent = ''; diagnosticResults.textContent = ''; diagnosticStatus.textContent = ''; count.textContent = ''; fieldInsights = null; key.focus(); });
   </script>

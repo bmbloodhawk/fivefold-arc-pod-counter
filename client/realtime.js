@@ -1,3 +1,5 @@
+import { getTableDeviceId } from './table-device-id.js?v=1';
+
 /** HTTP + SSE transport. Shared writes use exact versions and are never queued. */
 const SNAPSHOT_SAFETY_REFRESH_MS = 30_000;
 const CONNECTION_INCIDENT_REPORT_INTERVAL_MS = 30_000;
@@ -309,7 +311,11 @@ export class RealtimeAdapter extends EventTarget {
   }
 
   async #startConnection(epoch) {
-    const result = await this.#request('/api/connections', { method: 'POST', body: { supportedTableProtocols: SUPPORTED_TABLE_PROTOCOLS } });
+    const tableDeviceId = getTableDeviceId();
+    const result = await this.#request('/api/connections', {
+      method: 'POST',
+      body: { supportedTableProtocols: SUPPORTED_TABLE_PROTOCOLS, ...(tableDeviceId ? { tableDeviceId } : {}) },
+    });
     if (!this.#isCurrentSession(epoch)) return false;
     this.connectionId = result.connectionId;
     return true;

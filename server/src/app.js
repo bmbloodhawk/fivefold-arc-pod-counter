@@ -6,6 +6,7 @@ import QRCode from "qrcode";
 import { APPEARANCE_ACHIEVEMENTS } from "./appearance-milestones.js";
 import { isAchievementSkin } from "./staging-appearance.js";
 import { activeGameDurationMs, NullPlaytestLedger, recapFromRoom } from "./playtest-ledger.js";
+import { TableDeviceActivity, normalizedTableDeviceId } from "./table-device-activity.js";
 import { ProductMeasurement } from "./product-measurement.js";
 import { blankMatchMoment, chooseMatchMoment, RECENT_ACCOLADE_LIMIT, recordMatchMoment, recordTurnMoment, tableMatchMomentDecisions } from "./match-moments.js";
 
@@ -498,7 +499,16 @@ function resetSeatForNextGame(seat, startingLife) {
 function feedbackPromptSeatId(room) { const seats = room.seats.filter(seat => seat.claimed); if (!room.gameResult || !seats.length) return null; const value = [...room.gameId].reduce((total, character) => total + character.codePointAt(0), 0); return value % 3 ? null : seats[value % seats.length].seatId; }
 
 export class RoomService {
-  constructor({ now = () => Date.now(), roomTtlMs = 6 * 60 * 60 * 1000, connectionTtlMs = 90 * 1000, sseKeepaliveMs = SSE_KEEPALIVE_MS, ledger = new NullPlaytestLedger(), productMeasurement = new ProductMeasurement(), autoRecoverRooms = false } = {}) {
+  constructor({
+    now = () => Date.now(),
+    roomTtlMs = 6 * 60 * 60 * 1000,
+    connectionTtlMs = 90 * 1000,
+    sseKeepaliveMs = SSE_KEEPALIVE_MS,
+    ledger = new NullPlaytestLedger(),
+    productMeasurement = new ProductMeasurement(),
+    tableDeviceActivity = new TableDeviceActivity(),
+    autoRecoverRooms = false,
+  } = {}) {
     this.now = now;
     this.roomTtlMs = roomTtlMs;
     this.connectionTtlMs = connectionTtlMs;
@@ -506,6 +516,7 @@ export class RoomService {
     this.connections = new Map();
     this.ledger = ledger;
     this.productMeasurement = productMeasurement;
+    this.tableDeviceActivity = tableDeviceActivity;
     this.autoRecoverRooms = autoRecoverRooms;
     this.recoveryLoads = new Map();
     this.sseKeepaliveMs = sseKeepaliveMs;
@@ -518,7 +529,14 @@ export class RoomService {
       throw Object.assign(new Error("Connection input must be an object"), { status: 400, code: "INVALID_INPUT" });
     }
     const connectionId = opaque();
-    this.connections.set(connectionId, { connectionId, supportedTableProtocols: supportedTableProtocols(input.supportedTableProtocols), seatKey: null, lastSeen: this.now(), streams: new Set() });
+    this.connections.set(connectionId, {
+      connectionId,
+      supportedTableProtocols: supportedTableProtocols(input.supportedTableProtocols),
+      tableDeviceId: normalizedTableDeviceId(input.tableDeviceId),
+      seatKey: null,
+      lastSeen: this.now(),
+      streams: new Set(),
+    });
     return { connectionId, expiresInMs: this.connectionTtlMs };
   }
 
@@ -632,6 +650,7 @@ export class RoomService {
     this.rooms.set(code, room);
     this.recordLedger(room, "room_created", 0, { playerCount, seatCapacity, startingLife, gameFormat });
     this.productMeasurement.record({ event: "pod_creation_succeeded" });
+    this.tableDeviceActivity.record(connection.tableDeviceId);
     connection.seatKey = `${code}:0`;
     return { snapshot: this.snapshot(room), seatId: 0, reclaimToken, hostRecoveryKey };
   }
@@ -1001,6 +1020,7 @@ export class RoomService {
     }
     room.version += 1;
     this.recordLedger(room, seat.claimed && input.reclaimToken ? "seat_reclaimed" : "seat_claimed", seatId, { name: seat.name, commanderCount: seat.commanderCount });
+    this.tableDeviceActivity.record(connection.tableDeviceId);
     if (!wasClaimed) {
       this.productMeasurement.record({ event: "seat_claim_succeeded" });
       if (room.seats.filter((item) => item.claimed).length === 2) this.productMeasurement.record({ event: "second_player_joined" });
@@ -1831,6 +1851,7 @@ export class RoomService {
   }
 
   sweep() {
+    this.tableDeviceActivity.prune();
     const now = this.now();
     for (const connection of [...this.connections.values()]) {
       if (now - connection.lastSeen > this.connectionTtlMs) this.expireConnection(connection);
@@ -1854,7 +1875,12 @@ export class RoomService {
 export function createRealtimeServer(options = {}) {
   const appEnv = options.appEnv ?? process.env.APP_ENV ?? "production";
   const durableRecoveryEnabled = options.durableRecoveryEnabled ?? (appEnv === "production" && typeof options.ledger?.accessToken === "function");
-  const service = options.service ?? new RoomService({ ...options, autoRecoverRooms: options.autoRecoverRooms ?? (appEnv === "staging" || durableRecoveryEnabled) });
+  const tableDeviceActivity = options.tableDeviceActivity ?? new TableDeviceActivity({
+    store: typeof options.ledger?.accessToken === "function" ? options.ledger : null,
+    environment: appEnv,
+    now: options.now,
+  });
+  const service = options.service ?? new RoomService({ ...options, tableDeviceActivity, autoRecoverRooms: options.autoRecoverRooms ?? (appEnv === "staging" || durableRecoveryEnabled) });
   const lookupCommanderIdentity = options.lookupCommanderIdentity ?? createCommanderIdentityLookup(options.fetchImpl);
   const lookupCard = options.lookupCard ?? createCardLookup(options.fetchImpl);
   const lookupCardInteraction = options.lookupCardInteraction ?? createCardInteractionLookup(options.fetchImpl);
@@ -2020,6 +2046,10 @@ export function createRealtimeServer(options = {}) {
       if (req.method === "GET" && parts[0] === "dice-skins" && parts[1] && parts[2] && serveDiceSkin(res, parts[1], parts[2])) return;
       if (req.method === "GET" && url.pathname === "/api/feedback") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { notes: await service.ledger.listFeedback() }); }
       if (req.method === "GET" && url.pathname === "/api/feedback/insights") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { insights: await service.developerFieldTestInsights() }); }
+      if (req.method === "GET" && url.pathname === "/api/feedback/device-activity") {
+        feedbackKeyMatches(req.headers["x-feedback-portal-key"]);
+        return json(res, 200, { deviceActivity: await service.tableDeviceActivity.summary() });
+      }
       if (req.method === "GET" && url.pathname === "/api/feedback/activity") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { activity: service.developerActivity() }); }
       if (req.method === "GET" && url.pathname === "/api/feedback/diagnostics/recovery") {
         feedbackKeyMatches(req.headers["x-feedback-portal-key"]);
