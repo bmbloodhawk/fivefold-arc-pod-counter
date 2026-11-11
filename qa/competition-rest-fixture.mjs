@@ -14,7 +14,8 @@ export function firebaseShape(value) {
   return Object.fromEntries(entries);
 }
 
-export async function startCompetitionRestFixture() {
+export async function startCompetitionRestFixture({ delayMs = 0 } = {}) {
+  if (!Number.isInteger(delayMs) || delayMs < 0 || delayMs > 1000) throw new Error('Fixture delay must be 0–1000ms.');
   let root = {}; const calls = []; let conflicts = 0;
   const pathParts = path => path.replace(/^\//, '').replace(/\.json$/, '').split('/').filter(Boolean).map(decodeURIComponent);
   const read = path => structuredClone(pathParts(path).reduce((value, key) => value?.[key], root) ?? null);
@@ -36,6 +37,7 @@ export async function startCompetitionRestFixture() {
   };
   const server = createServer(async (req, res) => {
     if (req.headers.authorization !== 'Bearer local-fixture-only') { res.writeHead(401); res.end('{}'); return; }
+    if (delayMs) await new Promise(resolve => setTimeout(resolve, delayMs));
     const path = new URL(req.url, 'http://127.0.0.1').pathname;
     calls.push({ method: req.method, path });
     let current = read(path);
@@ -44,7 +46,9 @@ export async function startCompetitionRestFixture() {
       res.end(JSON.stringify(current)); return;
     }
     if (req.method !== 'PUT') { res.writeHead(405); res.end('{}'); return; }
-    let body = ''; for await (const chunk of req) body += chunk;
+    let body = '';
+    try { for await (const chunk of req) body += chunk; }
+    catch { if (!res.destroyed) { res.writeHead(400); res.end('{}'); } return; }
     // Compare at commit, after reading the request, so concurrent writers really race.
     current = read(path);
     const tag = req.headers['if-match'];

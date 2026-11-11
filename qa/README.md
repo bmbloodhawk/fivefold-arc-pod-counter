@@ -47,3 +47,43 @@ change, update the adapter rather than weakening the behavioral assertions.
 
 Passing the automated suite is not evidence that the app is readable on real
 phones, survives mobile browser suspension, or works at another house.
+# Local Pods / Tournaments load simulation
+
+`node qa/competition-load.mjs` starts its own loopback application child process and
+disposable conditional-REST database. It uses synthetic account identities, not Firebase
+or real accounts. There is no remote-target option, so it cannot load-test production
+or add synthetic events to staging.
+
+```powershell
+# Existing default budgets: 32 players on one network, eight Tables
+node qa/competition-load.mjs --players=32 --networks=1 --delay-ms=5 --adjustments=16 --rounds=1
+
+# Two rounds, 64 players over two simulated networks, sixteen Tables per round
+node qa/competition-load.mjs --players=64 --networks=2 --delay-ms=5 --adjustments=16 --rounds=2
+
+# Opt-in higher budgets: 128 players on one network, 32 Tables
+node qa/competition-load.mjs --players=128 --networks=1 --streams-per-network=128 --streams-global=256 --delay-ms=5 --adjustments=16 --rounds=1
+```
+
+The harness checks real HTTP/SSE updates, exact counter changes and convergence,
+reclaim/stale-phone authority, life changes during other Tables' result traffic,
+concurrent confirmed results, duplicate-request idempotency, points and game counts.
+Life-only activity must leave competition records unchanged. Each actual mutation has
+a unique operation ID; the busy-phase counter verifies all 64 control mutations applied.
+
+Reports are under `.local/evidence/competition-load-<players>-<networks>.json`. Timing
+percentiles are per HTTP attempt; `operationP95Ms` includes automatic test-harness retries
+and backoff. Retryable `503 HISTORY_BUSY` responses remain visible in the status counts.
+They are not counted as instant successes. The phone UI can require a host to retry a
+busy confirmation; the harness explicitly retries with the same immutable request ID.
+
+The old defaults remain 32 live streams per network and 64 per server. Per-service
+`MAX_LIVE_STREAMS_PER_IP` and `MAX_LIVE_STREAMS_GLOBAL` can raise them (integers 1–1024,
+network budget no greater than server budget). The per-connection limit remains two.
+Staging is configured for 128 / 256; production settings have not been changed.
+
+These are local measurements, not Render hardware, real phone rendering, OAuth,
+live Firebase or venue Wi-Fi evidence. Storage delay is artificial and the REST fixture
+implements only the adapter contract. Large same-instant confirmation bursts still
+show contention even with higher connection limits. Use the staging phone checklist
+before any production release. No benchmark result authorizes a production change.
