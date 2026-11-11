@@ -115,6 +115,8 @@ test('optional co-host must be a signed-in entrant and can manage rounds without
   let event = await f.tournaments.memberAction(f.host, f.event.id, { action: 'cohost', targetId: f.entrants[0].me, enabled: true });
   assert.equal(event.members.find(row => row.id === f.entrants[0].me).role, 'admin');
   const cohost = { accountId: 'account_0' };
+  assert.equal((await f.domain.listInvites('account_0', 'tournament', f.event.id)).invites.length, 1);
+  await assert.rejects(() => f.domain.listInvites('account_1', 'tournament', f.event.id), { status: 403 });
   event = await f.tournaments.prepareRound(cohost, f.event.id);
   await f.tournaments.startRound(cohost, f.event.id, { roundId: event.rounds[0].id, baseVersion: event.version });
   assert.equal((await f.tournaments.get(cohost, f.event.id)).rounds[0].status, 'playing');
@@ -301,4 +303,36 @@ test('timed Tables require draw-capable phones; legacy phones keep ordinary Tabl
   // The optional feature must not upgrade or block a normal casual Table.
   const casual = f.service.createRoom(oldGuest, { playerCount: 2, startingLife: 40 });
   assert.equal(casual.snapshot.protocolVersion, 1);
+});
+
+test('a started event Table cannot be reset and cancelled to bypass its real completion', async () => {
+  const f = await fixture({ count: 4, rounds: 1 }); const event = await nextRound(f);
+  const assignment = event.rounds[0].assignments[0]; const table = await playAssignment(f, assignment, { finish: false });
+  const gameId = f.service.room(table.code).gameId;
+  await assert.rejects(() => f.tables.reset(table.code, table.connections[0], { baseVersion: f.service.room(table.code).version }), { code: 'EVENT_GAME_IN_PROGRESS' });
+  assert.equal(f.service.room(table.code).gameId, gameId); assert.equal(f.service.room(table.code).turn.gameStarted, true);
+  await assert.rejects(() => f.tournaments.cancelUnplayedTable(f.host, f.event.id, assignment.id), { status: 409 });
+  // Historical abandoned-start records must also remain protected.
+  await f.domain.changeScope('tournament', f.event.id, scope => {
+    Object.values(scope.tables)[0].captures[gameId].status = 'abandoned';
+  });
+  await assert.rejects(() => f.tournaments.cancelUnplayedTable(f.host, f.event.id, assignment.id), { status: 409 });
+  assert.equal((await f.tournaments.get(f.host, f.event.id)).status, 'playing');
+});
+
+test('an interrupted reservation that never started can be reset then cancelled as unplayed', async () => {
+  const f = await fixture({ count: 4, rounds: 1 }); const event = await nextRound(f); const assignment = event.rounds[0].assignments[0];
+  const update = f.store.update.bind(f.store); let interrupted = false;
+  f.store.update = async (path, change) => {
+    const result = await update(path, change);
+    if (!interrupted && Object.values(result?.tables || {}).some(table => Object.values(table.captures || {}).some(command => command.status === 'accepted'))) {
+      interrupted = true; throw new Error('Fixture process stopped after reservation');
+    }
+    return result;
+  };
+  await assert.rejects(() => playAssignment(f, assignment, { finish: false }), /stopped after reservation/);
+  const room = [...f.service.rooms.values()][0]; assert.equal(room.turn.gameStarted, false);
+  await f.tables.reset(room.code, room.seats[room.hostSeatId].ownerConnectionId, { baseVersion: room.version });
+  const current = await f.tournaments.cancelUnplayedTable(f.host, f.event.id, assignment.id);
+  assert.equal(current.status, 'completed'); assert.equal(current.standings.every(row => row.points === 0), true);
 });

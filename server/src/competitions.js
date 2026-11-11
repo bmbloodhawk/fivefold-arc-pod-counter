@@ -195,9 +195,24 @@ export class Competitions {
     await this.changeScope(kind, id, scope => {
       const me = this.member(scope, identityId, { admin: kind === 'tournament' });
       scope.invites[inviteId] = { id: inviteId, secretHash: digest(secret), by: me.id,
-        adminIssued: me.role === 'admin', issuedVersion: scope.version, expiresAt };
+        adminIssued: me.role === 'admin', issuedVersion: scope.version, createdAt: this.now(), expiresAt };
     });
     return { id: inviteId, token: `${kind}.${id}.${secret}`, expiresAt };
+  }
+  async listInvites(accountId, kind, id) {
+    const identityId = await this.identity(accountId); const scope = await this.readScope(kind, id);
+    const directory = await this.directory();
+    if (!directory.identities[identityId]) throw competitionError('Account data was removed.', 403, 'COMPETITION_ACCESS');
+    const me = this.member(scope, identityId, { admin: kind === 'tournament' });
+    const invites = Object.values(scope.invites).filter(row => me.role === 'admin' || row.by === me.id).map(row => {
+      const issuer = scope.members[row.by];
+      const available = issuer && directory.identities[issuer.identityId]
+        && (active(issuer) || (kind === 'tournament' && issuer.role === 'admin' && issuer.status === 'left'));
+      return { id: row.id, issuer: this.name(directory, id, issuer || { id: row.by }),
+        createdAt: row.createdAt || row.expiresAt - 7 * 86_400_000, expiresAt: row.expiresAt,
+        status: row.revoked ? 'revoked' : row.expiresAt <= this.now() ? 'expired' : available ? 'active' : 'unavailable' };
+    }).sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id));
+    return { invites };
   }
   async revokeInvite(accountId, kind, id, inviteId) {
     const identityId = await this.identity(accountId);

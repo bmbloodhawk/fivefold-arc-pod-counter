@@ -124,7 +124,7 @@ export class CompetitionTables {
     const { room, seat, seatId } = this.own(code, connectionId);
     const ownerHash = proof(seat);
     const binding = await this.binding(room);
-    if (!binding) return { linked: false };
+    if (!binding) { this.unresolvedClaims.delete(`${code}:${seatId}`); return { linked: false }; }
     const directory = await this.domain.directory();
     if (room.turn.gameStarted && !room.gameResult) {
       const scope = await this.domain.readScope(binding.kind, binding.id); const me = this.actor(scope, auth, directory);
@@ -211,9 +211,12 @@ export class CompetitionTables {
   async start(code, connectionId, input) {
     const { room } = this.own(code, connectionId, true);
     await Promise.all([...(this.pendingClaims.get(code) || [])]);
-    if (roster(room).some(seat => this.unresolvedClaims.get(`${code}:${seat.seatId}`) === proof(seat))) throw competitionError('A signed-in seat still needs its group link retried before starting.', 409, 'SEAT_LINK_PENDING');
     const binding = await this.binding(room);
-    if (!binding) return this.service.startGame(code, connectionId, input);
+    if (!binding) {
+      for (const seat of roster(room)) this.unresolvedClaims.delete(`${code}:${seat.seatId}`);
+      return this.service.startGame(code, connectionId, input);
+    }
+    if (roster(room).some(seat => this.unresolvedClaims.get(`${code}:${seat.seatId}`) === proof(seat))) throw competitionError('A signed-in seat still needs its group link retried before starting.', 409, 'SEAT_LINK_PENDING');
     await this.reconcile(binding.kind, binding.id);
     const directory = await this.domain.directory(); const key = tableKey(room);
     const before = await this.domain.readScope(binding.kind, binding.id);
@@ -315,12 +318,16 @@ export class CompetitionTables {
   async reset(code, connectionId, input) {
     const { room } = this.own(code, connectionId, true); const binding = await this.binding(room);
     if (!binding) return this.service.resetRoom(code, connectionId, input);
+    if (binding.kind === 'tournament' && room.turn.gameStarted && !room.gameResult) {
+      throw competitionError('Finish and confirm this tournament game before resetting its Table.', 409, 'EVENT_GAME_IN_PROGRESS');
+    }
     if (input.baseVersion !== room.version) throw competitionError('Refresh the Table before resetting.', 409, 'VERSION_CONFLICT');
     await this.beforeProgress(code, connectionId, 'reset');
     const resetGameId = randomBytes(12).toString('base64url'); const key = tableKey(room);
     await this.domain.changeScope(binding.kind, binding.id, scope => {
       for (const command of Object.values(scope.tables[key]?.captures || {})) {
-        if (command.status === 'accepted') command.resetIntent = { toGameId: resetGameId, requestedAt: this.domain.now() };
+        if (command.status === 'accepted') command.resetIntent = { toGameId: resetGameId, requestedAt: this.domain.now(),
+          statusAfterReset: binding.kind === 'tournament' && !room.turn.gameStarted ? 'cancelled' : 'abandoned' };
       }
     });
     let response;
@@ -335,7 +342,7 @@ export class CompetitionTables {
     }
     await this.domain.changeScope(binding.kind, binding.id, scope => {
       for (const command of Object.values(scope.tables[key]?.captures || {})) {
-        if (command.resetIntent?.toGameId === resetGameId) command.status = 'abandoned';
+        if (command.resetIntent?.toGameId === resetGameId) command.status = command.resetIntent.statusAfterReset || 'abandoned';
       }
     });
     return response;
@@ -349,7 +356,7 @@ export class CompetitionTables {
           const room = this.service.rooms.get(command.roomCode);
           const saved = !room ? await this.ledger.readRecovery(command.roomCode) : null;
           if ((room || saved?.room)?.gameId === command.resetIntent.toGameId) {
-            await this.domain.changeScope(kind, id, state => { state.tables[table.key].captures[command.gameId].status = 'abandoned'; });
+            await this.domain.changeScope(kind, id, state => { state.tables[table.key].captures[command.gameId].status = command.resetIntent.statusAfterReset || 'abandoned'; });
             continue;
           }
         }

@@ -253,3 +253,18 @@ test('an in-flight signed-in seat registration finishes before an accepted start
   const pod = await f.domain.getPod('a', f.pod.id);
   assert.equal(pod.members.find(row => row.name === 'C').ratedGames, 1);
 });
+
+test('a recovered optional claim failure cannot strand an ordinary unbound casual Table', async () => {
+  const domain = new Competitions({ store: new MemoryAccountHistoryStore() });
+  const service = new RoomService({ ledger: new MemoryPlaytestLedger() });
+  const tables = new CompetitionTables({ domain, service, ledger: service.ledger });
+  const host = service.createConnection().connectionId, other = service.createConnection().connectionId;
+  const code = service.createRoom(host, { playerCount: 2, startingLife: 40 }).snapshot.code;
+  const read = domain.directory.bind(domain); let failed = false;
+  domain.directory = async () => { if (!failed) { failed = true; throw new Error('Transient optional store failure'); } return read(); };
+  const joined = await tables.claimRoom(code, other, { seatId: 1, name: 'Casual guest' }, async () => 'signed_in_guest');
+  assert.ok(joined.competitionWarning); assert.equal(tables.unresolvedClaims.size, 1);
+  assert.deepEqual(await tables.context({}, code, other), { linked: false });
+  await tables.start(code, host, { baseVersion: service.room(code).version });
+  assert.equal(service.room(code).turn.gameStarted, true); assert.equal(tables.unresolvedClaims.size, 0);
+});

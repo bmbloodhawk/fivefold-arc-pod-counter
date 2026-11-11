@@ -41,6 +41,7 @@ export async function competitionRoute({ req, url, readBody, account, domain, ta
   const [kind, id, action, detail, subaction] = path;
   if (!['pod', 'tournament'].includes(kind) || !id) throw competitionError('Unknown competition route.', 404);
   if (!action && method === 'GET') return ok(kind === 'pod' ? await domain.getPod(await signed(), id) : await tournaments.get(await auth(), id));
+  if (action === 'invites' && method === 'GET') return ok(await domain.listInvites(await signed(), kind, id));
   if (action === 'invites' && method === 'POST') return ok(detail && subaction === 'revoke'
     ? await domain.revokeInvite(await signed(), kind, id, detail) : await domain.invite(await signed(), kind, id));
   if (action === 'members' && method === 'POST') return ok(kind === 'pod'

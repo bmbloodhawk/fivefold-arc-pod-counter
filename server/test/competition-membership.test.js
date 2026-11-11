@@ -136,3 +136,23 @@ test('only an active admin can rename a Pod without changing its memberships or 
   assert.equal(updated.audit.at(-1).action, 'pod_renamed');
   await assert.rejects(() => f.service.podMemberAction('a', pod.id, { action: 'rename', name: '<bad>' }), { status: 400 });
 });
+
+test('issued invitations can be managed after reopening; members see their own and admins see all', async () => {
+  const f = fixture(); const { pod, invite } = await twoMembers(f);
+  const own = await f.service.invite('b', 'pod', pod.id);
+  const memberList = await f.service.listInvites('b', 'pod', pod.id);
+  assert.deepEqual(memberList.invites.map(row => row.id), [own.id]);
+  const adminList = await f.service.listInvites('a', 'pod', pod.id);
+  assert.equal(adminList.invites.length, 2);
+  assert.equal(/secretHash|token|identityId|accountId/.test(JSON.stringify(adminList)), false);
+  await assert.rejects(() => f.service.listInvites('c', 'pod', pod.id), { status: 403 });
+  await assert.rejects(() => f.service.revokeInvite('b', 'pod', pod.id, invite.id), { status: 403 });
+  await f.service.revokeInvite('a', 'pod', pod.id, own.id);
+  assert.equal((await f.service.listInvites('b', 'pod', pod.id)).invites[0].status, 'revoked');
+  await assert.rejects(() => f.service.preview(own.token), { status: 404 });
+  f.advance(8 * 86_400_000);
+  assert.equal((await f.service.listInvites('a', 'pod', pod.id)).invites.find(row => row.id === invite.id).status, 'expired');
+  const readScope = f.service.readScope.bind(f.service); let erased = false;
+  f.service.readScope = async (...args) => { const scope = await readScope(...args); if (!erased) { erased = true; await f.service.eraseAccount('b'); } return scope; };
+  await assert.rejects(() => f.service.listInvites('b', 'pod', pod.id), { status: 403 });
+});

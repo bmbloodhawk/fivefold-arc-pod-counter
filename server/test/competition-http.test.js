@@ -29,6 +29,9 @@ test('HTTP Pod opt-in/ACL/invite/revoke/leave and account erasure are enforced s
   assert.equal(created.status, 201); const id = created.data.id;
   assert.equal((await f.request(`/api/competitions/pod/${id}`, { token: 'outsider' })).status, 403);
   const invite = (await f.request(`/api/competitions/pod/${id}/invites`, { method: 'POST', body: {} })).data;
+  const issued = await f.request(`/api/competitions/pod/${id}/invites`);
+  assert.equal(issued.status, 200); assert.equal(issued.data.invites[0].id, invite.id);
+  assert.equal(/secretHash|token/.test(JSON.stringify(issued.data)), false);
   const preview = await f.request('/api/competitions/invite-preview', { token: null, method: 'POST', body: { token: invite.token } });
   assert.equal(preview.status, 200); assert.equal('members' in preview.data, false);
   assert.equal((await f.request('/api/competitions/join', { token: null, method: 'POST', body: { token: invite.token, displayName: 'Guest' } })).status, 401);

@@ -147,7 +147,7 @@ export class Tournaments {
       if (assignment.cancelled) return;
       if (lastRound(scope)?.status !== 'playing' || !lastRound(scope).assignments.includes(assignment)) throw competitionError('Only a current unplayed Table can be cancelled.', 409);
       const hasStart = Object.values(scope.tables).some(table => Object.values(table.captures).some(command =>
-        command.assignmentId === assignmentId && ['accepted', 'captured'].includes(command.status)));
+        command.assignmentId === assignmentId && ['accepted', 'captured', 'abandoned'].includes(command.status)));
       if (hasStart || assignment.gameId) throw competitionError('A started Table must finish and confirm its result.', 409);
       assignment.cancelled = true;
       this.applyStandings(scope);

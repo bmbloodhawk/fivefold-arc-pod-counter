@@ -61,6 +61,15 @@ test('real process restart retains five completed sources beyond the room cache 
   await app.kill(); app = await startApp(database.url); processes.push(app);
   const historyAfter = await call(`/api/competitions/pod/${podId}/history`);
   assert.equal(historyAfter.status, 200); assert.deepEqual(historyAfter.data, historyBefore);
+  const pagedIds = []; let cursor;
+  do {
+    const page = await call(`/api/competitions/pod/${podId}/history?limit=2${cursor ? '&cursor=' + encodeURIComponent(cursor) : ''}`, { token: 'qa-member' });
+    assert.equal(page.status, 200); assert.ok(page.data.games.length <= 2);
+    assert.ok(page.data.games.every(row => Object.keys(row).every(key => ['gameId', 'completedAt', 'playerCount', 'status', 'revision'].includes(key))));
+    pagedIds.push(...page.data.games.map(row => row.gameId)); cursor = page.data.nextCursor;
+  } while (cursor);
+  assert.deepEqual(new Set(pagedIds), new Set(gameIds)); assert.equal(pagedIds.length, 5);
+  assert.equal((await call(`/api/competitions/pod/${podId}/history`, { token: 'qa-outsider' })).status, 403);
   const first = (await call(`/api/competitions/pod/${podId}/games/${gameIds[0]}`)).data;
   assert.equal(first.status, 'pending'); assert.equal(first.players.length, 2);
   assert.equal(/ownerHash|tableIdentity|identityId|accountId/.test(JSON.stringify(first)), false);
