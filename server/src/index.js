@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { createPlaytestLedgerFromEnv } from "./playtest-ledger.js";
 import { createAppearanceCatalogFromEnv } from "./appearance-catalog.js";
 import { AccountHistory, accountHistoryStoreForEnvironment } from "./account-history.js";
-import { loadStagingAppearanceSkins } from "./staging-appearance.js";
+import { loadAppearanceSkins } from "./appearance-collection.js";
 import { createFirebaseIdTokenVerifierFromEnv } from "./firebase-id-token.js";
 import { createLocalCommanderIdentityLookup, loadCardIdentityIndex } from "./card-identity-index.js";
 
@@ -21,14 +21,15 @@ const authProjectId = process.env.FIREBASE_PROJECT_ID || (appEnv === "staging" ?
 const accountVerifier = createFirebaseIdTokenVerifierFromEnv({ ...process.env, FIREBASE_PROJECT_ID: authProjectId });
 const accountHistory = accountVerifier && typeof ledger.accessToken === "function"
   ? new AccountHistory({ store: accountHistoryStoreForEnvironment(ledger, appEnv) }) : null;
-const stagingAppearanceSkins = await loadStagingAppearanceSkins({
-  appEnv, path: resolve(staticDir, "staging-appearance-pack.enc"), key: process.env.STAGING_APPEARANCE_PACK_KEY,
+const appearanceSkins = await loadAppearanceSkins({
+  path: resolve(staticDir, "appearance-collection.enc"),
+  key: process.env.APPEARANCE_PACK_KEY || (appEnv === "staging" ? process.env.STAGING_APPEARANCE_PACK_KEY : ""),
 }).catch(() => {
-  console.warn("Staging appearance pack could not be loaded");
+  console.warn("Appearance pack could not be loaded");
   return [];
 });
 const { server, service } = createRealtimeServer({
-  appEnv, staticDir, ledger, appearanceCatalog, accountVerifier, accountHistory, stagingAppearanceSkins,
+  appEnv, staticDir, ledger, appearanceCatalog, accountVerifier, accountHistory, appearanceSkins,
   durableRecoveryEnabled, lookupCommanderIdentity: createLocalCommanderIdentityLookup(cardIdentityIndex),
 });
 const sweepTimer = setInterval(() => service.sweep(), 30_000);

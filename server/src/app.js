@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
 import QRCode from "qrcode";
 import { APPEARANCE_ACHIEVEMENTS } from "./appearance-milestones.js";
-import { isAchievementSkin } from "./staging-appearance.js";
+import { isAchievementSkin, isInvitationSkin } from "./appearance-collection.js";
 import { activeGameDurationMs, NullPlaytestLedger, recapFromRoom } from "./playtest-ledger.js";
 import { ProductMeasurement } from "./product-measurement.js";
 import { blankMatchMoment, chooseMatchMoment, RECENT_ACCOLADE_LIMIT, recordMatchMoment, recordTurnMoment, tableMatchMomentDecisions } from "./match-moments.js";
@@ -27,9 +27,9 @@ const REQUEST_LOG_FEATURES = new Set([
 const CURRENT_TABLE_PROTOCOL_VERSION = 1;
 const MAX_TABLE_PROTOCOL_VERSION = 100;
 const DICE_IDENTITY_COLORS = { w: "#eee4c9", u: "#4f92c6", b: "#6f5b91", r: "#bd5a4c", g: "#4f8a63" };
-const STAGING_TEST_SKINS = Object.freeze([
-  Object.freeze({ id: "staging-slate", name: "Slate", status: "Approved", edited: "Test only", background: "#101b2c", surface: "#1d2c42", accent: "#a9cff5", secondary: "#6386ad", text: "#f4f8ff", muted: "#c2d1e2", interfaceStyle: "button", modeLayouts: {} }),
-  Object.freeze({ id: "staging-ember", name: "Ember", status: "Approved", edited: "Test only", background: "#25170f", surface: "#402616", accent: "#f2b866", secondary: "#a5663c", text: "#fff4e5", muted: "#e5c7a8", interfaceStyle: "button", modeLayouts: {} }),
+const STARTER_SKINS = Object.freeze([
+  Object.freeze({ id: "staging-slate", name: "Slate", status: "Approved", edited: "Starter skin", background: "#101b2c", surface: "#1d2c42", accent: "#a9cff5", secondary: "#6386ad", text: "#f4f8ff", muted: "#c2d1e2", interfaceStyle: "button", modeLayouts: {} }),
+  Object.freeze({ id: "staging-ember", name: "Ember", status: "Approved", edited: "Starter skin", background: "#25170f", surface: "#402616", accent: "#f2b866", secondary: "#a5663c", text: "#fff4e5", muted: "#e5c7a8", interfaceStyle: "button", modeLayouts: {} }),
 ]);
 const STATIC_TYPES = new Map([
   [".css", "text/css; charset=utf-8"],
@@ -108,11 +108,12 @@ function json(res, status, body, extraHeaders = {}) {
   res.end(data);
 }
 
-function publishedGameSkins(catalog, appEnv) {
-  const catalogSkins = (catalog.skins || []).filter((skin) => skin?.status === "Approved");
-  if (appEnv !== "staging") return catalogSkins;
-  const testIds = new Set(STAGING_TEST_SKINS.map((skin) => skin.id));
-  return [...catalogSkins.filter((skin) => !testIds.has(skin.id) && !isAchievementSkin(skin.id)), ...STAGING_TEST_SKINS];
+function publishedGameSkins(catalog) {
+  const starterIds = new Set(STARTER_SKINS.map(skin => skin.id));
+  const catalogSkins = (catalog.skins || []).filter(skin =>
+    skin?.status === "Approved" && !starterIds.has(skin.id)
+    && !isAchievementSkin(skin.id) && !isInvitationSkin(skin.id));
+  return [...catalogSkins, ...STARTER_SKINS];
 }
 
 async function serveJoinQr(res, code, origin) {
@@ -1886,9 +1887,9 @@ export function createRealtimeServer(options = {}) {
     const identity = await accountIdentity(req);
     return accountHistory.ensureAccount(identity.providerSubject);
   };
-  const earnedSkins = new Map(appEnv === "staging" ? (options.stagingAppearanceSkins ?? [])
+  const earnedSkins = new Map((options.appearanceSkins ?? [])
     .filter(skin => isAchievementSkin(skin.id))
-    .map(skin => [skin.id, { ...skin, achievement: APPEARANCE_ACHIEVEMENTS[skin.id] }]) : []);
+    .map(skin => [skin.id, { ...skin, achievement: APPEARANCE_ACHIEVEMENTS[skin.id] }]));
   const skinNamesByAchievement = new Map([...earnedSkins.values()].map(skin => [skin.achievement.id, skin.name]));
   const appearanceAchievementIds = [...skinNamesByAchievement.keys()];
   const profileSkinChoices = async (accountId) => {
@@ -1905,7 +1906,10 @@ export function createRealtimeServer(options = {}) {
     return Boolean(awards[awardId]);
   };
   const earnedTableSkinNameFor = async (req, value) => {
-    if (appEnv !== "staging" || !isAchievementSkin(String(value ?? ""))) return undefined;
+    if (isInvitationSkin(String(value ?? ""))) {
+      throw Object.assign(new Error("This skin is reserved for a future invitation release."), { status: 403, code: "SKIN_LOCKED" });
+    }
+    if (!isAchievementSkin(String(value ?? ""))) return undefined;
     const skin = earnedSkins.get(value);
     if (!skin) throw Object.assign(new Error("Choose an available skin."), { status: 400, code: "INVALID_INPUT" });
     if (!await requireEarnedSkin(req, skin)) {
@@ -1945,7 +1949,7 @@ export function createRealtimeServer(options = {}) {
       parts = url.pathname.split("/").filter(Boolean);
       const connectionId = req.headers["x-connection-id"];
       if (req.method === "GET" && url.pathname === "/health") return json(res, 200, {
-        ok: true, ...(appEnv === "staging" ? { appearanceRewardsReady: Boolean(earnedSkins.size && accountHistory && accountVerifier) } : {}),
+        ok: true, appearanceRewardsReady: Boolean(earnedSkins.size && accountHistory && accountVerifier),
       });
       if (req.method === "GET" && url.pathname === "/api/account/history") { const accountId = await account(req); return json(res, 200, { history: await accountHistory.summary(accountId) }); }
       if (req.method === "POST" && url.pathname === "/api/account/achievements/viewed") { const accountId = await account(req); const input = await readJson(req); return json(res, 200, { viewed: await accountHistory.markAchievementRarityViewed(accountId, input?.rarity) }); }
@@ -1969,7 +1973,7 @@ export function createRealtimeServer(options = {}) {
             const awardId = skin.achievement.id;
             const awards = await accountHistory.earnedSkinAwards(accountId, [awardId]);
             if (!awards[awardId]) throw Object.assign(new Error("Earn the achievement to use this skin."), { status: 403, code: "SKIN_LOCKED" });
-          } else if (!publishedGameSkins(await appearanceCatalog.read(), appEnv).some(item => item.id === id)) {
+          } else if (!publishedGameSkins(await appearanceCatalog.read()).some(item => item.id === id)) {
             throw Object.assign(new Error("Choose a published skin."), { status: 400, code: "INVALID_INPUT" });
           }
         }
@@ -2002,17 +2006,17 @@ export function createRealtimeServer(options = {}) {
       if (req.method === "DELETE" && parts[0] === "api" && parts[1] === "account" && parts[2] === "games" && parts[3]) { const accountId = await account(req); await accountHistory.removeGame(accountId, parts[3]); return json(res, 204, {}); }
       if (req.method === "DELETE" && parts[0] === "api" && parts[1] === "account" && parts[2] === "decks" && parts[3]) { const accountId = await account(req); await accountHistory.removeDeck(accountId, parts[3]); return json(res, 204, {}); }
       if (req.method === "GET" && url.pathname === "/api/developer/access") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { ok: true }); }
-      if (req.method === "POST" && url.pathname === "/api/developer/skins/grant") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); const input = await readJson(req); const catalog = await appearanceCatalog.read(); if ((appEnv === "staging" && isAchievementSkin(input.skinId)) || !(catalog.skins || []).some(skin => skin?.id === input.skinId && skin.status === "Approved")) throw Object.assign(new Error("Choose a published skin."), { status: 400, code: "INVALID_INPUT" }); return json(res, 200, { grants: await accountHistory.grantSkin(String(input.accountId || ''), String(input.skinId || ''), input.source === 'payment' ? 'payment' : input.source === 'achievement' ? 'achievement' : 'grant') }); }
+      if (req.method === "POST" && url.pathname === "/api/developer/skins/grant") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); const input = await readJson(req); const catalog = await appearanceCatalog.read(); if (isAchievementSkin(input.skinId) || !(catalog.skins || []).some(skin => skin?.id === input.skinId && skin.status === "Approved")) throw Object.assign(new Error("Choose a published skin."), { status: 400, code: "INVALID_INPUT" }); return json(res, 200, { grants: await accountHistory.grantSkin(String(input.accountId || ''), String(input.skinId || ''), input.source === 'payment' ? 'payment' : input.source === 'achievement' ? 'achievement' : 'grant') }); }
       if (req.method === "GET" && url.pathname === "/api/appearance-studio/catalog") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { catalog: await appearanceCatalog.read() }); }
       if (req.method === "PUT" && url.pathname === "/api/appearance-studio/catalog") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { catalog: await appearanceCatalog.write(await readJson(req, 8 * 1024 * 1024)) }); }
       if (req.method === "GET" && url.pathname === "/api/game-layout") { const catalog = await appearanceCatalog.read(); return json(res, 200, { layout: catalog.gameDefaultLayout || null }); }
-      if (req.method === "GET" && url.pathname === "/api/game-skins") { const skins = publishedGameSkins(await appearanceCatalog.read(), appEnv); return json(res, 200, { skins: skins.map(({ id, name, edited, interfaceStyle, modeLayouts, background, surface, accent, secondary, text, muted }) => ({ id, name, edited, interfaceStyle, modeLayouts, background, surface, accent, secondary, text, muted })) }); }
+      if (req.method === "GET" && url.pathname === "/api/game-skins") { const skins = publishedGameSkins(await appearanceCatalog.read()); return json(res, 200, { skins: skins.map(({ id, name, edited, interfaceStyle, modeLayouts, background, surface, accent, secondary, text, muted }) => ({ id, name, edited, interfaceStyle, modeLayouts, background, surface, accent, secondary, text, muted })) }); }
       if (req.method === "GET" && parts[0] === "api" && parts[1] === "game-skins" && parts.length === 3 && /^[A-Za-z0-9_-]{1,80}$/.test(parts[2] || "")) {
         const earnedSkin = earnedSkins.get(parts[2]);
         if (earnedSkin && req.headers.authorization && await requireEarnedSkin(req, earnedSkin)) {
           return json(res, 200, { skin: earnedSkin });
         }
-        const catalog = await appearanceCatalog.read(); const skin = publishedGameSkins(catalog, appEnv).find((item) => item?.id === parts[2]); if (!skin) throw Object.assign(new Error("Published skin not found"), { status: 404, code: "SKIN_NOT_FOUND" }); const assetData = async (id) => { if (!id || !/^[A-Za-z0-9_-]{4,80}$/.test(id)) return ""; try { return (await appearanceCatalog.readAsset(id))?.data || ""; } catch { return ""; } }; const overlayData = Object.fromEntries(await Promise.all(Object.entries(skin.overlays || {}).map(async ([slot, id]) => [slot, await assetData(id)]))); const symbolData = Object.fromEntries(await Promise.all(Object.entries(skin.symbolAssets || {}).map(async ([mode, id]) => [mode, await assetData(id)]))); return json(res, 200, { skin: { ...skin, backgroundData: await assetData(skin.backgroundAsset), sealData: await assetData(skin.sealAsset), symbolData, overlayData } }); }
+        const catalog = await appearanceCatalog.read(); const skin = publishedGameSkins(catalog).find((item) => item?.id === parts[2]); if (!skin) throw Object.assign(new Error("Published skin not found"), { status: 404, code: "SKIN_NOT_FOUND" }); const assetData = async (id) => { if (!id || !/^[A-Za-z0-9_-]{4,80}$/.test(id)) return ""; try { return (await appearanceCatalog.readAsset(id))?.data || ""; } catch { return ""; } }; const overlayData = Object.fromEntries(await Promise.all(Object.entries(skin.overlays || {}).map(async ([slot, id]) => [slot, await assetData(id)]))); const symbolData = Object.fromEntries(await Promise.all(Object.entries(skin.symbolAssets || {}).map(async ([mode, id]) => [mode, await assetData(id)]))); return json(res, 200, { skin: { ...skin, backgroundData: await assetData(skin.backgroundAsset), sealData: await assetData(skin.sealAsset), symbolData, overlayData } }); }
       if (req.method === "PUT" && url.pathname === "/api/appearance-studio/game-layout") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); const body = await readJson(req, 512 * 1024); if (!body?.layout || typeof body.layout !== "object") throw Object.assign(new Error("A base game layout is required."), { status: 400, code: "INVALID_INPUT" }); const catalog = await appearanceCatalog.read(); catalog.gameDefaultLayout = body.layout; return json(res, 200, { layout: (await appearanceCatalog.write(catalog)).gameDefaultLayout }); }
       if (req.method === "POST" && url.pathname === "/api/appearance-studio/phone-layout") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); const body = await readJson(req, 8 * 1024 * 1024); if (!body?.skin || typeof body.skin !== "object") throw Object.assign(new Error("A Studio skin is required."), { status: 400, code: "INVALID_INPUT" }); const id = randomBytes(12).toString("base64url"); const session = { skin: body.skin, updatedAt: Date.now(), expiresAt: Date.now() + PHONE_LAYOUT_TTL_MS }; phoneLayoutSessions.set(id, session); return json(res, 201, { id, skin: session.skin, expiresAt: session.expiresAt }); }
       if (parts[0] === "api" && parts[1] === "appearance-studio" && parts[2] === "phone-layout" && /^[A-Za-z0-9_-]{12,40}$/.test(parts[3] || "")) { const session = readPhoneLayoutSession(parts[3]); const phoneLayoutUrl = `${req.headers["x-forwarded-proto"] || "https"}://${req.headers.host}/index.html?appearance-preview=1&phone-layout=${parts[3]}`; if (req.method === "GET" && parts[4] === "qr") return json(res, 200, { url: phoneLayoutUrl, data: await QRCode.toDataURL(phoneLayoutUrl, { margin: 1, width: 320, errorCorrectionLevel: "M" }) }); if (req.method === "GET") return json(res, 200, { skin: session.skin, updatedAt: session.updatedAt, expiresAt: session.expiresAt }); if (req.method === "PUT") { const body = await readJson(req, 8 * 1024 * 1024); if (!body?.skin || typeof body.skin !== "object") throw Object.assign(new Error("A Studio skin is required."), { status: 400, code: "INVALID_INPUT" }); session.skin = body.skin; session.updatedAt = Date.now(); session.expiresAt = Date.now() + PHONE_LAYOUT_TTL_MS; return json(res, 200, { skin: session.skin, updatedAt: session.updatedAt, expiresAt: session.expiresAt }); } }
@@ -2100,7 +2104,7 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "POST" && parts[3] === "client-diagnostics") return json(res, 201, service.recordClientDiagnostic(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "quick-feedback") return json(res, 201, service.recordQuickFeedback(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "session-kind") return json(res, 200, service.setSessionKind(code, connectionId, await readJson(req)));
-        if (req.method === "GET" && parts[3] === "table-skin" && parts.length === 4 && appEnv === "staging") {
+        if (req.method === "GET" && parts[3] === "table-skin" && parts.length === 4) {
           const room = service.room(code);
           service.requireOwner(room, connectionId);
           const skin = room.config.earnedTableSkinName && earnedSkins.get(room.config.tableSkinId);

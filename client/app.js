@@ -646,7 +646,7 @@ async function loadStagingAppearanceReview() {
   try {
     if (!/^[A-Za-z0-9_-]{43}$/.test(reviewKey)) throw new Error();
     const { unlockStagingAppearanceReview } = await import('./staging-appearance-review.js?v=3');
-    const response = await fetch('./staging-appearance-pack.enc?v=2', { cache: 'no-store' });
+    const response = await fetch('./appearance-collection.enc?v=3', { cache: 'no-store' });
     if (!response.ok) throw new Error();
     const { skins, initialChoice } = await unlockStagingAppearanceReview(new Uint8Array(await response.arrayBuffer()), reviewKey);
     stagingReviewSkins = skins;
