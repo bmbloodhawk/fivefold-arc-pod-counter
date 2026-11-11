@@ -15,3 +15,5 @@ services:
         value: https://fivefold-arc-pod-counter-staging.onrender.com
       - key: APP_ENV
         value: staging
+      - key: COMPETITIONS_ENABLED
+        value: "true"
