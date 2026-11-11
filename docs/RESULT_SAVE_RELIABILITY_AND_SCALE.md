@@ -2,9 +2,11 @@
 
 Scope: staging-only result-save fix, November 11, 2026. Production is excluded.
 
-Release status: local candidate only; not pushed or deployed. Candidate source:
+Staging deployment approved November 11, 2026. Tested candidate source:
 `3e919afbc08b678ca26dbc14440250a945985847`, based on staging
-`2f07f797bf59b4206460ea181dbb378bed1d15ab`. Deployment awaits explicit approval.
+`2f07f797bf59b4206460ea181dbb378bed1d15ab`. Later documentation commits do not
+change the tested application source. Live deployment evidence belongs in
+`.local/evidence/staging-save-fix-release.json`; approval alone is not live proof.
 
 ## Confirmed cause and change
 
@@ -113,6 +115,12 @@ scale beyond one instance. The room-ownership change must precede relying on
 horizontal app scaling. [Render scaling](https://render.com/docs/scaling).
 
 Recommended growth gates, requiring later approval:
+
+Build the storage and recovery foundations into the next implementation stages.
+Keep immediate life feedback and responsive table synchronization as acceptance
+requirements at both small and larger group sizes. Additional paid capacity and
+regions can follow measured demand. The current save fix does not implement those
+larger architectural changes.
 
 1. Run a real small multi-phone staging night and a controlled real-Firebase load
    check with disposable accounts/data. Measure completion latency, busy errors,
