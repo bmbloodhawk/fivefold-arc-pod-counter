@@ -1936,6 +1936,7 @@ export function createRealtimeServer(options = {}) {
   // venue NAT. Keep abuse protection, but leave enough headroom for every
   // player to hold their one live table stream.
   const maxStreamsPerIp = options.maxStreamsPerIp ?? 32;
+  const maxStreamsGlobal = options.maxStreamsGlobal ?? 64;
   const feedbackPortalKey = options.feedbackPortalKey ?? process.env.FEEDBACK_PORTAL_KEY ?? "";
   const appearanceCatalog = options.appearanceCatalog ?? { read: async () => ({ skins: [], assets: [], selected: "neutral", gameDefaultLayout: null }), write: async value => value, readAsset: async () => null, writeAsset: async (_id, value) => value, deleteAsset: async () => {} };
   const phoneLayoutSessions = new Map();
@@ -2218,7 +2219,7 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "POST" && parts[3] === "turn-pause") return json(res, 200, service.setTurnPaused(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "turn-handoff") return json(res, 200, service.handoffTurn(code, connectionId, await readJson(req)));
         if (req.method === "GET" && parts[3] === "events") {
-          const target = service.resolveStreamTarget(code, url.searchParams.get("connectionId"));
+          const target = service.resolveStreamTarget(code, url.searchParams.get("connectionId"), { maxStreamsGlobal });
           const forwarded = String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown").split(",")[0].trim();
           if ((sseClients.get(forwarded) || 0) >= maxStreamsPerIp) throw Object.assign(new Error("Too many live update connections from this network. Close an older tab and try again."), { status: 429, code: "SSE_LIMIT" });
           res.writeHead(200, {

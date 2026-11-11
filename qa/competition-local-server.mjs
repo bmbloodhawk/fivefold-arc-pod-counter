@@ -4,6 +4,7 @@ import { AccountHistory, MemoryAccountHistoryStore } from '../server/src/account
 import { MemoryPlaytestLedger, FirebasePlaytestLedger } from '../server/src/playtest-ledger.js';
 import { competitionStoreForEnvironment } from '../server/src/competitions.js';
 import { CompetitionRecovery } from '../server/src/competition-recovery.js';
+import { liveStreamLimitsFromEnv } from '../server/src/live-stream-limits.js';
 import { fileURLToPath } from 'node:url';
 
 const port = Number(process.env.COMPETITION_QA_PORT || 8793);
@@ -16,7 +17,7 @@ function fixtureAdapter() {
 const ledger = databaseUrl ? fixtureAdapter() : new MemoryPlaytestLedger();
 const profileStore = databaseUrl ? fixtureAdapter() : new MemoryAccountHistoryStore();
 const competitionStore = databaseUrl ? competitionStoreForEnvironment(fixtureAdapter(), 'qa') : new MemoryAccountHistoryStore();
-const instance = createRealtimeServer({ appEnv: 'test', staticDir: fileURLToPath(new URL('../client/', import.meta.url)),
+const instance = createRealtimeServer({ ...liveStreamLimitsFromEnv(), appEnv: 'test', staticDir: fileURLToPath(new URL('../client/', import.meta.url)),
   ledger, competitionStore, autoRecoverRooms: true, durableRecoveryEnabled: false,
   accountHistory: new AccountHistory({ store: profileStore }),
   accountVerifier: { async verify(token) {

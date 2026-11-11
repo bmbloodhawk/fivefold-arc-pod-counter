@@ -9,9 +9,11 @@ import { createFirebaseIdTokenVerifierFromEnv } from "./firebase-id-token.js";
 import { createLocalCommanderIdentityLookup, loadCardIdentityIndex } from "./card-identity-index.js";
 import { Competitions, competitionStoreForEnvironment } from './competitions.js';
 import { CompetitionRecovery } from './competition-recovery.js';
+import { liveStreamLimitsFromEnv } from './live-stream-limits.js';
 
 const port = Number(process.env.PORT ?? 8787);
 const appEnv = process.env.APP_ENV ?? "production";
+const streamLimits = liveStreamLimitsFromEnv();
 const staticDir = resolve(fileURLToPath(new URL("../../client/", import.meta.url)));
 const cardIdentityIndex = await loadCardIdentityIndex(resolve(fileURLToPath(new URL("../static-data/card-identity-index.json", import.meta.url))));
 const ledger = createPlaytestLedgerFromEnv();
@@ -39,7 +41,7 @@ const appearanceSkins = await loadAppearanceSkins({
   return [];
 });
 const { server, service, competitions, competitionTables } = createRealtimeServer({
-  appEnv, staticDir, ledger, appearanceCatalog, accountVerifier, accountHistory, appearanceSkins,
+  ...streamLimits, appEnv, staticDir, ledger, appearanceCatalog, accountVerifier, accountHistory, appearanceSkins,
   durableRecoveryEnabled, competitionStore, competitionEraser, lookupCommanderIdentity: createLocalCommanderIdentityLookup(cardIdentityIndex),
 });
 const competitionRecovery = competitions ? new CompetitionRecovery({ domain: competitions, tables: competitionTables }) : null;
