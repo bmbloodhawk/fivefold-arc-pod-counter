@@ -20,7 +20,9 @@ test('does not emit a second state event for an unchanged snapshot', async () =>
     globalThis.fetch = async (url, options = {}) => {
       const path = new URL(url).pathname;
       if (path === '/api/connections') {
-        assert.deepEqual(JSON.parse(options.body), { supportedTableProtocols: [1] });
+        const { tableDeviceId, ...capabilities } = JSON.parse(options.body);
+        assert.deepEqual(capabilities, { supportedTableProtocols: [1] });
+        assert.match(tableDeviceId, /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i);
         return response({ connectionId: 'connection-1' });
       }
       if (path === '/api/rooms' && options.method === 'POST') return response({ snapshot: { code: 'POD123', version: 1 }, seatId: 0, reclaimToken: 'pod-token' });

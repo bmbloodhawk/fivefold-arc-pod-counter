@@ -44,6 +44,7 @@ async function shutdown() {
   for (const connection of service.connections.values()) service.closeStreams(connection, "server_shutdown");
   await new Promise((resolve) => server.close(resolve));
   await ledger.flush();
+  await service.tableDeviceActivity.flush();
   process.exit(0);
 }
 

@@ -24,6 +24,8 @@
       <h2>Limited diagnostics and feedback</h2>
       <p>The test build may record limited technical diagnostics for a table, such as the app build, coarse viewport class, coarse device-memory class, visibility changes, and connection or rendering failure categories. It is designed not to record your IP address, user agent, screen capture, raw taps, card image, password, or full error message. Optional feedback is stored with the table context needed to investigate the report.</p>
 
+      <p>To measure table use, Fivefold Arc stores a random identifier in your browser. After a successful table creation or join, the service keeps a hash of that identifier and its latest table visit time for 30 days. Routine cleanup removes expired records. Private developer diagnostics show totals for the last 24 hours, 7 days, and 30 days. Clearing browser storage resets the identifier.</p>
+
       <h2>Card and rules lookups</h2>
       <p>When you ask the app to look up a commander, card, combo, or scanned card, the text or compact image you submit is sent only to the lookup service needed for that request. Current sources can include Scryfall, Commander Spellbook, and the card-image scanning service. Do not submit personal information in those fields.</p>
 
