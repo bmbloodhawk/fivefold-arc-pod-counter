@@ -215,6 +215,8 @@ details only after drilling in. A new member does not auto-import private old ga
   before deleting mappings/names; pending numeric work cannot recreate them. Missing
   identities do not authorize actions or prevent admin succession. Correction reasons
   are controlled codes, not identifying free text.
+  An erasure-only domain remains available when the optional feature is disabled,
+  so a rollback cannot strand identifying aliases after private account deletion.
 - Firebase omits empty/null children and can return numeric-key collections as arrays.
   Normalize schemas on reads and every conditional callback; source hashes ignore
   storage-equivalent null/absent fields. Local RTDB-shaped round-trip tests are required.
@@ -222,7 +224,10 @@ details only after drilling in. A new member does not auto-import private old ga
   Preserve original proof and owner checks in `server/src/app.js:739,823` and private
   account claim rules in `server/src/account-history.js:358`.
 - UI is additive in its own client modules/styles with small setup/postgame hooks.
-  `client/realtime.js`, the batcher and the server adjustment bodies stay unchanged.
+  The batcher and server/client adjustment and SSE bodies stay unchanged. The
+  transport's setup handshake advertises protocols 1 and 2, and an explicit seat
+  claim may carry an optional account token. Only timed-event Tables use protocol 2
+  so older phones cannot invent a winner from a draw's null winner seat.
 - Existing `tasks/plan.md` and `tasks/todo.md` belong to other work; preserve them.
 
 Architecture candidates require adversarial review and tests before standing. A clear

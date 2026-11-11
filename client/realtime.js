@@ -3,7 +3,7 @@ import { getTableDeviceId } from './table-device-id.js?v=1';
 /** HTTP + SSE transport. Shared writes use exact versions and are never queued. */
 const SNAPSHOT_SAFETY_REFRESH_MS = 30_000;
 const CONNECTION_INCIDENT_REPORT_INTERVAL_MS = 30_000;
-const SUPPORTED_TABLE_PROTOCOLS = [1];
+const SUPPORTED_TABLE_PROTOCOLS = [1, 2];
 
 export class RealtimeAdapter extends EventTarget {
   constructor({ apiBase = location.origin } = {}) {
@@ -72,14 +72,14 @@ export class RealtimeAdapter extends EventTarget {
     return resume;
   }
 
-  async claimRoom({ code, seatId, name, commanderCount = 1, commanderNames = Array.from({ length: commanderCount }, () => ''), commanderColors = Array.from({ length: commanderCount }, () => []) }) {
+  async claimRoom({ code, seatId, name, commanderCount = 1, commanderNames = Array.from({ length: commanderCount }, () => ''), commanderColors = Array.from({ length: commanderCount }, () => []), accountToken = null }) {
     const epoch = this.#beginSession();
     try {
       if (!await this.#startConnection(epoch)) return { ignored: true };
       const normalizedCode = code.toUpperCase();
       const savedToken = this.#storedToken(normalizedCode, seatId);
       const result = await this.#request(`/api/rooms/${encodeURIComponent(normalizedCode)}/claim`, {
-        method: 'POST', authenticated: true, body: { seatId, ...(savedToken ? { reclaimToken: savedToken } : { name, commanderCount, commanderNames, commanderColors }) }
+        method: 'POST', authenticated: true, accountToken, body: { seatId, ...(savedToken ? { reclaimToken: savedToken } : { name, commanderCount, commanderNames, commanderColors }) }
       });
       if (!this.#isCurrentSession(epoch)) return { ignored: true };
       this.#adoptSeat(normalizedCode, result.seatId, result.reclaimToken || savedToken, result.snapshot, epoch);

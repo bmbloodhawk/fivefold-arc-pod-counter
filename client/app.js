@@ -1,4 +1,4 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=87';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=88';
 import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=73';
 import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=114';
 import { connectionPresentation } from './connection-state.js?v=1';
@@ -8,6 +8,7 @@ import { currentAccountToken, emailAccountToken, googleAccountToken, restoredAcc
 import { JoinQrScanner } from './join-qr-scanner.js?v=4';
 import { GameWakeLock } from './game-wake-lock.js?v=1';
 import { applyCollectionVisual } from './collection-visual.js?v=4';
+import { createCompetitionHub } from './competition-ui.js?v=1';
 
 const appearancePreviewMode = new URLSearchParams(location.search).get('appearance-preview') === '1';
 const appearanceParams = new URLSearchParams(location.search);
@@ -43,6 +44,22 @@ const dom = {
 const winnerCondition = $('#winnerCondition');
 dom.lobbyMount.append(dom.lobbyControls);
 const transport = new RealtimeAdapter({ apiBase: apiBaseFromPage() });
+const competitionHub = createCompetitionHub({
+  getSession: () => ({ code: transport.roomCode, seatId: transport.seatId, connectionId: transport.connectionId, snapshot: transport.snapshot }),
+  getAccountToken: currentAccountToken,
+  getPreferredName: () => accountPreferredName.value || dom.createName.value || '',
+  openSignIn: () => openMyProfile(),
+  closeTableMenu: () => closeGameMenu(),
+  returnToTable: () => { if (state) { showTableView(); render(); } },
+  joinTable: code => { if (transport.roomCode === code && state) { showTableView(); render(); } else void openJoinCode(code); },
+  createTable: link => {
+    dom.localSimulation.checked = false;
+    if (link.playerCount) { const choice = $(`input[name="playerCount"][value="${link.playerCount}"]`); if (choice) choice.checked = true; dom.seatCapacity.value = String(link.playerCount); }
+    dom.roundLimitMinutes.value = ''; showCreateStep(1); showView(dom.create); void loadSetupDecks();
+  },
+  onClose: () => { if (state) { if (transport.roomCode && !transport.localMode) showTableView(); render(); } },
+});
+dom.lobbyControls.prepend($('#competitionSetupStatus'));
 const gameWakeLock = new GameWakeLock();
 const diagnosticAssetVersion = new URL(import.meta.url).searchParams.get('v');
 const DIAGNOSTIC_BUILD = /^\d{1,8}$/.test(diagnosticAssetVersion) ? diagnosticAssetVersion : 'unknown';
@@ -337,7 +354,7 @@ function localLastPlayerStanding() {
   if (state.players.length >= 2 && survivors.length === 1) { state.gameResult = { winnerSeatId: Number(survivors[0].id.slice(1)) - 1, reason: 'last_player_standing', decidedAt: Date.now() }; state.lifecycle = { ...state.lifecycle, status: 'complete' }; }
 }
 function victoryKey(result) { return result ? result.gameId || `${result.winnerSeatId}:${result.reason}:${result.decidedAt}` : null; }
-function winnerFromResult() { return state?.gameResult ? state.players.find(player => player.id === `P${state.gameResult.winnerSeatId + 1}`) : null; }
+function winnerFromResult() { return Number.isInteger(state?.gameResult?.winnerSeatId) ? state.players.find(player => player.id === `P${state.gameResult.winnerSeatId + 1}`) : null; }
 function accoladeArtUrl(title) { return `assets/accolades/${String(title || 'arc-complete').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}.png`; }
 function winnerArtUrl(winner, gameKey) { const variants = ['last-one-standing', 'table-monarch', 'arc-victor']; const seed = [...String(gameKey || winner?.id || '')].reduce((total, character) => total + character.codePointAt(0), 0); return `assets/accolades/${variants[seed % variants.length]}.png`; }
 const achievementRarityLabel = (rarity) => ({ common: 'Common', uncommon: 'Uncommon', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' })[rarity] || 'Common';
@@ -421,14 +438,23 @@ async function loadSetupDecks() {
   try { const token = await currentAccountToken(); if (!token) return; const response = await fetch('/api/account/decks', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) return; const { decks } = await response.json(); setupDecks = sortSetupDecks(decks); const options = `<option value="">No deck selected</option>${setupDecks.map(deck => `<option value="${escapeHtml(deck.deckId)}">${escapeHtml(`${deck.favorite ? '★ ' : ''}${[deck.commanderName, deck.name, deck.colors?.join('')].filter(Boolean).join(' · ')}`)}</option>`).join('')}`; [dom.createDeck, dom.joinDeck].forEach(select => { select.innerHTML = options; select.value = ''; }); $('#joinSignInDeckButton').hidden = true; updateFormatSetup(); } catch {} }
 function renderVictory() {
   const result = state?.gameResult; const winner = winnerFromResult();
-  dom.victoryNotice.hidden = !result || !winner;
-  dom.viewCelebrationButton.hidden = !result || !winner;
+  const timedDraw = result?.reason === 'timed_draw';
+  dom.victoryNotice.hidden = !result || (!winner && !timedDraw);
+  dom.viewCelebrationButton.hidden = !result || (!winner && !timedDraw);
   dom.saveGameButton.hidden = !result?.saveEligible;
-  if (!result || !winner) { shownVictoryKey = null; victoryStage = 'winner'; if (dom.victoryDialog.open) dom.victoryDialog.close('game-reset'); return; }
+  if (!result || (!winner && !timedDraw)) { shownVictoryKey = null; victoryStage = 'winner'; if (dom.victoryDialog.open) dom.victoryDialog.close('game-reset'); return; }
   const declared = result.reason === 'declared_winner';
-  dom.victoryNotice.textContent = `${declared ? 'WINNER' : 'LAST PLAYER STANDING'} · ${displayName(winner)}`;
+  dom.victoryNotice.textContent = timedDraw ? 'TIMED DRAW · Surviving players share placement points' : `${declared ? 'WINNER' : 'LAST PLAYER STANDING'} · ${displayName(winner)}`;
   const actingSeatId = state.localSimulation ? state.activePlayerId : state.ownerPlayerId;
   const key = victoryKey(result);
+  // Preserve the existing rapid-correction grace period before saving/revealing.
+  if (result.reason === 'last_player_standing' && lifeChange && Date.now() - (lifeChange.startedAt || 0) < 700) { setTimeout(() => render(), 700); return; }
+  // Verified personal saves do not depend on a winner or the optional hub being closed.
+  if (!automaticSavePromises.has(key)) {
+    const saving = saveGameToHistory({ automatic: true, gameKey: key });
+    automaticSavePromises.set(key, saving);
+  }
+  if (competitionHub.isOpen()) return;
   // A phone may be inspecting another seat when the game ends. Return it to
   // its claimed seat before revealing a personal accolade, so the visible card
   // and the connection-scoped award always describe the same player.
@@ -437,23 +463,19 @@ function renderVictory() {
     render();
     return;
   }
-  // Give a rapid correction a short grace period before a provisional
-  // last-player-standing modal takes over the controls.
-  if (result.reason === 'last_player_standing' && lifeChange && Date.now() - (lifeChange.startedAt || 0) < 700) { setTimeout(() => render(), 700); return; }
   if (key !== shownVictoryKey) {
     shownVictoryKey = key;
-    const youWon = winner.id === actingSeatId;
-    dom.victoryEyebrow.textContent = declared ? 'THE TABLE HAS SPOKEN' : 'LAST PLAYER STANDING';
-    dom.victoryTitle.textContent = youWon ? 'You win' : `${displayName(winner)} wins`;
+    const youWon = winner?.id === actingSeatId;
+    dom.victoryEyebrow.textContent = timedDraw ? 'ROUND COMPLETE' : declared ? 'THE TABLE HAS SPOKEN' : 'LAST PLAYER STANDING';
+    dom.victoryTitle.textContent = timedDraw ? 'Timed draw' : youWon ? 'You win' : `${displayName(winner)} wins`;
     const declaredDetail = String(result.declarationDetail || '');
-    dom.victoryDetail.textContent = declaredDetail
+    dom.victoryDetail.textContent = timedDraw ? 'No winner was recorded. Surviving players share the remaining top placement points after the host confirms the order.' : declaredDetail
       ? `${youWon ? 'The table declared you the winner' : `${displayName(winner)} was declared the winner`}: ${declaredDetail}`
       : (youWon ? (declared ? 'The table declared you the winner.' : 'You are the last player standing.') : (declared ? `${displayName(winner)} was declared the winner.` : `${displayName(winner)} is the last player standing.`));
-    dom.victoryArt.src = winnerArtUrl(winner, key);
+    dom.victoryArt.src = timedDraw ? accoladeArtUrl('arc-complete') : winnerArtUrl(winner, key);
     // A completed shared-table result is the record of the game. Save it for
     // each signed-in player without relying on them to remember a final tap.
-    const saving = saveGameToHistory({ automatic: true, gameKey: key });
-    automaticSavePromises.set(key, saving);
+    const saving = automaticSavePromises.get(key);
     dom.personalMatchMoment.hidden = true; dom.personalMatchMoment.classList.remove('achievement-reveal');
     const momentRequest = state.localSimulation ? Promise.resolve({ moment: null })
       : saving.then(saved => {
@@ -697,6 +719,7 @@ async function finishAccountSignIn(token) {
   const returnTo = pendingSignInReturn; pendingSignInReturn = null;
   if (returnTo?.view === 'join' && $('#podCode').value.trim().toUpperCase() === returnTo.code) { showView(dom.joinSeatView); showJoinStep(returnTo.step); }
   else showView(dom.landing);
+  competitionHub.authChanged(true);
 }
 async function restoreSavedAccountSession() {
   const profileEpoch = awardProfileEpoch;
@@ -716,6 +739,7 @@ async function restoreSavedAccountSession() {
       dom.roundLimitMinutes.value ||= preferences.defaultRoundLimitMinutes || '';
     }
     await loadSetupDecks();
+    competitionHub.authChanged(true, { restored: true });
   } catch { /* A missing or expired Firebase session leaves guest play unchanged. */ }
 }
 async function showMyGames() {
@@ -798,12 +822,13 @@ async function exportAccountData() {
 }
 
 async function deleteAccountData() {
-  if (!window.confirm('Permanently delete your saved games, decks, and account data? This cannot be undone.')) return;
+  if (!window.confirm('Permanently delete your saved games, decks, and account data? Shared Pod/tournament results keep their numbers as Deleted member, with your name and account link removed. This cannot be undone.')) return;
   resetAwardProfile();
   const token = await currentAccountToken(); if (!token) throw new Error('Sign in to delete your account data.');
   const response = await fetch('/api/account', { method: 'DELETE', headers: { authorization: `Bearer ${token}` } });
   if (!response.ok) throw new Error('Your account data could not be deleted.');
   exportAccountButton.hidden = true; deleteAccountButton.hidden = true; myGamesContent.hidden = true; myGamesStatus.textContent = 'Your saved account data has been deleted.';
+  competitionHub.authChanged(false);
 }
 function clearAccountAppearance() {
   accountPreferences = null;
@@ -820,6 +845,7 @@ async function signOut() {
     selectedDeckId = ''; setupDecks = []; savedDecks = [];
     clearAccountAppearance();
     renderHomeAccount(false);
+    competitionHub.authChanged(false);
     if (myGamesDialog.open) myGamesDialog.close(); if (myDecksDialog.open) myDecksDialog.close();
   } catch (error) {
     myGamesStatus.textContent = error?.message || 'Sign-out did not finish. Please try again.';
@@ -944,7 +970,7 @@ function renderSavedTables(cleared = false) {
   dom.savedTables.hidden = tables.length === 0 && !cleared;
   clearPastTablesButton.hidden = tables.length === 0;
   $('#savedTablesMessage').textContent = cleared ? 'Past tables cleared from this device.' : 'Return to a saved seat on this device.';
-  dom.savedTablesList.innerHTML = tables.map(table => `<button class="saved-table-button" type="button" data-saved-code="${escapeHtml(table.code)}"><span><strong>Pod ${escapeHtml(table.code)}</strong><br><span>${escapeHtml(table.name || `P${Number(table.seatId) + 1}`)} · ${table.isHost ? 'host' : `P${Number(table.seatId) + 1}`}</span></span><em>Return</em></button>`).join('');
+  dom.savedTablesList.innerHTML = tables.map(table => `<button class="saved-table-button" type="button" data-saved-code="${escapeHtml(table.code)}"><span><strong>Table ${escapeHtml(table.code)}</strong><br><span>${escapeHtml(table.name || `P${Number(table.seatId) + 1}`)} · ${table.isHost ? 'host' : `P${Number(table.seatId) + 1}`}</span></span><em>Return</em></button>`).join('');
   dom.savedTablesList.querySelectorAll('[data-saved-code]').forEach(button => button.addEventListener('click', () => openJoinCode(button.dataset.savedCode)));
 }
 function clearPastTables(event) {
@@ -953,7 +979,7 @@ function clearPastTables(event) {
   try {
     const host = latestRecoverableHostTable();
     if (host) {
-      // Keep the latest host lookup for Recover my host pod.
+      // Keep the latest host lookup for Recover my host table.
       localStorage.setItem(SAVED_TABLES_KEY, JSON.stringify([{
         code: host.code, seatId: host.seatId, isHost: true, recoveryOnly: true,
       }]));
@@ -1026,7 +1052,7 @@ function openJoinQr() {
   if (!state || state.localSimulation) return;
   const code = state.podCode;
   dom.joinQrImage.src = `${apiBaseFromPage()}/api/rooms/${encodeURIComponent(code)}/join-qr.svg`;
-  dom.joinQrCode.textContent = `POD ${code}`;
+  dom.joinQrCode.textContent = `TABLE ${code}`;
   if (!dom.joinQrDialog.open) dom.joinQrDialog.showModal();
 }
 async function copyJoinLink(button) {
@@ -1036,7 +1062,7 @@ async function copyJoinLink(button) {
     button.textContent = 'Invite link copied';
     setTimeout(() => { button.textContent = originalLabel; }, 1800);
   } catch {
-    showError(new Error('Copy is not available here. Scan the QR code or use the pod code shown above.'));
+    showError(new Error('Copy is not available here. Scan the QR code or use the table code shown above.'));
   }
 }
 function syncSeatCapacityChoices() {
@@ -1130,7 +1156,7 @@ function clearDeepJoinCode() {
   history.replaceState(history.state, '', url);
 }
 function showSharedGame(snapshot) { clearDeepJoinCode(); state = stateFromSnapshot(snapshot); saveTable(); renderSavedTables(); showTableView(); render(); void applySelectedAppearance(); }
-function showError(error) { dom.connectionDetail.textContent = error?.message || 'The pod server could not complete that request.'; dom.connectionDialog.showModal(); }
+function showError(error) { dom.connectionDetail.textContent = error?.message || 'The table server could not complete that request.'; dom.connectionDialog.showModal(); }
 function showTableActionError(message) {
   dom.tableActionDetail.textContent = message;
   dom.tableActionDialog.showModal();
@@ -1180,7 +1206,7 @@ function renderTurnFlow() {
     const youAreReady = readyIds.includes(ownSeatId);
     dom.intermissionTitle.textContent = 'Set up the next game';
     const openSeats = state.players.filter(player => player.connectionStatus === 'waiting').length;
-    dom.intermissionDetail.textContent = `${readyIds.length}/${rosterIds.length} players ready. ${openSeats ? `A new player can join this pod now; then arrange the table to match the real seats.` : 'This pod is full; start a new pod to add another player.'}`;
+    dom.intermissionDetail.textContent = `${readyIds.length}/${rosterIds.length} players ready. ${openSeats ? `A new player can join this Table now; then arrange the table to match the real seats.` : 'This Table is full; start a new Table to add another player.'}`;
     dom.intermissionInvite.hidden = !isHost || !openSeats || !canShareJoin;
     dom.intermissionInviteCode.textContent = state.podCode;
     renderSeatOrder(dom.intermissionRoster, rosterIds, { intermission: true });
@@ -1224,7 +1250,7 @@ function renderTurnFlow() {
     if (Number.isInteger(pendingStartingSeatId) && !claimedPlayers.some(player => player.id === `P${pendingStartingSeatId + 1}`)) pendingStartingSeatId = null;
     if (pendingStartingSeatId === state.turn.startingPlayerSeatId) pendingStartingSeatId = null;
     const selected = Number.isInteger(state.turn.startingPlayerSeatId) ? state.players.find(player => player.id === `P${state.turn.startingPlayerSeatId + 1}`) : null;
-    const shareCode = state.podCode && state.podCode !== 'LOCAL' ? `Pod ${state.podCode}. ` : '';
+    const shareCode = state.podCode && state.podCode !== 'LOCAL' ? `Table ${state.podCode}. ` : '';
     const firstPlayer = selected || state.players.find(player => player.id === `P${authoritativeSeatId + 1}`) || state.players[0];
     dom.lobbyStatus.textContent = selected
       ? `${shareCode}${claimedPlayers.length}/${state.seatCapacity || state.playerCount} seats claimed. ${displayName(selected)} will go first.`
@@ -1308,7 +1334,7 @@ function render() {
   dom.game.dataset.counterMode = state.mode;
   const identityNames = player.commanderNames.filter(Boolean).join(' · ');
   const counterValue = currentValue(player);
-  dom.podLabel.textContent = state.podCode === 'LOCAL' ? 'LOCAL POD' : `POD ${state.podCode}`; dom.commanderIdentityName.hidden = !identityNames; dom.commanderIdentityName.textContent = identityNames; dom.identityHeaderRail.style.setProperty('--identity-rail', identityRail(playerIdentity(player)) || 'transparent'); dom.identityHeaderRail.hidden = !playerIdentity(player).length; dom.modeTitle.textContent = state.mode.toUpperCase(); dom.mainValue.value = counterValue; dom.mainValue.classList.toggle('elimination-placeholder', player.eliminated); dom.mainValue.setAttribute('aria-hidden', String(player.eliminated));
+  dom.podLabel.textContent = state.podCode === 'LOCAL' ? 'LOCAL TABLE' : `TABLE ${state.podCode}`; dom.commanderIdentityName.hidden = !identityNames; dom.commanderIdentityName.textContent = identityNames; dom.identityHeaderRail.style.setProperty('--identity-rail', identityRail(playerIdentity(player)) || 'transparent'); dom.identityHeaderRail.hidden = !playerIdentity(player).length; dom.modeTitle.textContent = state.mode.toUpperCase(); dom.mainValue.value = counterValue; dom.mainValue.classList.toggle('elimination-placeholder', player.eliminated); dom.mainValue.setAttribute('aria-hidden', String(player.eliminated));
   dom.game.style.setProperty('--dial-seal-rotation', `${counterValue * 12}deg`);
   const inspectingSharedSeat = !state.localSimulation && player.id !== state.ownerPlayerId;
   dom.counterContext.textContent = state.mode === 'commander' ? (source ? `${displayPlayer(player)} · DAMAGE FROM ${displaySource(source)}` : `NO OTHER COMMANDERS · ${displayPlayer(player)}`) : `${displayName(player)}${player.id === state.ownerPlayerId ? ' · YOU' : state.localSimulation ? ' · SIMULATED' : ' · READ ONLY'}`;
@@ -1603,10 +1629,10 @@ function renderJoinSeatClaim() {
 async function refreshJoinSeats() {
   const code = $('#podCode').value.trim().toUpperCase();
   if (code.length !== 6) {
-    dom.joinCodeStatus.textContent = 'Enter the six-character pod code.';
+    dom.joinCodeStatus.textContent = 'Enter the six-character table code.';
     return false;
   }
-  dom.joinCodeStatus.textContent = 'Checking pod…';
+  dom.joinCodeStatus.textContent = 'Checking table…';
   let attemptedSavedSeat = false;
   try {
     const { snapshot } = await transport.inspectRoom(code);
@@ -1634,9 +1660,9 @@ async function refreshJoinSeats() {
     return availableSeats.length > 0;
   } catch {
     if ($('#podCode').value.trim().toUpperCase() === code) {
-      dom.joinSeat.innerHTML = '<option value="">Pod not available</option>';
+      dom.joinSeat.innerHTML = '<option value="">Table not available</option>';
       dom.joinSeat.disabled = true;
-      dom.joinCodeStatus.textContent = attemptedSavedSeat ? 'Your saved seat could not be rejoined. Try again.' : 'Pod not found. Check the code and try again.';
+      dom.joinCodeStatus.textContent = attemptedSavedSeat ? 'Your saved seat could not be rejoined. Try again.' : 'Table not found. Check the code and try again.';
     }
     return false;
   }
@@ -1747,6 +1773,7 @@ async function startGame() {
   }
   const startingNextGame = state.lifecycle?.status === 'intermission';
   try {
+    await competitionHub.beforeStart();
     const result = await transport.startGame();
     if (result.conflict) {
       if (startingNextGame) showTableActionError('The table changed first. Check the next-game roster.');
@@ -1765,7 +1792,7 @@ async function undoTurnHandoff() {
 }
 function openResetDialog({ nextGame = false } = {}) {
   dom.resetTitle.textContent = nextGame ? 'Start next game?' : 'Reset this game?';
-  dom.resetDetail.textContent = nextGame ? 'Counters and elimination markers return to zero. Your pod, seats, and commander setup stay the same.' : 'Life returns to the starting total. All other counters and elimination markers return to zero. Pod setup stays the same.';
+  dom.resetDetail.textContent = nextGame ? 'Counters and elimination markers return to zero. Your Table, seats, and commander setup stay the same.' : 'Life returns to the starting total. All other counters and elimination markers return to zero. Table setup stays the same.';
   dom.confirmResetButton.textContent = nextGame ? 'Start next game' : 'Reset game';
   dom.resetDialog.showModal();
 }
@@ -1972,7 +1999,7 @@ function renderConnection(status = transport.status) {
   const presentation = connectionPresentation({ status });
   if (presentation.showOffline) awaitingConfirmedResync = true;
   dom.connectionButton.dataset.state = status; dom.connectionText.textContent = presentation.label; dom.disconnectBanner.hidden = !presentation.showOffline;
-  // The lobby is the single source for sharing a pod code. This optional
+  // The lobby is the single source for sharing a table code. This optional
   // status dialog reports connection health only, so it does not interrupt
   // the host's invite task with duplicate room information.
   dom.connectionDetail.textContent = presentation.detail;
@@ -2009,7 +2036,7 @@ clearPastTablesButton.addEventListener('click', () => {
   clearPastTablesDialog.showModal();
 });
 clearPastTablesDialog.querySelector('form').addEventListener('submit', clearPastTables);
-$('#createPodButton').addEventListener('click', () => showView(dom.create)); $('#joinPodButton').addEventListener('click', () => { showView(dom.join); dom.joinCodeStatus.textContent = ''; }); $('#changePodButton').addEventListener('click', () => showView(dom.join)); $$('[data-back]').forEach(button => button.addEventListener('click', () => { renderSavedTables(); showView(dom.landing); })); $('#podCode').addEventListener('input', event => { event.currentTarget.value = event.currentTarget.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); }); $('#joinSeat').addEventListener('change', () => { dom.joinName.placeholder = dom.joinSeat.value; renderJoinSeatClaim(); }); dom.joinCodeForm.addEventListener('submit', async event => { event.preventDefault(); await refreshJoinSeats(); }); dom.scanJoinQrButton.addEventListener('click', () => void openJoinQrScanner()); dom.joinQrScannerDialog.addEventListener('close', stopJoinQrScanner); $$('input[name="commanderCount"], input[name="joinCommanderCount"]').forEach(input => input.addEventListener('change', refreshSetupCommanderNames)); $$('input[name="gameFormat"]').forEach(input => input.addEventListener('change', () => { if (selectedGameFormat() === 'casual') { $('input[name="startingLife"][value="20"]').checked = true; $('input[name="playerCount"][value="2"]').checked = true; } updateFormatSetup(); }));
+$('#createPodButton').addEventListener('click', () => { competitionHub.clearPending(); showView(dom.create); }); $('#joinPodButton').addEventListener('click', () => { showView(dom.join); dom.joinCodeStatus.textContent = ''; }); $('#changePodButton').addEventListener('click', () => showView(dom.join)); $$('[data-back]').forEach(button => button.addEventListener('click', () => { renderSavedTables(); showView(dom.landing); })); $('#podCode').addEventListener('input', event => { event.currentTarget.value = event.currentTarget.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); }); $('#joinSeat').addEventListener('change', () => { dom.joinName.placeholder = dom.joinSeat.value; renderJoinSeatClaim(); }); dom.joinCodeForm.addEventListener('submit', async event => { event.preventDefault(); await refreshJoinSeats(); }); dom.scanJoinQrButton.addEventListener('click', () => void openJoinQrScanner()); dom.joinQrScannerDialog.addEventListener('close', stopJoinQrScanner); $$('input[name="commanderCount"], input[name="joinCommanderCount"]').forEach(input => input.addEventListener('change', refreshSetupCommanderNames)); $$('input[name="gameFormat"]').forEach(input => input.addEventListener('change', () => { if (selectedGameFormat() === 'casual') { $('input[name="startingLife"][value="20"]').checked = true; $('input[name="playerCount"][value="2"]').checked = true; } updateFormatSetup(); }));
 dom.joinQrCameraInput.addEventListener('change', event => void readJoinQrCameraPhoto(event));
 $('#quickTestButton').addEventListener('click', async () => {
   const saved = loadLocal();
@@ -2073,9 +2100,10 @@ $('#createForm').addEventListener('submit', async event => {
     return;
   }
   showSharedGame(result.snapshot);
+  try { await competitionHub.tableCreated(result.snapshot.code); } catch (error) { showError(error); }
 });
-$('#joinForm').addEventListener('submit', async event => { event.preventDefault(); const form = new FormData(event.currentTarget); const code = $('#podCode').value.trim().toUpperCase(); const ownerPlayerId = $('#joinSeat').value; if (!/^P[1-8]$/.test(ownerPlayerId)) return showError(new Error('Wait for this pod’s open seats to load, then choose one.')); const seatId = Number(ownerPlayerId.slice(1)) - 1; const commanderCount = Number(form.get('joinCommanderCount')); const commanderNames = commanderNamesFromForm(form, commanderCount); const commanderColors = commanderColorsFromFields(dom.joinCommanderNames, commanderCount); const ownerName = String(form.get('name') || '').trim() || ownerPlayerId; try { const room = await transport.inspectRoom(code); if (!room.snapshot.seats[seatId] || (room.snapshot.seats[seatId].claimed && !transport.hasStoredReclaimToken(code, seatId))) throw new Error('That seat is no longer open. Choose one of the available seats.'); const result = await transport.claimRoom({ code, seatId, name: ownerName, commanderCount, commanderNames, commanderColors }); showSharedGame(result.snapshot); } catch (error) { showError(error); } });
-$('#recoverPodButton').addEventListener('click', async () => { const code = latestRecoverableHostTable()?.code; if (!code) return showError(new Error('This phone does not have a saved host pod to recover.')); try { const { snapshot } = await transport.restoreRoom(code); const host = snapshot.seats[snapshot.hostSeatId]; const result = await transport.claimRoom({ code, seatId: snapshot.hostSeatId, name: host.name, commanderCount: host.commanderCount, commanderNames: host.commanderNames, commanderColors: host.commanderColors }); showSharedGame(result.snapshot); } catch (error) { showError(error); } });
+$('#joinForm').addEventListener('submit', async event => { event.preventDefault(); const form = new FormData(event.currentTarget); const code = $('#podCode').value.trim().toUpperCase(); const ownerPlayerId = $('#joinSeat').value; if (!/^P[1-8]$/.test(ownerPlayerId)) return showError(new Error('Wait for this table’s open seats to load, then choose one.')); const seatId = Number(ownerPlayerId.slice(1)) - 1; const commanderCount = Number(form.get('joinCommanderCount')); const commanderNames = commanderNamesFromForm(form, commanderCount); const commanderColors = commanderColorsFromFields(dom.joinCommanderNames, commanderCount); const ownerName = String(form.get('name') || '').trim() || ownerPlayerId; try { const room = await transport.inspectRoom(code); if (!room.snapshot.seats[seatId] || (room.snapshot.seats[seatId].claimed && !transport.hasStoredReclaimToken(code, seatId))) throw new Error('That seat is no longer open. Choose one of the available seats.'); const accountToken = await currentAccountToken().catch(() => null); const result = await transport.claimRoom({ code, seatId, name: ownerName, commanderCount, commanderNames, commanderColors, accountToken }); showSharedGame(result.snapshot); if (result.competitionWarning) showError(new Error(result.competitionWarning)); } catch (error) { showError(error); } });
+$('#recoverPodButton').addEventListener('click', async () => { const code = latestRecoverableHostTable()?.code; if (!code) return showError(new Error('This phone does not have a saved host table to recover.')); try { const { snapshot } = await transport.restoreRoom(code); const host = snapshot.seats[snapshot.hostSeatId]; const result = await transport.claimRoom({ code, seatId: snapshot.hostSeatId, name: host.name, commanderCount: host.commanderCount, commanderNames: host.commanderNames, commanderColors: host.commanderColors }); showSharedGame(result.snapshot); } catch (error) { showError(error); } });
 dom.showJoinQrButton.addEventListener('click', openJoinQr); dom.showJoinQrMenuButton.addEventListener('click', () => { dom.gameMenu.hidden = true; openJoinQr(); }); dom.showIntermissionJoinQrButton.addEventListener('click', openJoinQr);
 dom.shareJoinLinkButton.addEventListener('click', async () => { try { if (!navigator.share) throw new Error('Sharing is not available on this phone.'); await navigator.share({ title: 'Join my Fivefold Arc table', text: `Join pod ${state.podCode}`, url: joinLink() }); } catch (error) { if (error.name !== 'AbortError') showError(error); } });
 dom.copyJoinLinkButton.addEventListener('click', () => copyJoinLink(dom.copyJoinLinkButton));
@@ -2222,6 +2250,7 @@ transport.addEventListener('state', event => {
 transport.addEventListener('state', event => { if (event.detail?.seats?.length) { const previousTossKey = coinTossKey(state?.lastCoinToss); const previousRollKey = startingPlayerRollKey(state?.turn?.startingPlayerRoll); const previousTurnKey = state?.turn?.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; state = stateFromSnapshot(event.detail); if (awaitingConfirmedResync && transport.status === 'connected') { awaitingConfirmedResync = false; const presentation = connectionPresentation({ status: 'connected', resynced: true }); dom.syncBanner.textContent = presentation.syncMessage; dom.syncBanner.hidden = false; clearTimeout(syncBannerTimer); syncBannerTimer = setTimeout(() => { dom.syncBanner.hidden = true; }, 5000); } const nextRollKey = startingPlayerRollKey(state.turn.startingPlayerRoll); const nextTurnKey = state.turn.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; const expectedTableView = tableViewForState(); if (expectedTableView.hidden) showView(expectedTableView); if (nextTurnKey && nextTurnKey !== previousTurnKey && nextTurnKey !== lastTurnHandoffKey) { lastTurnHandoffKey = nextTurnKey; showTurnHandoff(); } if (nextRollKey && nextRollKey !== previousRollKey && nextRollKey !== lastStartingRollKey) { lastStartingRollKey = nextRollKey; showStartingPlayerRoll(state.turn.startingPlayerRoll); } else if (coinTossKey(state.lastCoinToss) && coinTossKey(state.lastCoinToss) !== previousTossKey) { const dialog = coinTossDialogRequested; coinTossDialogRequested = false; showCoinToss(state.lastCoinToss, { dialog }); } else render(); } });
 transport.addEventListener('state', event => { const roomCode = event.detail?.code; if (!roomCode || reportedDiagnostics.has(roomCode)) return; reportedDiagnostics.add(roomCode); setTimeout(() => recordClientDiagnostic('session_started'), 0); });
 transport.addEventListener('state', event => { if (event.detail?.seats?.length) void applySelectedAppearance(); });
+transport.addEventListener('state', event => competitionHub.observeTable(event.detail));
 document.addEventListener('visibilitychange', () => { recordClientDiagnostic('visibility_changed'); if (document.visibilityState === 'hidden') { void lifeBatcher.flush(); return; } scheduleViewportMetrics(); void transport.resume(); });
 window.addEventListener('error', event => recordClientDiagnostic('unhandled_error', { errorCode: diagnosticErrorCode(event.error) }));
 window.addEventListener('unhandledrejection', event => recordClientDiagnostic('unhandled_error', { errorCode: diagnosticErrorCode(event.reason) }));
@@ -2236,6 +2265,7 @@ if (!appearancePreviewMode) {
   if (isStagingEnvironment) void loadStagingAppearanceReview();
 }
 if (!appearancePreviewMode) void restoreSavedAccountSession();
+if (!appearancePreviewMode) void competitionHub.init();
 if (appearancePreviewMode) {
   transport.useLocal();
   state = createState({ playerCount: 4, ownerName: 'Mira', podCode: 'STUDIO' });

@@ -21,7 +21,7 @@ test('does not emit a second state event for an unchanged snapshot', async () =>
       const path = new URL(url).pathname;
       if (path === '/api/connections') {
         const { tableDeviceId, ...capabilities } = JSON.parse(options.body);
-        assert.deepEqual(capabilities, { supportedTableProtocols: [1] });
+        assert.deepEqual(capabilities, { supportedTableProtocols: [1, 2] });
         assert.match(tableDeviceId, /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i);
         return response({ connectionId: 'connection-1' });
       }

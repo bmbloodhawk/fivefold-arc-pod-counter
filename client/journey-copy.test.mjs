@@ -104,7 +104,7 @@ test('joining explains the claimed-seat boundary and normalizes the join code', 
 
 test('the host lobby makes sharing the primary next setup action', () => {
   assert.doesNotMatch(html, /POD CREATED · INVITE PLAYERS/);
-  assert.match(html, /Players: choose <strong>Join a pod<\/strong>, then enter this code\./);
+  assert.match(html, /Players: choose <strong>Join a table<\/strong>, then enter this code\./);
   assert.match(html, /id="lobbyInviteCode"/);
   assert.match(html, /id="copyLobbyJoinLinkButton"[^>]*>Copy invite link/);
   assert.ok(
@@ -126,7 +126,7 @@ test('a successfully created pod cannot be reported as a connection error during
   assert.match(app, /result = await transport\.createRoom\([\s\S]*?\);\s*}\s*catch \(error\) \{\s*showError\(error\);\s*return;\s*}\s*showSharedGame\(result\.snapshot\);/);
 });
 
-test('creating a pod is distinct from starting a game', () => {
+test('creating a table is distinct from starting a game', () => {
   assert.match(html, /name="gameFormat" value="commander" checked/);
   assert.match(html, /name="gameFormat" value="casual"/);
   assert.match(html, /id="customStartingLife"[^>]*min="1" max="999"/);
@@ -153,7 +153,7 @@ test('creating a pod is distinct from starting a game', () => {
   assert.match(app, /Keep without colors/);
   assert.match(app, /commanderNames = deck\?\.commanderNames\?\.length \? deck\.commanderNames/);
   assert.match(app, /const name = names\[slot\] \?\? prior\?\.name \?\? '';/);
-  assert.match(html, /<button class="primary-action" type="submit">Create pod<\/button>/);
+  assert.match(html, /<button class="primary-action" type="submit">Create table<\/button>/);
   assert.match(html, /id="startGameButton"[^>]*>Start game · P1 goes first/);
 });
 
@@ -196,8 +196,8 @@ test('a saved active-pod seat rejoins directly without repeating identity setup'
 
 test('guest play is available on arrival and account actions start disabled', () => {
   assert.match(html, /id="playActions" class="action-stack">/);
-  assert.match(html, /id="createPodButton" class="primary-action" type="button">Create a pod/);
-  assert.match(html, /id="joinPodButton" class="primary-action" type="button">Join a pod/);
+  assert.match(html, /id="createPodButton" class="primary-action" type="button">Create a table/);
+  assert.match(html, /id="joinPodButton" class="primary-action" type="button">Join a table/);
   assert.match(html, /id="myGamesButton"[^>]*\sdisabled>My profile/);
   assert.match(html, /id="myDecksButton"[^>]*\sdisabled>My decks/);
   assert.match(html, /id="accountSignedInStatus" class="account-signed-in" hidden>Signed in/);
@@ -465,8 +465,8 @@ test('the confirmed winner, personal accolade, and next-game setup are separate 
   assert.match(html, /id="victoryDialog"[\s\S]*assets\/victory-seal-v1\.png[\s\S]*id="victoryEyebrow"[\s\S]*id="victoryTapHint"[^>]*>Enjoy the win/);
   assert.match(html, /class="victory-winner-copy"[\s\S]*id="personalMatchMoment"[\s\S]*class="victory-dismissal"/);
   assert.match(app, /if \(key !== shownVictoryKey\)/);
-  assert.match(app, /if \(!result \|\| !winner\) \{ shownVictoryKey = null; victoryStage = 'winner';/);
-  assert.match(app, /const youWon = winner\.id === actingSeatId/);
+  assert.match(app, /if \(!result \|\| \(!winner && !timedDraw\)\) \{ shownVictoryKey = null; victoryStage = 'winner';/);
+  assert.match(app, /const youWon = winner\?\.id === actingSeatId/);
   assert.match(app, /victoryDismissReady && dom\.victoryDialog\.open/);
   assert.match(styles, /\.victory-art \{[\s\S]*object-position: center 31%/);
   assert.doesNotMatch(styles, /\.victory-art \{[^}]*opacity:/);
@@ -552,13 +552,13 @@ test('developer insights distinguish automatic qualified games from host-reporte
   assert.match(feedbackPage, /No table insights have been recorded yet/);
 });
 
-test('host recovery finds the most recent saved host pod on this phone without asking for its code', () => {
-  assert.match(html, /No pod code needed\./);
-  assert.match(html, /id="recoverPodButton"[^>]*>Recover my host pod/);
+test('host recovery finds the most recent saved host table on this phone without asking for its code', () => {
+  assert.match(html, /No table code needed\./);
+  assert.match(html, /id="recoverPodButton"[^>]*>Recover my host table/);
   assert.match(app, /function latestRecoverableHostTable\(\)/);
   assert.match(app, /transport\.hostRecoveryPodCodes\(\)/);
-  assert.match(app, /This phone does not have a saved host pod to recover\./);
-  assert.doesNotMatch(app, /Enter the six-character pod code first\./);
+  assert.match(app, /This phone does not have a saved host table to recover\./);
+  assert.doesNotMatch(app, /Enter the six-character table code first\./);
 });
 
 test('signed-in accounts keep private deck details and personal history tools', () => {
