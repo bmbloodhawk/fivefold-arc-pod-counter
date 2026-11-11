@@ -3,15 +3,46 @@ import test from "node:test";
 import { AccountHistory, MemoryAccountHistoryStore, accountHistoryStoreForEnvironment } from "../src/account-history.js";
 import { createRealtimeServer } from "../src/app.js";
 import { APPEARANCE_ACHIEVEMENTS } from "../src/appearance-milestones.js";
+import { FirebasePlaytestLedger } from "../src/playtest-ledger.js";
+
+function firebaseWireStore() {
+  const values = new Map();
+  let version = 0;
+  const ledger = new FirebasePlaytestLedger({
+    databaseUrl: "https://fixture.invalid",
+    clientEmail: "fixture@example.test",
+    privateKey: "fixture-only",
+    fetchImpl: async (url, options) => {
+      const request = new Request(url, options);
+      const key = new URL(url).pathname;
+      const current = values.get(key) ?? null;
+      const etag = JSON.stringify(version);
+      if (request.method === "GET") return Response.json(current, { headers: { etag } });
+      const expected = request.headers.get("if-match");
+      if (expected && expected !== etag && !(current === null && expected === "null_etag")) {
+        return new Response(null, { status: 412 });
+      }
+      let value;
+      try { value = JSON.parse(await request.text()); }
+      catch { return new Response(null, { status: 400 }); }
+      values.set(key, value);
+      version += 1;
+      return Response.json(value);
+    },
+  });
+  ledger.accessToken = async () => "fixture-token";
+  return ledger;
+}
+
 
 const fieldNotes = { id: "field-notes", name: "Field Notes", visual: { treatment: "grid" } };
 const auth = { authorization: "Bearer qa-skin-player" };
 
-async function fixture(t, { store, appEnv = "staging", configureAccounts = true } = {}) {
+async function fixture(t, { store, appEnv = "staging", configureAccounts = true, appearanceCatalog } = {}) {
   const accountHistory = configureAccounts && new AccountHistory({ store: accountHistoryStoreForEnvironment(store, appEnv) });
   const { server, service } = createRealtimeServer({
-    appEnv,
-    stagingAppearanceSkins: [fieldNotes],
+    appEnv, appearanceCatalog,
+    appearanceSkins: [fieldNotes],
     accountHistory,
     accountVerifier: { async verify(token) {
       if (token !== "qa-skin-player") throw Object.assign(new Error("Sign in"), { status: 401 });
@@ -23,9 +54,10 @@ async function fixture(t, { store, appEnv = "staging", configureAccounts = true 
   return { accountHistory, service, request: (path, options) => fetch("http://127.0.0.1:" + server.address().port + path, options) };
 }
 
-test("staging only serves an earned personal skin after a verified save and restores its simple name", async t => {
-  const store = new MemoryAccountHistoryStore();
-  const { accountHistory, service, request } = await fixture(t, { store });
+for (const appEnv of ["staging", "production"]) {
+test(appEnv + " persists a verified unlock, its notification, and host sharing", async t => {
+  const store = appEnv === "production" ? firebaseWireStore() : new MemoryAccountHistoryStore();
+  const { accountHistory, service, request } = await fixture(t, { store, appEnv });
   const publicSkins = await (await request("/api/game-skins")).json();
   assert.deepEqual(publicSkins.skins.map(skin => [skin.id, skin.name]), [["staging-slate", "Slate"], ["staging-ember", "Ember"]]);
   const post = (path, body, headers = {}, method = "POST") => request(path, {
@@ -103,15 +135,45 @@ test("staging only serves an earned personal skin after a verified save and rest
   assert.equal(transferred.config.tableSkinId, null);
   assert.equal((await request(sharedPath, { headers: guestConnection })).status, 404);
 
-  const restarted = await fixture(t, { store });
+  const restarted = await fixture(t, { store, appEnv });
   const { preferences, skins } = await (await restarted.request(preferencesPath, { headers: auth })).json();
   assert.equal(preferences.personalSkinId, "field-notes");
   assert.deepEqual([skins[0].name, skins[0].state], ["Field Notes", "new"]);
-  const production = await fixture(t, { store, appEnv: "production" });
+  const production = await fixture(t, { store, appEnv: appEnv === "staging" ? "production" : "staging" });
   assert.equal((await production.request(detailPath, { headers: auth })).status, 404);
   const isolated = await (await production.request(preferencesPath, { headers: auth })).json();
   assert.equal(isolated.preferences.personalSkinId, null);
-  assert.equal(isolated.skins, undefined);
+  assert.equal(isolated.skins[0].state, "locked");
+});
+}
+
+test("legacy invitation skins stay hidden until their grant release", async t => {
+  const hidden = [
+    { id: "skin-1790476356864", name: "Fractured", status: "Approved" },
+    { id: "skin-1789600182594", name: "Bart the Mailman", status: "Approved" },
+    { id: "neutral", name: "Carl MTG", status: "Approved" },
+  ];
+  const { request, service } = await fixture(t, {
+    store: new MemoryAccountHistoryStore(), appEnv: "production",
+    appearanceCatalog: { async read() { return { skins: hidden }; } },
+  });
+  const { skins } = await (await request("/api/game-skins")).json();
+  assert.deepEqual(skins.map(skin => skin.name), ["Slate", "Ember"]);
+  const host = service.createConnection().connectionId;
+  for (const skin of hidden) {
+    assert.equal((await request("/api/game-skins/" + skin.id)).status, 404);
+    assert.equal((await request("/api/game-skins/" + skin.id, { headers: auth })).status, 404);
+    const prefs = await request("/api/account/preferences", {
+      method: "PUT", headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ personalSkinId: skin.id, usePersonalSkin: true }),
+    });
+    assert.equal(prefs.status, 400);
+    const room = await request("/api/rooms", {
+      method: "POST", headers: { ...auth, "x-connection-id": host, "content-type": "application/json" },
+      body: JSON.stringify({ playerCount: 2, startingLife: 40, tableSkinId: skin.id }),
+    });
+    assert.equal(room.status, 403);
+  }
 });
 
 test("an unconfigured profile reports a service error", async t => {

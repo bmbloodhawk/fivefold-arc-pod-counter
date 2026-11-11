@@ -61,7 +61,7 @@ test("uses explicit CORS and baseline browser security headers when configured",
   }
 });
 
-test("staging provides two original appearance choices without publishing them to production", async () => {
+test("starter appearance choices use their simple released names", async () => {
   const stagingServer = createRealtimeServer({ appEnv: "staging" }).server;
   await new Promise((resolve) => stagingServer.listen(0, "127.0.0.1", resolve));
   const stagingUrl = `http://127.0.0.1:${stagingServer.address().port}`;
