@@ -2,6 +2,10 @@
 
 Scope: staging-only result-save fix, November 11, 2026. Production is excluded.
 
+Release status: local candidate only; not pushed or deployed. Candidate source:
+`3e919afbc08b678ca26dbc14440250a945985847`, based on staging
+`2f07f797bf59b4206460ea181dbb378bed1d15ab`. Deployment awaits explicit approval.
+
 ## Confirmed cause and change
 
 Each Pod or tournament currently stores its control state, completed-game evidence,
@@ -45,6 +49,13 @@ with zero busy responses: confirmation p95 was 4,931ms, capture maximum 9,537ms
 and life-during-results p95 55ms. Higher latency still increases queue wait; this
 does not promise instant finishes or unlimited bursts. Detailed JSON and logs are
 in the ignored `.local/evidence/` directory.
+
+The final clean-commit 128-player run at 5ms delay passed with zero busy responses
+and no harness retries: confirmation p95 1,540ms, life-during-results p95 24ms.
+Its report is `.local/evidence/final-strict-128.json` and records the exact candidate
+commit above with `sourceDirty: false`. One database conditional conflict recovered
+internally; this is distinct from an end-user busy response. Older measurements
+remain available and should not be mistaken for real Firebase or Render benchmarks.
 
 Regression coverage includes simultaneous same-Pod saves across domain instances,
 independent Pod progress while another save stalls, queue recovery after failure,
