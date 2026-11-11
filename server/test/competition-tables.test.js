@@ -65,12 +65,74 @@ test('only completed host-confirmed full orders count; guest/no-show seats never
 });
 
 test('duplicate, lost-response and concurrent publication produce one result; conflicting reuse rejects', async () => {
-  const f = await fixture(); await f.start(); f.finish();
-  const results = await Promise.all([publish(f), publish(f), publish(f)]);
+  const f = await fixture(); await f.start(); f.finish(); await f.tables.reconcile('pod', f.pod.id);
+  const gameId = f.service.room(f.code).gameId;
+  const game = (await f.domain.readScope('pod', f.pod.id)).games[gameId];
+  // A retry resends the original payload, even after another request has saved it.
+  const body = { order: game.starterIds.map(id => [id]), baseRevision: 0, requestId: 'confirmation_0001' };
+  const results = await Promise.all(Array.from({ length: 3 }, () => f.tables.confirm('a', 'pod', f.pod.id, gameId, body)));
   assert.ok(results.every(item => item.revisions.length === 1));
-  await assert.rejects(() => publish(f, true), { status: 409 });
+  await assert.rejects(() => f.tables.confirm('a', 'pod', f.pod.id, gameId, { ...body, order: [...body.order].reverse() }), { status: 409 });
   const pod = await f.domain.getPod('a', f.pod.id);
   assert.ok(pod.members.every(member => member.gamesPlayed === 1));
+});
+
+test('duplicate source capture and confirmation leave the stored version and evidence unchanged', async () => {
+  const f = await fixture(); await f.start(); f.finish(); await f.tables.reconcile('pod', f.pod.id);
+  const gameId = f.service.room(f.code).gameId;
+  const captured = await f.domain.readScope('pod', f.pod.id);
+  const source = await f.ledger.readArchivedSource(gameId);
+  const update = f.store.update.bind(f.store); let writes = 0;
+  f.store.update = (path, change) => update(path, current => {
+    const next = change(current); if (next !== current) writes++; return next;
+  });
+  await f.tables.capture('pod', f.pod.id, captured.games[gameId].tableKey, gameId, source);
+  await assert.rejects(() => f.tables.capture('pod', f.pod.id, captured.games[gameId].tableKey, gameId,
+    { ...source, completedAt: source.completedAt + 1 }), { code: 'SOURCE_CONFLICT' });
+  assert.deepEqual(await f.domain.readScope('pod', f.pod.id), captured);
+  assert.equal(writes, 0);
+  const body = { order: captured.games[gameId].starterIds.map(id => [id]), baseRevision: 0, requestId: 'same_confirm_no_write' };
+  const confirmed = await f.tables.confirm('a', 'pod', f.pod.id, gameId, body);
+  const saved = await f.domain.readScope('pod', f.pod.id);
+  assert.deepEqual(await f.tables.confirm('a', 'pod', f.pod.id, gameId, body), confirmed);
+  assert.deepEqual(await f.domain.readScope('pod', f.pod.id), saved);
+  assert.equal(writes, 1, 'Only the first confirmation writes; duplicates do not.');
+});
+
+test('life taps do not read, write or wait for a blocked competition save', { timeout: 5000 }, async t => {
+  const f = await fixture(); await f.start();
+  let release, entered;
+  const blocked = new Promise(resolve => { release = resolve; });
+  const started = new Promise(resolve => { entered = resolve; });
+  t.after(() => release());
+  const update = f.store.update.bind(f.store), read = f.store.read.bind(f.store);
+  let reads = 0, writes = 0;
+  f.store.read = (...args) => { reads++; return read(...args); };
+  f.store.update = async (...args) => { writes++; entered(); await blocked; return update(...args); };
+  const saving = f.domain.changeScope('pod', f.pod.id, scope => { scope.name = 'Saved later'; });
+  await started;
+  f.service.adjustOwnSeat(f.code, f.host, { counter: 'life', delta: -1 });
+  assert.equal(f.service.room(f.code).seats[0].counters.life, 39);
+  assert.deepEqual({ reads, writes }, { reads: 0, writes: 1 });
+  release(); await saving;
+});
+
+test('a queued confirmation checks membership after an earlier queued departure commits', { timeout: 5000 }, async t => {
+  const f = await fixture(); await f.start(); f.finish(); await f.tables.reconcile('pod', f.pod.id);
+  const gameId = f.service.room(f.code).gameId;
+  const game = (await f.domain.readScope('pod', f.pod.id)).games[gameId];
+  let release, entered;
+  const blocked = new Promise(resolve => { release = resolve; });
+  const started = new Promise(resolve => { entered = resolve; }); t.after(() => release());
+  const update = f.store.update.bind(f.store);
+  f.store.update = async (...args) => { entered(); await blocked; return update(...args); };
+  const departure = f.domain.changeScope('pod', f.pod.id, scope => { scope.members[game.hostId].status = 'left'; });
+  await started;
+  const confirmation = assert.rejects(f.tables.confirm('a', 'pod', f.pod.id, gameId, {
+    order: game.starterIds.map(id => [id]), baseRevision: 0, requestId: 'queued_member_departure',
+  }), { status: 403, code: 'COMPETITION_ACCESS' });
+  release(); await departure; await confirmation;
+  assert.equal((await f.domain.readScope('pod', f.pod.id)).games[gameId].revisions.length, 0);
 });
 
 test('leaving after accepted start counts that game and return resumes the same rating', async () => {

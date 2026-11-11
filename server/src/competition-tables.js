@@ -392,7 +392,7 @@ export class CompetitionTables {
       const hash = sourceDigest(source);
       if (scope.games[gameId]) {
         if (scope.games[gameId].sourceHash !== hash) throw competitionError('Conflicting source game.', 409, 'SOURCE_CONFLICT');
-        return;
+        return false;
       }
       const participant = seatId => command.seats.find(seat => seat.seatId === String(seatId))?.participantId;
       scope.games[gameId] = { gameId, sourceHash: hash, completedAt: source.completedAt, startedAt: source.startedAt,
@@ -424,7 +424,7 @@ export class CompetitionTables {
       const previous = game.revisions.find(item => item.requestId === requestId);
       if (previous) {
         if (previous.payloadHash !== payloadHash) throw competitionError('That retry identifier was already used for a different order.', 409, 'CONFIRMATION_CONFLICT');
-        return;
+        return false;
       }
       if (baseRevision !== game.revisions.length) throw competitionError('This result changed. Review the latest revision.', 409, 'REVISION_CONFLICT');
       if (game.revisions.length && !['order_error', 'tie_correction', 'recording_error'].includes(reasonCode)) throw competitionError('Select a reason for the correction.');

@@ -63,6 +63,9 @@ node qa/competition-load.mjs --players=64 --networks=2 --delay-ms=5 --adjustment
 
 # Opt-in higher budgets: 128 players on one network, 32 Tables
 node qa/competition-load.mjs --players=128 --networks=1 --streams-per-network=128 --streams-global=256 --delay-ms=5 --adjustments=16 --rounds=1
+
+# Release gate: no application-level busy retries; include slower artificial storage
+node qa/competition-load.mjs --players=128 --networks=1 --streams-per-network=128 --streams-global=256 --delay-ms=50 --busy-retries=0
 ```
 
 The harness checks real HTTP/SSE updates, exact counter changes and convergence,
@@ -74,8 +77,10 @@ a unique operation ID; the busy-phase counter verifies all 64 control mutations 
 Reports are under `.local/evidence/competition-load-<players>-<networks>.json`. Timing
 percentiles are per HTTP attempt; `operationP95Ms` includes automatic test-harness retries
 and backoff. Retryable `503 HISTORY_BUSY` responses remain visible in the status counts.
-They are not counted as instant successes. The phone UI can require a host to retry a
-busy confirmation; the harness explicitly retries with the same immutable request ID.
+They are not counted as instant successes. The historical default allows four busy
+retries with the same immutable request ID. Use `--busy-retries=0` for the result-save
+release gate: any busy response then fails the run. Duplicate confirmations still
+run explicitly, to check lost-response safety; these are not automatic busy retries.
 
 The old defaults remain 32 live streams per network and 64 per server. Per-service
 `MAX_LIVE_STREAMS_PER_IP` and `MAX_LIVE_STREAMS_GLOBAL` can raise them (integers 1–1024,
@@ -84,6 +89,8 @@ Staging is configured for 128 / 256; production settings have not been changed.
 
 These are local measurements, not Render hardware, real phone rendering, OAuth,
 live Firebase or venue Wi-Fi evidence. Storage delay is artificial and the REST fixture
-implements only the adapter contract. Large same-instant confirmation bursts still
-show contention even with higher connection limits. Use the staging phone checklist
-before any production release. No benchmark result authorizes a production change.
+implements only the adapter contract. Competition writes to the same document now
+wait in arrival order within one app process. Independent documents do not share a
+queue, and cross-process ETag checks remain active. This is not a distributed worker
+or a global capacity guarantee. Use the staging phone checklist before any production
+release. No benchmark result authorizes a production change.

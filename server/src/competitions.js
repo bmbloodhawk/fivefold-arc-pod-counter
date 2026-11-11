@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { coordinateCompetitionWrites } from './competition-write-coordinator.js';
 
 export const digest = value => createHash('sha256').update(typeof value === 'string' ? value : JSON.stringify(value)).digest('hex');
 export function competitionError(message, status = 400, code = 'COMPETITION_INPUT') {
@@ -46,7 +47,7 @@ const active = member => member?.status === 'active';
 export class Competitions {
   constructor({ store, now = () => Date.now(), createId = () => randomBytes(18).toString('base64url') } = {}) {
     if (!store?.read || !store?.update) throw new TypeError('Competition storage requires conditional updates.');
-    this.store = store; this.now = now; this.createId = createId;
+    this.store = coordinateCompetitionWrites(store); this.now = now; this.createId = createId;
   }
 
   async directory() { return normalizeDirectory(await this.store.read(directoryPath)); }
@@ -96,7 +97,7 @@ export class Competitions {
     const result = await this.store.update(scopePath(kind, requiredId(id)), current => {
       if (!current) throw competitionError('That private group or event is unavailable.', 404, 'COMPETITION_NOT_FOUND');
       const next = normalizeScope(current);
-      change(next);
+      if (change(next) === false) return current;
       next.version++;
       return next;
     });

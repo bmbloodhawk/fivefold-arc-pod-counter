@@ -25,12 +25,18 @@ async function startApp(databaseUrl) {
   return { url, child, async kill() { if (child.exitCode == null && child.signalCode == null) { child.kill('SIGKILL'); await once(child, 'exit'); } } };
 }
 
-test('real process restart retains five completed sources beyond the room cache and conditional concurrent confirmation stays idempotent', async t => {
-  const database = await startCompetitionRestFixture(); t.after(() => database.close());
+test('real process restart retains five completed sources beyond the room cache and two-process confirmation stays idempotent', { timeout: 30000 }, async t => {
+  let racePath = null, arrivals = 0, releaseRace;
+  const race = new Promise(resolve => { releaseRace = resolve; }); t.after(() => releaseRace());
+  const database = await startCompetitionRestFixture({ beforeConditionalPut: async ({ path }) => {
+    if (path !== racePath || arrivals >= 2) return;
+    if (++arrivals === 2) releaseRace();
+    await race;
+  } }); t.after(() => database.close());
   const processes = []; t.after(async () => { for (const process of processes) await process.kill(); });
   let app = await startApp(database.url); processes.push(app);
-  const call = async (path, { method = 'GET', token = 'qa-host', connection, body } = {}) => {
-    const response = await fetch(app.url + path, { method, headers: {
+  const call = async (path, { method = 'GET', token = 'qa-host', connection, body, serverUrl = app.url } = {}) => {
+    const response = await fetch(serverUrl + path, { method, headers: {
       ...(token ? { authorization: `Bearer ${token}` } : {}), ...(connection ? { 'x-connection-id': connection } : {}),
       ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
     }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
@@ -73,14 +79,24 @@ test('real process restart retains five completed sources beyond the room cache 
   const first = (await call(`/api/competitions/pod/${podId}/games/${gameIds[0]}`)).data;
   assert.equal(first.status, 'pending'); assert.equal(first.players.length, 2);
   assert.equal(/ownerHash|tableIdentity|identityId|accountId/.test(JSON.stringify(first)), false);
+  const otherApp = await startApp(database.url); processes.push(otherApp);
+  racePath = `/qa/competitions/pods/${podId}.json`;
+  const beforeVersion = database.read(racePath).version, beforeConflicts = database.conflicts;
   const payload = { order: first.starterIds.map(id => [id]), baseRevision: 0, requestId: 'restart_concurrent_confirm' };
-  const responses = await Promise.all(Array.from({ length: 4 }, () => call(`/api/competitions/pod/${podId}/games/${first.gameId}/confirm`, { method: 'POST', body: payload })));
+  const responses = await Promise.all(Array.from({ length: 4 }, (_, index) => call(`/api/competitions/pod/${podId}/games/${first.gameId}/confirm`, {
+    method: 'POST', body: payload, serverUrl: index % 2 ? otherApp.url : app.url,
+  })));
   assert.ok(responses.every(response => response.status === 200 && response.data.revisions.length === 1));
+  assert.equal(arrivals, 2, 'Two independent application processes attempted the same conditional write.');
+  assert.equal(database.read(racePath).version, beforeVersion + 1, 'Only one confirmed revision committed across both processes.');
   const conflict = await call(`/api/competitions/pod/${podId}/games/${first.gameId}/confirm`, { method: 'POST', body: { ...payload, order: [...payload.order].reverse() } });
   assert.equal(conflict.status, 409);
   const standings = (await call(`/api/competitions/pod/${podId}`)).data;
   assert.ok(standings.members.every(row => row.gamesPlayed === 1 && row.ratedGames === 1));
-  assert.ok(database.conflicts > 0, 'The REST fixture must actually exercise a conditional-write conflict.');
+  assert.ok(database.conflicts > beforeConflicts, 'The REST fixture must actually exercise a cross-process conditional-write conflict.');
+  const putsBefore = database.calls.filter(row => row.path === racePath && row.method === 'PUT').length;
+  assert.equal((await call(`/api/competitions/pod/${podId}/games/${first.gameId}/confirm`, { method: 'POST', body: payload })).status, 200);
+  assert.equal(database.calls.filter(row => row.path === racePath && row.method === 'PUT').length, putsBefore, 'A duplicate response needs no database PUT.');
   // Verified group publication cannot write another account’s personal awards.
   const personal = (await call('/api/account/history')).data.history;
   assert.equal(personal.gamesPlayed, 0); assert.equal(personal.wins, 0);

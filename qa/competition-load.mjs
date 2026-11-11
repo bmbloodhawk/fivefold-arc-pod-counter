@@ -9,13 +9,15 @@ import { fileURLToPath } from 'node:url';
 import { startCompetitionRestFixture } from './competition-rest-fixture.mjs';
 
 const args = Object.fromEntries(process.argv.slice(2).map(value => {
-  const match = /^--(players|networks|delay-ms|adjustments|rounds|streams-per-network|streams-global)=(\d+)$/.exec(value);
+  const match = /^--(players|networks|delay-ms|adjustments|rounds|streams-per-network|streams-global|busy-retries)=(\d+)$/.exec(value);
   if (!match) throw new Error('Unknown argument. No remote target is supported.');
   return [match[1], Number(match[2])];
 }));
 const players = args.players ?? 32, networks = args.networks ?? 1, delayMs = args['delay-ms'] ?? 5;
 const adjustments = args.adjustments ?? 16, rounds = args.rounds ?? 1;
 const maxStreamsPerIp = args['streams-per-network'] ?? 32, maxStreamsGlobal = args['streams-global'] ?? 64;
+const busyRetries = args['busy-retries'] ?? 4;
+assert.ok(busyRetries >= 0 && busyRetries <= 4);
 assert.ok(players >= 8 && players <= 128 && players % 4 === 0);
 assert.ok(networks >= 1 && networks <= 4 && Math.ceil(players / networks) <= maxStreamsPerIp, 'Use enough synthetic networks for the configured per-network limit.');
 assert.ok(maxStreamsPerIp >= 1 && maxStreamsPerIp <= 1024 && maxStreamsGlobal >= maxStreamsPerIp && maxStreamsGlobal <= 1024);
@@ -50,7 +52,7 @@ try {
       const data = await response.json();
       const sample = { ms: performance.now() - start, status: response.status };
       if (!metrics.has(label)) metrics.set(label, []); metrics.get(label).push(sample);
-      if (retryBusy && response.status === 503 && data.error?.code === 'HISTORY_BUSY' && attempt < 4) { await pause(30 * (attempt + 1)); continue; }
+      if (retryBusy && response.status === 503 && data.error?.code === 'HISTORY_BUSY' && attempt < busyRetries) { await pause(30 * (attempt + 1)); continue; }
       if (response.status !== expected) { failures.push({ label, status: response.status, code: data.error?.code }); throw new Error(`${label}: expected ${expected}, got ${response.status}: ${JSON.stringify(data).slice(0,200)}`); }
       if (!operations.has(label)) operations.set(label, []);
       operations.get(label).push(performance.now() - operationStart);
@@ -188,7 +190,8 @@ try {
       statuses:samples.reduce((out,row)=>(out[row.status]=(out[row.status]||0)+1,out),{}) }];
   }));
   const report = { passed:failures.length===0, sourceCommit:execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),
-    players,tablesPerRound:players/4,rounds,networks,delayMs,maxStreamsPerIp,maxStreamsGlobal,elapsedSeconds:Number(((performance.now()-began)/1000).toFixed(1)),
+    sourceDirty:Boolean(execFileSync('git',['status','--porcelain'],{cwd:root,encoding:'utf8'}).trim()),
+    players,tablesPerRound:players/4,rounds,networks,delayMs,maxStreamsPerIp,maxStreamsGlobal,busyRetries,elapsedSeconds:Number(((performance.now()-began)/1000).toFixed(1)),
     stats,expectedRejections,conditionalConflicts:db.conflicts,failures,serverReportedErrors:serverErrors.split('\n').filter(Boolean).length,
     verified:['real HTTP + SSE across every simulated phone','life-only competition records unchanged','same authoritative snapshots','seat reclaim invalidates old phone','concurrent results and duplicate idempotency','complete event points and game counts'],
     limits:'Local computer + child application + synthetic auth + delayed REST/ETag fixture. No live Firebase, Render capacity, real phone rendering, venue Wi-Fi or long-duration reliability claim.' };
@@ -196,7 +199,7 @@ try {
   await writeFile(new URL(`../.local/evidence/competition-load-${players}-${networks}.json`,import.meta.url),JSON.stringify(report,null,2));
   console.log(JSON.stringify(report,null,2)); assert.equal(report.passed,true);
 } catch (error) {
-  const report = { passed:false,players,networks,delayMs,rounds,maxStreamsPerIp,maxStreamsGlobal,connectedStreams:streams.length,
+  const report = { passed:false,players,networks,delayMs,rounds,maxStreamsPerIp,maxStreamsGlobal,busyRetries,connectedStreams:streams.length,
     elapsedSeconds:Number(((performance.now()-began)/1000).toFixed(1)),failures,message:error.message,
     limits:'Failure observed only in the isolated local HTTP/SSE simulation; not a staging or production outage.' };
   await mkdir(new URL('../.local/evidence/',import.meta.url),{recursive:true});

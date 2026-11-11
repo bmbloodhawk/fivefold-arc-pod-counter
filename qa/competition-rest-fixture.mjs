@@ -14,7 +14,7 @@ export function firebaseShape(value) {
   return Object.fromEntries(entries);
 }
 
-export async function startCompetitionRestFixture({ delayMs = 0 } = {}) {
+export async function startCompetitionRestFixture({ delayMs = 0, beforeConditionalPut = null } = {}) {
   if (!Number.isInteger(delayMs) || delayMs < 0 || delayMs > 1000) throw new Error('Fixture delay must be 0–1000ms.');
   let root = {}; const calls = []; let conflicts = 0;
   const pathParts = path => path.replace(/^\//, '').replace(/\.json$/, '').split('/').filter(Boolean).map(decodeURIComponent);
@@ -49,6 +49,7 @@ export async function startCompetitionRestFixture({ delayMs = 0 } = {}) {
     let body = '';
     try { for await (const chunk of req) body += chunk; }
     catch { if (!res.destroyed) { res.writeHead(400); res.end('{}'); } return; }
+    if (req.headers['if-match'] && beforeConditionalPut) await beforeConditionalPut({ path, ifMatch: req.headers['if-match'] });
     // Compare at commit, after reading the request, so concurrent writers really race.
     current = read(path);
     const tag = req.headers['if-match'];
