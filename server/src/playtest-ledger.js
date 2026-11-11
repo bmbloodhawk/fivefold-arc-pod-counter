@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { archivedSource, assertSameSource, publicLedgerValue, sourceArchive } from './competition-source.js';
 
 // The ledger intentionally records only a compact, playtest-focused history.
 // It never receives reclaim tokens, connection identifiers, IP addresses, or
@@ -12,6 +13,8 @@ export class NullPlaytestLedger {
   note() {}
   fieldTest() {}
   async readRecovery() { return null; }
+  async readArchivedSource() { return null; }
+  async retrySourceArchive() { throw new Error('Completion archive is not configured.'); }
   async listArchive() { return []; }
   async listFeedback() { return []; }
   async listFieldTests() { return []; }
@@ -36,13 +39,22 @@ export class MemoryPlaytestLedger {
   }
 
   complete(record) {
-    this.records.push({ kind: "complete", record });
+    const previous = this.records.find(item => item.kind === 'complete' && item.record.gameId === record.gameId);
+    if (record._competitionSource && previous) return;
+    this.records.push({ kind: "complete", record: structuredClone(record) });
+  }
+  async readArchivedSource(gameId) { return archivedSource(this.records.find(item => item.kind === 'complete' && item.record.gameId === gameId)?.record); }
+  async retrySourceArchive(source, recap) {
+    const existing = await this.readArchivedSource(source.gameId);
+    if (existing) assertSameSource(existing, source);
+    else this.complete(recap || sourceArchive(source));
+    return { archived: true };
   }
   recovery(record) { this.records.push({ kind: "recovery", record }); }
   note(record) { this.records.push({ kind: "note", record }); }
   fieldTest(record) { this.records.push({ kind: "field_test", record }); }
   async readRecovery(roomCode) { return this.records.filter((item) => item.kind === "recovery" && item.record.roomCode === roomCode).at(-1)?.record ?? null; }
-  async listArchive() { return this.records.filter((item) => item.kind === "complete").map((item) => item.record); }
+  async listArchive() { return this.records.filter((item) => item.kind === "complete").map((item) => publicLedgerValue(item.record)); }
   async listFeedback() {
     const notes = new Map();
     const reviews = new Map();
@@ -91,7 +103,29 @@ export class FirebasePlaytestLedger {
 
   record(event) { this.enqueue(`playtests/${encodeURIComponent(event.gameId)}/events/${event.sequence}.json`, event); }
   checkpoint(checkpoint) { this.enqueue(`playtests/${encodeURIComponent(checkpoint.gameId)}/checkpoints/${checkpoint.sequence}.json`, checkpoint); }
-  complete(recap) { this.enqueue(`playtests/${encodeURIComponent(recap.gameId)}/recap.json`, recap); }
+  complete(recap) {
+    if (!recap._competitionSource) { this.enqueue(`playtests/${encodeURIComponent(recap.gameId)}/recap.json`, recap); return; }
+    const frozen = structuredClone(recap);
+    this.pending = this.pending.then(() => this.createSourceArchive(frozen))
+      .catch(error => this.logger.error('Fivefold Arc completion archive write failed', error));
+  }
+  async readArchivedSource(gameId) { return archivedSource(await this.read(`playtests/${encodeURIComponent(gameId)}/recap.json`)); }
+  async retrySourceArchive(source, recap) {
+    if (recap) assertSameSource(archivedSource(recap), source);
+    await this.createSourceArchive(recap || sourceArchive(source)); return { archived: true };
+  }
+  async createSourceArchive(recap) {
+    const token = await this.accessToken();
+    const url = `${this.databaseUrl}/playtests/${encodeURIComponent(recap.gameId)}/recap.json`;
+    const response = await this.fetch(url, { method: 'PUT', headers: {
+      authorization: `Bearer ${token}`, 'content-type': 'application/json', 'if-match': 'null_etag',
+    }, body: JSON.stringify(recap) });
+    if (response.status === 412) {
+      const existing = await this.readArchivedSource(recap.gameId);
+      if (!existing) throw Object.assign(new Error('Existing archive has no immutable source.'), { status: 409, code: 'SOURCE_CONFLICT' });
+      assertSameSource(existing, archivedSource(recap));
+    } else if (!response.ok) throw new Error(`Completion archive write failed (${response.status}).`);
+  }
   recovery(record) {
     this.enqueue(`recovery/${encodeURIComponent(record.roomCode)}.json`, { ...record, savedAt: { ".sv": "timestamp" } });
   }
@@ -112,7 +146,7 @@ export class FirebasePlaytestLedger {
   }
   async listArchive() {
     const playtests = await this.read("playtests.json") || {};
-    return Object.values(playtests).map((item) => item.recap).filter(Boolean);
+    return Object.values(playtests).map((item) => publicLedgerValue(item.recap)).filter(Boolean);
   }
   async listFeedback() {
     const playtests = await this.read("playtests.json") || {};
@@ -256,6 +290,7 @@ function diagnosticDetail(gameId, playtest = {}) {
 }
 
 function diagnosticMetadata({ gameId, roomCode, recap = null, events = [], checkpoints = [], review = null }) {
+  recap = publicLedgerValue(recap);
   if (!roomCode && !events.length && !checkpoints.length && !recap) return null;
   const snapshots = checkpoints.map((checkpoint) => checkpoint.snapshot).filter(Boolean);
   const counterChanges = Object.fromEntries([...new Set(events.filter((event) => event.type === "counter_adjusted").map((event) => event.counter))].map((counter) => [counter, events.filter((event) => event.type === "counter_adjusted" && event.counter === counter).length]));

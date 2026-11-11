@@ -1,6 +1,11 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { createServer } from "node:http";
+import { sourceFromRoom, sourceDigest } from './competition-source.js';
+import { Competitions } from './competitions.js';
+import { CompetitionTables } from './competition-tables.js';
+import { Tournaments } from './tournaments.js';
+import { competitionRoute } from './competition-http.js';
 import { extname, resolve, sep } from "node:path";
 import QRCode from "qrcode";
 import { APPEARANCE_ACHIEVEMENTS } from "./appearance-milestones.js";
@@ -509,6 +514,7 @@ export class RoomService {
     productMeasurement = new ProductMeasurement(),
     tableDeviceActivity = new TableDeviceActivity(),
     autoRecoverRooms = false,
+    completionEvidenceEnabled = false,
   } = {}) {
     this.now = now;
     this.roomTtlMs = roomTtlMs;
@@ -519,6 +525,7 @@ export class RoomService {
     this.productMeasurement = productMeasurement;
     this.tableDeviceActivity = tableDeviceActivity;
     this.autoRecoverRooms = autoRecoverRooms;
+    this.completionEvidenceEnabled = completionEvidenceEnabled;
     this.recoveryLoads = new Map();
     this.sseKeepaliveMs = sseKeepaliveMs;
     this.streamKeepalives = new Map();
@@ -761,6 +768,7 @@ export class RoomService {
       const decisions = tableMatchMomentDecisions({ seats: starters, winnerSeatId: room.gameResult.winnerSeatId, seed: room.gameId, recentCategoriesBySeat: room.recentAccoladeCategories, context });
       const finished = {
         gameId: room.gameId,
+        ...(this.completionEvidenceEnabled ? { source: sourceFromRoom(room, starters, completedAt, sessionKind) } : {}),
         startedAt: room.turn.originalGameStartedAt ?? room.turn.gameStartedAt,
         completedAt,
         sessionKind,
@@ -773,6 +781,7 @@ export class RoomService {
           }];
         })),
       };
+      if (finished.source) recap._competitionSource = { digest: sourceDigest(finished.source), source: finished.source };
       room.completedGames = [...(room.completedGames || []), finished].slice(-RECENT_COMPLETED_GAMES);
       room.gameAccolades = Object.fromEntries([...decisions].map(([seatId, decision]) => [seatId, decision.moment]));
       if (sessionKind === "standard") {
@@ -788,6 +797,9 @@ export class RoomService {
         if (moment.id) counts[moment.category] = (counts[moment.category] || 0) + 1;
         return counts;
       }, {});
+      // Exact repair payload for a crash after recovery but before archive PUT.
+      // It has no competition membership; snapshots never serialize this cache.
+      if (finished.source) finished.archiveRecap = structuredClone(recap);
       // The result event precedes finalization, so also persist the frozen evidence.
       this.ledger.recovery(this.recoveryRecord(room, completedAt));
     }
@@ -1211,7 +1223,7 @@ export class RoomService {
     this.recordLedger(room, "radiation_resolved", seatId, { nonlandCount, removed }); if (automaticHandoff) this.recordLedger(room, "turn_auto_advanced_after_elimination", seatId, automaticHandoff); this.recordCompletion(room); this.broadcast(room); return { snapshot: this.snapshot(room) };
   }
 
-  resetRoom(code, connectionId, input = {}) {
+  resetRoom(code, connectionId, input = {}, { preparedGameId } = {}) {
     const room = this.room(code);
     const { seatId } = this.requireOwner(room, connectionId);
     if (seatId !== room.hostSeatId) throw Object.assign(new Error("Only the host seat may reset the room"), { status: 403, code: "HOST_ONLY" });
@@ -1230,7 +1242,7 @@ export class RoomService {
     room.lastCoinToss = null;
     room.gameResult = null; room.gameAccolades = null; room.automaticEliminationOrder = []; room.quickFeedbackRecordedAt = null;
     room.lifecycle = { status: "lobby", seatIds: room.seats.filter((seat) => seat.claimed).map((seat) => seat.seatId), readySeatIds: [], seatOrderConfirmed: false };
-    room.gameId = opaque(12);
+    room.gameId = preparedGameId || opaque(12);
     room.ledgerSequence = 0;
     room.ledgerLastCheckpointAt = this.now();
     room.ledgerCompletedAt = null;
@@ -1292,6 +1304,25 @@ export class RoomService {
     this.recordLedger(room, "winner_declared", seatId, { winnerSeatId, winCondition, declarationDetail: declarationDetail || null });
     this.recordCompletion(room);
     this.broadcast(room);
+    return { snapshot: this.snapshot(room) };
+  }
+
+  completeTimedDraw(code, connectionId, input = {}) {
+    const room = this.room(code); const { seatId } = this.requireOwner(room, connectionId);
+    if (seatId !== room.hostSeatId) throw Object.assign(new Error('Only the Table host can confirm a timed draw.'), { status: 403, code: 'HOST_ONLY' });
+    if (room.gameResult?.reason === 'timed_draw') return { snapshot: this.snapshot(room) };
+    if (!room.turn.gameStarted || room.gameResult) throw Object.assign(new Error('This Table is not playing.'), { status: 409, code: 'GAME_NOT_PLAYING' });
+    if (input.baseVersion !== room.version) throw Object.assign(new Error('State changed; review the latest Table.'), { status: 409, code: 'VERSION_CONFLICT', snapshot: this.snapshot(room) });
+    const starters = gameSeats(room); const survivors = starters.filter(seat => !seatIsEliminated(seat));
+    if (survivors.length < 2) throw Object.assign(new Error('A timed draw needs at least two surviving players.'), { status: 409, code: 'DRAW_NOT_AVAILABLE' });
+    const eliminated = starters.filter(seatIsEliminated).map(seat => seat.seatId);
+    const inferred = [...new Set(room.automaticEliminationOrder || [])].filter(id => eliminated.includes(id)).toReversed();
+    for (const id of eliminated) if (!inferred.includes(id)) inferred.push(id);
+    room.gameResult = { winnerSeatId: null, reason: 'timed_draw', decidedAt: this.now(),
+      placementGroups: [survivors.map(seat => seat.seatId), ...inferred.map(id => [id])] };
+    room.lifecycle.status = 'complete'; room.version++;
+    this.recordLedger(room, 'timed_draw_confirmed', seatId, { survivorSeatIds: survivors.map(seat => seat.seatId) });
+    this.recordCompletion(room); this.broadcast(room);
     return { snapshot: this.snapshot(room) };
   }
 
@@ -1424,7 +1455,7 @@ export class RoomService {
     return { snapshot: this.snapshot(room) };
   }
 
-  startGame(code, connectionId, input = {}) {
+  startGame(code, connectionId, input = {}, { preparedGameId } = {}) {
     const room = this.room(code);
     const { seatId } = this.requireOwner(room, connectionId);
     if (seatId !== room.hostSeatId) throw Object.assign(new Error("Only the host seat may start the game"), { status: 403, code: "HOST_ONLY" });
@@ -1470,7 +1501,7 @@ export class RoomService {
     };
     room.lifecycle = { status: "playing", seatIds: [...room.lifecycle.seatIds], readySeatIds: [] };
     room.gameResult = null; room.gameAccolades = null; room.automaticEliminationOrder = []; room.quickFeedbackRecordedAt = null;
-    room.gameId = opaque(12); room.ledgerSequence = 0; room.ledgerLastCheckpointAt = startedAt; room.ledgerCompletedAt = null;
+    room.gameId = preparedGameId || opaque(12); room.ledgerSequence = 0; room.ledgerLastCheckpointAt = startedAt; room.ledgerCompletedAt = null;
     room.version += 1;
     this.recordLedger(room, "game_started", seatId, { startingSeatId: room.turn.startingPlayerSeatId });
     this.productMeasurement.record({ event: "game_started" });
@@ -1881,7 +1912,11 @@ export function createRealtimeServer(options = {}) {
     environment: appEnv,
     now: options.now,
   });
-  const service = options.service ?? new RoomService({ ...options, tableDeviceActivity, autoRecoverRooms: options.autoRecoverRooms ?? (appEnv === "staging" || durableRecoveryEnabled) });
+  const service = options.service ?? new RoomService({ ...options, tableDeviceActivity, completionEvidenceEnabled: Boolean(options.competitions || options.competitionStore), autoRecoverRooms: options.autoRecoverRooms ?? (appEnv === "staging" || durableRecoveryEnabled) });
+  const competitions = options.competitions ?? (options.competitionStore ? new Competitions({ store: options.competitionStore, now: options.now }) : null);
+  const tournaments = competitions ? new Tournaments({ domain: competitions }) : null;
+  const competitionTables = competitions ? new CompetitionTables({ domain: competitions, service, ledger: service.ledger, tournaments }) : null;
+  if (tournaments) tournaments.tables = competitionTables;
   const lookupCommanderIdentity = options.lookupCommanderIdentity ?? createCommanderIdentityLookup(options.fetchImpl);
   const lookupCard = options.lookupCard ?? createCardLookup(options.fetchImpl);
   const lookupCardInteraction = options.lookupCardInteraction ?? createCardInteractionLookup(options.fetchImpl);
@@ -1951,7 +1986,7 @@ export function createRealtimeServer(options = {}) {
     const cors = {
       "access-control-allow-origin": allowedOrigin,
       "access-control-allow-methods": "GET,POST,PATCH,DELETE,OPTIONS",
-      "access-control-allow-headers": "content-type,x-connection-id,x-feedback-portal-key,authorization",
+      "access-control-allow-headers": "content-type,x-connection-id,x-feedback-portal-key,authorization,x-event-token",
     };
     // Keep the event build embeddable only by itself and avoid browser defaults
     // that can expose structured API responses in an unexpected context. CSP is
@@ -1974,6 +2009,10 @@ export function createRealtimeServer(options = {}) {
       const url = new URL(req.url, "http://localhost");
       parts = url.pathname.split("/").filter(Boolean);
       const connectionId = req.headers["x-connection-id"];
+      if (url.pathname.startsWith('/api/competitions/')) {
+        const response = await competitionRoute({ req, url, readBody: () => readJson(req), account, domain: competitions, tables: competitionTables, tournaments, connectionId });
+        return json(res, response.status, response.data);
+      }
       if (req.method === "GET" && url.pathname === "/health") return json(res, 200, {
         ok: true, appearanceRewardsReady: Boolean(earnedSkins.size && accountHistory && accountVerifier),
       });
@@ -2006,7 +2045,11 @@ export function createRealtimeServer(options = {}) {
         return json(res, 200, { preferences: await accountHistory.savePreferences(accountId, input) });
       }
       if (req.method === "GET" && url.pathname === "/api/account/export") { const accountId = await account(req); return json(res, 200, { export: await accountHistory.export(accountId) }); }
-      if (req.method === "DELETE" && url.pathname === "/api/account") { const identity = await accountIdentity(req); await accountHistory.deleteAccount(identity.providerSubject); return json(res, 204, {}); }
+      if (req.method === "DELETE" && url.pathname === "/api/account") {
+        const identity = await accountIdentity(req);
+        if (competitions) await competitions.eraseAccount(await accountHistory.ensureAccount(identity.providerSubject));
+        await accountHistory.deleteAccount(identity.providerSubject); return json(res, 204, {});
+      }
       if (req.method === "POST" && url.pathname === "/api/account/games") {
         const accountId = await account(req);
         const input = await readJson(req);
@@ -2119,8 +2162,8 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "PATCH" && parts[3] === "me") return json(res, 200, service.mutateOwnSeat(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "adjust") return json(res, 200, service.adjustOwnSeat(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "resolve-radiation") return json(res, 200, service.resolveRadiation(code, connectionId, await readJson(req)));
-        if (req.method === "POST" && parts[3] === "reset") return json(res, 200, service.resetRoom(code, connectionId, await readJson(req)));
-        if (req.method === "POST" && parts[3] === "begin-intermission") return json(res, 200, service.beginIntermission(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "reset") { const input = await readJson(req); return json(res, 200, competitionTables ? await competitionTables.reset(code, connectionId, input) : service.resetRoom(code, connectionId, input)); }
+        if (req.method === "POST" && parts[3] === "begin-intermission") { const input = await readJson(req); if (competitionTables) await competitionTables.beforeProgress(code, connectionId, 'begin-intermission'); return json(res, 200, service.beginIntermission(code, connectionId, input)); }
         if (req.method === "POST" && parts[3] === "next-game-ready") return json(res, 200, service.setNextGameReady(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "next-game-skip") return json(res, 200, service.skipNextGameSeat(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "leave-intermission") return json(res, 200, service.leaveIntermission(code, connectionId, await readJson(req)));
@@ -2155,7 +2198,7 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "POST" && parts[3] === "eliminate-player") return json(res, 200, service.eliminatePlayer(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "choose-starting-player") return json(res, 200, service.chooseStartingPlayer(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "report-starting-player-roll") return json(res, 200, service.reportStartingPlayerRoll(code, connectionId, await readJson(req)));
-        if (req.method === "POST" && parts[3] === "start-game") return json(res, 200, service.startGame(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "start-game") { const input = await readJson(req); return json(res, 200, competitionTables ? await competitionTables.start(code, connectionId, input) : service.startGame(code, connectionId, input)); }
         if (req.method === "POST" && parts[3] === "turn-handoff" && parts[4] === "undo") return json(res, 200, service.undoTurnHandoff(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "turn-tracking") return json(res, 200, service.setTurnTracking(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "turn-cues") return json(res, 200, service.setTurnCues(code, connectionId, await readJson(req)));
@@ -2200,5 +2243,5 @@ export function createRealtimeServer(options = {}) {
       return json(res, status, errorBody(error.code ?? "INTERNAL_ERROR", error.status ? error.message : "Internal server error", error.snapshot), headers);
     }
   });
-  return { server, service };
+  return { server, service, competitions, competitionTables, tournaments };
 }

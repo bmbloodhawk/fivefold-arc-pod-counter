@@ -195,9 +195,29 @@ details only after drilling in. A new member does not auto-import private old ga
 - Keep bounded control/projection state separate from per-game source receipts and
   numerical ledger packets. Atomically reserve publication/idempotency intent; persist
   pending work with confirmation; only acknowledge successful cache application safely.
-- A completion-only in-memory notification can hand the frozen source to an independent
-  worker. No competition I/O in adjust/mutate/recordLedger, and no dependency on a browser
-  seeing the victory screen. Existing room recovery is a recovery aid, not the ledger.
+- The existing once-per-completion archive PUT carries a private identity-free source
+  receipt when competitions are enabled. It is first-write-wins with a storage-stable
+  digest. The existing completion recovery write retains that exact receipt and recap
+  for repair. No extra storage call is added to any counter mutation, including lethal
+  changes. Archive/diagnostic DTOs strip the private receipt.
+- A durable accepted-start command reserves the real game ID and fixes eligibility,
+  owner proofs and historical host at that boundary. RoomService applies that same ID;
+  an interrupted command is retried without inventing a completed game. A separate
+  15-second recovery worker reconciles known IDs. Every setup progression route captures
+  an existing completion before allowing cache eviction. Reset uses a durable intent
+  and applied-reset acknowledgement; failed reset validation never abandons a game.
+- One conditional scope write commits immutable numeric revisions and their replayed
+  projection together. This replaces the candidate multi-record outbox. It deliberately
+  reads/writes the scope history on confirmation/correction; measure its alpha scale
+  before any release. Phone DTOs page summaries and load details on demand.
+- A separate atomic directory is the sole owner of account mappings, names, scope
+  indexes and immutable Table-session claims. Erasure closes the account generation
+  before deleting mappings/names; pending numeric work cannot recreate them. Missing
+  identities do not authorize actions or prevent admin succession. Correction reasons
+  are controlled codes, not identifying free text.
+- Firebase omits empty/null children and can return numeric-key collections as arrays.
+  Normalize schemas on reads and every conditional callback; source hashes ignore
+  storage-equivalent null/absent fields. Local RTDB-shaped round-trip tests are required.
 - Add readonly source access and explicit timed-draw completion only where needed.
   Preserve original proof and owner checks in `server/src/app.js:739,823` and private
   account claim rules in `server/src/account-history.js:358`.
@@ -207,6 +227,12 @@ details only after drilling in. A new member does not auto-import private old ga
 
 Architecture candidates require adversarial review and tests before standing. A clear
 failure must be fixed, not explained away. This specification is the contract.
+
+Implementation choices within the approved scope: events support up to 128 entrants
+and 20 rounds; actual Tables still support 2–8 players. A host may explicitly cancel
+an unplayed no-show Table with no points, but a started Table needs a real completion.
+Hosts can issue/rotate a guest-only event access link for a host-recorded guest. It
+never grants an account, Pod membership, private awards, or event administration.
 
 ## Evidence and completion gates
 
