@@ -3,20 +3,34 @@ import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { createPlaytestLedgerFromEnv } from "./playtest-ledger.js";
 import { createAppearanceCatalogFromEnv } from "./appearance-catalog.js";
-import { AccountHistory } from "./account-history.js";
+import { AccountHistory, accountHistoryStoreForEnvironment } from "./account-history.js";
+import { loadStagingAppearanceSkins } from "./staging-appearance.js";
 import { createFirebaseIdTokenVerifierFromEnv } from "./firebase-id-token.js";
 import { createLocalCommanderIdentityLookup, loadCardIdentityIndex } from "./card-identity-index.js";
 
 const port = Number(process.env.PORT ?? 8787);
+const appEnv = process.env.APP_ENV ?? "production";
 const staticDir = resolve(fileURLToPath(new URL("../../client/", import.meta.url)));
 const cardIdentityIndex = await loadCardIdentityIndex(resolve(fileURLToPath(new URL("../static-data/card-identity-index.json", import.meta.url))));
 const ledger = createPlaytestLedgerFromEnv();
 const durableRecoveryEnabled = typeof ledger.accessToken === "function" && process.env.DURABLE_ROOM_RECOVERY_ENABLED !== "false";
 const appearanceCatalog = createAppearanceCatalogFromEnv({ path: resolve(fileURLToPath(new URL("../data/appearance-studio-catalog.json", import.meta.url))) });
 const derivedProjectId = /^https:\/\/([a-z0-9-]+)-default-rtdb\./.exec(process.env.FIREBASE_DATABASE_URL || "")?.[1];
-const accountVerifier = createFirebaseIdTokenVerifierFromEnv({ ...process.env, FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID || derivedProjectId });
-const accountHistory = accountVerifier && process.env.FIREBASE_DATABASE_URL && process.env.FIREBASE_SERVICE_ACCOUNT_EMAIL && process.env.FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY ? new AccountHistory({ store: ledger }) : null;
-const { server, service } = createRealtimeServer({ staticDir, ledger, appearanceCatalog, accountVerifier, accountHistory, durableRecoveryEnabled, lookupCommanderIdentity: createLocalCommanderIdentityLookup(cardIdentityIndex) });
+// The staging site uses the same sign-in provider, with separate profile storage.
+const authProjectId = process.env.FIREBASE_PROJECT_ID || (appEnv === "staging" ? "fivefold-arc-playtest" : derivedProjectId);
+const accountVerifier = createFirebaseIdTokenVerifierFromEnv({ ...process.env, FIREBASE_PROJECT_ID: authProjectId });
+const accountHistory = accountVerifier && typeof ledger.accessToken === "function"
+  ? new AccountHistory({ store: accountHistoryStoreForEnvironment(ledger, appEnv) }) : null;
+const stagingAppearanceSkins = await loadStagingAppearanceSkins({
+  appEnv, path: resolve(staticDir, "staging-appearance-pack.enc"), key: process.env.STAGING_APPEARANCE_PACK_KEY,
+}).catch(() => {
+  console.warn("Staging appearance pack could not be loaded");
+  return [];
+});
+const { server, service } = createRealtimeServer({
+  appEnv, staticDir, ledger, appearanceCatalog, accountVerifier, accountHistory, stagingAppearanceSkins,
+  durableRecoveryEnabled, lookupCommanderIdentity: createLocalCommanderIdentityLookup(cardIdentityIndex),
+});
 const sweepTimer = setInterval(() => service.sweep(), 30_000);
 sweepTimer.unref();
 
