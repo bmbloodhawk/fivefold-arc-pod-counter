@@ -2111,7 +2111,15 @@ function moveDialDrag(event) {
   while (Math.abs(dialPointer.accumulated) >= 20) { const delta = dialPointer.accumulated > 0 ? 1 : -1; dialPointer.accumulated -= 20 * Math.sign(dialPointer.accumulated); void adjust(delta); }
 }
 function endDialDrag(event) { if (dialPointer && event.pointerId === dialPointer.id) { document.body.classList.remove('dial-dragging'); dom.dialGesture.classList.remove('dragging'); dialPointer = null; } }
-dom.activeSeat.addEventListener('change', () => { state.activePlayerId = dom.activeSeat.value; render(); }); $$('[data-mode]').forEach(button => button.addEventListener('click', () => { state.mode = button.dataset.mode; render(); })); $$('.adjust-controls [data-delta]').forEach(button => button.addEventListener('click', () => adjust(Number(button.dataset.delta))));
+dom.activeSeat.addEventListener('change', () => { state.activePlayerId = dom.activeSeat.value; render(); }); $$('[data-mode]').forEach(button => button.addEventListener('click', () => {
+  const nextMode = button.dataset.mode;
+  // A fresh entry follows the turn. Renders within this view preserve manual choices.
+  if (nextMode === 'commander' && state.mode !== 'commander' && state.turn?.trackingEnabled !== false) {
+    state.selectedSourceId = null;
+  }
+  state.mode = nextMode;
+  render();
+})); $$('.adjust-controls [data-delta]').forEach(button => button.addEventListener('click', () => adjust(Number(button.dataset.delta))));
 // Side zones are part of the Dial's touch surface. Handle pointer release
 // directly instead of depending on every mobile browser to synthesize a click.
 dom.dialControls.addEventListener('pointerup', event => {

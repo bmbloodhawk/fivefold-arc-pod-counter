@@ -67,3 +67,16 @@ connection banner or error text. A failed item blocks public deployment.
 - Older installs and browsers that block local storage are outside these counts.
   The panel shows the collection start time and reports a collection failure
   when a visit could not be saved during the current server run.
+
+## Commander damage default after a turn change
+
+- With turn tracking on, open Commander damage on one phone, return to Life,
+  and hand the turn to another player. Opening Commander damage again must
+  select the new turn player's commander.
+- Use **Change commander** to select a different source and record damage.
+  The manual selection must stay selected during updates and repeated taps on
+  the Commander mode button. Check that the damage belongs to that source.
+- Return to Life and re-enter Commander damage. It must default to the current
+  turn again. For partners, both commanders remain available.
+- Turn tracking off, select a commander manually, and switch out and back.
+  The manual choice must remain selected while tracking is off.
