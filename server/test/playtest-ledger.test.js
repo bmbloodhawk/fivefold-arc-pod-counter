@@ -70,20 +70,22 @@ test("room diagnostics preserve the last confirmed Firebase save through a faile
       fetchImpl: async (url, { method, body }) => {
         const path = new URL(url).pathname;
         const isRecovery = path.startsWith("/recovery/");
-        if (method !== "PUT") {
+        if (method !== "PUT" && method !== "PATCH") {
           if (isRecovery && recoveryReadFails) return new Response(null, { status: 503 });
           return Response.json(documents.get(path) ?? null);
         }
-        const data = JSON.parse(body);
-        if (isRecovery) {
+        const updates = method === 'PATCH' ? Object.entries(JSON.parse(body)).map(([key, value]) => ['/' + key + '.json', value])
+          : [[path, JSON.parse(body)]];
+        for (const [target, data] of updates) {
+          if (!target.startsWith('/recovery/')) continue;
           if (data.room.version === rejectedVersion) {
             rejectedWrites += 1;
             return new Response(null, { status: 503 });
           }
           if (data.savedAt?.[".sv"] === "timestamp") data.savedAt = ++databaseTime;
         }
-        documents.set(path, data);
-        return Response.json(data);
+        for (const [target, data] of updates) documents.set(target, data);
+        return Response.json(method === 'PATCH' ? Object.fromEntries(updates) : updates[0][1]);
       },
     });
     ledger.accessToken = async () => "fixture-token";

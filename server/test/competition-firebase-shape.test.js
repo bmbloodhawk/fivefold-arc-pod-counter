@@ -33,6 +33,11 @@ test('Pod lifecycle works when RTDB deletes empty children and numeric seat maps
   const documents = new Map(); const ledger = new FirebasePlaytestLedger({ databaseUrl: 'https://fixture.invalid', clientEmail: 'fixture', privateKey: 'fixture', logger: { error() {} },
     fetchImpl: async (url, options = {}) => {
       const key = new URL(url).pathname;
+      if (options.method === 'PATCH') {
+        const updates = JSON.parse(options.body);
+        for (const [path, value] of Object.entries(updates)) documents.set('/' + path + '.json', rtdb(value));
+        return Response.json(updates);
+      }
       if (options.method !== 'PUT') return Response.json(documents.get(key) ?? null);
       if (options.headers['if-match'] === 'null_etag' && documents.has(key)) return new Response(null, { status: 412 });
       const value = rtdb(JSON.parse(options.body)); documents.set(key, value); return Response.json(value);

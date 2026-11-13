@@ -1,16 +1,9 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { coordinateCompetitionWrites } from './competition-write-coordinator.js';
-
-export const digest = value => createHash('sha256').update(typeof value === 'string' ? value : JSON.stringify(value)).digest('hex');
-export function competitionError(message, status = 400, code = 'COMPETITION_INPUT') {
-  return Object.assign(new Error(message), { status, code });
-}
-export function cleanText(value, label, max = 80) {
-  if (typeof value !== 'string' || /[\p{Cc}\p{Cf}<>]/u.test(value)) throw competitionError(`${label} must be printable text.`);
-  const text = value.normalize('NFC').trim().replace(/\s+/gu, ' ');
-  if (!text || Array.from(text).length > max) throw competitionError(`${label} must contain 1–${max} characters.`);
-  return text;
-}
+import { cleanText, competitionError, competitionId as requiredId, digest } from './competition-values.js';
+import { CompetitionDirectoryView } from './competition-directory-view.js';
+import { CompetitionTableClaims } from './competition-table-claims.js';
+export { cleanText, competitionError, digest } from './competition-values.js';
 const blankDirectory = () => ({ schemaVersion: 1, accounts: {}, identities: {}, closed: {}, aliases: {}, scopes: {}, tables: {} });
 const normalizeDirectory = input => ({ ...blankDirectory(), ...(input || {}) });
 const array = value => Array.isArray(value) ? value.filter(item => item != null) : Object.values(value || {});
@@ -35,27 +28,59 @@ function normalizeScope(input) {
 }
 export const scopePath = (kind, id) => `competitions/${kind === 'pod' ? 'pods' : 'tournaments'}/${id}.json`;
 const directoryPath = 'competitions/directory.json';
-const requiredId = id => {
-  if (typeof id !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(id)) throw competitionError('Invalid competition identifier.');
-  return id;
-};
 const active = member => member?.status === 'active';
 
-// Identity writes live exclusively in the directory. Numerical scope records never
-// contain account IDs, names, or correction free text. A closed account cannot be
-// recreated by queued setup/capture work after an erasure.
+// Numerical scope records never contain account IDs, names, or correction free
+// text. The optional identity store selects scoped storage during integration;
+// deployment keeps the legacy default until the compatible-writer rollout gate.
 export class Competitions {
-  constructor({ store, now = () => Date.now(), createId = () => randomBytes(18).toString('base64url') } = {}) {
+  constructor({ store, now = () => Date.now(), createId = () => randomBytes(18).toString('base64url'), identityStore = null,
+    scopeStore = null, createPartitionedGroups = Boolean(scopeStore) } = {}) {
     if (!store?.read || !store?.update) throw new TypeError('Competition storage requires conditional updates.');
     this.store = coordinateCompetitionWrites(store); this.now = now; this.createId = createId;
+    this.identityStore = identityStore;
+    if (scopeStore && !identityStore) throw new TypeError('Partitioned group control requires scoped identities.');
+    this.scopeStore = scopeStore;
+    this.createPartitionedGroups = createPartitionedGroups;
+    this.directoryView = identityStore ? new CompetitionDirectoryView({ store: this.store, identities: identityStore }) : null;
+    this.tableClaims = identityStore ? new CompetitionTableClaims({ store: this.store }) : null;
+    this.directoryContexts = new WeakMap();
   }
 
-  async directory() { return normalizeDirectory(await this.store.read(directoryPath)); }
+  async directory(scope, auth, options) {
+    if (!this.directoryView) return normalizeDirectory(await this.store.read(directoryPath));
+    const directory = await this.directoryView.read(scope, auth, options);
+    this.directoryContexts.set(directory, { scopeId: scope.id, auth, options, complete: true,
+      identities: new Set(Object.values(scope.members || {}).map(member => member.identityId).filter(Boolean)) });
+    return directory;
+  }
+  async scopeDirectory(kind, id, auth, options) { return this.directory(await this.readScope(kind, id), auth, options); }
+  async participantDirectory(scope, auth, participantIds) {
+    const members = Object.fromEntries(participantIds.filter(id => scope.members[id]).map(id => [id, scope.members[id]]));
+    const directory = await this.directory({ ...scope, members }, auth, { participantIds });
+    if (this.directoryView) this.directoryContexts.get(directory).complete = false;
+    return directory;
+  }
+  assertDirectory(scope, directory) {
+    const context = this.directoryContexts.get(directory);
+    if (!context?.complete) return;
+    if (context.scopeId !== scope.id) throw new TypeError('A scoped identity view belongs to a different group.');
+    if (Object.values(scope.members).some(member => member.identityId && !context.identities.has(member.identityId))) {
+      throw Object.assign(new Error('The group roster changed during setup.'), { staleDirectory: { directory, scope } });
+    }
+  }
   async changeDirectory(change) {
+    if (this.identityStore) throw new TypeError('Scoped storage does not allow global directory mutations.');
     return normalizeDirectory(await this.store.update(directoryPath, current => change(structuredClone(normalizeDirectory(current)))));
   }
   async identity(accountId, createName) {
     if (!accountId) throw competitionError('Sign in to join a Pod.', 401, 'SIGN_IN_REQUIRED');
+    if (this.identityStore) {
+      if (createName !== undefined) return this.identityStore.identity(accountId, createName);
+      const id = await this.identityStore.lookup(accountId);
+      if (!id) throw competitionError('You do not have access to this group.', 403, 'COMPETITION_ACCESS');
+      return id;
+    }
     const key = digest(accountId);
     if (createName !== undefined) {
       cleanText(createName, 'Your name');
@@ -76,6 +101,7 @@ export class Competitions {
   }
 
   async setAlias(identityId, scopeId, participantId, name) {
+    if (this.identityStore) return this.identityStore.setAlias(identityId, scopeId, participantId, name);
     const text = cleanText(name, 'Your name');
     await this.changeDirectory(directory => {
       if (!directory.identities[identityId]) throw competitionError('Account data was removed.', 403, 'IDENTITY_CLOSED');
@@ -84,24 +110,92 @@ export class Competitions {
       return directory;
     });
   }
+  async setGuestAlias(scopeId, participantId, name, { identityId = null, ...options } = {}) {
+    return this.setGuestAliases(scopeId, [{ participantId, identityId, name }], options);
+  }
+  async setGuestAliases(scopeId, entries, { actorIdentityId = null, preserveExisting = false } = {}) {
+    const names = entries.map(entry => ({ ...entry, name: cleanText(entry.name, 'Guest name'), identityId: entry.identityId || null }));
+    if (this.directoryView) {
+      if (actorIdentityId && !await this.identityStore.profile(actorIdentityId)) throw competitionError('Account data was removed.', 403, 'IDENTITY_CLOSED');
+      return Promise.all(names.map(({ participantId, identityId, name }) => this.directoryView.setGuestAlias(scopeId, participantId, name, { identityId, preserveExisting })));
+    }
+    return this.changeDirectory(directory => {
+      if (actorIdentityId && !directory.identities[actorIdentityId]) throw competitionError('Account data was removed.', 403, 'IDENTITY_CLOSED');
+      for (const { participantId, identityId, name } of names) {
+        const key = `${scopeId}_${participantId}`;
+        if (!preserveExisting || !directory.aliases[key]) directory.aliases[key] = {
+          identityId, name: identityId && !directory.identities[identityId] ? 'Deleted member' : name,
+        };
+      }
+      return directory;
+    });
+  }
+  async tableBinding(key, directory) {
+    return this.tableClaims ? this.tableClaims.read(key) : (directory || await this.directory()).tables[key] || null;
+  }
+  async claimTable(key, binding, { guard, actorIdentityId, intent } = {}) {
+    if (this.tableClaims) {
+      if (!actorIdentityId) return this.tableClaims.claim(key, binding, { guard });
+      const ticket = await this.identityStore.beginTableClaim(actorIdentityId, key, binding, { intent, guard });
+      await this.tableClaims.reserve(key, binding, { ...ticket, guard });
+      const decision = await this.identityStore.commitTableClaim(ticket, { guard });
+      const result = await this.tableClaims.publish(key, binding, decision);
+      await this.identityStore.finishTableClaim(decision);
+      return result;
+    }
+    await this.changeDirectory(directory => {
+      guard?.();
+      const current = directory.tables[key];
+      if (current && (current.kind !== binding.kind || current.id !== binding.id)) throw competitionError('This Table already belongs to another competition.', 409, 'TABLE_ALREADY_LINKED');
+      if (actorIdentityId && !directory.identities[actorIdentityId]) throw competitionError('Account data was removed.', 403);
+      directory.tables[key] = binding; return directory;
+    });
+    return binding;
+  }
   name(directory, scopeId, member) {
     return directory.aliases[`${scopeId}_${member.id}`]?.name || (member.kind === 'guest' ? 'Guest' : 'Deleted member');
   }
   async readScope(kind, id) {
     if (!['pod', 'tournament'].includes(kind)) throw competitionError('Unknown competition kind.');
     const scope = await this.store.read(scopePath(kind, requiredId(id)));
+    if (!scope && this.scopeStore) return normalizeScope(await this.scopeStore.read(kind, id));
     if (!scope) throw competitionError('That private group or event is unavailable.', 404, 'COMPETITION_NOT_FOUND');
     return normalizeScope(scope);
   }
-  async changeScope(kind, id, change) {
-    const result = await this.store.update(scopePath(kind, requiredId(id)), current => {
-      if (!current) throw competitionError('That private group or event is unavailable.', 404, 'COMPETITION_NOT_FOUND');
-      const next = normalizeScope(current);
-      if (change(next) === false) return current;
-      next.version++;
-      return next;
-    });
-    return normalizeScope(result);
+  async changeScope(kind, id, change, options = {}) {
+    const path = scopePath(kind, requiredId(id));
+    for (let attempt = 0; attempt < 4; attempt++) {
+      try {
+        if (this.scopeStore && !await this.store.read(path)) {
+          const accountId = typeof options.auth === 'string' ? options.auth : options.auth?.accountId;
+          const actorIdentityId = options.actorIdentityId || (accountId ? await this.identity(accountId) : undefined);
+          return normalizeScope(await this.scopeStore.change(kind, id, change, { ...options, actorIdentityId }));
+        }
+        return normalizeScope(await this.store.update(path, current => {
+          if (!current) throw competitionError('That private group or event is unavailable.', 404, 'COMPETITION_NOT_FOUND');
+          const next = normalizeScope(current);
+          if (change(next) === false) return current;
+          next.version++;
+          return next;
+        }));
+      } catch (error) {
+        const stale = error.staleDirectory, context = stale && this.directoryContexts.get(stale.directory);
+        if (!context || context.scopeId !== id) throw error;
+        const fresh = await this.directory(stale.scope, context.auth, context.options);
+        Object.assign(stale.directory, fresh);
+        this.directoryContexts.set(stale.directory, this.directoryContexts.get(fresh));
+      }
+    }
+    throw competitionError('The group roster is changing. Review it and try again.', 409, 'ROSTER_CHANGED');
+  }
+  async createScope(kind, id, create, options = {}) {
+    const path = scopePath(kind, requiredId(id));
+    if (this.scopeStore && this.createPartitionedGroups) {
+      const existing = await this.store.read(path);
+      if (existing) { create(existing); throw competitionError('That private group or event already exists.', 409); }
+      return this.scopeStore.create(kind, id, create(null), options);
+    }
+    return this.store.update(path, create);
   }
   member(scope, identityId, { admin = false } = {}) {
     const member = Object.values(scope.members).find(item => item.identityId === identityId);
@@ -127,7 +221,7 @@ export class Competitions {
       audit: scope.audit.slice(-30).map(item => ({ ...item,
         actor: this.name(directory, scope.id, scope.members[item.actorId] || { id: item.actorId }),
       })),
-      pendingGames: Object.values(scope.games).filter(game => !game.revisions.length).length,
+      pendingGames: scope.storageFormat ? scope.pendingGames : Object.values(scope.games).filter(game => !game.revisions.length).length,
     };
   }
 
@@ -136,29 +230,31 @@ export class Competitions {
     const identityId = await this.identity(accountId, memberName);
     const id = `pod_${this.createId()}`; const memberId = `member_${this.createId()}`;
     await this.setAlias(identityId, id, memberId, memberName);
-    await this.store.update(scopePath('pod', id), current => {
+    await this.createScope('pod', id, current => {
       if (current) throw competitionError('Please try creating that Pod again.', 409);
       return {
         schemaVersion: 1, id, kind: 'pod', name: title, createdAt: this.now(), version: 1,
         members: { [memberId]: { id: memberId, identityId, kind: 'member', role: 'admin', status: 'active', joinedAt: this.now() } },
         invites: {}, tables: {}, games: {}, standings: {}, audit: [],
       };
-    });
+    }, { actorIdentityId: identityId });
     return this.getPod(accountId, id);
   }
   async getPod(accountId, id) {
     const identityId = await this.identity(accountId);
-    const scope = await this.readScope('pod', id); const directory = await this.directory();
+    const scope = await this.readScope('pod', id); const directory = await this.directory(scope, accountId);
     if (!directory.identities[identityId]) throw competitionError('Account data was removed.', 403);
     return this.podDto(scope, directory, identityId);
   }
   async list(accountId) {
     // First-time account users have no memberships; reads never create an identity.
-    const directory = await this.directory();
-    const identityId = directory.accounts[digest(accountId || '')];
-    if (!accountId || !identityId || !directory.identities[identityId]) return { pods: [], tournaments: [] };
+    if (!accountId) return { pods: [], tournaments: [] };
+    const directory = this.identityStore ? null : await this.directory();
+    const identityId = this.identityStore ? await this.identityStore.lookup(accountId) : directory.accounts[digest(accountId)];
+    if (!identityId || (directory && !directory.identities[identityId])) return { pods: [], tournaments: [] };
+    const scopes = this.identityStore ? await this.identityStore.memberships(identityId) : Object.keys(directory.scopes[identityId] || {});
     const result = { pods: [], tournaments: [] };
-    for (const id of Object.keys(directory.scopes[identityId] || {})) {
+    for (const id of scopes) {
       const kind = id.startsWith('pod_') ? 'pod' : 'tournament';
       let scope;
       try { scope = await this.readScope(kind, id); }
@@ -197,12 +293,12 @@ export class Competitions {
       const me = this.member(scope, identityId, { admin: kind === 'tournament' });
       scope.invites[inviteId] = { id: inviteId, secretHash: digest(secret), by: me.id,
         adminIssued: me.role === 'admin', issuedVersion: scope.version, createdAt: this.now(), expiresAt };
-    });
+    }, { actorIdentityId: identityId });
     return { id: inviteId, token: `${kind}.${id}.${secret}`, expiresAt };
   }
   async listInvites(accountId, kind, id) {
     const identityId = await this.identity(accountId); const scope = await this.readScope(kind, id);
-    const directory = await this.directory();
+    const directory = await this.directory(scope, accountId);
     if (!directory.identities[identityId]) throw competitionError('Account data was removed.', 403, 'COMPETITION_ACCESS');
     const me = this.member(scope, identityId, { admin: kind === 'tournament' });
     const invites = Object.values(scope.invites).filter(row => me.role === 'admin' || row.by === me.id).map(row => {
@@ -222,13 +318,14 @@ export class Competitions {
       const invite = scope.invites[requiredId(inviteId)];
       if (!invite || (invite.by !== me.id && me.role !== 'admin')) throw competitionError('You cannot revoke that invite.', 403);
       invite.revoked = true;
-    });
+    }, { actorIdentityId: identityId });
     return { revoked: true };
   }
   async preview(token) {
     const { kind, id, secretHash } = this.parseInvite(token);
     const scope = await this.readScope(kind, id); const invite = this.validInvite(scope, secretHash);
-    const directory = await this.directory();
+    const inviter = scope.members[invite.by];
+    const directory = await this.directory({ ...scope, members: { [inviter.id]: inviter } });
     if (!directory.identities[scope.members[invite.by].identityId]) throw competitionError('That invite is unavailable.', 404);
     return { kind, id, name: scope.name, inviter: this.name(directory, id, scope.members[invite.by]), expiresAt: invite.expiresAt };
   }
@@ -237,9 +334,10 @@ export class Competitions {
     const { kind, id, secretHash } = this.parseInvite(token);
     if (kind !== 'pod') throw competitionError('Use this invite’s tournament entry screen.');
     const identityId = await this.identity(accountId, name);
-    const directory = await this.directory();
+    const directory = await this.scopeDirectory('pod', id, accountId);
     const candidateId = `member_${this.createId()}`;
     const scope = await this.changeScope('pod', id, state => {
+      this.assertDirectory(state, directory);
       const invite = this.validInvite(state, secretHash);
       if (!directory.identities[state.members[invite.by].identityId]) throw competitionError('That invite is unavailable.', 404);
       const existing = Object.values(state.members).find(member => member.identityId === identityId);
@@ -252,15 +350,16 @@ export class Competitions {
         existing.status = 'active';
       }
       else state.members[candidateId] = { id: candidateId, identityId, kind: 'member', role: 'member', status: 'active', joinedAt: this.now() };
-    });
+    }, { actorIdentityId: identityId });
     const member = Object.values(scope.members).find(item => item.identityId === identityId);
     await this.setAlias(identityId, id, member.id, name);
     return this.getPod(accountId, id);
   }
   async podMemberAction(accountId, id, { action, targetId, enabled, name } = {}) {
     const identityId = await this.identity(accountId);
-    const directory = await this.directory();
+    const directory = await this.scopeDirectory('pod', id, accountId);
     await this.changeScope('pod', id, scope => {
+      this.assertDirectory(scope, directory);
       const me = this.member(scope, identityId);
       if (action === 'leave') {
         me.status = 'left'; me.role = 'member'; this.audit(scope, 'member_left', me.id); return;
@@ -284,11 +383,12 @@ export class Competitions {
       } else if (action === 'admin' && typeof enabled === 'boolean') {
         target.role = enabled ? 'admin' : 'member'; this.audit(scope, enabled ? 'admin_appointed' : 'admin_removed', me.id, target.id);
       } else throw competitionError('Choose a valid member action.');
-    });
+    }, { actorIdentityId: identityId });
     return action === 'leave' ? { left: true } : this.getPod(accountId, id);
   }
 
   async eraseAccount(accountId) {
+    if (this.identityStore) return this.identityStore.eraseAccount(accountId);
     const key = digest(accountId);
     await this.changeDirectory(directory => {
       const identityId = directory.accounts[key];
@@ -313,5 +413,6 @@ export function competitionStoreForEnvironment(store, environment) {
   return {
     read: path => store.read(prefix + path),
     update: (path, change) => store.update(prefix + path, change),
+    ...(typeof store.page === 'function' ? { page: (path, options) => store.page(prefix + path, options) } : {}),
   };
 }

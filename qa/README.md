@@ -68,6 +68,36 @@ node qa/competition-load.mjs --players=128 --networks=1 --streams-per-network=12
 node qa/competition-load.mjs --players=128 --networks=1 --streams-per-network=128 --streams-global=256 --delay-ms=50 --busy-retries=0
 ```
 
+Partitioned-storage component checks run locally with the disposable REST fixture:
+
+```powershell
+node --test server/test/database-key-page.test.js server/test/database-key-page-rest.test.js
+node --test server/test/competition-identity-store.test.js server/test/competition-identity-process.test.js
+node --test server/test/competition-directory-view.test.js server/test/competition-table-claims.test.js
+```
+
+`identity-local-worker.mjs` accepts only an owned loopback database and synthetic
+account IDs. The process tests kill owned workers and resume opening/erasure from
+shared storage. These are storage-component proofs, not hosted app/phone tests.
+Scoped name views and Table claims follow the
+[internal storage contract](../docs/SCOPED_COMPETITION_STORAGE_CONTRACT.md).
+They remain unwired until the domain/HTTP and compatible-writer rollout gates pass.
+
+Measure normal counter diagnostic/recovery write drain separately:
+
+```powershell
+node qa/counter-storage-probe.mjs --commands=200 --players=4 --delay-ms=5
+node qa/counter-storage-probe.mjs --commands=200 --players=4 --tables=8 --delay-ms=5
+```
+
+This probe verifies every event and the final recovery state after the writer
+drains. It does not measure phone/SSE latency. The older competition-load cleanup
+kills its child process, so that benchmark alone is not a full background-write
+drain or restart-durability proof.
+`--commands` is the total across all Tables. See the
+[scheduling evidence and limits](../docs/COUNTER_WRITE_SCHEDULING.md) before making
+capacity claims; concurrent execution does not bound the pending backlog.
+
 The harness checks real HTTP/SSE updates, exact counter changes and convergence,
 reclaim/stale-phone authority, life changes during other Tables' result traffic,
 concurrent confirmed results, duplicate-request idempotency, points and game counts.

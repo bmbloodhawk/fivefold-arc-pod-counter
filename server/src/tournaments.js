@@ -1,5 +1,5 @@
 import { createHmac, randomBytes } from 'node:crypto';
-import { competitionError, cleanText, digest, scopePath } from './competitions.js';
+import { competitionError, cleanText, digest } from './competitions.js';
 import { tournamentPoints, POINT_UNIT } from './competition-scoring.js';
 import { suggestSeating, validateSeating, SEATING_RULE_VERSION } from './tournament-seating.js';
 
@@ -22,18 +22,18 @@ export class Tournaments {
     const identityId = await this.domain.identity(accountId, yourName);
     const id = `event_${this.domain.createId()}`, hostId = `entrant_${this.domain.createId()}`;
     await this.domain.setAlias(identityId, id, hostId, yourName);
-    await this.domain.store.update(scopePath('tournament', id), current => {
+    await this.domain.createScope('tournament', id, current => {
       if (current) throw competitionError('Try creating this event again.', 409);
       return { schemaVersion: 1, id, kind: 'tournament', name: title, creatorId: hostId,
         createdAt: this.domain.now(), version: 1, status: 'registration',
         settings: { rounds, preferredSize, priority, minutes },
         members: { [hostId]: { id: hostId, identityId, kind: 'member', role: 'admin', status: 'active', participating: false } },
         invites: {}, tables: {}, games: {}, standings: {}, rounds: [], audit: [], joinRequests: {} };
-    });
+    }, { actorIdentityId: identityId });
     return this.get({ accountId }, id);
   }
   async get(auth, id) {
-    const scope = await this.domain.readScope('tournament', id); const directory = await this.domain.directory();
+    const scope = await this.domain.readScope('tournament', id); const directory = await this.domain.directory(scope, auth);
     const me = this.actor(scope, auth, directory);
     const members = Object.values(scope.members).map(row => ({
       id: row.id, name: this.domain.name(directory, scope.id, row), kind: row.kind, role: row.role,
@@ -61,7 +61,7 @@ export class Tournaments {
     const previewScope = await this.domain.readScope('tournament', parsed.id);
     const invitation = this.domain.validInvite(previewScope, parsed.secretHash);
     const identityId = accountId ? await this.domain.identity(accountId, name) : null;
-    const directory = await this.domain.directory();
+    const directory = await this.domain.directory(previewScope, accountId);
     if (!directory.identities[previewScope.members[invitation.by].identityId]) throw competitionError('That invite is unavailable.', 404);
     if (!accountId && (typeof requestId !== 'string' || !/^[\w-]{8,100}$/.test(requestId))) throw competitionError('A guest entry retry identifier is required.');
     const candidateId = `entrant_${this.domain.createId()}`;
@@ -81,17 +81,15 @@ export class Tournaments {
         ...(!accountId ? { guestAccessHash: digest(guestToken), provenance: 'self_named' } : {}) };
       if (!accountId) state.joinRequests[joinKey] = memberId;
       if (lastRound(state)?.status === 'draft') lastRound(state).seatingStale = true;
-    });
+    }, { actorIdentityId: identityId });
     const member = identityId ? Object.values(scope.members).find(row => row.identityId === identityId) : scope.members[scope.joinRequests[joinKey]];
     if (identityId) await this.domain.setAlias(identityId, scope.id, member.id, name);
-    else await this.domain.changeDirectory(state => {
-      state.aliases[`${scope.id}_${member.id}`] ??= { identityId: null, name }; return state;
-    });
+    else await this.domain.setGuestAlias(scope.id, member.id, name, { preserveExisting: true });
     const auth = identityId ? { accountId } : { guestToken };
     return { ...(await this.get(auth, scope.id)), ...(guestToken ? { guestToken } : {}) };
   }
   async addGuest(auth, id, { displayName, requestId = randomBytes(16).toString('hex') } = {}) {
-    const name = cleanText(displayName, 'Guest name'); const directory = await this.domain.directory();
+    const name = cleanText(displayName, 'Guest name'); const directory = await this.domain.scopeDirectory('tournament', id, auth);
     const guestId = `entrant_${this.domain.createId()}`; const key = digest(`host:${requestId}`);
     const scope = await this.domain.changeScope('tournament', id, state => {
       this.actor(state, auth, directory, { admin: true });
@@ -102,16 +100,13 @@ export class Tournaments {
         status: 'active', provenance: 'organizer_attested' };
       state.joinRequests[key] = guestId;
       if (lastRound(state)?.status === 'draft') lastRound(state).seatingStale = true;
-    });
+    }, { auth });
     const actor = this.actor(scope, auth, directory, { admin: true });
-    await this.domain.changeDirectory(state => {
-      if (actor.identityId && !state.identities[actor.identityId]) throw competitionError('Account data was removed.', 403);
-      state.aliases[`${id}_${scope.joinRequests[key]}`] = { identityId: null, name }; return state;
-    });
+    await this.domain.setGuestAlias(id, scope.joinRequests[key], name, { actorIdentityId: actor.identityId });
     return this.get(auth, id);
   }
   async memberAction(auth, id, { action, targetId, enabled } = {}) {
-    const directory = await this.domain.directory();
+    const directory = await this.domain.scopeDirectory('tournament', id, auth);
     await this.domain.changeScope('tournament', id, scope => {
       const me = this.actor(scope, auth, directory); const target = scope.members[targetId || me.id];
       if (!target) throw competitionError('Choose an event entrant.');
@@ -128,20 +123,20 @@ export class Tournaments {
       }
       if (lastRound(scope)?.status === 'draft') lastRound(scope).seatingStale = true;
       this.domain.audit(scope, action, me.id, target.id);
-    });
+    }, { auth });
     return this.get(auth, id);
   }
   async guestAccess(auth, id, targetId) {
-    const directory = await this.domain.directory(); const guestToken = randomBytes(32).toString('base64url');
+    const directory = await this.domain.scopeDirectory('tournament', id, auth); const guestToken = randomBytes(32).toString('base64url');
     await this.domain.changeScope('tournament', id, scope => {
       this.actor(scope, auth, directory, { admin: true }); const guest = scope.members[targetId];
       if (guest?.kind !== 'guest' || !['active', 'pending', 'left'].includes(guest.status)) throw competitionError('Choose a guest entrant.');
       guest.guestAccessHash = digest(guestToken);
-    });
+    }, { auth });
     return { eventId: id, guestToken };
   }
   async cancelUnplayedTable(auth, id, assignmentId) {
-    const directory = await this.domain.directory();
+    const directory = await this.domain.scopeDirectory('tournament', id, auth);
     await this.domain.changeScope('tournament', id, scope => {
       this.actor(scope, auth, directory, { admin: true }); const assignment = this.assignment(scope, assignmentId);
       if (assignment.cancelled) return;
@@ -151,7 +146,7 @@ export class Tournaments {
       if (hasStart || assignment.gameId) throw competitionError('A started Table must finish and confirm its result.', 409);
       assignment.cancelled = true;
       this.applyStandings(scope);
-    });
+    }, { auth });
     return this.get(auth, id);
   }
   assignment(scope, id) {
@@ -170,7 +165,7 @@ export class Tournaments {
     if (assignment.participantIds.length !== participantIds.length || assignment.participantIds.some(id => !participantIds.includes(id))) throw competitionError('The actual starters must match the reviewed Table assignment.', 409, 'ASSIGNMENT_MISMATCH');
   }
   async prepareRound(auth, id, { reseed = false, baseVersion } = {}) {
-    const directory = await this.domain.directory(); const roundId = `round_${this.domain.createId()}`;
+    const directory = await this.domain.scopeDirectory('tournament', id, auth); const roundId = `round_${this.domain.createId()}`;
     const seed = randomBytes(16).toString('hex');
     const assignmentIds = Array.from({ length: 64 }, () => `assignment_${this.domain.createId()}`);
     await this.domain.changeScope('tournament', id, scope => {
@@ -194,11 +189,11 @@ export class Tournaments {
       if (previous?.status === 'draft') scope.rounds[scope.rounds.length - 1] = round;
       else scope.rounds.push(round);
       scope.status = 'between_rounds';
-    });
+    }, { auth });
     return this.get(auth, id);
   }
   async editSeating(auth, id, { roundId, baseVersion, tables } = {}) {
-    const directory = await this.domain.directory();
+    const directory = await this.domain.scopeDirectory('tournament', id, auth);
     const assignmentIds = Array.from({ length: 64 }, () => `assignment_${this.domain.createId()}`);
     await this.domain.changeScope('tournament', id, scope => {
       this.actor(scope, auth, directory, { admin: true }); const round = lastRound(scope);
@@ -207,11 +202,11 @@ export class Tournaments {
       validateSeating(tables, ids);
       round.assignments = tables.map((group, index) => ({ id: assignmentIds[index], participantIds: [...group], hostId: group[0] }));
       round.seatingStale = false;
-    });
+    }, { auth });
     return this.get(auth, id);
   }
   async startRound(auth, id, { roundId, baseVersion } = {}) {
-    const directory = await this.domain.directory();
+    const directory = await this.domain.scopeDirectory('tournament', id, auth);
     await this.domain.changeScope('tournament', id, scope => {
       this.actor(scope, auth, directory, { admin: true }); const round = lastRound(scope);
       if (round?.id === roundId && round.status === 'playing') return;
@@ -220,7 +215,7 @@ export class Tournaments {
       round.status = 'playing'; round.startedAt = this.domain.now();
       round.endsAt = scope.settings.minutes ? round.startedAt + scope.settings.minutes * 60_000 : null;
       scope.status = 'playing';
-    });
+    }, { auth });
     return this.get(auth, id);
   }
   recordCaptured(scope, assignmentId, gameId) {
@@ -249,7 +244,7 @@ export class Tournaments {
   }
   async clock(auth, id, assignmentId, { action, requestId } = {}) {
     if (typeof requestId !== 'string' || !/^[\w-]{8,100}$/.test(requestId)) throw competitionError('A turn retry identifier is required.');
-    const directory = await this.domain.directory();
+    const directory = await this.domain.scopeDirectory('tournament', id, auth);
     await this.domain.changeScope('tournament', id, scope => {
       const me = this.actor(scope, auth, directory); const assignment = this.assignment(scope, assignmentId);
       const round = scope.rounds.find(row => row.assignments.includes(assignment));
@@ -275,7 +270,7 @@ export class Tournaments {
         else if (--assignment.clock.remaining === 0) assignment.clock.phase = 'done';
       } else throw competitionError('Choose a valid clock action.');
       assignment.clockActions[requestId] = action;
-    });
+    }, { auth });
     return this.get(auth, id);
   }
 }

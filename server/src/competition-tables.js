@@ -10,6 +10,7 @@ const roster = room => (room.lifecycle?.seatIds || []).map(id => room.seats[id])
 const rosterProof = room => digest(roster(room).map(seat => [seat.seatId, proof(seat)]));
 const live = (member, directory) => member?.status === 'active'
   && (member.kind === 'guest' || Boolean(directory.identities[member.identityId]));
+const gameParticipants = game => [...new Set([...(game?.starterIds || []), ...(game?.revisions || []).map(row => row.by)])];
 const TIMED_DRAW_TABLE_PROTOCOL = 2;
 
 // All methods here are setup, explicit administration or completion operations.
@@ -22,6 +23,7 @@ export class CompetitionTables {
     this.pendingClaims = new Map(); this.unresolvedClaims = new Map();
   }
   actor(scope, auth, directory, { admin = false } = {}) {
+    this.domain.assertDirectory(scope, directory);
     const accountId = typeof auth === 'string' ? auth : auth?.accountId;
     const identityId = directory.accounts[digest(accountId || '')];
     const guestHash = auth?.guestToken ? digest(auth.guestToken) : null;
@@ -35,7 +37,7 @@ export class CompetitionTables {
     }
     return member;
   }
-  async binding(room) { return (await this.domain.directory()).tables[tableKey(room)] || null; }
+  async binding(room, directory) { return this.domain.tableBinding(tableKey(room), directory); }
   own(code, connectionId, hostOnly = false) {
     const room = this.service.room(code); const owner = this.service.requireOwner(room, connectionId);
     if (hostOnly && owner.seatId !== room.hostSeatId) throw competitionError('The Table host must do this.', 403, 'HOST_ONLY');
@@ -85,22 +87,17 @@ export class CompetitionTables {
       if (current.seatId !== seatId || proof(current.seat) !== ownerHash) throw competitionError('Seat ownership changed. Reclaim before linking.', 403);
       if (room.turn.gameStarted && !room.gameResult) throw competitionError('Link a Table before starting play.', 409, 'ROSTER_SEALED');
     };
-    const directory = await this.domain.directory(); const scope = await this.domain.readScope(kind, id);
+    const scope = await this.domain.readScope(kind, id); const directory = await this.domain.directory(scope, auth);
     const me = this.actor(scope, auth, directory);
     if (kind === 'tournament' && scope.settings.minutes) this.requireDrawSupport(room);
     const key = tableKey(room);
-    const existing = directory.tables[key];
+    const existing = await this.binding(room, directory);
     if (existing && (existing.kind !== kind || existing.id !== id)) throw competitionError('This Table already belongs to another competition.', 409, 'TABLE_ALREADY_LINKED');
     if (room.turn.gameStarted && !existing) throw competitionError('Link this Table before starting the game.', 409, 'LINK_BEFORE_START');
     if (kind === 'tournament') this.tournaments?.checkTableBinding(scope, me.id, assignmentId);
-    await this.domain.changeDirectory(state => {
-      guard();
-      const current = state.tables[key];
-      if (current && (current.kind !== kind || current.id !== id)) throw competitionError('This Table already belongs to another competition.', 409, 'TABLE_ALREADY_LINKED');
-      if (me.identityId && !state.identities[me.identityId]) throw competitionError('Account data was removed.', 403);
-      state.tables[key] = { kind, id, roomCode: room.code };
-      return state;
-    });
+    const tableClaim = { key, binding: { kind, id, roomCode: room.code },
+      intent: digest({ participantId: me.id, seatId, ownerHash, assignmentId: assignmentId || null }) };
+    if (!scope.storageFormat) await this.domain.claimTable(key, tableClaim.binding, { guard, actorIdentityId: me.identityId, intent: tableClaim.intent });
     await this.domain.changeScope(kind, id, state => {
       guard();
       const actor = this.actor(state, auth, directory);
@@ -116,7 +113,7 @@ export class CompetitionTables {
       if (previous?.ownerHash === ownerHash && previous.participantId !== actor.id) throw competitionError('This seat is already linked to another participant.', 409);
       table.seats[seatId] = { participantId: actor.id, ownerHash };
       table.hostId = actor.id;
-    });
+    }, { auth, guard, ...(scope.storageFormat ? { tableClaim, participantId: me.id } : {}) });
     if (kind === 'tournament' && scope.settings.minutes) this.enableDrawSupport(room);
     return this.context(auth, code, connectionId);
   }
@@ -125,17 +122,21 @@ export class CompetitionTables {
     const ownerHash = proof(seat);
     const binding = await this.binding(room);
     if (!binding) { this.unresolvedClaims.delete(`${code}:${seatId}`); return { linked: false }; }
-    const directory = await this.domain.directory();
+    const before = await this.domain.readScope(binding.kind, binding.id);
+    const directory = await this.domain.directory(before, auth);
     if (room.turn.gameStarted && !room.gameResult) {
-      const scope = await this.domain.readScope(binding.kind, binding.id); const me = this.actor(scope, auth, directory);
+      const scope = before; const me = this.actor(scope, auth, directory);
       const sealed = scope.tables[tableKey(room)]?.captures[room.gameId]?.seats.find(row => row.seatId === String(seatId));
       if (sealed?.ownerHash === ownerHash && sealed.participantId === me.id) return this.context(auth, code, connectionId);
       throw competitionError('Seats are sealed for this game. Your next game can be linked.', 409, 'ROSTER_SEALED');
     }
-    await this.domain.changeScope(binding.kind, binding.id, scope => {
+    const guard = () => {
       const current = this.own(code, connectionId);
       if (proof(current.seat) !== ownerHash || current.seatId !== seatId) throw competitionError('Seat ownership changed. Reclaim before linking.', 403);
       if (room.turn.gameStarted && !room.gameResult) throw competitionError('Seats are sealed for this game.', 409, 'ROSTER_SEALED');
+    };
+    await this.domain.changeScope(binding.kind, binding.id, scope => {
+      guard();
       const me = this.actor(scope, auth, directory);
       const table = scope.tables[tableKey(room)];
       if (!table) throw competitionError('The host must finish linking this Table.', 409);
@@ -148,7 +149,7 @@ export class CompetitionTables {
         && row.ownerHash === proof(room.seats[Number(id)]));
       if (duplicate) throw competitionError('One participant can link only one seat.', 409);
       table.seats[seatId] = { participantId: me.id, ownerHash };
-    });
+    }, { auth, guard });
     this.unresolvedClaims.delete(`${code}:${seatId}`);
     return this.context(auth, code, connectionId);
   }
@@ -156,7 +157,8 @@ export class CompetitionTables {
     const { room, seatId } = this.own(code, connectionId);
     const binding = await this.binding(room);
     if (!binding) return { linked: false };
-    const scope = await this.domain.readScope(binding.kind, binding.id); const directory = await this.domain.directory();
+    const scope = await this.domain.readScope(binding.kind, binding.id);
+    const directory = await this.domain.directory(scope, auth, { participantIds: Object.values(scope.tables[tableKey(room)]?.seats || {}).map(row => row.participantId) });
     let me;
     try { me = this.actor(scope, auth, directory); }
     catch (error) { if (error.status === 403) return { linked: true, kind: binding.kind, canAccess: false }; throw error; }
@@ -177,9 +179,18 @@ export class CompetitionTables {
   }
 
   async attestGuest(auth, { code, connectionId, seatId, participantId } = {}) {
-    const { room } = this.own(code, connectionId, true); const binding = await this.binding(room);
+    const { room, seat: hostSeat, seatId: hostSeatId } = this.own(code, connectionId, true); const binding = await this.binding(room);
+    const hostProof = proof(hostSeat); let admittedGuestProof;
+    const guard = () => {
+      const current = this.own(code, connectionId, true);
+      if (current.seatId !== hostSeatId || proof(current.seat) !== hostProof
+        || !room.seats[seatId]?.claimed || proof(room.seats[seatId]) !== admittedGuestProof) {
+        throw competitionError('Seat ownership changed. Review guest linking again.', 403);
+      }
+      if (room.turn.gameStarted && !room.gameResult) throw competitionError('Link guest seats before starting.', 409);
+    };
     if (!binding || binding.kind !== 'tournament') throw competitionError('Choose a tournament Table.', 409);
-    const directory = await this.domain.directory();
+    const directory = await this.domain.scopeDirectory('tournament', binding.id, auth);
     await this.domain.changeScope('tournament', binding.id, scope => {
       this.own(code, connectionId, true);
       if (room.turn.gameStarted && !room.gameResult) throw competitionError('Link guest seats before starting.', 409);
@@ -191,14 +202,15 @@ export class CompetitionTables {
       if (Object.entries(table.seats).some(([id, row]) => Number(id) !== Number(seatId) && row.participantId === guest.id && row.ownerHash === proof(room.seats[Number(id)]))) throw competitionError('A guest can occupy only one seat.', 409);
       const previous = table.seats[seatId];
       if (previous?.ownerHash === proof(seat) && previous.participantId !== guest.id) throw competitionError('This seat is already linked to a different entrant.', 409);
-      table.seats[seatId] = { participantId: guest.id, ownerHash: proof(seat) };
-    });
+      admittedGuestProof = proof(seat);
+      table.seats[seatId] = { participantId: guest.id, ownerHash: admittedGuestProof };
+    }, { auth, guard });
     return this.context(auth, code, connectionId);
   }
   async timedDraw(auth, { code, connectionId, baseVersion } = {}) {
     const { room } = this.own(code, connectionId, true); const binding = await this.binding(room);
     if (!binding || binding.kind !== 'tournament') throw competitionError('Timed draws are available only in a timed tournament.', 409);
-    const scope = await this.domain.readScope('tournament', binding.id); const directory = await this.domain.directory();
+    const scope = await this.domain.readScope('tournament', binding.id); const directory = await this.domain.directory(scope, auth);
     const me = this.actor(scope, auth, directory); const table = scope.tables[tableKey(room)];
     const command = table?.captures[room.gameId];
     const assignment = this.tournaments.assignment(scope, command?.assignmentId);
@@ -218,8 +230,8 @@ export class CompetitionTables {
     }
     if (roster(room).some(seat => this.unresolvedClaims.get(`${code}:${seat.seatId}`) === proof(seat))) throw competitionError('A signed-in seat still needs its group link retried before starting.', 409, 'SEAT_LINK_PENDING');
     await this.reconcile(binding.kind, binding.id);
-    const directory = await this.domain.directory(); const key = tableKey(room);
     const before = await this.domain.readScope(binding.kind, binding.id);
+    const directory = await this.domain.directory(before); const key = tableKey(room);
     if (binding.kind === 'tournament' && before.settings.minutes && this.enableDrawSupport(room)) {
       throw Object.assign(competitionError('The timed Table is ready for updated phones. Review it and start again.', 409, 'VERSION_CONFLICT'), { snapshot: this.service.snapshot(room) });
     }
@@ -251,22 +263,15 @@ export class CompetitionTables {
     const gameId = randomBytes(12).toString('base64url');
     const candidates = Object.fromEntries(roster(room).map(seat => [seat.seatId, `guest_${this.domain.createId()}`]));
     // Guest names are mutable, separate from immutable source and numerical ledger.
-    await this.domain.changeDirectory(state => {
-      if (!state.identities[before.members[hostId]?.identityId] && before.members[hostId]?.kind !== 'guest') throw competitionError('The host’s membership is unavailable.', 403);
-      for (const seat of roster(room)) {
-        const linked = table.seats[seat.seatId];
-        const member = linked?.ownerHash === proof(seat) && before.members[linked.participantId];
-        if (!live(member, directory)) {
-          const knownIdentity = member?.kind === 'member' ? member.identityId : null;
-          state.aliases[`${binding.id}_${candidates[seat.seatId]}`] = {
-            identityId: knownIdentity,
-            name: knownIdentity && !state.identities[knownIdentity] ? 'Deleted member' : seat.name,
-          };
-        }
-      }
-      return state;
+    const guestNames = roster(room).flatMap(seat => {
+      const linked = table.seats[seat.seatId];
+      const member = linked?.ownerHash === proof(seat) && before.members[linked.participantId];
+      return live(member, directory) ? [] : [{ participantId: candidates[seat.seatId], name: seat.name,
+        identityId: member?.kind === 'member' ? member.identityId : null }];
     });
+    await this.domain.setGuestAliases(binding.id, guestNames, { actorIdentityId: before.members[hostId]?.identityId });
     const accepted = await this.domain.changeScope(binding.kind, binding.id, scope => {
+      this.domain.assertDirectory(scope, directory);
       this.own(code, connectionId, true);
       const linkedTable = scope.tables[key]; const host = scope.members[hostId];
       linkedTable.hostId = hostId;
@@ -291,7 +296,10 @@ export class CompetitionTables {
         tableIdentity: roomIdentity(room), roomCode: room.code, hostId: host.id, seats,
         eligibleIds: seats.filter(seat => seat.kind === 'member').map(seat => seat.participantId),
         assignmentId: linkedTable.assignmentId || null };
-    });
+    }, { actorIdentityId: before.members[hostId]?.identityId, guard: () => {
+      this.own(code, connectionId, true);
+      if (room.version !== version || rosterProof(room) !== signature) throw competitionError('The roster changed. Review it before starting.', 409, 'VERSION_CONFLICT');
+    } });
     const command = accepted.tables[key].captures[gameId];
     this.pendingScopes.set(`${binding.kind}:${binding.id}`, binding);
     try {
@@ -410,7 +418,8 @@ export class CompetitionTables {
   }
   async confirm(auth, kind, id, gameId, { order, baseRevision, requestId, reasonCode = 'host_confirmation' } = {}) {
     if (typeof requestId !== 'string' || !/^[\w-]{8,100}$/.test(requestId)) throw competitionError('A confirmation retry identifier is required.');
-    const directory = await this.domain.directory();
+    const before = await this.domain.readScope(kind, id);
+    const directory = await this.domain.participantDirectory(before, auth, []);
     const result = await this.domain.changeScope(kind, id, scope => {
       const me = this.actor(scope, auth, directory); const game = scope.games[gameId];
       if (!game) throw competitionError('Capture the completed game before confirming.', 409, 'COMPLETION_PENDING');
@@ -438,8 +447,10 @@ export class CompetitionTables {
         scope.standings = replay.members;
         for (const item of replay.games) scope.games[item.gameId].ratingChanges = item.updates;
       } else this.tournaments.applyStandings(scope);
-    });
-    return this.detailDto(result, result.games[gameId], directory);
+    }, { auth });
+    const names = this.domain.directoryView
+      ? await this.domain.participantDirectory(result, null, gameParticipants(result.games[gameId])) : directory;
+    return this.detailDto(result, result.games[gameId], names);
   }
   detailDto(scope, game, directory) {
     return { gameId: game.gameId, completedAt: game.completedAt, startedAt: game.startedAt, gameFormat: game.gameFormat,
@@ -454,13 +465,14 @@ export class CompetitionTables {
     };
   }
   async detail(auth, kind, id, gameId) {
-    const directory = await this.domain.directory(); const scope = await this.domain.readScope(kind, id);
+    const scope = await this.domain.readScope(kind, id);
+    const directory = await this.domain.participantDirectory(scope, auth, gameParticipants(scope.games[gameId]));
     this.actor(scope, auth, directory);
     if (!scope.games[gameId]) throw competitionError('That game is unavailable.', 404);
     return this.detailDto(scope, scope.games[gameId], directory);
   }
   async history(auth, kind, id, { cursor, limit = 20, from = 0, to = Infinity } = {}) {
-    const directory = await this.domain.directory(); const scope = await this.domain.readScope(kind, id);
+    const scope = await this.domain.readScope(kind, id); const directory = await this.domain.participantDirectory(scope, auth, []);
     this.actor(scope, auth, directory);
     const pageSize = Math.min(50, Math.max(1, Number(limit) || 20));
     const rows = Object.values(scope.games).filter(game => game.completedAt >= Number(from) && game.completedAt < Number(to))

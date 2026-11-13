@@ -142,9 +142,13 @@ export function createCompetitionHub(adapter) {
     const requestId = joinIds[joinKey] ||= crypto.randomUUID();
     writeLocal(joinIdsKey, Object.fromEntries(Object.entries(joinIds).slice(-100)), sessionStorage);
     if (navigation !== navigationEpoch) return;
+    // Account restoration can refresh this preview while the user edits it.
+    const draft = currentInvite === invite ? content.querySelector('#hubJoinForm') : null;
+    const displayName = draft?.querySelector('[name=displayName]')?.value ?? (enteredName || adapter.getPreferredName());
+    const entry = draft?.querySelector('[name=entry]')?.value;
     draw(`Join ${preview.name}`, `<p>Invited by ${escape(preview.inviter)}. ${preview.kind === 'pod' ? 'Joining shares your Pod games and rating with active members.' : 'This is a standalone tournament; guests can enter without an account.'}</p>
-      <form id="hubJoinForm">${field('displayName', 'Your name', `required maxlength="80" autocomplete="nickname" value="${escape(enteredName || adapter.getPreferredName())}"`)}
-      ${preview.kind === 'tournament' && signedIn ? '<label class="select-field">Enter as<select name="entry"><option value="account">My signed-in account</option><option value="guest">Guest for this event</option></select></label>' : ''}
+      <form id="hubJoinForm">${field('displayName', 'Your name', `required maxlength="80" autocomplete="nickname" value="${escape(displayName)}"`)}
+      ${preview.kind === 'tournament' && signedIn ? `<label class="select-field">Enter as<select name="entry"><option value="account">My signed-in account</option><option value="guest"${entry === 'guest' ? ' selected' : ''}>Guest for this event</option></select></label>` : ''}
       ${preview.kind === 'tournament' && signedIn && guests[preview.id] ? '<p class="competition-help">Your previous guest entry stays separate. An account entry starts or resumes that account’s points. The host can withdraw an unused guest entry.</p>' : ''}
       <button class="primary-action" type="submit">${preview.kind === 'pod' && !signedIn ? 'Sign in to join' : 'Accept and join'}</button></form>
       <p class="competition-help">${preview.kind === 'pod' ? 'You can leave later. Previous rating and game count are kept for your return.' : 'Points use the full finishing order: four players score 3, 2, 1, 0. Ties share points. If timed: finish this turn plus five total additional turns, then shared top places.'}</p>`, () => inviteForm());
@@ -552,7 +556,8 @@ export function createCompetitionHub(adapter) {
     authChanged(signedIn, { restored = false } = {}) {
       if (!restored) authEpoch++;
       observation = null; contextAttempt = null; context = null; clearTimeout(retrySetup);
-      if (restored && currentInvite && dialog.open) {
+      const acceptingInvite = content.querySelector('#hubJoinForm button[type=submit]')?.disabled;
+      if (restored && currentInvite && dialog.open && !acceptingInvite) {
         const invite = currentInvite, enteredName = content.querySelector('#hubJoinForm [name=displayName]')?.value || '';
         void run(() => invitePreview(invite, enteredName));
       } else if (!restored && signedIn && afterSignIn) { const resume = afterSignIn; afterSignIn = null; void run(resume); }

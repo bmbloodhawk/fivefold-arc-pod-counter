@@ -89,6 +89,50 @@ export async function browserFixture(chromium, { origin = 'http://127.0.0.1:8793
     check(name, condition) { assert.ok(condition, name); cases.push(name); } };
 }
 
+// Release baseline regression: public/staging already preserve this Commander entry behavior.
+export async function commanderEntryDefaultsFlow(qa, prefix = 'commander-entry') {
+  const host = await qa.phone(), member = await qa.phone();
+  try {
+    await host.locator('#createPodButton').click();
+    const code = await qa.createTable(host, { name: 'Mira' });
+    await qa.joinTable(member, code, { name: 'Nico' });
+    await host.locator('#startGameButton').click();
+    await host.locator('#gameView').waitFor({ state: 'visible' });
+    await host.locator('#turnPlayer').filter({ hasText: 'Mira' }).waitFor();
+    const selected = () => host.locator('#sourcePanel strong').innerText();
+    const choose = async player => {
+      await host.locator('#changeCommanderSourceButton').click();
+      await host.locator('#commanderSourceList').getByRole('button', { name: new RegExp(`^${player}'s commander`) }).click();
+    };
+    await host.getByRole('button', { name: 'Commander damage', exact: true }).click();
+    qa.check('fresh Commander entry uses the current turn source', (await selected()).startsWith("P1's commander"));
+    await choose('P2');
+    await member.getByRole('button', { name: 'Decrease counter by one', exact: true }).tap();
+    await member.locator('#mainValue').filter({ hasText: /^39$/ }).waitFor();
+    await host.locator('#podStrip').filter({ hasText: '39' }).waitFor();
+    qa.check('another phone update preserves the manually selected Commander source', (await selected()).startsWith("P2's commander"));
+    await host.getByRole('button', { name: 'Commander damage', exact: true }).click();
+    qa.check('pressing the active Commander mode preserves a manual selection', (await selected()).startsWith("P2's commander"));
+    await host.locator('[data-mode=life]').click();
+    await host.getByRole('button', { name: 'Commander damage', exact: true }).click();
+    await qa.shot(host, `${prefix}-reentered`);
+    qa.check('reentering Commander follows the turn instead of a stale previous source', (await selected()).startsWith("P1's commander"));
+    await host.locator('[data-mode=life]').click();
+    await host.locator('#endTurnButton').click();
+    await host.locator('#turnPlayer').filter({ hasText: 'Nico' }).waitFor();
+    await host.getByRole('button', { name: 'Commander damage', exact: true }).click();
+    qa.check('Commander entry follows a later active player', (await selected()).startsWith("P2's commander"));
+    await host.locator('#moreButton').click(); await host.locator('#toggleTurnTrackingButton').click();
+    await host.locator('#endTurnButton').waitFor({ state: 'hidden' });
+    await choose('P1'); await host.locator('[data-mode=life]').click();
+    await host.getByRole('button', { name: 'Commander damage', exact: true }).click();
+    qa.check('turn tracking off preserves the last manually selected source on entry', (await selected()).startsWith("P1's commander"));
+    await host.setViewportSize({ width: 320, height: 700 }); await qa.shot(host, `${prefix}-320`);
+    qa.check('Commander entry remains reachable without horizontal page overflow at 320px', await host.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    return { code, cases: qa.cases.slice(-7) };
+  } finally { await Promise.all([host.context().close(), member.context().close()]); }
+}
+
 export async function podPhoneFlow(qa) {
   const host = await qa.phone(), member = await qa.phone();
   await qa.signIn(host);
@@ -215,7 +259,10 @@ export async function tournamentRegistrationFlow(qa, podFlow) {
   await host.locator('#competitionLobbyButton').click(); await host.locator('#attestEventGuest').locator('xpath=..').locator('summary').click();
   await host.locator('#attestEventGuest [name=participantId]').selectOption({ label: 'Rowan' });
   await host.locator('#attestEventGuest [name=seatId]').selectOption({ label: 'P4 · Rowan' });
-  await host.locator('#attestEventGuest button[type=submit]').click(); await host.locator('#openTableScope').click();
+  await host.locator('#attestEventGuest button[type=submit]').click();
+  await host.locator('#attestEventGuest [name=seatId] option').filter({ hasText: 'P4 · Rowan' }).waitFor({ state: 'detached' });
+  qa.check('attested guest link is saved before reviewing the round', true);
+  await host.locator('#openTableScope').click();
   await host.locator('#startRound').click(); await host.locator('#hubConfirm').click();
   await host.locator('[data-clock]').waitFor(); await qa.shot(host, 'tournament-round-started-390');
   qa.check('Table lobby returns to event for manual round start', (await host.locator('#competitionContent').innerText()).includes('Round 1 of 1 · playing'));
@@ -427,4 +474,119 @@ export async function issuedInvitesFlow(qa) {
     await qa.shot(host, `${kind}-issued-invites-390`); await host.locator('#competitionClose').click();
   }
   return host;
+}
+
+// Delayed account restoration must not overwrite edits or cancel a submitted invite.
+// The fixture account is established through sign-in UI; no auth storage is inspected.
+export async function restoredInviteRaceFlow(qa, validInviteLink, mode = 'editing') {
+  assert.ok(['editing', 'joining'].includes(mode), 'Choose the editing or joining restore race.');
+  const invite = new URL(validInviteLink, qa.origin);
+  assert.equal(invite.origin, qa.origin, 'Restore-race QA stays on its loopback server.');
+  assert.match(invite.hash, /invite=/, 'Supply a valid private invite link.');
+  const stem = `restore-invite-${mode}-${Date.now()}`, evidence = root + '.local/evidence/';
+  const gate = () => { let release; return { promise: new Promise(resolve => { release = resolve; }), release }; };
+  const restoreEntered = gate(), restoreRelease = gate(), previewEntered = gate(), previewRelease = gate(), joinReady = gate(), joinRelease = gate();
+  const gates = [restoreRelease, previewRelease, joinRelease], routeTasks = [];
+  let previewRequests = 0, joinRequests = 0, heldJoinStatus = null, closing = false;
+  const page = await qa.phone();
+  const tracked = action => async route => {
+    const task = action(route); routeTasks.push(task);
+    try { await task; } catch (error) { if (!closing) throw error; }
+  };
+  const waitGate = async (signal, label) => {
+    let timeout;
+    try {
+      await Promise.race([signal.promise, new Promise((_, reject) => {
+        timeout = setTimeout(() => reject(new Error(`Restore-race gate was not reached: ${label}`)), 7000);
+      })]);
+    } finally { clearTimeout(timeout); }
+  };
+  const domState = () => page.evaluate(() => ({
+    title: document.querySelector('#competitionTitle')?.textContent,
+    name: document.querySelector('#hubJoinForm [name=displayName]')?.value ?? null,
+    entry: document.querySelector('#hubJoinForm [name=entry]')?.value ?? null,
+    busy: document.querySelector('#competitionContent')?.getAttribute('aria-busy'),
+    signedInHome: Boolean(document.querySelector('#signInButton')?.hidden && !document.querySelector('#myGamesButton')?.disabled),
+    joined: Boolean(document.querySelector('#podPlay') || document.querySelector('#eventStandings')),
+  }));
+  const record = async (outcome, error = null) => {
+    const { writeFile } = await import('node:fs/promises');
+    const result = { mode, outcome, previewRequests, joinRequests, heldJoinStatus, ...(await domState()), ...(error ? { error: error.message } : {}) };
+    await mkdir(evidence, { recursive: true });
+    await qa.shot(page, stem + '-' + outcome);
+    await writeFile(evidence + stem + '.json', JSON.stringify(result, null, 2) + '\n');
+    return { ...result, evidence: stem };
+  };
+  try {
+    await qa.signIn(page);
+    const auth = await readFile(new URL('./competition-auth-fixture.mjs', import.meta.url), 'utf8');
+    const original = 'export async function restoredAccountToken() { return currentAccountToken(); }';
+    assert.ok(auth.includes(original), 'The scoped auth gate must match the current fixture restoration function.');
+    const delayedAuth = auth.replace(original, "export async function restoredAccountToken() { await fetch('/__qa_restore_gate'); return currentAccountToken(); }");
+    await page.route('**/account-auth.js*', route => route.fulfill({ contentType: 'text/javascript', body: delayedAuth }));
+    await page.route(qa.origin + '/__qa_restore_gate', tracked(async route => {
+      restoreEntered.release(); await restoreRelease.promise;
+      await route.fulfill({ status: 200, contentType: 'text/plain', body: 'fixture restore released' });
+    }));
+    await page.route(qa.origin + '/api/competitions/invite-preview', tracked(async route => {
+      previewRequests++;
+      if (mode === 'editing' && previewRequests === 2) { previewEntered.release(); await previewRelease.promise; }
+      await route.continue();
+    }));
+    await page.route(qa.origin + '/api/competitions/join', tracked(async route => {
+      if (route.request().method() !== 'POST') { await route.continue(); return; }
+      joinRequests++;
+      if (mode !== 'joining') { await route.continue(); return; }
+      const response = await route.fetch({ timeout: 7000 });
+      heldJoinStatus = response.status(); joinReady.release();
+      await joinRelease.promise; await route.fulfill({ response });
+    }));
+    // A changed query forces a fresh document rather than same-document hash navigation.
+    invite.searchParams.set('__qa_restore_race', stem);
+    await page.goto(invite.href, { waitUntil: 'domcontentloaded' });
+    await waitGate(restoreEntered, 'account restoration');
+    const name = page.locator('#hubJoinForm [name=displayName]');
+    await name.waitFor({ state: 'visible' }); await name.fill('Early fixture name');
+    const entry = page.locator('#hubJoinForm [name=entry]'), hasEntry = await entry.count() > 0;
+    if (hasEntry) await entry.selectOption('account');
+    // loadSetupDecks renders these options just before restoreSavedAccountSession
+    // calls authChanged(restored). Observe that DOM write, then cross a frame boundary.
+    await page.evaluate(() => {
+      const select = document.querySelector('#joinDeck');
+      const observer = new MutationObserver(() => { observer.disconnect(); select.setAttribute('data-qa-restore-rendered', 'true'); });
+      observer.observe(select, { childList: true });
+    });
+    if (mode === 'joining') {
+      await page.locator('#hubJoinForm button[type=submit]').click();
+      await waitGate(joinReady, 'successful join response');
+      assert.ok(heldJoinStatus >= 200 && heldJoinStatus < 300, `The fixture join must succeed before testing restoration; status ${heldJoinStatus}.`);
+    }
+    restoreRelease.release();
+    await page.locator('#joinDeck[data-qa-restore-rendered=true]').waitFor({ state: 'attached' });
+    await page.waitForFunction(() => document.querySelector('#signInButton').hidden && !document.querySelector('#myGamesButton').disabled);
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => resolve())));
+    if (mode === 'editing') {
+      const refreshing = await page.locator('#competitionContent').getAttribute('aria-busy') === 'true';
+      if (refreshing) await waitGate(previewEntered, 'refreshed invite preview');
+      await name.fill('Latest fixture name');
+      if (hasEntry) await entry.selectOption('guest');
+      previewRelease.release();
+      await page.waitForFunction(() => document.querySelector('#competitionContent').getAttribute('aria-busy') !== 'true');
+      qa.check('restored invite preview retains the latest name typed while it refreshes', await name.inputValue() === 'Latest fixture name');
+      if (hasEntry) qa.check('restored invite preview retains the latest account or guest choice', await entry.inputValue() === 'guest');
+      assert.equal(joinRequests, 0, 'Editing an invite must not submit it.');
+    } else {
+      joinRelease.release();
+      await page.locator('#podPlay, #eventStandings').first().waitFor({ state: 'visible' });
+      qa.check('restored account signal preserves an already submitted invite and opens its joined view', true);
+      assert.equal(joinRequests, 1, 'The pending acceptance must join exactly once.');
+    }
+    return await record('passed');
+  } catch (error) {
+    try { error.restoreRaceEvidence = await record('failed', error); } catch { /* Preserve the original assertion/navigation failure. */ }
+    throw error;
+  } finally {
+    closing = true; for (const pending of gates) pending.release();
+    await Promise.allSettled(routeTasks); await page.context().close();
+  }
 }

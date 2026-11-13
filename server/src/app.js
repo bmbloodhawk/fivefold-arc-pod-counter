@@ -733,13 +733,19 @@ export class RoomService {
   recordLedger(room, type, actorSeatId, detail = {}) {
     const at = this.now();
     const event = { gameId: room.gameId, roomCode: room.code, sequence: ++room.ledgerSequence, at, type, actorSeatId, ...detail };
-    this.ledger.record(event);
     // This record is deliberately server-private: it contains only hashes of
     // credentials, never the reclaim or host recovery secrets themselves.
-    this.ledger.recovery(this.recoveryRecord(room, at));
+    const recovery = this.recoveryRecord(room, at);
+    let checkpoint;
     if (event.sequence % 25 === 0 || at - room.ledgerLastCheckpointAt >= 60_000) {
-      this.ledger.checkpoint({ gameId: room.gameId, roomCode: room.code, sequence: event.sequence, at, recap: recapFromRoom(room, at), snapshot: this.snapshot(room) });
+      checkpoint = { gameId: room.gameId, roomCode: room.code, sequence: event.sequence, at, recap: recapFromRoom(room, at), snapshot: this.snapshot(room) };
       room.ledgerLastCheckpointAt = at;
+    }
+    if (typeof this.ledger.recordWithRecovery === 'function') this.ledger.recordWithRecovery(event, recovery, checkpoint);
+    else {
+      this.ledger.record(event);
+      this.ledger.recovery(recovery);
+      if (checkpoint) this.ledger.checkpoint(checkpoint);
     }
   }
 
@@ -1931,6 +1937,25 @@ export function createRealtimeServer(options = {}) {
   const allowedOrigin = options.allowedOrigin ?? process.env.ALLOWED_ORIGIN ?? "*";
   const staticDir = options.staticDir ?? null;
   const durableRoomStore = options.durableRoomStore ?? null;
+  // Live/optimistic feedback stays immediate. A successful HTTP snapshot waits
+  // until this Table's recovery state is saved, including operation-ID deduplication.
+  async function roomJson(res, status, body) {
+    if (body?.snapshot?.code && typeof service.ledger.waitForRecovery === "function") {
+      let timeout;
+      try {
+        await Promise.race([
+          service.ledger.waitForRecovery(body.snapshot.code),
+          new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error("Recovery save timed out")), 5_000); }),
+        ]);
+      }
+      catch {
+        throw Object.assign(new Error("This change could not be confirmed as saved. Reconnect and try again."), {
+          status: 503, code: "RECOVERY_SAVE_FAILED",
+        });
+      } finally { clearTimeout(timeout); }
+    }
+    return json(res, status, body);
+  }
   const sseClients = new Map();
   // A 16-player event can mean four simultaneous four-player pods behind one
   // venue NAT. Keep abuse protection, but leave enough headroom for every
@@ -2020,7 +2045,7 @@ export function createRealtimeServer(options = {}) {
       const connectionId = req.headers["x-connection-id"];
       if (url.pathname.startsWith('/api/competitions/')) {
         const response = await competitionRoute({ req, url, readBody: () => readJson(req), account, domain: competitions, tables: competitionTables, tournaments, connectionId });
-        return json(res, response.status, response.data);
+        return await roomJson(res, response.status, response.data);
       }
       if (req.method === "GET" && url.pathname === "/health") return json(res, 200, {
         ok: true, appearanceRewardsReady: Boolean(earnedSkins.size && accountHistory && accountVerifier),
@@ -2150,9 +2175,9 @@ export function createRealtimeServer(options = {}) {
       if (req.method === "POST" && url.pathname === "/api/rooms") {
         const input = await readJson(req);
         const earnedTableSkinName = await earnedTableSkinNameFor(req, input?.tableSkinId);
-        return json(res, 201, service.createRoom(connectionId, input, { earnedTableSkinName }));
+        return await roomJson(res, 201, service.createRoom(connectionId, input, { earnedTableSkinName }));
       }
-      if (req.method === "POST" && parts[0] === "api" && parts[1] === "recovery" && parts[2]) return json(res, 200, await service.restoreRoom(parts[2], (await readJson(req)).hostRecoveryKey));
+      if (req.method === "POST" && parts[0] === "api" && parts[1] === "recovery" && parts[2]) return await roomJson(res, 200, await service.restoreRoom(parts[2], (await readJson(req)).hostRecoveryKey));
       if (parts[0] === "api" && parts[1] === "rooms" && parts[2]) {
         const code = parts[2].toUpperCase();
         await service.ensureRoom(code);
@@ -2165,24 +2190,24 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "GET" && parts.length === 3) {
           const room = service.room(code);
           const ownership = service.ownershipStatus(room, connectionId);
-          return json(res, 200, { snapshot: service.snapshot(room), ...(ownership ? { ownership } : {}) });
+          return await roomJson(res, 200, { snapshot: service.snapshot(room), ...(ownership ? { ownership } : {}) });
         }
         if (req.method === "POST" && parts[3] === "claim") {
           const input = await readJson(req);
-          return json(res, 200, competitionTables && req.headers.authorization
+          return await roomJson(res, 200, competitionTables && req.headers.authorization
             ? await competitionTables.claimRoom(code, connectionId, input, () => account(req))
             : service.claimSeat(code, connectionId, input));
         }
-        if (req.method === "PATCH" && parts[3] === "me") return json(res, 200, service.mutateOwnSeat(code, connectionId, await readJson(req)));
-        if (req.method === "POST" && parts[3] === "adjust") return json(res, 200, service.adjustOwnSeat(code, connectionId, await readJson(req)));
-        if (req.method === "POST" && parts[3] === "resolve-radiation") return json(res, 200, service.resolveRadiation(code, connectionId, await readJson(req)));
-        if (req.method === "POST" && parts[3] === "reset") { const input = await readJson(req); return json(res, 200, competitionTables ? await competitionTables.reset(code, connectionId, input) : service.resetRoom(code, connectionId, input)); }
-        if (req.method === "POST" && parts[3] === "begin-intermission") { const input = await readJson(req); if (competitionTables) await competitionTables.beforeProgress(code, connectionId, 'begin-intermission'); return json(res, 200, service.beginIntermission(code, connectionId, input)); }
-        if (req.method === "POST" && parts[3] === "next-game-ready") return json(res, 200, service.setNextGameReady(code, connectionId, await readJson(req)));
-        if (req.method === "POST" && parts[3] === "next-game-skip") return json(res, 200, service.skipNextGameSeat(code, connectionId, await readJson(req)));
-        if (req.method === "POST" && parts[3] === "leave-intermission") return json(res, 200, service.leaveIntermission(code, connectionId, await readJson(req)));
-        if (req.method === "POST" && parts[3] === "next-game-reorder") return json(res, 200, service.reorderNextGameSeats(code, connectionId, await readJson(req)));
-        if (req.method === "POST" && parts[3] === "coin-toss") return json(res, 200, service.tossCoin(code, connectionId));
+        if (req.method === "PATCH" && parts[3] === "me") return await roomJson(res, 200, service.mutateOwnSeat(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "adjust") return await roomJson(res, 200, service.adjustOwnSeat(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "resolve-radiation") return await roomJson(res, 200, service.resolveRadiation(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "reset") { const input = await readJson(req); return await roomJson(res, 200, competitionTables ? await competitionTables.reset(code, connectionId, input) : service.resetRoom(code, connectionId, input)); }
+        if (req.method === "POST" && parts[3] === "begin-intermission") { const input = await readJson(req); if (competitionTables) await competitionTables.beforeProgress(code, connectionId, 'begin-intermission'); return await roomJson(res, 200, service.beginIntermission(code, connectionId, input)); }
+        if (req.method === "POST" && parts[3] === "next-game-ready") return await roomJson(res, 200, service.setNextGameReady(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "next-game-skip") return await roomJson(res, 200, service.skipNextGameSeat(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "leave-intermission") return await roomJson(res, 200, service.leaveIntermission(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "next-game-reorder") return await roomJson(res, 200, service.reorderNextGameSeats(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "coin-toss") return await roomJson(res, 200, service.tossCoin(code, connectionId));
         if (req.method === "GET" && parts[3] === "playtest-notes") return json(res, 200, service.listPlaytestNotes(code, connectionId));
         if (req.method === "POST" && parts[3] === "playtest-notes") return json(res, 201, service.addPlaytestNote(code, connectionId, await readJson(req)));
         if (req.method === "GET" && parts[3] === "playtest-recap") return json(res, 200, service.playtestRecap(code, connectionId));
@@ -2190,7 +2215,7 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "POST" && parts[3] === "field-test") return json(res, 201, service.recordFieldTest(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "client-diagnostics") return json(res, 201, service.recordClientDiagnostic(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "quick-feedback") return json(res, 201, service.recordQuickFeedback(code, connectionId, await readJson(req)));
-        if (req.method === "POST" && parts[3] === "session-kind") return json(res, 200, service.setSessionKind(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "session-kind") return await roomJson(res, 200, service.setSessionKind(code, connectionId, await readJson(req)));
         if (req.method === "GET" && parts[3] === "table-skin" && parts.length === 4) {
           const room = service.room(code);
           service.requireOwner(room, connectionId);
@@ -2205,19 +2230,19 @@ export function createRealtimeServer(options = {}) {
             throw Object.assign(new Error("Only the host may change the table appearance"), { status: 403, code: "HOST_ONLY" });
           }
           const earnedTableSkinName = await earnedTableSkinNameFor(req, input?.tableSkinId);
-          return json(res, 200, service.setTableSkin(code, connectionId, input, { earnedTableSkinName }));
+          return await roomJson(res, 200, service.setTableSkin(code, connectionId, input, { earnedTableSkinName }));
         }
         if (req.method === "GET" && parts[3] === "saved-playtests") return json(res, 200, await service.hostArchive(code, connectionId));
-        if (req.method === "POST" && parts[3] === "declare-winner") return json(res, 200, service.declareWinner(code, connectionId, await readJson(req)));
-        if (req.method === "POST" && parts[3] === "eliminate-player") return json(res, 200, service.eliminatePlayer(code, connectionId, await readJson(req)));
-        if (req.method === "POST" && parts[3] === "choose-starting-player") return json(res, 200, service.chooseStartingPlayer(code, connectionId, await readJson(req)));
-        if (req.method === "POST" && parts[3] === "report-starting-player-roll") return json(res, 200, service.reportStartingPlayerRoll(code, connectionId, await readJson(req)));
-        if (req.method === "POST" && parts[3] === "start-game") { const input = await readJson(req); return json(res, 200, competitionTables ? await competitionTables.start(code, connectionId, input) : service.startGame(code, connectionId, input)); }
-        if (req.method === "POST" && parts[3] === "turn-handoff" && parts[4] === "undo") return json(res, 200, service.undoTurnHandoff(code, connectionId, await readJson(req)));
-        if (req.method === "POST" && parts[3] === "turn-tracking") return json(res, 200, service.setTurnTracking(code, connectionId, await readJson(req)));
-        if (req.method === "POST" && parts[3] === "turn-cues") return json(res, 200, service.setTurnCues(code, connectionId, await readJson(req)));
-        if (req.method === "POST" && parts[3] === "turn-pause") return json(res, 200, service.setTurnPaused(code, connectionId, await readJson(req)));
-        if (req.method === "POST" && parts[3] === "turn-handoff") return json(res, 200, service.handoffTurn(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "declare-winner") return await roomJson(res, 200, service.declareWinner(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "eliminate-player") return await roomJson(res, 200, service.eliminatePlayer(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "choose-starting-player") return await roomJson(res, 200, service.chooseStartingPlayer(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "report-starting-player-roll") return await roomJson(res, 200, service.reportStartingPlayerRoll(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "start-game") { const input = await readJson(req); return await roomJson(res, 200, competitionTables ? await competitionTables.start(code, connectionId, input) : service.startGame(code, connectionId, input)); }
+        if (req.method === "POST" && parts[3] === "turn-handoff" && parts[4] === "undo") return await roomJson(res, 200, service.undoTurnHandoff(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "turn-tracking") return await roomJson(res, 200, service.setTurnTracking(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "turn-cues") return await roomJson(res, 200, service.setTurnCues(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "turn-pause") return await roomJson(res, 200, service.setTurnPaused(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "turn-handoff") return await roomJson(res, 200, service.handoffTurn(code, connectionId, await readJson(req)));
         if (req.method === "GET" && parts[3] === "events") {
           const target = service.resolveStreamTarget(code, url.searchParams.get("connectionId"), { maxStreamsGlobal });
           const forwarded = String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown").split(",")[0].trim();

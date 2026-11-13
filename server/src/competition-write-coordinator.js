@@ -7,6 +7,7 @@ export function coordinateCompetitionWrites(store) {
   const pending = new Map();
   const coordinated = {
     read: (...args) => store.read(...args),
+    ...(typeof store.page === 'function' ? { page: (...args) => store.page(...args) } : {}),
     update(path, change) {
       const previous = pending.get(path) || Promise.resolve();
       const result = previous.then(() => store.update(path, change));

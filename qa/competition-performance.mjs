@@ -16,6 +16,7 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const baseline = 'b299d8a74ef7dcf14427cd8b138692aa8423fc69';
 const sha = value => createHash('sha256').update(value).digest('hex');
 const checks = [];
+let atomicStorageHook;
 for (const [path, names] of [
   ['server/src/app.js', ['adjustOwnSeat', 'mutateOwnSeat', 'recordLedger', 'snapshot', 'recoveryRecord', 'broadcast', 'attachStream']],
   ['client/realtime.js', ['adjust', 'mutate', '#subscribe', '#acceptSnapshot', '#recoverSse']],
@@ -25,8 +26,18 @@ for (const [path, names] of [
   for (const name of names) {
     const pattern = new RegExp('^  (?:async )?' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\([^]*?^  \\}', 'm');
     const before = original.match(pattern)?.[0], after = current.match(pattern)?.[0];
-    assert.ok(before && after, `Method found: ${name}`); assert.equal(after, before, `Unchanged live method: ${name}`);
-    checks.push({ path, method: name, sha256: sha(after) });
+    assert.ok(before && after, `Method found: ${name}`);
+    if (path === 'server/src/app.js' && name === 'recordLedger') {
+      // The atomic storage dispatch intentionally changes this one hook. Keep
+      // an exact source lock, with its original fingerprint visible for review.
+      assert.equal(sha(before), 'e1be27b14d37b93dc99176ae962738cd031ba0d1761dba35c222e2f63ac5e475');
+      assert.equal(sha(after), 'a87c78346a491697015ffe62584ec97a88f5dc1d95966543402d2020cb39f7e4', 'Atomic storage hook source lock');
+      atomicStorageHook = { path, method: name, baselineSha256: sha(before), sha256: sha(after),
+        contract: 'docs/COUNTER_ATOMIC_PERSISTENCE.md', behavioralTests: 'server/test/counter-atomic-persistence.test.js' };
+    } else {
+      assert.equal(after, before, `Unchanged live method: ${name}`);
+      checks.push({ path, method: name, sha256: sha(after) });
+    }
   }
 }
 const batcher = 'client/life-adjustment-batcher.js';
@@ -102,7 +113,7 @@ async function confirmationScale(count) {
     includes: 'In-memory CAS cloning, complete replay and projection; excludes REST latency, retries and richer/more-player records.' };
 }
 const confirmation = [await confirmationScale(1000), await confirmationScale(10000)];
-const report = { baseline, node: process.version, at: new Date().toISOString(), unchangedMethods: checks, lifeBatcherUnchanged: true,
+const report = { baseline, node: process.version, at: new Date().toISOString(), unchangedMethods: checks, atomicStorageHook, lifeBatcherUnchanged: true,
   recovery, replay, confirmation, limits: 'In-process local CPU/JSON only. Whole-scope CAS cost and database/network latency are additional; no live Firebase or phone capacity claim.' };
 await mkdir(new URL('../.local/evidence/', import.meta.url), { recursive: true });
 await writeFile(new URL('../.local/evidence/competition-performance.json', import.meta.url), JSON.stringify(report, null, 2));
