@@ -2,6 +2,7 @@ import { createRealtimeServer } from "./app.js";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { createPlaytestLedgerFromEnv } from "./playtest-ledger.js";
+import { monitorCounterWrites } from './counter-write-monitor.js';
 import { createAppearanceCatalogFromEnv } from "./appearance-catalog.js";
 import { AccountHistory, accountHistoryStoreForEnvironment } from "./account-history.js";
 import { loadAppearanceSkins } from "./appearance-collection.js";
@@ -17,6 +18,8 @@ const streamLimits = liveStreamLimitsFromEnv();
 const staticDir = resolve(fileURLToPath(new URL("../../client/", import.meta.url)));
 const cardIdentityIndex = await loadCardIdentityIndex(resolve(fileURLToPath(new URL("../static-data/card-identity-index.json", import.meta.url))));
 const ledger = createPlaytestLedgerFromEnv();
+// Staging-only numeric timings; the production path leaves the ledger untouched.
+const counterWriteMonitor = monitorCounterWrites(ledger, { appEnv });
 const durableRecoveryEnabled = typeof ledger.accessToken === "function" && process.env.DURABLE_ROOM_RECOVERY_ENABLED !== "false";
 const appearanceCatalog = createAppearanceCatalogFromEnv({ path: resolve(fileURLToPath(new URL("../data/appearance-studio-catalog.json", import.meta.url))) });
 const derivedProjectId = /^https:\/\/([a-z0-9-]+)-default-rtdb\./.exec(process.env.FIREBASE_DATABASE_URL || "")?.[1];
@@ -64,6 +67,7 @@ async function shutdown() {
   await ledger.flush();
   await service.tableDeviceActivity.flush();
   await competitionWriter?.flush();
+  counterWriteMonitor.stop();
   process.exit(0);
 }
 
