@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="theme-color" content="#0d0d0d">
   <meta name="description" content="Fivefold Arc multiplayer tabletop counter prototype.">
-  <title>Fivefold Arc — Pod Counter</title>
+  <title>Fivefold Arc — Table Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css?v=241">
   <link rel="stylesheet" href="collection-visual.css?v=4">
+  <link rel="stylesheet" href="competition.css?v=1">
 </head>
 <body>
   <header class="brand-bar">
@@ -26,13 +27,15 @@
   <main>
     <section id="landingView" class="view setup-shell" aria-labelledby="welcomeTitle">
       <div class="hero-mark" aria-hidden="true">V</div>
-      <h1 id="welcomeTitle">Bring the whole pod into view.</h1>
+      <h1 id="welcomeTitle">Bring the whole table into view.</h1>
       <p class="lede">Track life, poison, commander damage, and table status without passing one phone around.</p>
       <div id="playActions" class="action-stack">
-        <button id="createPodButton" class="primary-action" type="button">Create a pod</button>
-        <button id="joinPodButton" class="primary-action" type="button">Join a pod</button>
+        <button id="createPodButton" class="primary-action" type="button">Create a table</button>
+        <button id="joinPodButton" class="primary-action" type="button">Join a table</button>
         <div class="home-account-actions">
           <p id="accountSignedInStatus" class="account-signed-in" hidden>Signed in</p>
+          <button id="myPodsButton" class="secondary-action" type="button" hidden>My Pods</button>
+          <button id="tournamentsButton" class="secondary-action" type="button" hidden>Tournaments</button>
           <button id="myGamesButton" class="secondary-action account-action" type="button" disabled>My profile</button>
           <button id="myDecksButton" class="secondary-action account-action" type="button" disabled>My decks</button>
           <button id="signInButton" class="text-action home-sign-in" type="button">Sign in for profile and decks</button>
@@ -55,7 +58,7 @@
 
     <section id="createView" class="view setup-shell" hidden aria-labelledby="createTitle">
       <button class="back-button" data-back type="button">← Back</button>
-      <p class="eyebrow">CREATE POD</p>
+      <p class="eyebrow">CREATE TABLE</p>
       <h1 id="createTitle">Set the table.</h1>
       <form id="createForm" class="setup-form">
         <section class="create-step" data-create-step="1">
@@ -89,7 +92,7 @@
             <legend>Players for game one</legend>
             <div id="playerCountChoices" class="segmented dense" role="radiogroup" aria-label="Number of players"></div>
           </fieldset>
-          <label class="select-field">Seats available in this pod
+          <label class="select-field">Seats available in this table
             <select id="seatCapacity" name="seatCapacity"><option value="2">Up to 2 players</option><option value="3">Up to 3 players</option><option value="4" selected>Up to 4 players</option><option value="5">Up to 5 players</option><option value="6">Up to 6 players</option><option value="7">Up to 7 players</option><option value="8">Up to 8 players</option></select>
             <small>Extra seats can join during next-game setup.</small>
           </label>
@@ -132,41 +135,41 @@
             <span><strong>Local simulation</strong><small>Switch active seats on one phone for testing.</small></span>
           </label>
           </div>
-          <div class="dialog-actions"><button class="secondary-action" data-create-back type="button">Back</button><button class="primary-action" type="submit">Create pod</button></div>
+          <div class="dialog-actions"><button class="secondary-action" data-create-back type="button">Back</button><button class="primary-action" type="submit">Create table</button></div>
         </section>
       </form>
     </section>
 
     <section id="joinView" class="view setup-shell" hidden aria-labelledby="joinTitle">
       <button class="back-button" data-back type="button">← Back</button>
-      <p class="eyebrow">JOIN POD</p>
-      <h1 id="joinTitle">Find your pod.</h1>
+      <p class="eyebrow">JOIN TABLE</p>
+      <h1 id="joinTitle">Find your table.</h1>
       <form id="joinCodeForm" class="setup-form">
-        <label class="select-field">Pod code
+        <label class="select-field">Table code
           <input id="podCode" type="text" inputmode="text" autocapitalize="characters" autocomplete="off" maxlength="6" placeholder="e.g. ARC7K2" required>
           <small>Ask the host for the six-character code.</small>
         </label>
         <p id="joinCodeStatus" class="field-help" aria-live="polite"></p>
         <button id="scanJoinQrButton" class="secondary-action" type="button">Scan join QR code</button>
-        <button class="primary-action" type="submit">Find pod</button>
+        <button class="primary-action" type="submit">Find table</button>
         <details class="recovery-details">
           <summary>Having trouble?</summary>
-          <p>This phone can restore its most recent host pod after a restart. No pod code needed.</p>
-          <button id="recoverPodButton" class="text-action" type="button">Recover my host pod</button>
+          <p>This phone can restore its most recent host table after a restart. No table code needed.</p>
+          <button id="recoverPodButton" class="text-action" type="button">Recover my host table</button>
         </details>
       </form>
     </section>
 
     <section id="joinSeatView" class="view setup-shell" hidden aria-labelledby="joinDetailsTitle">
-      <button id="changePodButton" class="back-button" type="button">← Change pod code</button>
-      <p class="eyebrow">POD READY</p>
+      <button id="changePodButton" class="back-button" type="button">← Change table code</button>
+      <p class="eyebrow">TABLE READY</p>
       <h2 id="joinDetailsTitle">Choose your seat.</h2>
       <form id="joinForm" class="setup-form">
         <section class="join-step" data-join-step="2">
           <p class="eyebrow">STEP 2 OF 4</p>
           <label class="select-field">Open seat
             <select id="joinSeat" disabled>
-              <option value="">Enter a pod code first</option>
+              <option value="">Enter a table code first</option>
             </select>
             <small>Only open seats are shown. A saved seat on this phone rejoins automatically.</small>
           </label>
@@ -202,7 +205,7 @@
     <section id="lobbyView" class="view setup-shell lobby-screen" hidden aria-labelledby="lobbyHeading">
       <p class="eyebrow">GATHER YOUR TABLE</p>
       <h1 id="lobbyHeading">Set up your game</h1>
-      <p class="setup-intro">Share the pod code, wait for your players, then start when everyone is ready.</p>
+      <p class="setup-intro">Share the table code, wait for your players, then start when everyone is ready.</p>
       <div id="lobbyMount"></div>
     </section>
 
@@ -211,9 +214,10 @@
         <p class="eyebrow">GAME COMPLETE</p>
         <h2 id="intermissionTitle">Set up the next game</h2>
         <p id="intermissionDetail">Choose your deck, then mark yourself ready.</p>
+        <button id="competitionIntermissionButton" class="secondary-action" type="button" hidden>Review group result</button>
         <div id="intermissionInvite" class="intermission-invite" hidden>
           <p>Invite another player</p>
-          <output id="intermissionInviteCode" class="lobby-invite-code" aria-label="Pod code"></output>
+          <output id="intermissionInviteCode" class="lobby-invite-code" aria-label="Table code"></output>
           <button id="copyIntermissionJoinLinkButton" class="secondary-action" type="button">Copy invite link</button>
           <button id="showIntermissionJoinQrButton" class="secondary-action" type="button">Show join QR</button>
         </div>
@@ -243,7 +247,7 @@
 
     <section id="gameView" class="view game-shell" hidden aria-labelledby="modeTitle">
       <div class="game-topline">
-        <div class="game-identity"><span id="podLabel" class="pod-label">LOCAL POD</span><span id="commanderIdentityName" class="commander-identity-name" hidden></span><span id="identityHeaderRail" class="identity-header-rail" aria-hidden="true"></span></div>
+        <div class="game-identity"><span id="podLabel" class="pod-label">LOCAL TABLE</span><span id="commanderIdentityName" class="commander-identity-name" hidden></span><span id="identityHeaderRail" class="identity-header-rail" aria-hidden="true"></span></div>
         <button id="moreButton" class="icon-button" type="button" aria-label="Game menu" aria-expanded="false">•••</button>
       </div>
 
@@ -258,8 +262,9 @@
       <p id="victoryNotice" class="victory-notice" aria-live="polite" hidden></p>
       <section id="lobbyControls" class="lobby-controls" aria-live="polite">
         <p id="lobbyStatus">Waiting for players to join.</p>
-        <p class="lobby-invite-help">Players: choose <strong>Join a pod</strong>, then enter this code.</p>
-        <output id="lobbyInviteCode" class="lobby-invite-code" aria-label="Pod code"></output>
+        <button id="competitionLobbyButton" class="secondary-action" type="button" hidden>Open group</button>
+        <p class="lobby-invite-help">Players: choose <strong>Join a table</strong>, then enter this code.</p>
+        <output id="lobbyInviteCode" class="lobby-invite-code" aria-label="Table code"></output>
         <button id="copyLobbyJoinLinkButton" class="primary-action" type="button">Copy invite link</button>
         <button id="showJoinQrButton" class="secondary-action" type="button">Show join QR</button>
         <div id="lobbyRoster" class="intermission-roster" hidden></div>
@@ -275,7 +280,7 @@
           <button id="randomFirstButton" class="secondary-action" type="button">Roll d20 for first player</button>
         </details>
       </section>
-      <section id="podStrip" class="pod-strip" aria-label="Pod life totals"></section>
+      <section id="podStrip" class="pod-strip" aria-label="Table life totals"></section>
       <section id="turnBanner" class="turn-banner" aria-live="polite">
         <p id="turnLabel">P1'S TURN</p>
         <strong id="turnPlayer">P1</strong>
@@ -343,6 +348,7 @@
         </div>
         <button id="coinTossButton" type="button">Flip a coin</button>
         <button id="showJoinQrMenuButton" type="button">Show join QR</button>
+        <button id="competitionContextButton" type="button" hidden>Pods &amp; tournaments</button>
         <label id="tableSkinMenuField" class="select-field" hidden>Table appearance <small>Default for everyone at this table. Players can choose their own appearance.</small><select id="tableSkinMenu"><option value="">Standard appearance</option></select></label>
         <label id="deviceAppearanceField" class="select-field device-appearance-field" hidden>My appearance <small>Only this device. It never changes the table or anyone else’s screen.</small><select id="deviceAppearanceChoice"></select></label>
         <button id="cardCameraButton" type="button">Card rules & interaction</button>
@@ -377,7 +383,7 @@
     <form method="dialog">
       <div class="dialog-mark" aria-hidden="true">↺</div>
       <h2 id="resetTitle">Reset this game?</h2>
-      <p id="resetDetail">Life returns to the starting total. All other counters and elimination markers return to zero. Pod setup stays the same.</p>
+      <p id="resetDetail">Life returns to the starting total. All other counters and elimination markers return to zero. Table setup stays the same.</p>
       <div class="dialog-actions">
         <button type="button" class="secondary-action" onclick="this.closest('dialog').close('cancel')">Cancel</button>
         <button id="confirmResetButton" value="confirm" class="danger-action">Reset game</button>
@@ -466,7 +472,7 @@
   <dialog id="commanderCountDialog">
     <form id="commanderCountForm" method="dialog">
       <h2>My commander setup</h2>
-      <p id="commanderCountDetail">Change your commander names for this pod. Your current game and seat stay in place.</p>
+      <p id="commanderCountDetail">Change your commander names for this table. Your current game and seat stay in place.</p>
       <fieldset class="choice-field">
         <legend class="sr-only">Commander count</legend>
         <div class="segmented commander-count-choice" role="radiogroup" aria-label="Commander count">
@@ -478,7 +484,7 @@
       <label id="commanderDeckField" class="select-field" hidden>My deck <small>(optional)</small><select id="commanderDeck"><option value="">No deck selected</option></select></label>
       <div class="dialog-actions">
         <button value="cancel" class="secondary-action">Cancel</button>
-        <button id="saveCommanderCountButton" value="confirm" class="primary-action">Update this pod</button>
+        <button id="saveCommanderCountButton" value="confirm" class="primary-action">Update this table</button>
       </div>
     </form>
   </dialog>
@@ -562,7 +568,7 @@
   <dialog id="clearPastTablesDialog" class="confirm-dialog" aria-labelledby="clearPastTablesTitle" aria-describedby="clearPastTablesDetail">
     <form method="dialog">
       <h2 id="clearPastTablesTitle">Clear past tables?</h2>
-      <p id="clearPastTablesDetail">This clears the saved table list on this device. You can still rejoin with a pod code or invite link.</p>
+      <p id="clearPastTablesDetail">This clears the saved table list on this device. You can still rejoin with a table code or invite link.</p>
       <p id="clearPastTablesError" role="alert" hidden></p>
       <div class="dialog-actions">
         <button class="secondary-action" type="submit" value="cancel" autofocus>Cancel</button>
@@ -653,7 +659,7 @@
   <dialog id="joinQrDialog" aria-labelledby="joinQrTitle">
     <form method="dialog">
       <h2 id="joinQrTitle">Join this table</h2>
-      <p>Scan with another phone. It opens this pod; each player still claims or reclaims their own seat.</p>
+      <p>Scan with another phone. It opens this table; each player still claims or reclaims their own seat.</p>
       <img id="joinQrImage" class="join-qr-image" alt="QR code for joining this table">
       <p id="joinQrCode" class="join-qr-code"></p>
       <div class="dialog-actions join-qr-actions"><button id="shareJoinLinkButton" type="button" class="primary-action">Share link</button><button id="copyJoinLinkButton" type="button" class="secondary-action">Copy link</button><button value="close" class="text-action">Done</button></div>
@@ -663,7 +669,7 @@
   <dialog id="joinQrScannerDialog" aria-labelledby="joinQrScannerTitle">
     <form method="dialog" class="join-qr-scanner-dialog">
       <h2 id="joinQrScannerTitle">Scan join QR code</h2>
-      <p>Point your rear camera at the host’s Fivefold Arc QR code. The code is read on this phone and opens the pod automatically.</p>
+      <p>Point your rear camera at the host’s Fivefold Arc QR code. The code is read on this phone and opens the table automatically.</p>
       <div class="join-qr-scanner-frame"><video id="joinQrScannerVideo" autoplay muted playsinline></video><span class="join-qr-scanner-guide" aria-hidden="true"></span></div>
       <p id="joinQrScannerStatus" class="field-help" role="status">Opening camera…</p>
       <label id="joinQrCameraFallback" class="secondary-action join-qr-camera-fallback" hidden><input id="joinQrCameraInput" type="file" accept="image/*" capture="environment">Take a QR photo</label>
@@ -707,7 +713,7 @@
       <p>This saves one bounded record for this real shared-phone game. It does not record developer checks or player identities.</p>
       <label class="select-field"><input name="realTable" type="checkbox" required> This was a real in-person table test</label>
       <label class="select-field">Phone mix<select name="deviceMix" required><option value="">Choose one</option><option value="mixed">iPhone and Android</option><option value="ios">iPhone only</option><option value="android">Android only</option><option value="unknown">Not recorded</option></select></label>
-      <label class="select-field">Would this pod use Fivefold Arc again?<select name="repeatUse" required><option value="">Choose one</option><option value="yes">Yes</option><option value="no">No</option><option value="unknown">Not asked</option></select></label>
+      <label class="select-field">Would this table use Fivefold Arc again?<select name="repeatUse" required><option value="">Choose one</option><option value="yes">Yes</option><option value="no">No</option><option value="unknown">Not asked</option></select></label>
       <label class="select-field">Did the app ever show the table incorrectly?<select name="dispute" required><option value="">Choose one</option><option value="none">No — it matched the table</option><option value="app">Yes — an app error caused it</option><option value="other">No — the disagreement was outside the app</option><option value="unknown">Not sure / not discussed</option></select></label>
       <fieldset><legend>Observed friction (up to three)</legend><label><input type="checkbox" name="issues" value="setup"> Setup</label><label><input type="checkbox" name="issues" value="reclaim"> Reclaim</label><label><input type="checkbox" name="issues" value="reconnect"> Reconnect</label><label><input type="checkbox" name="issues" value="authority"> Who can change what</label><label><input type="checkbox" name="issues" value="readability"> Readability</label><label><input type="checkbox" name="issues" value="turn-flow"> Turn flow</label><label><input type="checkbox" name="issues" value="other"> Other</label></fieldset>
       <label class="select-field">One concise observation (optional)<textarea name="note" maxlength="500" placeholder="What mattered most?"></textarea></label>
@@ -718,10 +724,16 @@
   <dialog id="savedPlaytestsDialog" aria-labelledby="savedPlaytestsTitle">
     <form method="dialog"><h2 id="savedPlaytestsTitle">Saved playtests</h2><div id="savedPlaytestsContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
   </dialog>
-  <dialog id="myGamesDialog" aria-labelledby="myGamesTitle"><form method="dialog"><h2 id="myGamesTitle">Sign in</h2><p id="myGamesStatus">Save your profile, games, and decks. Guest play is always available.</p><div id="myGamesContent" hidden></div><label id="accountPreferredNameField" class="select-field" hidden>Preferred name <small>(used to prefill new pods)</small><input id="accountPreferredName" maxlength="24" autocomplete="name"></label><label id="accountDefaultPlayerCountField" class="select-field" hidden>Default pod size<select id="accountDefaultPlayerCount"><option value="2">2 players</option><option value="3">3 players</option><option value="4">4 players</option><option value="5">5 players</option><option value="6">6 players</option><option value="7">7 players</option><option value="8">8 players</option></select></label><label id="accountDefaultRoundLimitField" class="select-field" hidden>Default round limit <small>(optional)</small><input id="accountDefaultRoundLimit" type="number" inputmode="numeric" min="1" max="999" placeholder="No limit"></label><label id="accountInterfaceStyleField" class="select-field" hidden>Interface style <small>(changes only this phone's gameplay presentation)</small><select id="accountInterfaceStyle"><option value="button">Button</option><option value="dial">Dial</option></select></label><label id="accountPersonalSkinField" class="select-field" hidden>My skin <small>(used only when you opt in below)</small><select id="accountPersonalSkin" aria-label="My skin"><option value="">Standard shared appearance</option></select></label><label id="accountUsePersonalSkinField" class="select-field" hidden><input id="accountUsePersonalSkin" type="checkbox"> Use my saved skin when I sign in <small>A choice in the game menu takes priority.</small></label><section id="accountSkinRewards" class="account-skin-rewards" aria-labelledby="accountSkinRewardsTitle" hidden><h3 id="accountSkinRewardsTitle">Achievement skins</h3><ul></ul></section><label id="emailSignInFields" class="select-field" hidden>Email<input id="accountEmail" type="email" autocomplete="email"><small>Password</small><input id="accountPassword" type="password" minlength="6" autocomplete="current-password"></label><div class="dialog-actions"><button id="myGamesSignInButton" type="button" class="primary-action">Sign in with Google</button><button id="emailSignInButton" type="button" class="secondary-action">Use email</button><button id="forgotPasswordButton" type="button" class="text-action" hidden>Forgot password?</button><button id="createAccountButton" type="button" class="text-action" hidden>Create account</button><button id="saveAccountPreferencesButton" type="button" class="text-action" hidden>Save preferences</button><button id="exportAccountButton" type="button" class="text-action" hidden>Export my data</button><button id="deleteAccountButton" type="button" class="text-action" hidden>Delete my account data</button><button id="signOutButton" type="button" class="text-action" hidden>Sign out</button><button value="close" class="secondary-action">Close</button></div></form></dialog>
+  <dialog id="myGamesDialog" aria-labelledby="myGamesTitle"><form method="dialog"><h2 id="myGamesTitle">Sign in</h2><p id="myGamesStatus">Save your profile, games, and decks. Guest play is always available.</p><div id="myGamesContent" hidden></div><label id="accountPreferredNameField" class="select-field" hidden>Preferred name <small>(used to prefill new tables)</small><input id="accountPreferredName" maxlength="24" autocomplete="name"></label><label id="accountDefaultPlayerCountField" class="select-field" hidden>Default Table size<select id="accountDefaultPlayerCount"><option value="2">2 players</option><option value="3">3 players</option><option value="4">4 players</option><option value="5">5 players</option><option value="6">6 players</option><option value="7">7 players</option><option value="8">8 players</option></select></label><label id="accountDefaultRoundLimitField" class="select-field" hidden>Default round limit <small>(optional)</small><input id="accountDefaultRoundLimit" type="number" inputmode="numeric" min="1" max="999" placeholder="No limit"></label><label id="accountInterfaceStyleField" class="select-field" hidden>Interface style <small>(changes only this phone's gameplay presentation)</small><select id="accountInterfaceStyle"><option value="button">Button</option><option value="dial">Dial</option></select></label><label id="accountPersonalSkinField" class="select-field" hidden>My skin <small>(used only when you opt in below)</small><select id="accountPersonalSkin" aria-label="My skin"><option value="">Standard shared appearance</option></select></label><label id="accountUsePersonalSkinField" class="select-field" hidden><input id="accountUsePersonalSkin" type="checkbox"> Use my saved skin when I sign in <small>A choice in the game menu takes priority.</small></label><section id="accountSkinRewards" class="account-skin-rewards" aria-labelledby="accountSkinRewardsTitle" hidden><h3 id="accountSkinRewardsTitle">Achievement skins</h3><ul></ul></section><label id="emailSignInFields" class="select-field" hidden>Email<input id="accountEmail" type="email" autocomplete="email"><small>Password</small><input id="accountPassword" type="password" minlength="6" autocomplete="current-password"></label><div class="dialog-actions"><button id="myGamesSignInButton" type="button" class="primary-action">Sign in with Google</button><button id="emailSignInButton" type="button" class="secondary-action">Use email</button><button id="forgotPasswordButton" type="button" class="text-action" hidden>Forgot password?</button><button id="createAccountButton" type="button" class="text-action" hidden>Create account</button><button id="saveAccountPreferencesButton" type="button" class="text-action" hidden>Save preferences</button><button id="exportAccountButton" type="button" class="text-action" hidden>Export my data</button><button id="deleteAccountButton" type="button" class="text-action" hidden>Delete my account data</button><button id="signOutButton" type="button" class="text-action" hidden>Sign out</button><button value="close" class="secondary-action">Close</button></div></form></dialog>
   <dialog id="myDecksDialog" aria-labelledby="myDecksTitle"><form method="dialog"><h2 id="myDecksTitle">My decks</h2><p id="myDecksStatus">Sign in to keep private deck notes.</p><section id="deckEditor" aria-labelledby="deckEditorTitle"><h3 id="deckEditorTitle">Add a deck</h3><fieldset class="choice-field"><legend>Commanders</legend><div class="segmented commander-count-choice"><label><input type="radio" name="deckCommanderCount" value="1" checked><span>1 commander</span></label><label><input type="radio" name="deckCommanderCount" value="2"><span>2 commanders</span></label></div></fieldset><label class="select-field">Commander 1<input id="deckCommanderName" maxlength="120" autocomplete="off" placeholder="e.g. Atraxa, Praetors’ Voice"></label><label id="deckCommanderNameTwoField" class="select-field" hidden>Commander 2<input id="deckCommanderNameTwo" maxlength="120" autocomplete="off" placeholder="e.g. Tymna the Weaver"></label><button id="findDeckColorsButton" type="button" class="secondary-action">Find commander colors</button><small id="deckCommanderStatus" class="commander-lookup-status" aria-live="polite">We’ll also check the commander colors when you save.</small><fieldset class="choice-field"><legend>Deck colors <small>(checked from your commander when found)</small></legend><label><input name="deckColors" type="checkbox" value="W"> White</label><label><input name="deckColors" type="checkbox" value="U"> Blue</label><label><input name="deckColors" type="checkbox" value="B"> Black</label><label><input name="deckColors" type="checkbox" value="R"> Red</label><label><input name="deckColors" type="checkbox" value="G"> Green</label></fieldset><label class="select-field">Deck name <small>(optional)</small><input id="deckName" maxlength="120" autocomplete="off" placeholder="e.g. Poison counters"></label><label class="select-field">Private notes <small>(optional)</small><textarea id="deckNotes" maxlength="500" placeholder="A reminder for yourself"></textarea></label><label class="select-field"><input id="deckFavorite" type="checkbox"> Favorite this deck</label><div class="dialog-actions"><button id="myDecksSignInButton" type="button" class="secondary-action">Sign in with Google</button><button id="createDeckButton" type="button" class="primary-action">Save deck</button><button value="close" class="secondary-action">Close</button></div></section><section id="savedDeckList" aria-labelledby="savedDeckListTitle"><h3 id="savedDeckListTitle">Saved decks</h3><div id="myDecksContent" hidden></div></section></form></dialog>
 
+  <dialog id="competitionDialog" class="competition-dialog" aria-labelledby="competitionTitle">
+    <header class="competition-header"><button id="competitionBack" type="button" class="text-action" hidden>Back</button><h2 id="competitionTitle" tabindex="-1">My Pods</h2><button id="competitionClose" type="button" class="text-action" aria-label="Close Pods and tournaments">Close</button></header>
+    <p id="competitionStatus" class="competition-status" role="status" aria-live="polite"></p>
+    <div id="competitionContent" class="competition-content"></div>
+  </dialog>
+  <p id="competitionSetupStatus" role="status" hidden></p>
   <script src="vendor/jsqr.js?v=1"></script>
-  <script type="module" src="app.js?v=295"></script>
+  <script type="module" src="app.js?v=299"></script>
 </body>
 </html>

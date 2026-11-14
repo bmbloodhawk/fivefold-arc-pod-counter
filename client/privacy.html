@@ -9,17 +9,23 @@
 </head>
 <body>
   <main class="setup-shell">
-    <p class="eyebrow">FIVEFOLD ARC · EFFECTIVE OCTOBER 8, 2026</p>
+    <p class="eyebrow">FIVEFOLD ARC · EFFECTIVE NOVEMBER 11, 2026</p>
     <h1>Privacy and your data</h1>
     <p class="lede">Guest play is available without an account. This page explains what this test build handles when you use it.</p>
     <section class="privacy-note">
       <h2>What you can use without an account</h2>
-      <p>You can play as a guest. A pod code, active-table state, player-entered display names, and table choices are used to run that shared table. Your seat recovery credential is stored on your device so that device can reclaim its seat; do not share it.</p>
+      <p>You can play as a guest. A Table code, active-table state, player-entered display names, and table choices are used to run that shared table. Your seat recovery credential is stored on your device so that device can reclaim its seat; do not share it.</p>
       <p>Active test tables are not a backup service and may be lost if the service restarts. Do not use the app to store information you cannot afford to lose.</p>
 
       <h2>If you sign in</h2>
       <p>Sign-in is provided through Firebase Authentication. Fivefold Arc uses an opaque account identifier for its saved-data service rather than retaining the sign-in provider’s subject identifier there. Firebase may process the sign-in information needed to authenticate you under its own terms and privacy practices.</p>
       <p>Your saved account data can include your preferred name, saved decks and private deck notes, personal appearance choices, saved game results, achievements, and any account preferences you choose to save. A saved game can include the table size, selected deck and commander names, recorded outcome, and a winner reason if one was entered.</p>
+
+      <h2>Optional private Pods and tournaments</h2>
+      <p>If these features are enabled, you can choose to join a private Pod while signed in. Active members can see its member names, ratings, confirmed finishing orders, rating changes, and completed-game history. Joining does not share your private decks, notes, or games played outside that Pod. Each Pod has separate ratings. Missing a night does not lower your rating.</p>
+      <p>A standalone tournament keeps entrant names, attendance, Table assignments, confirmed finishing orders, and event points. It does not update Pod ratings. Guests may enter without an account, using their own name or a host-recorded name. Guest entries are labelled and do not earn personal account awards. Use a nickname if you prefer.</p>
+      <p>Shared Pod results and numerical rating records are kept for the Pod's lifetime, including after a member leaves. Corrected orders retain their original result and revision history. Leaving removes your access; it does not remove the shared record. Private invite links and guest-access links grant access to their holder, so share them carefully. Event guest access is saved on that browser to let you return.</p>
+      <p>Pods and tournaments have no public player directory and do not collect location. Invite previews reveal the private group's name and inviter to someone holding the link.</p>
 
       <h2>Limited diagnostics and feedback</h2>
       <p>The test build may record limited technical diagnostics for a table, such as the app build, coarse viewport class, coarse device-memory class, visibility changes, and connection or rendering failure categories. It is designed not to record your IP address, user agent, screen capture, raw taps, card image, password, or full error message. Optional feedback is stored with the table context needed to investigate the report.</p>
@@ -31,6 +37,7 @@
 
       <h2>Deletion and export</h2>
       <p>From <strong>My profile</strong>, signed-in players can export their saved account data or choose <strong>Delete my account data</strong>. Deletion permanently removes saved games, decks, preferences, and the server-side link to the signed-in account. It cannot restore deleted information or erase records that a third-party sign-in provider keeps for authentication.</p>
+      <p>For Pods and tournaments, account-data deletion removes the name and account link associated with your member entries. Shared game results, points, and numerical rating records remain as <strong>Deleted member</strong>. Other participants may still recognize a game from its context; this is not a promise of anonymity. Guest entries are separate from accounts. The account export contains private saved-account data; shared group/event history is viewed through that group or event.</p>
 
       <h2>Children and changes</h2>
       <p>Fivefold Arc is not directed to children under 13. Do not create an account or submit personal information for a child under 13 through this test build. If data practices materially change, this page will be updated before the new collection is enabled.</p>

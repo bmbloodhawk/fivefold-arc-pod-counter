@@ -15,3 +15,9 @@ services:
         value: https://fivefold-arc-pod-counter-staging.onrender.com
       - key: APP_ENV
         value: staging
+      - key: COMPETITIONS_ENABLED
+        value: "true"
+      - key: MAX_LIVE_STREAMS_PER_IP
+        value: "128"
+      - key: MAX_LIVE_STREAMS_GLOBAL
+        value: "256"

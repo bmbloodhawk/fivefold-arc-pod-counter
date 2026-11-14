@@ -1,4 +1,7 @@
 import { readFileSync } from "node:fs";
+import { archivedSource, assertSameSource, publicLedgerValue, sourceArchive } from './competition-source.js';
+import { keyPageRequest, keyPageResult } from './database-key-page.js';
+import { KeyedWriteQueue } from './keyed-write-queue.js';
 
 // The ledger intentionally records only a compact, playtest-focused history.
 // It never receives reclaim tokens, connection identifiers, IP addresses, or
@@ -12,6 +15,8 @@ export class NullPlaytestLedger {
   note() {}
   fieldTest() {}
   async readRecovery() { return null; }
+  async readArchivedSource() { return null; }
+  async retrySourceArchive() { throw new Error('Completion archive is not configured.'); }
   async listArchive() { return []; }
   async listFeedback() { return []; }
   async listFieldTests() { return []; }
@@ -36,13 +41,23 @@ export class MemoryPlaytestLedger {
   }
 
   complete(record) {
-    this.records.push({ kind: "complete", record });
+    const previous = this.records.find(item => item.kind === 'complete' && item.record.gameId === record.gameId);
+    if (record._competitionSource && previous) return;
+    this.records.push({ kind: "complete", record: structuredClone(record) });
+    return { archived: true };
+  }
+  async readArchivedSource(gameId) { return archivedSource(this.records.find(item => item.kind === 'complete' && item.record.gameId === gameId)?.record); }
+  async retrySourceArchive(source, recap) {
+    const existing = await this.readArchivedSource(source.gameId);
+    if (existing) assertSameSource(existing, source);
+    else this.complete(recap || sourceArchive(source));
+    return { archived: true };
   }
   recovery(record) { this.records.push({ kind: "recovery", record }); }
   note(record) { this.records.push({ kind: "note", record }); }
   fieldTest(record) { this.records.push({ kind: "field_test", record }); }
   async readRecovery(roomCode) { return this.records.filter((item) => item.kind === "recovery" && item.record.roomCode === roomCode).at(-1)?.record ?? null; }
-  async listArchive() { return this.records.filter((item) => item.kind === "complete").map((item) => item.record); }
+  async listArchive() { return this.records.filter((item) => item.kind === "complete").map((item) => publicLedgerValue(item.record)); }
   async listFeedback() {
     const notes = new Map();
     const reviews = new Map();
@@ -78,25 +93,91 @@ export class MemoryPlaytestLedger {
 // Server-only Firebase writer. The service-account key is supplied through
 // Render environment variables and is never exposed to a phone or committed.
 export class FirebasePlaytestLedger {
-  constructor({ databaseUrl, clientEmail, privateKey, fetchImpl = fetch, now = () => Date.now(), logger = console } = {}) {
+  #recoveryWrites = new Map();
+  #diagnosticRepairs = new Map();
+
+  constructor({ databaseUrl, clientEmail, privateKey, fetchImpl = fetch, now = () => Date.now(), logger = console, writeConcurrency = 8 } = {}) {
     this.databaseUrl = String(databaseUrl || "").replace(/\/$/, "");
     this.clientEmail = clientEmail;
     this.privateKey = String(privateKey || "").replace(/\\n/g, "\n");
     this.fetch = fetchImpl;
     this.now = now;
     this.logger = logger;
-    this.pending = Promise.resolve();
+    this.writeQueue = new KeyedWriteQueue({ concurrency: writeConcurrency });
     this.token = null;
+    this.tokenRequest = null;
   }
 
-  record(event) { this.enqueue(`playtests/${encodeURIComponent(event.gameId)}/events/${event.sequence}.json`, event); }
-  checkpoint(checkpoint) { this.enqueue(`playtests/${encodeURIComponent(checkpoint.gameId)}/checkpoints/${checkpoint.sequence}.json`, checkpoint); }
-  complete(recap) { this.enqueue(`playtests/${encodeURIComponent(recap.gameId)}/recap.json`, recap); }
-  recovery(record) {
-    this.enqueue(`recovery/${encodeURIComponent(record.roomCode)}.json`, { ...record, savedAt: { ".sv": "timestamp" } });
+  record(event) { this.enqueue(`playtests/${encodeURIComponent(event.gameId)}/events/${event.sequence}.json`, event, roomWriteKey(event)); }
+  checkpoint(checkpoint) { this.enqueue(`playtests/${encodeURIComponent(checkpoint.gameId)}/checkpoints/${checkpoint.sequence}.json`, checkpoint, roomWriteKey(checkpoint)); }
+  complete(recap) {
+    const key = roomWriteKey(recap);
+    if (!recap._competitionSource) { this.enqueue(`playtests/${encodeURIComponent(recap.gameId)}/recap.json`, recap, key); return; }
+    const frozen = structuredClone(recap);
+    const attempt = this.writeQueue.enqueue(key, () => this.createSourceArchive(frozen)).then(() => ({ archived: true }));
+    attempt.catch(error => this.logger.error('Fivefold Arc completion archive write failed', error));
+    return attempt;
   }
-  note(note) { this.enqueue(`playtests/${encodeURIComponent(note.gameId)}/notes/${encodeURIComponent(note.noteId)}.json`, note); }
-  fieldTest(record) { this.enqueue(`field-tests/${encodeURIComponent(record.gameId)}.json`, record); }
+  async readArchivedSource(gameId) { return archivedSource(await this.read(`playtests/${encodeURIComponent(gameId)}/recap.json`)); }
+  async retrySourceArchive(source, recap) {
+    if (recap) assertSameSource(archivedSource(recap), source);
+    await this.createSourceArchive(recap || sourceArchive(source)); return { archived: true };
+  }
+  async createSourceArchive(recap) {
+    const token = await this.accessToken();
+    const url = `${this.databaseUrl}/playtests/${encodeURIComponent(recap.gameId)}/recap.json`;
+    const response = await this.fetch(url, { method: 'PUT', headers: {
+      authorization: `Bearer ${token}`, 'content-type': 'application/json', 'if-match': 'null_etag',
+    }, body: JSON.stringify(recap) });
+    await discardResponseBody(response);
+    if (response.status === 412) {
+      const existing = await this.readArchivedSource(recap.gameId);
+      if (!existing) throw Object.assign(new Error('Existing archive has no immutable source.'), { status: 409, code: 'SOURCE_CONFLICT' });
+      assertSameSource(existing, archivedSource(recap));
+    } else if (!response.ok) throw new Error(`Completion archive write failed (${response.status}).`);
+  }
+  recovery(record) {
+    const key = roomWriteKey(record), code = record.roomCode;
+    const path = `recovery/${encodeURIComponent(code)}.json`;
+    // Keep the same frozen bytes and FIFO lane for a retry after a storage failure.
+    const payload = JSON.stringify({ ...record, savedAt: { ".sv": "timestamp" } });
+    return this.#enqueueRecovery(code, path, payload, key);
+  }
+  // One durable operation retains the event and its matching recovery snapshot.
+  // Existing paths and the Table's FIFO lane are shared with standalone saves.
+  recordWithRecovery(event, record, checkpoint = null) {
+    const key = roomWriteKey(record), code = record.roomCode;
+    if (event?.roomCode !== code || !Number.isSafeInteger(event.sequence) || event.sequence < 1
+        || ![event.gameId, code].every(value => typeof value === 'string' && /^[A-Za-z0-9_-]+$/.test(value))
+        || (record.room?.code && record.room.code !== code)
+        || (record.room?.gameId && record.room.gameId !== event.gameId)
+        || (checkpoint && (checkpoint.roomCode !== code || checkpoint.gameId !== event.gameId || checkpoint.sequence !== event.sequence))) {
+      throw new TypeError('The event, recovery and checkpoint must match the same Table and game.');
+    }
+    const updates = { [`playtests/${event.gameId}/events/${event.sequence}`]: event };
+    if (checkpoint) updates[`playtests/${event.gameId}/checkpoints/${event.sequence}`] = checkpoint;
+    const diagnostics = JSON.stringify(updates);
+    updates[`recovery/${code}`] = { ...record, savedAt: { '.sv': 'timestamp' } };
+    return this.#enqueueRecovery(code, '.json', JSON.stringify(updates), key, 'PATCH', diagnostics);
+  }
+  #enqueueRecovery(code, path, payload, key, method = 'PUT', diagnosticPayload = null) {
+    const retry = () => {
+      const entry = { promise: this.#enqueuePayload(path, payload, key, method, diagnosticPayload), failed: false, retry };
+      this.#recoveryWrites.set(code, entry);
+      entry.promise.then(() => {
+        if (this.#recoveryWrites.get(code) === entry) this.#recoveryWrites.delete(code);
+      }, () => { entry.failed = true; });
+      return entry.promise;
+    };
+    return retry();
+  }
+  // Only this Table's existing recovery write: no global drain or extra normal I/O.
+  waitForRecovery(roomCode) {
+    const entry = this.#recoveryWrites.get(roomCode);
+    return entry?.failed ? entry.retry() : entry?.promise || Promise.resolve();
+  }
+  note(note) { this.enqueue(`playtests/${encodeURIComponent(note.gameId)}/notes/${encodeURIComponent(note.noteId)}.json`, note, roomWriteKey(note)); }
+  fieldTest(record) { this.enqueue(`field-tests/${encodeURIComponent(record.gameId)}.json`, record, roomWriteKey(record)); }
   async readRecovery(roomCode) { return this.read(`recovery/${encodeURIComponent(roomCode)}.json`); }
   async readRecoverySave(roomCode) {
     const record = await this.readRecovery(roomCode);
@@ -112,7 +193,7 @@ export class FirebasePlaytestLedger {
   }
   async listArchive() {
     const playtests = await this.read("playtests.json") || {};
-    return Object.values(playtests).map((item) => item.recap).filter(Boolean);
+    return Object.values(playtests).map((item) => publicLedgerValue(item.recap)).filter(Boolean);
   }
   async listFeedback() {
     const playtests = await this.read("playtests.json") || {};
@@ -148,7 +229,7 @@ export class FirebasePlaytestLedger {
   }
   async updateFeedback(review) { this.enqueue(`playtests/${encodeURIComponent(review.gameId)}/feedback/${encodeURIComponent(review.noteId)}.json`, review); await this.flush(); }
 
-  enqueue(path, body) {
+  enqueue(path, body, key = path) {
     const reportFailure = (error) => this.logger.error("Fivefold Arc playtest ledger write failed", error);
     // Recovery records can reference live counters. Capture the bytes before the queue waits.
     let payload;
@@ -158,17 +239,50 @@ export class FirebasePlaytestLedger {
       reportFailure(error);
       return;
     }
-    this.pending = this.pending.then(() => this.writeWithRetry(path, payload)).catch(reportFailure);
+    return this.#enqueuePayload(path, payload, key);
+  }
+
+  #enqueuePayload(path, payload, key, method = 'PUT', diagnosticPayload = null) {
+    const attempt = this.writeQueue.enqueue(key, async () => {
+      try {
+        // A job may have been admitted before an older diagnostic write failed.
+        // Drain at execution time, before acknowledging any newer snapshot.
+        const pending = this.#diagnosticRepairs.get(key);
+        if (pending) {
+          await this.writeWithRetry('.json', pending, 'PATCH');
+          this.#diagnosticRepairs.delete(key);
+        }
+        await this.writeWithRetry(path, payload, method);
+      }
+      catch (error) {
+        if (diagnosticPayload) {
+          // Keep repair inside the admitted FIFO job so flush includes it.
+          // Never include an old recovery snapshot in a diagnostic-only repair.
+          const pending = this.#diagnosticRepairs.get(key);
+          const repair = pending ? JSON.stringify({ ...JSON.parse(pending), ...JSON.parse(diagnosticPayload) }) : diagnosticPayload;
+          this.#diagnosticRepairs.set(key, repair);
+          try {
+            await this.writeWithRetry('.json', repair, 'PATCH');
+            this.#diagnosticRepairs.delete(key);
+          }
+          catch (repairError) { this.logger.error('Fivefold Arc diagnostic repair failed', repairError); }
+        }
+        throw error;
+      }
+    });
+    // Logging must not turn a failed save into a successful acknowledgement.
+    attempt.catch(error => this.logger.error("Fivefold Arc playtest ledger write failed", error));
+    return attempt;
   }
 
   // Wait for queued attempts. Firebase supplies the timestamp on the saved room record.
-  async flush() { await this.pending; }
+  async flush() { await this.writeQueue.flush(); }
 
-  async writeWithRetry(path, payload) {
+  async writeWithRetry(path, payload, method = 'PUT') {
     let lastError;
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
-        await this.#writePayload(path, payload);
+        await this.#writePayload(path, payload, method);
         return;
       } catch (error) {
         lastError = error;
@@ -181,14 +295,15 @@ export class FirebasePlaytestLedger {
     return this.#writePayload(path, JSON.stringify(body));
   }
 
-  async #writePayload(path, payload) {
+  async #writePayload(path, payload, method = 'PUT') {
     if (!this.databaseUrl || !this.clientEmail || !this.privateKey) throw new Error("Firebase playtest ledger is missing server credentials");
     const token = await this.accessToken();
     const response = await this.fetch(`${this.databaseUrl}/${path}`, {
-      method: "PUT",
+      method,
       headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
       body: payload,
     });
+    await discardResponseBody(response);
     if (!response.ok) throw new Error(`Firebase ledger write failed (${response.status})`);
   }
 
@@ -196,8 +311,17 @@ export class FirebasePlaytestLedger {
     if (!this.databaseUrl || !this.clientEmail || !this.privateKey) throw new Error("Firebase playtest ledger is missing server credentials");
     const token = await this.accessToken();
     const response = await this.fetch(`${this.databaseUrl}/${path}`, { headers: { authorization: `Bearer ${token}` } });
-    if (!response.ok) throw new Error(`Firebase ledger read failed (${response.status})`);
+    if (!response.ok) {
+      await discardResponseBody(response);
+      throw new Error(`Firebase ledger read failed (${response.status})`);
+    }
     return response.json();
+  }
+
+  // Fetch a bounded key range; never download a collection and paginate afterward.
+  async page(path, options) {
+    const request = keyPageRequest(path, options);
+    return keyPageResult(await this.read(request.path), request);
   }
 
   // Conditional PUT keeps a profile's save and its unlock decisions in one write.
@@ -206,7 +330,10 @@ export class FirebasePlaytestLedger {
     const url = this.databaseUrl + "/" + path;
     for (let attempt = 0; attempt < 8; attempt += 1) {
       const read = await this.fetch(url, { headers: { authorization: "Bearer " + token, "x-firebase-etag": "true" } });
-      if (!read.ok) throw new Error("Firebase conditional read failed (" + read.status + ")");
+      if (!read.ok) {
+        await discardResponseBody(read);
+        throw new Error("Firebase conditional read failed (" + read.status + ")");
+      }
       const current = await read.json();
       const next = change(current);
       if (next === current) return current;
@@ -217,6 +344,7 @@ export class FirebasePlaytestLedger {
         headers: { authorization: "Bearer " + token, "content-type": "application/json", "if-match": tag },
         body: JSON.stringify(next),
       });
+      await discardResponseBody(write);
       if (write.status === 412) continue;
       if (!write.ok) throw new Error("Firebase conditional write failed (" + write.status + ")");
       return next;
@@ -226,6 +354,11 @@ export class FirebasePlaytestLedger {
 
   async accessToken() {
     if (this.token && this.token.expiresAt > this.now() + 60_000) return this.token.value;
+    this.tokenRequest ??= this.exchangeToken().finally(() => { this.tokenRequest = null; });
+    return this.tokenRequest;
+  }
+
+  async exchangeToken() {
     const { createSign } = await import("node:crypto");
     const encoded = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
     const issuedAt = Math.floor(this.now() / 1000);
@@ -234,10 +367,30 @@ export class FirebasePlaytestLedger {
     const signer = createSign("RSA-SHA256"); signer.update(`${header}.${claim}`); signer.end();
     const assertion = `${header}.${claim}.${signer.sign(this.privateKey, "base64url")}`;
     const response = await this.fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion }).toString() });
-    if (!response.ok) throw new Error(`Firebase credential exchange failed (${response.status})`);
+    if (!response.ok) {
+      await discardResponseBody(response);
+      throw new Error(`Firebase credential exchange failed (${response.status})`);
+    }
     const payload = await response.json();
     this.token = { value: payload.access_token, expiresAt: this.now() + Number(payload.expires_in || 3600) * 1000 };
     return this.token.value;
+  }
+}
+
+function roomWriteKey(record) {
+  if (typeof record?.roomCode !== 'string' || !record.roomCode.trim()) throw new TypeError('A queued Table record requires a room code.');
+  return `room:${record.roomCode}`;
+}
+
+// Consume without buffering an unused JSON echo, including conflicts and errors.
+// Node fetch cannot rely on garbage collection to release connection resources.
+async function discardResponseBody(response) {
+  try {
+    if (response.body) for await (const chunk of response.body) { /* Discard each chunk. */ }
+  } catch (error) {
+    // A known HTTP failure still determines retry/verification behavior when its
+    // unused echo is truncated. A successful status with a broken body fails visibly.
+    if (response.ok) throw error;
   }
 }
 
@@ -256,6 +409,7 @@ function diagnosticDetail(gameId, playtest = {}) {
 }
 
 function diagnosticMetadata({ gameId, roomCode, recap = null, events = [], checkpoints = [], review = null }) {
+  recap = publicLedgerValue(recap);
   if (!roomCode && !events.length && !checkpoints.length && !recap) return null;
   const snapshots = checkpoints.map((checkpoint) => checkpoint.snapshot).filter(Boolean);
   const counterChanges = Object.fromEntries([...new Set(events.filter((event) => event.type === "counter_adjusted").map((event) => event.counter))].map((counter) => [counter, events.filter((event) => event.type === "counter_adjusted" && event.counter === counter).length]));
