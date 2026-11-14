@@ -31,7 +31,10 @@ export class CompetitionRecovery {
           await this.tables.reconcile(binding.kind, binding.id);
           const scope = await this.domain.readScope(binding.kind, binding.id);
           if (!Object.values(scope.tables).some(table => Object.values(table.captures).some(command => command.status === 'accepted'))) this.tables.pendingScopes.delete(key);
-        } catch (error) { this.logger.error('Competition capture remains pending', error.message); }
+        } catch (error) {
+          if (error.code === 'POD_DELETED') this.tables.pendingScopes.delete(key);
+          else this.logger.error('Competition capture remains pending', error.message);
+        }
         finally {
           if (this.domain.scopeStore && this.tables.pendingScopes.has(key)) {
             this.tables.pendingScopes.delete(key); this.tables.pendingScopes.set(key, binding);

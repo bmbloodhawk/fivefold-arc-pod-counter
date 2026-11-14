@@ -21,7 +21,7 @@ export function createCompetitionHub(adapter) {
   const entryGenerations = new Map();
   const beginEntry = id => { const generation = (entryGenerations.get(id) || 0) + 1; entryGenerations.set(id, generation); return generation; };
   let guests = readLocal(guestsKey) || {}, pending = readLocal(pendingKey, sessionStorage);
-  let enabled = false, back = null, afterSignIn = null, authEpoch = 0, observation = null, syncing = null;
+  let enabled = false, podDeletionEnabled = false, back = null, afterSignIn = null, authEpoch = 0, observation = null, syncing = null;
   let context = null, latestSnapshot = null, retrySetup = null, currentInvite = null, retryFragment = null;
   let navigationEpoch = 0, contextAttempt = null;
   const roomScopes = new Map(Object.entries(readLocal(roomScopesKey, sessionStorage) || {}));
@@ -187,6 +187,13 @@ export function createCompetitionHub(adapter) {
         draw('Rename Pod', `<form id="renamePodForm">${field('name', 'Pod name', `required maxlength="80" value="${escape(pod.name)}"`)}<button type="submit" class="primary-action">Save name</button></form>`, () => podMenu(pod));
         submit('#renamePodForm', async form => { await request(route('pod', pod.id, 'members'), { body: { action: 'rename', name: form.get('name') } }); await podScreen(pod.id); });
       });
+      if (podDeletionEnabled) {
+        content.querySelector('.competition-actions').insertAdjacentHTML('beforeend', '<button type="button" id="podDelete" class="danger-action">Delete Pod</button>');
+        bind('#podDelete', async () => {
+          await request(route('pod', pod.id, 'reconcile'), { body: {} });
+          deletePodForm(pod);
+        });
+      }
     }
     content.querySelector('.competition-actions').insertAdjacentHTML('beforeend', button('podInvites', 'Manage invites'));
     bind('#podInvite', () => inviteScreen('pod', pod.id)); bind('#podInvites', () => issuedInvitesScreen('pod', pod.id));
@@ -200,6 +207,22 @@ export function createCompetitionHub(adapter) {
     content.querySelectorAll('[data-remove]').forEach(node => node.addEventListener('click', () => void run(() => confirmScreen('Remove member?', 'They will lose Pod access and need a new admin invite to return. Recorded results stay.', async () => {
       await request(route('pod', pod.id, 'members'), { body: { action: 'remove', targetId: node.dataset.remove } }); await podScreen(pod.id);
     }, () => podMenu(pod)), node)));
+  }
+  function deletePodForm(pod) {
+    draw('Delete Pod?', `<p>Permanently delete <strong>${escape(pod.name)}</strong> for everyone?</p>
+      <p>This removes its memberships, invites, shared game history and ratings. Personal game history stays. This cannot be undone.</p>
+      <form id="deletePodForm">${field('confirmationName', 'Type the Pod name to confirm', 'required maxlength="80" autocomplete="off" spellcheck="false"')}
+      <button type="submit" id="confirmPodDelete" class="danger-action" disabled>Delete Pod</button></form>`, () => podScreen(pod.id));
+    const input = content.querySelector('[name="confirmationName"]'), confirm = content.querySelector('#confirmPodDelete');
+    input.addEventListener('input', () => { confirm.disabled = input.value.trim() !== pod.name; });
+    submit('#deletePodForm', async form => {
+      input.disabled = true;
+      try {
+        await request(route('pod', pod.id), { method: 'DELETE', body: { confirmationName: form.get('confirmationName') } });
+        context = null; observation = null;
+        await home('pod'); message('Pod deleted.');
+      } finally { input.disabled = false; }
+    });
   }
   function confirmScreen(title, explanation, action, previous) {
     draw(title, `<p>${escape(explanation)}</p>${button('hubConfirm', 'Confirm', true)}`, previous); bind('#hubConfirm', action);
@@ -516,7 +539,8 @@ export function createCompetitionHub(adapter) {
     const navigation = navigationEpoch;
     const fragment = parseCompetitionFragment(location.hash) || retryFragment;
     try {
-      enabled = (await request('config', { noAccount: true, viewAware: false })).enabled;
+      const config = await request('config', { noAccount: true, viewAware: false });
+      enabled = config.enabled; podDeletionEnabled = config.podDeletionEnabled === true;
       document.querySelector('#myPodsButton').hidden = !enabled; document.querySelector('#tournamentsButton').hidden = !enabled;
       if (navigation !== navigationEpoch) return;
       if (!enabled) { if (fragment) draw('Invites unavailable', '<p>Pods and tournaments are not enabled on this server.</p>'); return; }

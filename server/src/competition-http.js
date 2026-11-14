@@ -3,11 +3,12 @@ import { competitionError } from './competitions.js';
 
 // Bearer account tokens or event-scoped guest capabilities; never ambient cookies.
 // Invite secrets use POST bodies and browser fragments, not logged URL queries.
-export async function competitionRoute({ req, url, readBody, account, domain, tables, tournaments, connectionId }) {
+export async function competitionRoute({ req, url, readBody, account, domain, tables, tournaments, connectionId, appEnv }) {
   if (!url.pathname.startsWith('/api/competitions/')) return null;
   const path = url.pathname.slice('/api/competitions/'.length).split('/');
   const method = req.method;
-  if (method === 'GET' && path[0] === 'config') return { status: 200, data: { enabled: Boolean(domain) } };
+  const podDeletionEnabled = Boolean(domain) && appEnv === 'staging' && !domain.identityStore && !domain.scopeStore;
+  if (method === 'GET' && path[0] === 'config') return { status: 200, data: { enabled: Boolean(domain), podDeletionEnabled } };
   if (!domain) throw competitionError('Pods and tournaments are not enabled on this server.', 503, 'COMPETITIONS_DISABLED');
   const signed = () => account(req);
   const auth = async () => req.headers['x-event-token'] ? { guestToken: String(req.headers['x-event-token']) }
@@ -40,6 +41,9 @@ export async function competitionRoute({ req, url, readBody, account, domain, ta
   }
   const [kind, id, action, detail, subaction] = path;
   if (!['pod', 'tournament'].includes(kind) || !id) throw competitionError('Unknown competition route.', 404);
+  if (kind === 'pod' && path.length === 2 && method === 'DELETE' && podDeletionEnabled) {
+    return ok(await domain.deletePod(await signed(), id, await readBody()));
+  }
   if (!action && method === 'GET') return ok(kind === 'pod' ? await domain.getPod(await signed(), id) : await tournaments.get(await auth(), id));
   if (action === 'invites' && method === 'GET') return ok(await domain.listInvites(await signed(), kind, id));
   if (action === 'invites' && method === 'POST') return ok(detail && subaction === 'revoke'

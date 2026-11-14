@@ -2044,7 +2044,7 @@ export function createRealtimeServer(options = {}) {
       parts = url.pathname.split("/").filter(Boolean);
       const connectionId = req.headers["x-connection-id"];
       if (url.pathname.startsWith('/api/competitions/')) {
-        const response = await competitionRoute({ req, url, readBody: () => readJson(req), account, domain: competitions, tables: competitionTables, tournaments, connectionId });
+        const response = await competitionRoute({ req, url, readBody: () => readJson(req), account, domain: competitions, tables: competitionTables, tournaments, connectionId, appEnv });
         return await roomJson(res, response.status, response.data);
       }
       if (req.method === "GET" && url.pathname === "/health") return json(res, 200, {

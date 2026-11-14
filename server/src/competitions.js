@@ -4,7 +4,7 @@ import { cleanText, competitionError, competitionId as requiredId, digest } from
 import { CompetitionDirectoryView } from './competition-directory-view.js';
 import { CompetitionTableClaims } from './competition-table-claims.js';
 export { cleanText, competitionError, digest } from './competition-values.js';
-const blankDirectory = () => ({ schemaVersion: 1, accounts: {}, identities: {}, closed: {}, aliases: {}, scopes: {}, tables: {} });
+const blankDirectory = () => ({ schemaVersion: 1, accounts: {}, identities: {}, closed: {}, deletedScopes: {}, aliases: {}, scopes: {}, tables: {} });
 const normalizeDirectory = input => ({ ...blankDirectory(), ...(input || {}) });
 const array = value => Array.isArray(value) ? value.filter(item => item != null) : Object.values(value || {});
 function normalizeScope(input) {
@@ -104,6 +104,7 @@ export class Competitions {
     if (this.identityStore) return this.identityStore.setAlias(identityId, scopeId, participantId, name);
     const text = cleanText(name, 'Your name');
     await this.changeDirectory(directory => {
+      if (directory.deletedScopes[scopeId]) throw competitionError('That Pod was deleted.', 404, 'POD_DELETED');
       if (!directory.identities[identityId]) throw competitionError('Account data was removed.', 403, 'IDENTITY_CLOSED');
       directory.aliases[`${scopeId}_${participantId}`] = { identityId, name: text };
       (directory.scopes[identityId] ??= {})[scopeId] = true;
@@ -120,6 +121,7 @@ export class Competitions {
       return Promise.all(names.map(({ participantId, identityId, name }) => this.directoryView.setGuestAlias(scopeId, participantId, name, { identityId, preserveExisting })));
     }
     return this.changeDirectory(directory => {
+      if (directory.deletedScopes[scopeId]) throw competitionError('That Pod was deleted.', 404, 'POD_DELETED');
       if (actorIdentityId && !directory.identities[actorIdentityId]) throw competitionError('Account data was removed.', 403, 'IDENTITY_CLOSED');
       for (const { participantId, identityId, name } of names) {
         const key = `${scopeId}_${participantId}`;
@@ -145,6 +147,7 @@ export class Competitions {
     }
     await this.changeDirectory(directory => {
       guard?.();
+      if (directory.deletedScopes[binding.id]) throw competitionError('That Pod was deleted.', 404, 'POD_DELETED');
       const current = directory.tables[key];
       if (current && (current.kind !== binding.kind || current.id !== binding.id)) throw competitionError('This Table already belongs to another competition.', 409, 'TABLE_ALREADY_LINKED');
       if (actorIdentityId && !directory.identities[actorIdentityId]) throw competitionError('Account data was removed.', 403);
@@ -158,6 +161,10 @@ export class Competitions {
   async readScope(kind, id) {
     if (!['pod', 'tournament'].includes(kind)) throw competitionError('Unknown competition kind.');
     const scope = await this.store.read(scopePath(kind, requiredId(id)));
+    if (kind === 'pod' && scope?.deleted) {
+      if (!this.identityStore && !this.scopeStore) await this.#finishPodDeletion(id);
+      throw competitionError('That Pod was deleted.', 404, 'POD_DELETED');
+    }
     if (!scope && this.scopeStore) return normalizeScope(await this.scopeStore.read(kind, id));
     if (!scope) throw competitionError('That private group or event is unavailable.', 404, 'COMPETITION_NOT_FOUND');
     return normalizeScope(scope);
@@ -173,6 +180,7 @@ export class Competitions {
         }
         return normalizeScope(await this.store.update(path, current => {
           if (!current) throw competitionError('That private group or event is unavailable.', 404, 'COMPETITION_NOT_FOUND');
+          if (current.deleted) throw competitionError('That Pod was deleted.', 404, 'POD_DELETED');
           const next = normalizeScope(current);
           if (change(next) === false) return current;
           next.version++;
@@ -245,6 +253,43 @@ export class Competitions {
     const scope = await this.readScope('pod', id); const directory = await this.directory(scope, accountId);
     if (!directory.identities[identityId]) throw competitionError('Account data was removed.', 403);
     return this.podDto(scope, directory, identityId);
+  }
+  async deletePod(accountId, id, input = {}) {
+    if (this.identityStore || this.scopeStore) throw competitionError('Pod deletion is not available with this storage format.', 501);
+    if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some(key => key !== 'confirmationName')) {
+      throw competitionError('Confirm deletion with the current Pod name.');
+    }
+    const confirmationName = cleanText(input.confirmationName, 'Pod name');
+    const identityId = await this.identity(accountId);
+    await this.store.update(scopePath('pod', requiredId(id)), current => {
+      if (!current) throw competitionError('That private group or event is unavailable.', 404, 'COMPETITION_NOT_FOUND');
+      if (current.deleted) return current;
+      const scope = normalizeScope(current);
+      this.member(scope, identityId, { admin: true });
+      if (confirmationName !== scope.name) throw competitionError('Type the current Pod name to confirm deletion.');
+      if (Object.values(scope.tables).some(table => Object.values(table.captures).some(command => command.status === 'accepted'))) {
+        throw competitionError('Finish active Pod games before deleting. If a game just finished, open its history and try again.', 409, 'POD_GAME_ACTIVE');
+      }
+      // Keep only a nonpersonal marker so stale writers cannot restore the Pod.
+      return { schemaVersion: 1, id, kind: 'pod', deleted: true, deletedAt: this.now() };
+    });
+    await this.#finishPodDeletion(id);
+    return { deleted: true };
+  }
+  async #finishPodDeletion(id) {
+    // Called only after reading/writing a durable deletion marker. A later list
+    // read can finish this step if the process stopped between the two writes.
+    await this.store.update(directoryPath, current => {
+      if (current?.deletedScopes?.[id]) return current;
+      const directory = structuredClone(normalizeDirectory(current));
+      directory.deletedScopes[id] = true;
+      for (const key of Object.keys(directory.aliases)) if (key.startsWith(id + '_')) delete directory.aliases[key];
+      for (const memberships of Object.values(directory.scopes)) delete memberships[id];
+      for (const [key, binding] of Object.entries(directory.tables)) {
+        if (binding.kind === 'pod' && binding.id === id) delete directory.tables[key];
+      }
+      return directory;
+    });
   }
   async list(accountId) {
     // First-time account users have no memberships; reads never create an identity.
