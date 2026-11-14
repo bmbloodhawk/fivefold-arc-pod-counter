@@ -8,7 +8,8 @@ export async function competitionRoute({ req, url, readBody, account, domain, ta
   const path = url.pathname.slice('/api/competitions/'.length).split('/');
   const method = req.method;
   const podDeletionEnabled = Boolean(domain) && appEnv === 'staging' && !domain.identityStore && !domain.scopeStore;
-  if (method === 'GET' && path[0] === 'config') return { status: 200, data: { enabled: Boolean(domain), podDeletionEnabled } };
+  if (method === 'GET' && path[0] === 'config') return { status: 200, data: { enabled: Boolean(domain), podDeletionEnabled,
+    podInviteScannerEnabled: Boolean(domain) && appEnv === 'staging' } };
   if (!domain) throw competitionError('Pods and tournaments are not enabled on this server.', 503, 'COMPETITIONS_DISABLED');
   const signed = () => account(req);
   const auth = async () => req.headers['x-event-token'] ? { guestToken: String(req.headers['x-event-token']) }

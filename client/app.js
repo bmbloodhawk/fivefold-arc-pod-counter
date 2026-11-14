@@ -5,10 +5,10 @@ import { connectionPresentation } from './connection-state.js?v=1';
 import { createInteractionAdvice } from './card-interaction-advice.js?v=1';
 import { commanderFallbackLabel } from './commander-source-flow.js?v=1';
 import { currentAccountToken, emailAccountToken, googleAccountToken, restoredAccountToken, sendAccountPasswordReset, signOutAccount } from './account-auth.js?v=6';
-import { JoinQrScanner } from './join-qr-scanner.js?v=4';
+import { JoinQrScanner } from './join-qr-scanner.js?v=5';
 import { GameWakeLock } from './game-wake-lock.js?v=1';
 import { applyCollectionVisual } from './collection-visual.js?v=4';
-import { createCompetitionHub } from './competition-ui.js?v=4';
+import { createCompetitionHub } from './competition-ui.js?v=5';
 
 const appearancePreviewMode = new URLSearchParams(location.search).get('appearance-preview') === '1';
 const appearanceParams = new URLSearchParams(location.search);

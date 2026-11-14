@@ -39,7 +39,7 @@ async function readImagePixels(file) {
 }
 
 // The decoder runs entirely on the current video frame. Nothing from the
-// camera is uploaded or retained after a matching pod code is found.
+// camera is uploaded or retained after a matching QR value is found.
 export class JoinQrScanner {
   constructor({
     mediaDevices = globalThis.navigator?.mediaDevices,
@@ -47,44 +47,65 @@ export class JoinQrScanner {
     requestFrame = callback => globalThis.requestAnimationFrame(callback),
     cancelFrame = frame => globalThis.cancelAnimationFrame(frame),
     imageReader = readImagePixels,
+    parseCode = podCodeFromQr,
+    fallbackText = 'Enter the six-character pod code instead.',
   } = {}) {
     this.mediaDevices = mediaDevices;
     this.decoder = decoder;
     this.requestFrame = requestFrame;
     this.cancelFrame = cancelFrame;
     this.imageReader = imageReader;
+    this.parseCode = parseCode;
+    this.fallbackText = fallbackText;
     this.stream = null;
     this.frame = null;
     this.canvas = null;
+    this.generation = 0;
+    this.release = null;
   }
 
   async start(video, onCode) {
-    if (!this.mediaDevices?.getUserMedia) throw new Error('This browser cannot open the camera. Enter the six-character pod code instead.');
-    if (typeof this.decoder !== 'function') throw new Error('QR scanning is not available here. Enter the six-character pod code instead.');
     this.stop(video);
+    if (!this.mediaDevices?.getUserMedia) throw new Error(`This browser cannot open the camera. ${this.fallbackText}`);
+    if (typeof this.decoder !== 'function') throw new Error(`QR scanning is not available here. ${this.fallbackText}`);
+    const generation = this.generation;
+    const current = () => generation === this.generation;
+    let stream, released = false;
+    const release = () => {
+      if (!stream || released) return;
+      released = true;
+      stream.getTracks?.().forEach(track => track.stop());
+      if (video.srcObject === stream) video.srcObject = null;
+      if (this.stream === stream) this.stream = null;
+    };
+    this.release = release;
     try {
-      this.stream = await this.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' } } });
-    } catch (error) {
-      // Some current Android browser builds reject a facing-mode constraint
-      // before opening the camera. Retrying without it still lets the player
-      // select a camera in the browser's normal way.
-      if (!canRetryWithGenericCamera(error)) throw error;
-      this.stream = await this.mediaDevices.getUserMedia({ audio: false, video: true });
-    }
-    // iOS Safari treats these as video-element properties, not just markup
-    // attributes, when a camera stream is attached after opening a dialog.
-    video.muted = true;
-    video.autoplay = true;
-    video.playsInline = true;
-    video.srcObject = this.stream;
-    try {
+      try {
+        stream = await this.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' } } });
+      } catch (error) {
+        // Retry unsupported facing-mode constraints only while this scan is open.
+        if (!current()) return;
+        if (!canRetryWithGenericCamera(error)) throw error;
+        stream = await this.mediaDevices.getUserMedia({ audio: false, video: true });
+      }
+      if (!current()) { release(); return; }
+      this.stream = stream;
+      // iOS Safari requires these properties when a camera opens in a dialog.
+      video.muted = true;
+      video.autoplay = true;
+      video.playsInline = true;
+      video.srcObject = stream;
       await video.play?.();
+      if (!current()) { release(); return; }
     } catch (error) {
+      release();
+      if (!current()) return;
       this.stop(video);
       throw error;
     }
     const scan = () => {
-      if (!this.stream) return;
+      if (!current() || this.stream !== stream) return;
+      this.frame = null;
       if (video.videoWidth && video.videoHeight) {
         this.canvas ||= document.createElement('canvas');
         this.canvas.width = video.videoWidth;
@@ -93,28 +114,32 @@ export class JoinQrScanner {
           const context = this.canvas.getContext('2d', { willReadFrequently: true });
           context.drawImage(video, 0, 0, this.canvas.width, this.canvas.height);
           const result = this.decoder(context.getImageData(0, 0, this.canvas.width, this.canvas.height).data, this.canvas.width, this.canvas.height, { inversionAttempts: 'dontInvert' });
-          const code = podCodeFromQr(result?.data);
-          if (code) { onCode(code); return; }
+          const code = this.parseCode(result?.data);
+          if (code) { this.stop(video); onCode(code); return; }
         } catch {
           // A partially-ready video frame can be unreadable; try the next one.
         }
       }
-      this.frame = this.requestFrame(scan);
+      if (current()) this.frame = this.requestFrame(scan);
     };
     this.frame = this.requestFrame(scan);
   }
 
   async scanImageFile(file) {
-    if (typeof this.decoder !== 'function') throw new Error('QR scanning is not available here. Enter the six-character pod code instead.');
+    if (typeof this.decoder !== 'function') throw new Error(`QR scanning is not available here. ${this.fallbackText}`);
+    const generation = this.generation;
     const { data, width, height } = await this.imageReader(file);
-    return podCodeFromQr(this.decoder(data, width, height, { inversionAttempts: 'attemptBoth' })?.data);
+    if (generation !== this.generation) return null;
+    return this.parseCode(this.decoder(data, width, height, { inversionAttempts: 'attemptBoth' })?.data);
   }
 
-  stop(video) {
+  stop(_video) {
+    this.generation++;
     if (this.frame !== null) this.cancelFrame?.(this.frame);
     this.frame = null;
-    this.stream?.getTracks?.().forEach(track => track.stop());
-    this.stream = null;
-    if (video) video.srcObject = null;
+    // Each release closure owns its stream and video. Late completion from an
+    // older start cannot detach or stop a newer camera session.
+    this.release?.();
+    this.release = null;
   }
 }

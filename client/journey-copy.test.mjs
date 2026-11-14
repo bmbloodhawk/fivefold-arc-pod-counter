@@ -698,7 +698,7 @@ test('joining a pod can use an on-device QR scan without changing the join flow'
   assert.match(html, /id="joinQrScannerVideo"[^>]*playsinline/);
   assert.match(html, /id="joinQrCameraFallback"[^>]*hidden/);
   assert.match(html, /id="joinQrCameraInput"[^>]*accept="image\/\*"[^>]*capture="environment"/);
-  assert.match(app, /import \{ JoinQrScanner \} from '\.\/join-qr-scanner\.js\?v=4';/);
+  assert.match(app, /import \{ JoinQrScanner \} from '\.\/join-qr-scanner\.js\?v=5';/);
   assert.match(app, /dom\.joinQrCameraInput\.addEventListener\('change', event => void readJoinQrCameraPhoto\(event\)\);/);
   assert.match(app, /await openJoinCode\(code\);/);
   assert.match(app, /dom\.joinQrScannerDialog\.addEventListener\('close', stopJoinQrScanner\);/);

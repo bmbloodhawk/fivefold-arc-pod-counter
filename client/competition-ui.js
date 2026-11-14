@@ -1,4 +1,6 @@
 import { orderFromChoices, finishingChoices, localDateKey, parseCompetitionFragment, setupObservationKey, contextObservationKey } from './competition-model.mjs?v=1';
+import { JoinQrScanner } from './join-qr-scanner.js?v=5';
+import { podInviteFromQr } from './pod-invite-qr.mjs?v=1';
 
 const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
 const button = (id, label, primary = false) => `<button type="button" id="${id}" class="${primary ? 'primary-action' : 'secondary-action'}">${escape(label)}</button>`;
@@ -21,7 +23,14 @@ export function createCompetitionHub(adapter) {
   const entryGenerations = new Map();
   const beginEntry = id => { const generation = (entryGenerations.get(id) || 0) + 1; entryGenerations.set(id, generation); return generation; };
   let guests = readLocal(guestsKey) || {}, pending = readLocal(pendingKey, sessionStorage);
-  let enabled = false, podDeletionEnabled = false, back = null, afterSignIn = null, authEpoch = 0, observation = null, syncing = null;
+  let enabled = false, podDeletionEnabled = false, podInviteScannerEnabled = false, back = null, afterSignIn = null, authEpoch = 0, observation = null, syncing = null;
+  let inviteScanner = null, inviteScanVideo = null, inviteScanEpoch = 0;
+  const stopInviteScanner = () => {
+    inviteScanEpoch++; inviteScanner?.stop(inviteScanVideo); inviteScanVideo = null;
+    const scanButton = content.querySelector('#podInviteScan'); if (scanButton) scanButton.disabled = false;
+    const panel = content.querySelector('#podInviteScanPanel');
+    if (panel && !panel.hidden) { panel.hidden = true; content.querySelector('#podInviteScanStatus').textContent = 'Camera stopped. Scan again, choose a QR photo, or paste the invite link.'; }
+  };
   let context = null, latestSnapshot = null, retrySetup = null, currentInvite = null, retryFragment = null;
   let navigationEpoch = 0, contextAttempt = null;
   const roomScopes = new Map(Object.entries(readLocal(roomScopesKey, sessionStorage) || {}));
@@ -29,8 +38,9 @@ export function createCompetitionHub(adapter) {
   const session = () => adapter.getSession();
   const message = text => { status.textContent = text; };
   const open = () => { if (!dialog.open) dialog.showModal(); };
-  const close = () => { navigationEpoch++; dialog.close(); };
+  const close = () => { stopInviteScanner(); navigationEpoch++; dialog.close(); };
   const draw = (title, html, previous = null) => {
+    stopInviteScanner();
     currentInvite = null;
     content.removeAttribute('aria-busy');
     heading.textContent = title; content.innerHTML = html; message(''); back = previous;
@@ -38,6 +48,7 @@ export function createCompetitionHub(adapter) {
   };
   const run = async (action, target) => {
     if (target?.disabled) return;
+    stopInviteScanner();
     const navigation = ++navigationEpoch;
     const initiallyClosed = !dialog.open;
     if (initiallyClosed) draw('Loading…', '<p>Opening your groups and events…</p>');
@@ -127,14 +138,51 @@ export function createCompetitionHub(adapter) {
     });
   }
   function inviteForm() {
-    draw('Use an invite', `<form id="hubInviteForm"><label class="select-field">Invite link or code<textarea name="invite" required rows="3" autocomplete="off" spellcheck="false"></textarea></label><button class="primary-action" type="submit">Preview invite</button></form><p class="competition-help">Get a private link or QR from a member or event host. There is no public directory.</p>`, () => home());
+    draw('Use an invite', `${podInviteScannerEnabled ? `<div class="competition-actions">${button('podInviteScan', 'Scan Pod QR')}${button('podInvitePhotoButton', 'Choose QR photo')}</div>
+      <input id="podInvitePhoto" type="file" accept="image/*" capture="environment" hidden>
+      <section id="podInviteScanPanel" hidden aria-label="Pod QR scanner"><div class="join-qr-scanner-frame"><video id="podInviteScanVideo" autoplay muted playsinline aria-label="Pod QR camera preview"></video></div>${button('podInviteScanStop', 'Stop camera')}</section>
+      <p id="podInviteScanStatus" class="competition-help" role="status" aria-live="polite">Scan a member’s Pod invite. Camera images stay on this device.</p>` : ''}
+      <form id="hubInviteForm"><label class="select-field">Invite link or code<textarea name="invite" required rows="3" autocomplete="off" spellcheck="false"></textarea></label><button class="primary-action" type="submit">Preview invite</button></form><p class="competition-help">Get a private link or QR from a member or event host. There is no public directory.</p>`, () => home());
+    if (podInviteScannerEnabled) bindInviteScanner();
     submit('#hubInviteForm', form => {
       let value = String(form.get('invite')).trim();
       if (value.includes('#')) value = parseCompetitionFragment(value.slice(value.indexOf('#')))?.invite || '';
       return invitePreview(value);
     });
   }
+  function bindInviteScanner() {
+    const form=content.querySelector('#hubInviteForm'), panel=content.querySelector('#podInviteScanPanel');
+    const video=content.querySelector('#podInviteScanVideo'), scan=content.querySelector('#podInviteScan');
+    const status=content.querySelector('#podInviteScanStatus'), photo=content.querySelector('#podInvitePhoto');
+    inviteScanner ||= new JoinQrScanner({parseCode:value=>podInviteFromQr(value,location.origin),fallbackText:'Paste the invite link instead.'});
+    const current=epoch=>epoch===inviteScanEpoch && dialog.open && form.isConnected;
+    const preview=invite=>{stopInviteScanner();panel.hidden=true;status.textContent='QR read. You can scan another QR or paste a link.';void run(()=>invitePreview(invite));};
+    scan.addEventListener('click',async()=>{
+      stopInviteScanner(); const epoch=inviteScanEpoch; inviteScanVideo=video;
+      panel.hidden=false; scan.disabled=true; status.textContent='Opening the rear camera…';
+      try {
+        await inviteScanner.start(video,invite=>{if(current(epoch))preview(invite);});
+        if(current(epoch))status.textContent='Point the camera at a Pod invite QR. You will preview it before joining.';
+      } catch {
+        if(!current(epoch))return;
+        stopInviteScanner();panel.hidden=true;
+        status.textContent='Could not open the camera. Allow camera access and try again, choose a QR photo, or paste the invite link.';
+      }
+    });
+    content.querySelector('#podInviteScanStop').addEventListener('click',()=>{stopInviteScanner();panel.hidden=true;status.textContent='Camera stopped. Scan again, choose a QR photo, or paste the invite link.';});
+    content.querySelector('#podInvitePhotoButton').addEventListener('click',()=>{stopInviteScanner();panel.hidden=true;photo.click();});
+    photo.addEventListener('change',async()=>{
+      const file=photo.files?.[0];photo.value='';if(!file)return;
+      stopInviteScanner();const epoch=inviteScanEpoch;status.textContent='Reading the QR photo…';
+      try {
+        const invite=await inviteScanner.scanImageFile(file);if(!current(epoch))return;
+        if(invite)preview(invite);
+        else status.textContent='No Pod invite QR was found. Use a member’s Pod invite, try another photo, or paste its link.';
+      } catch {if(current(epoch))status.textContent='That photo could not be read. Try another photo or paste the invite link.';}
+    });
+  }
   async function invitePreview(invite, enteredName = '') {
+    stopInviteScanner();
     const navigation = navigationEpoch;
     const preview = await request('invite-preview', { body: { token: invite }, noAccount: true });
     const signedIn = Boolean(await token());
@@ -536,8 +584,13 @@ export function createCompetitionHub(adapter) {
   }
 
   backButton.addEventListener('click', () => { if (back) void run(back, backButton); }); closeButton.addEventListener('click', close);
-  dialog.addEventListener('cancel', () => { navigationEpoch++; });
-  dialog.addEventListener('close', () => adapter.onClose());
+  dialog.addEventListener('cancel', () => { stopInviteScanner(); navigationEpoch++; });
+  dialog.addEventListener('close', () => { stopInviteScanner(); adapter.onClose(); });
+  document.addEventListener('visibilitychange', () => {
+    if(!document.hidden)return;
+    stopInviteScanner();const panel=content.querySelector('#podInviteScanPanel');if(panel)panel.hidden=true;
+  });
+  window.addEventListener('pagehide', stopInviteScanner);
   document.querySelector('#myPodsButton').addEventListener('click', () => void run(() => home('pod')));
   document.querySelector('#tournamentsButton').addEventListener('click', () => void run(() => home('tournament')));
   contextButton.addEventListener('click', () => { adapter.closeTableMenu(); void run(tableScreen); });
@@ -548,7 +601,7 @@ export function createCompetitionHub(adapter) {
     const fragment = parseCompetitionFragment(location.hash) || retryFragment;
     try {
       const config = await request('config', { noAccount: true, viewAware: false });
-      enabled = config.enabled; podDeletionEnabled = config.podDeletionEnabled === true;
+      enabled = config.enabled; podDeletionEnabled = config.podDeletionEnabled === true; podInviteScannerEnabled = config.podInviteScannerEnabled === true;
       document.querySelector('#myPodsButton').hidden = !enabled; document.querySelector('#tournamentsButton').hidden = !enabled;
       if (navigation !== navigationEpoch) return;
       if (!enabled) { if (fragment) draw('Invites unavailable', '<p>Pods and tournaments are not enabled on this server.</p>'); return; }
@@ -566,6 +619,7 @@ export function createCompetitionHub(adapter) {
     } catch (error) { if (fragment && navigation === navigationEpoch) { draw('Invite unavailable', `<p>${escape(error.message)}</p>${button('retryInvite', 'Try again')}`); bind('#retryInvite', init); } }
   }
   window.addEventListener('hashchange', () => {
+    stopInviteScanner();
     if (parseCompetitionFragment(location.hash)) void run(async () => {
       draw('Opening invite…', '<p>Checking this private link…</p>');
       await init();
@@ -586,6 +640,7 @@ export function createCompetitionHub(adapter) {
     async beforeStart() { if (pending && !pending.forRoomCode) setPending({ ...pending, forRoomCode: session().code }); await syncSetup(true); },
     clearPending() { setPending(null); },
     authChanged(signedIn, { restored = false } = {}) {
+      stopInviteScanner();
       if (!restored) authEpoch++;
       observation = null; contextAttempt = null; context = null; clearTimeout(retrySetup);
       const acceptingInvite = content.querySelector('#hubJoinForm button[type=submit]')?.disabled;
