@@ -5,7 +5,9 @@ export function createAppearanceCatchUp({ getToken, requestNotice, acknowledge, 
   async function flushAcknowledgement(version) {
     const pending = pendingAcknowledgement;
     if (!pending || version !== epoch) return;
-    await acknowledge(pending.notice.id, pending.token);
+    const token = await getToken();
+    if (!token || version !== epoch || pendingAcknowledgement !== pending) return;
+    await acknowledge(pending.notice.id, token);
     if (version === epoch && pendingAcknowledgement === pending) pendingAcknowledgement = null;
   }
   return {
@@ -19,7 +21,7 @@ export function createAppearanceCatchUp({ getToken, requestNotice, acknowledge, 
         if (!token || version !== epoch) return;
         const notice = await requestNotice(token);
         if (version !== epoch || !notice?.skins?.length || shown.has(notice.id) || !canShow()) return;
-        active = { notice, token };
+        active = { notice };
         shown.add(notice.id);
         show(notice);
       } catch { /* A notice must never block the profile or a game. */ }

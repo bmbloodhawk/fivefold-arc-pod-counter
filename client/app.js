@@ -9,7 +9,7 @@ import { JoinQrScanner } from './join-qr-scanner.js?v=5';
 import { GameWakeLock } from './game-wake-lock.js?v=1';
 import { applyCollectionVisual } from './collection-visual.js?v=4';
 import { createCompetitionHub } from './competition-ui.js?v=5';
-import { createAppearanceCatchUp } from './appearance-catch-up.js?v=1';
+import { createAppearanceCatchUp } from './appearance-catch-up.js?v=2';
 
 const appearancePreviewMode = new URLSearchParams(location.search).get('appearance-preview') === '1';
 const appearanceParams = new URLSearchParams(location.search);

@@ -59,6 +59,21 @@ test('a failed acknowledgement retries on the next profile visit without another
   assert.equal(f.shown.length, 1);
 });
 
+test('a long-open notice uses the refreshed account token when its dismissal is saved', async () => {
+  let token = 'before-expiry';
+  const f = fixture({ getToken: async () => token });
+  await f.controller.check(); token = 'refreshed-session'; await f.controller.dismiss();
+  assert.deepEqual(f.acknowledgements, [{ id: 'restored', token: 'refreshed-session' }]);
+});
+
+test('sign-out during dismissal token refresh cannot acknowledge the notice for another profile', async () => {
+  const refreshing = deferred(); let calls = 0;
+  const f = fixture({ getToken: async () => ++calls === 1 ? 'first-session' : refreshing.promise });
+  await f.controller.check(); const saving = f.controller.dismiss();
+  f.controller.reset(); refreshing.resolve('next-profile'); await saving;
+  assert.deepEqual(f.acknowledgements, []);
+});
+
 test('empty notices and failed reads leave profile/gameplay available', async () => {
   for (const result of [null, { id: 'empty', skins: [] }]) {
     const f = fixture({ requestNotice: async () => result }); await f.controller.check();
