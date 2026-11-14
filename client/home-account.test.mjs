@@ -95,3 +95,29 @@ test('failed sign-out stays signed in, shows a Home error, and allows retry', as
   assert.equal(account.context.accountSignedInStatus.textContent, 'Signed out');
   assert.equal(account.context.homeAccountMessage.hidden, true);
 });
+
+test('reopening Sign in hides profile settings while preserving either saved interface choice', () => {
+  const openSignInSource = app.slice(app.indexOf('function openSignIn('), app.indexOf('let emailSignInInFlight ='));
+  const profileFields = ['accountPreferredNameField', 'accountDefaultPlayerCountField', 'accountDefaultRoundLimitField',
+    'accountInterfaceStyleField', 'accountPersonalSkinField', 'accountUsePersonalSkinField'];
+  for (const style of ['dial', 'button']) {
+    const elements = Object.fromEntries([...profileFields, 'myGamesStatus', 'myGamesContent', 'accountSkinRewards',
+      'emailSignInFields', 'accountPassword', 'myGamesSignInButton', 'emailSignInButton', 'forgotPasswordButton',
+      'createAccountButton', 'saveAccountPreferencesButton', 'exportAccountButton', 'deleteAccountButton', 'signOutButton']
+      .map(name => [name, { hidden: false, value: '', classList: { replace() {} } }]));
+    const context = createContext({
+      ...elements, pendingSignInReturn: null,
+      accountInterfaceStyle: { value: style }, interfaceStyle: style,
+      accountPreferences: { interfaceStyle: style },
+      localStorage: { setItem() { throw new Error('Opening Sign in must not write preferences'); } },
+      myGamesDialog: { open: false, querySelector() { return {}; }, showModal() { this.open = true; } },
+    });
+    runInContext(openSignInSource, context);
+    context.openSignIn();
+    for (const name of profileFields) assert.equal(context[name].hidden, true, `${name} must stay out of Sign in`);
+    assert.equal(context.myGamesDialog.open, true);
+    assert.equal(context.accountInterfaceStyle.value, style);
+    assert.equal(context.interfaceStyle, style);
+    assert.equal(context.accountPreferences.interfaceStyle, style);
+  }
+});
