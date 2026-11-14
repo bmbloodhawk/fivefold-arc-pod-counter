@@ -26,6 +26,7 @@ function browserFixture({ accountToken = async () => 'test-profile' } = {}) {
     googleAccountToken: async () => 'test-profile',
     savedGameKey: null, savingGameKey: null, savedGameMoment: null, awardProfileEpoch: 0,
     unlockedAchievementsByGame: unlocked, dismissedVictoryKeys: new Set(),
+    appearanceCatchUp: { reset() { context.catchUpReset = true; } },
     async fetch(path, options) {
       requests.push({ path, headers: options.headers, body: JSON.parse(options.body) });
       return { ok: true, json: async () => ({ moment: { id: 'late-chapter' }, unlockedAchievements: [{ id: 'settling-in' }] }) };
@@ -81,4 +82,5 @@ test('changing profiles cancels a pending automatic save and clears old reveal s
   assert.equal(await pending, null);
   assert.equal(browser.requests.length, 0);
   assert.equal(browser.unlocked.size, 0);
+  assert.equal(browser.context.catchUpReset, true);
 });

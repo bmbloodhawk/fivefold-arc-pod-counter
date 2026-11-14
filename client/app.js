@@ -9,6 +9,7 @@ import { JoinQrScanner } from './join-qr-scanner.js?v=5';
 import { GameWakeLock } from './game-wake-lock.js?v=1';
 import { applyCollectionVisual } from './collection-visual.js?v=4';
 import { createCompetitionHub } from './competition-ui.js?v=5';
+import { createAppearanceCatchUp } from './appearance-catch-up.js?v=1';
 
 const appearancePreviewMode = new URLSearchParams(location.search).get('appearance-preview') === '1';
 const appearanceParams = new URLSearchParams(location.search);
@@ -379,11 +380,38 @@ function showAchievementUnlocks(gameKey) {
   const unlocked = unlockedAchievementsByGame.get(gameKey) || [];
   if (!unlocked.length || dom.achievementDialog.open) return false;
   dom.achievementDialog.dataset.gameKey = gameKey;
+  dom.achievementDialog.querySelector('.eyebrow').textContent = 'ACHIEVEMENT UNCOVERED';
   dom.achievementTitle.textContent = unlocked.length === 1 ? 'Achievement uncovered' : `${unlocked.length} achievements uncovered`;
   dom.achievementSummary.textContent = unlocked.length === 1 ? 'Your game added something new to your chronicle.' : 'Your game uncovered several new entries in your chronicle.';
   dom.achievementUnlockList.innerHTML = unlocked.map(achievement => achievementCardHtml(achievement)).join('');
   dom.achievementDialog.showModal(); return true;
 }
+const appearanceCatchUp = createAppearanceCatchUp({
+  getToken: currentAccountToken,
+  async requestNotice(token) {
+    const response = await fetch('/api/account/appearance-catch-up', { headers: { authorization: `Bearer ${token}` } });
+    if (!response.ok) throw new Error('Collection notice unavailable');
+    return (await response.json()).notice;
+  },
+  async acknowledge(id, token) {
+    const response = await fetch('/api/account/appearance-catch-up/viewed', {
+      method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ id }),
+    });
+    if (!response.ok) throw new Error('Collection notice acknowledgement unavailable');
+  },
+  canShow: () => myGamesDialog.open && !['playing', 'complete'].includes(state?.lifecycle)
+    && !document.querySelector('dialog[open]:not(#myGamesDialog)'),
+  show(notice) {
+    delete dom.achievementDialog.dataset.gameKey;
+    dom.achievementDialog.dataset.catchUpId = notice.id;
+    dom.achievementDialog.querySelector('.eyebrow').textContent = 'COLLECTION UPDATED';
+    dom.achievementTitle.textContent = notice.skins.length === 1 ? 'Skin unlocked' : 'Skins unlocked';
+    dom.achievementSummary.textContent = 'Your earlier Commander games earned these skins. Choose one in your profile settings.';
+    dom.achievementUnlockList.innerHTML = notice.skins.map(skin => achievementCardHtml({ ...skin.achievement, unlockedSkinName: skin.name })).join('');
+    dom.achievementDialog.showModal();
+  },
+  close() { if (dom.achievementDialog.dataset.catchUpId && dom.achievementDialog.open) dom.achievementDialog.close(); },
+});
 function showPersonalMatchMoment(moment) {
   const card = !moment || moment.kind === 'recap'
     ? { title: 'Arc Complete', category: 'Arc Complete', line: 'You completed this game.', fact: 'Game finished', art: 'arc-complete' }
@@ -743,13 +771,14 @@ async function restoreSavedAccountSession() {
   } catch { /* A missing or expired Firebase session leaves guest play unchanged. */ }
 }
 async function showMyGames() {
+  const profileEpoch = awardProfileEpoch;
   myGamesContent.hidden = true; accountSkinRewards.hidden = true; myGamesStatus.textContent = 'Loading your profile…'; myGamesSignInButton.hidden = true;
   try {
     const token = await currentAccountToken();
     if (!token) { myGamesDialog.close(); openSignIn(); return; }
     const response = await fetch('/api/account/history', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) throw new Error('Your games are not available yet.');
-    const history = (await response.json()).history; renderHomeAccount(true); void loadSetupDecks(); myGamesSignInButton.hidden = true; emailSignInButton.hidden = true; emailSignInFields.hidden = true; accountPassword.value = ''; forgotPasswordButton.hidden = true; createAccountButton.hidden = true; exportAccountButton.hidden = false; deleteAccountButton.hidden = false; signOutButton.hidden = false; accountPreferredNameField.hidden = false; saveAccountPreferencesButton.hidden = false;
-    const preferencesResponse = await fetch('/api/account/preferences', { headers: { authorization: `Bearer ${token}` } }); const { preferences, skins } = preferencesResponse.ok ? await preferencesResponse.json() : { preferences: { preferredName: null, defaultPlayerCount: 4, defaultRoundLimitMinutes: null, interfaceStyle: 'dial', personalSkinId: null, usePersonalSkin: false } }; applyAccountPreferences(preferences, skins); accountDefaultPlayerCountField.hidden = false; accountDefaultRoundLimitField.hidden = false; accountInterfaceStyleField.hidden = false; accountPersonalSkinField.hidden = false; accountUsePersonalSkinField.hidden = false; if (preferences.preferredName) { dom.createName.value ||= preferences.preferredName; dom.joinName.value ||= preferences.preferredName; } const playerDefault = $(`input[name="playerCount"][value="${preferences.defaultPlayerCount || 4}"]`); if (playerDefault) playerDefault.checked = true; dom.roundLimitMinutes.value ||= preferences.defaultRoundLimitMinutes || '';
+    const history = (await response.json()).history; if (profileEpoch !== awardProfileEpoch) return; renderHomeAccount(true); void loadSetupDecks(); myGamesSignInButton.hidden = true; emailSignInButton.hidden = true; emailSignInFields.hidden = true; accountPassword.value = ''; forgotPasswordButton.hidden = true; createAccountButton.hidden = true; exportAccountButton.hidden = false; deleteAccountButton.hidden = false; signOutButton.hidden = false; accountPreferredNameField.hidden = false; saveAccountPreferencesButton.hidden = false;
+    const preferencesResponse = await fetch('/api/account/preferences', { headers: { authorization: `Bearer ${token}` } }); const { preferences, skins } = preferencesResponse.ok ? await preferencesResponse.json() : { preferences: { preferredName: null, defaultPlayerCount: 4, defaultRoundLimitMinutes: null, interfaceStyle: 'dial', personalSkinId: null, usePersonalSkin: false } }; if (profileEpoch !== awardProfileEpoch) return; applyAccountPreferences(preferences, skins); accountDefaultPlayerCountField.hidden = false; accountDefaultRoundLimitField.hidden = false; accountInterfaceStyleField.hidden = false; accountPersonalSkinField.hidden = false; accountUsePersonalSkinField.hidden = false; if (preferences.preferredName) { dom.createName.value ||= preferences.preferredName; dom.joinName.value ||= preferences.preferredName; } const playerDefault = $(`input[name="playerCount"][value="${preferences.defaultPlayerCount || 4}"]`); if (playerDefault) playerDefault.checked = true; dom.roundLimitMinutes.value ||= preferences.defaultRoundLimitMinutes || '';
     myGamesStatus.textContent = `${history.wins} wins in ${history.gamesPlayed} games${history.gamesPlayed ? ` · ${Math.round(history.winRate * 100)}% win rate` : ''}`;
     const historyItems = history.games || history.recentGames;
     myGamesContent.innerHTML = `<section><h3>This month</h3><p>${history.thisMonth?.wins || 0} wins in ${history.thisMonth?.gamesPlayed || 0} games.${historyItems[0] ? ` Last saved ${new Date(historyItems[0].savedAt).toLocaleDateString()}.` : ''}</p></section><section><h3>Private milestones</h3><p>${(history.milestones || []).map(item => `${item.reached ? '✓' : '○'} ${escapeHtml(item.label)}`).join(' · ') || 'Save your first game to begin.'}</p></section>${history.deckStats?.length ? `<section><h3>Deck statistics</h3><ul>${history.deckStats.map(stat => `<li>${escapeHtml(stat.name || 'Saved deck')}: ${stat.wins}/${stat.gamesPlayed} wins${stat.gamesPlayed ? ` · ${Math.round(stat.winRate * 100)}%` : ''}</li>`).join('')}</ul></section>` : ''}<section><h3>Game history</h3><label class="select-field">Find a game<input id="gameHistorySearch" type="search" placeholder="Commander or result"></label><ul id="gameHistoryList">${historyItems.map(game => `<li data-history-game><strong>${game.won ? 'Win' : 'Game'} · ${game.tableSize} players${game.place ? ` · ${game.place}${game.place === 1 ? 'st' : game.place === 2 ? 'nd' : game.place === 3 ? 'rd' : 'th'}` : ''}</strong><br><small>${new Date(game.savedAt).toLocaleDateString()}${game.commanderName ? ` · ${escapeHtml(game.commanderName)}` : ''}${game.outcomeDescription ? ` · ${escapeHtml(game.outcomeDescription)}` : ''}</small><br><button type="button" class="text-action" data-remove-game="${escapeHtml(game.gameId)}">Remove</button></li>`).join('') || '<li>No saved games yet.</li>'}</ul></section>`; myGamesContent.hidden = false;
@@ -767,6 +796,7 @@ async function showMyGames() {
     profileSections[1]?.querySelector('h3')?.replaceChildren('Achievements');
     myGamesContent.querySelectorAll('[data-profile-tab]').forEach(button => button.addEventListener('click', () => { const active = button.dataset.profileTab; profileSections.forEach((section, index) => { section.hidden = String(index) !== active; }); overviewProfileFields.forEach(item => { item.hidden = active !== '0'; }); profileSettings.forEach(item => { item.hidden = active !== 'settings'; }); accountSkinRewards.hidden = active !== 'settings' || !accountSkinChoices.length; myGamesContent.querySelectorAll('[data-profile-tab]').forEach(tab => tab.toggleAttribute('aria-current', tab === button)); }));
     myGamesContent.querySelectorAll('[data-achievement-rarity-tab]').forEach(button => button.addEventListener('click', async () => { const rarity = button.dataset.achievementRarityTab; myGamesContent.querySelectorAll('[data-achievement-rarity-panel]').forEach(panel => { panel.hidden = panel.dataset.achievementRarityPanel !== rarity; }); myGamesContent.querySelectorAll('[data-achievement-rarity-tab]').forEach(tab => tab.setAttribute('aria-selected', String(tab === button))); myGamesContent.querySelector('.achievement-folder-prompt')?.setAttribute('hidden', ''); const marker = button.querySelector('.achievement-new-mark'); if (!marker) return; marker.remove(); try { const token = await currentAccountToken(); if (!token) return; const response = await fetch('/api/account/achievements/viewed', { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ rarity }) }); if (!response.ok) throw new Error('Achievement view could not be saved.'); } catch { button.insertAdjacentHTML('beforeend', '<b class="achievement-new-mark" aria-label="New achievements">New</b>'); } }));
+    if (profileEpoch === awardProfileEpoch) void appearanceCatchUp.check();
     $('#gameHistorySearch')?.addEventListener('input', event => { const query = event.currentTarget.value.trim().toLowerCase(); $$('#gameHistoryList [data-history-game]').forEach(item => { item.hidden = Boolean(query) && !item.textContent.toLowerCase().includes(query); }); });
   } catch (error) { myGamesStatus.textContent = error?.message || 'Your games are not available yet.'; myGamesSignInButton.hidden = false; }
 }
@@ -899,6 +929,7 @@ function latestRecoverableHostTable() {
 }
 function resetAwardProfile() {
   awardProfileEpoch += 1;
+  appearanceCatchUp.reset();
   savedGameKey = null;
   savingGameKey = null;
   savedGameMoment = null;
@@ -2242,6 +2273,11 @@ $$('input[name="gameCommanderCount"]').forEach(input => input.addEventListener('
 dom.commanderCountForm.addEventListener('submit', async event => { if (event.submitter?.value === 'confirm') { event.preventDefault(); const form = new FormData(dom.commanderCountForm); const count = Number(form.get('gameCommanderCount')); dom.saveCommanderCountButton.disabled = true; const { colors, unresolved } = await confirmUnresolvedCommanderDetails(dom.gameCommanderNames, count); if (unresolved.length) { dom.saveCommanderCountButton.textContent = 'Update without colors'; dom.saveCommanderCountButton.disabled = false; return; } const names = commanderNamesFromForm(new FormData(dom.commanderCountForm), count); selectedDeckId = dom.commanderDeck.value || ''; try { sessionStorage.setItem('fivefold-arc:selected-deck', selectedDeckId); } catch {} await updateCommanderSetup(count, names, colors); dom.commanderCountDialog.close('confirm'); } }); dom.declareWinnerForm.addEventListener('submit', event => { if (event.submitter?.value === 'confirm') declareWinner(); });
 dom.intermissionReadyButton.addEventListener('click', () => void setNextGameReady()); dom.intermissionStartButton.addEventListener('click', () => void confirmNextGameStart()); dom.intermissionLeaveButton.addEventListener('click', () => dom.intermissionLeaveDialog.showModal()); dom.intermissionLeaveForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); dom.intermissionLeaveDialog.close('confirm'); void leaveNextGameTable(); }); dom.nextGameConfirmForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); dom.nextGameConfirmDialog.close('confirm'); void startGame(); });
 dom.victoryDialog.addEventListener('click', () => { if (victoryDismissReady && dom.victoryDialog.open) advanceEndGameFlow(victoryKey(state?.gameResult)); }); dom.achievementDialog.addEventListener('close', () => {
+  if (dom.achievementDialog.dataset.catchUpId) {
+    delete dom.achievementDialog.dataset.catchUpId;
+    void appearanceCatchUp.dismiss();
+    return;
+  }
   const gameKey = dom.achievementDialog.dataset.gameKey;
   unlockedAchievementsByGame.delete(gameKey);
   void beginIntermission(gameKey);
