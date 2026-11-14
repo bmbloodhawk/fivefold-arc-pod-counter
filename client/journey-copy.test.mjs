@@ -200,7 +200,7 @@ test('guest play is available on arrival and account actions start disabled', ()
   assert.match(html, /id="joinPodButton" class="primary-action" type="button">Join a table/);
   assert.match(html, /id="myGamesButton"[^>]*\sdisabled>My profile/);
   assert.match(html, /id="myDecksButton"[^>]*\sdisabled>My decks/);
-  assert.match(html, /id="accountSignedInStatus" class="account-signed-in" hidden>Signed in/);
+  assert.match(html, /id="accountSignedInStatus" class="account-signed-in" role="status">Signed out/);
   assert.match(html, /id="joinPodButton"[\s\S]*id="signInButton"[^>]*>Sign in for profile and decks/);
   assert.doesNotMatch(html, /Continue as guest/);
 });

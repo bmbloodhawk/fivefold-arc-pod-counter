@@ -127,6 +127,10 @@ const signInButton = $('#signInButton'); const myGamesButton = $('#myGamesButton
 myGamesStatus.setAttribute('role', 'status');
 const baseSealMarkup = $('.counter-sigil')?.innerHTML || ''; const baseModeNavMarkup = new Map($$('[data-mode]').map(button => [button.dataset.mode, button.innerHTML]));
 const accountSignedInStatus = $('#accountSignedInStatus');
+const homeSignOutButton = $('#homeSignOutButton');
+const homeAccountMessage = $('#homeAccountMessage');
+let homeAccountSignedIn = false;
+let signOutInFlight = false;
 const accountSkinRewards = $('#accountSkinRewards');
 const accountInterfaceStyleField = $('#accountInterfaceStyleField'); const accountInterfaceStyle = $('#accountInterfaceStyle'); const accountPersonalSkinField = $('#accountPersonalSkinField'); const accountPersonalSkin = $('#accountPersonalSkin'); const accountUsePersonalSkinField = $('#accountUsePersonalSkinField'); const accountUsePersonalSkin = $('#accountUsePersonalSkin');
 let state = null;
@@ -868,7 +872,13 @@ function clearAccountAppearance() {
   void applySelectedAppearance();
 }
 async function signOut() {
+  if (signOutInFlight) return;
+  signOutInFlight = true;
   signOutButton.disabled = true;
+  homeSignOutButton.disabled = true;
+  homeSignOutButton.textContent = 'Signing out…';
+  homeAccountMessage.hidden = true;
+  homeAccountMessage.textContent = '';
   resetAwardProfile();
   try {
     await signOutAccount();
@@ -879,10 +889,21 @@ async function signOut() {
     if (myGamesDialog.open) myGamesDialog.close(); if (myDecksDialog.open) myDecksDialog.close();
   } catch (error) {
     myGamesStatus.textContent = error?.message || 'Sign-out did not finish. Please try again.';
-  } finally { signOutButton.disabled = false; }
+    homeAccountMessage.textContent = myGamesStatus.textContent;
+    homeAccountMessage.hidden = false;
+  } finally {
+    signOutInFlight = false;
+    signOutButton.disabled = false;
+    homeSignOutButton.textContent = 'Sign out';
+    homeSignOutButton.disabled = !homeAccountSignedIn;
+  }
 }
 function renderHomeAccount(signedIn) {
-  accountSignedInStatus.hidden = !signedIn;
+  homeAccountSignedIn = signedIn;
+  accountSignedInStatus.textContent = signedIn ? 'Signed in' : 'Signed out';
+  homeSignOutButton.disabled = !signedIn || signOutInFlight;
+  homeAccountMessage.hidden = true;
+  homeAccountMessage.textContent = '';
   myGamesButton.disabled = !signedIn;
   myDecksButton.disabled = !signedIn;
   signInButton.hidden = signedIn;
@@ -2062,6 +2083,7 @@ function skipCreateCommanders() { dom.createCommanderNames.querySelectorAll('inp
 $('#createStepOneNext').addEventListener('click', () => showCreateStep(2)); $('#createStepTwoNext').addEventListener('click', () => showCreateStep(3)); $('#createStepThreeNext').addEventListener('click', () => showCreateStep(selectedGameFormat() === 'commander' ? 4 : 5)); $('#createStepFourSkip').addEventListener('click', skipCreateCommanders); $('#createStepFourNext').addEventListener('click', async () => { const { unresolved } = await confirmUnresolvedCommanderDetails(dom.createCommanderNames, selectedCommanderCount('commanderCount')); if (!unresolved.length) showCreateStep(5); }); $$('[data-create-back]').forEach(button => button.addEventListener('click', () => showCreateStep(Math.max(1, createStep - 1))));
 $('#joinStepTwoNext').addEventListener('click', () => { if (/^P[1-8]$/.test(dom.joinSeat.value)) showJoinStep(3); }); $('#joinStepThreeNext').addEventListener('click', () => showJoinStep(4)); $$('[data-join-back]').forEach(button => button.addEventListener('click', () => showJoinStep(Math.max(2, joinStep - 1))));
 signInButton.addEventListener('click', () => openSignIn());
+homeSignOutButton.addEventListener('click', () => void signOut());
 clearPastTablesButton.addEventListener('click', () => {
   clearPastTablesError.hidden = true;
   clearPastTablesDialog.showModal();

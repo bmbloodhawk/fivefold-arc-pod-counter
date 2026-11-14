@@ -33,7 +33,9 @@
         <button id="createPodButton" class="primary-action" type="button">Create a table</button>
         <button id="joinPodButton" class="primary-action" type="button">Join a table</button>
         <div class="home-account-actions">
-          <p id="accountSignedInStatus" class="account-signed-in" hidden>Signed in</p>
+          <p id="accountSignedInStatus" class="account-signed-in" role="status">Signed out</p>
+          <button id="homeSignOutButton" class="text-action home-sign-out" type="button" disabled>Sign out</button>
+          <p id="homeAccountMessage" class="home-account-message" role="status" hidden></p>
           <button id="myPodsButton" class="secondary-action" type="button" hidden>My Pods</button>
           <button id="tournamentsButton" class="secondary-action" type="button" hidden>Tournaments</button>
           <button id="myGamesButton" class="secondary-action account-action" type="button" disabled>My profile</button>
