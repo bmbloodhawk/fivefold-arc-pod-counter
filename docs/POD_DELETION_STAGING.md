@@ -3,7 +3,8 @@
 - Available only when the server environment is `staging`, competitions are enabled,
   and the existing legacy competition store is active. Production and unfinished
   scoped/native storage do not expose or accept this operation.
-- An active Pod admin types the current Pod name. The server checks that permission,
+- With the staging ownership policy active, only the active Pod owner can delete it.
+  The owner types the current Pod name. The server checks that permission,
   name and absence of accepted/incomplete game captures inside one conditional Pod
   update. Running games must finish (or be explicitly reset) before deletion.
 - Deletion removes the Pod's shared history, ratings, memberships and invitations for
@@ -11,8 +12,8 @@
   Already completed Tables remain usable; their Pod binding is removed.
 - `DELETE /api/competitions/pod/:id` takes `{ "confirmationName": "Current Pod name" }`
   and returns `200 { "deleted": true }` after both deletion and directory cleanup.
-  Existing auth/error conventions apply: 401 unsigned, 403 non-admin, 400 wrong name,
-  409 incomplete game, 404 unsupported environment or unknown resource.
+  Existing auth/error conventions apply: 401 unsigned, 403 non-owner, 400 wrong name,
+  409 incomplete game or unresolved legacy ownership, 404 unsupported environment or unknown resource.
 - A minimal deleted-Pod marker prevents stale writes and invitations restoring it.
   It contains no name, membership, rating or game history. Directory retirement and
   alias/index/Table-binding cleanup are atomic together. Late alias/claim writes reject.

@@ -35,7 +35,7 @@ const competitionPrivacyStore = competitionWriter ? competitionStoreForEnvironme
 const competitionStore = process.env.COMPETITIONS_ENABLED === 'true' ? competitionPrivacyStore : null;
 // Existing shared identities must remain erasable after a feature rollback.
 // This domain has no setup hooks, routes or worker when the feature is disabled.
-const competitionEraser = competitionPrivacyStore ? new Competitions({ store: competitionPrivacyStore }) : null;
+const competitionEraser = competitionPrivacyStore ? new Competitions({ store: competitionPrivacyStore, podOwnershipEnabled: appEnv === "staging" }) : null;
 const appearanceSkins = await loadAppearanceSkins({
   path: resolve(staticDir, "appearance-collection.enc"),
   key: process.env.APPEARANCE_PACK_KEY || (appEnv === "staging" ? process.env.STAGING_APPEARANCE_PACK_KEY : ""),

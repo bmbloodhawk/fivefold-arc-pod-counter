@@ -3,6 +3,7 @@ import { coordinateCompetitionWrites } from './competition-write-coordinator.js'
 import { cleanText, competitionError, competitionId as requiredId, digest } from './competition-values.js';
 import { CompetitionDirectoryView } from './competition-directory-view.js';
 import { CompetitionTableClaims } from './competition-table-claims.js';
+import { podOwnership, applyPodOwnership, requirePodOwner } from './pod-ownership.js';
 export { cleanText, competitionError, digest } from './competition-values.js';
 const blankDirectory = () => ({ schemaVersion: 1, accounts: {}, identities: {}, closed: {}, deletedScopes: {}, aliases: {}, scopes: {}, tables: {} });
 const normalizeDirectory = input => ({ ...blankDirectory(), ...(input || {}) });
@@ -35,12 +36,13 @@ const active = member => member?.status === 'active';
 // deployment keeps the legacy default until the compatible-writer rollout gate.
 export class Competitions {
   constructor({ store, now = () => Date.now(), createId = () => randomBytes(18).toString('base64url'), identityStore = null,
-    scopeStore = null, createPartitionedGroups = Boolean(scopeStore) } = {}) {
+    scopeStore = null, createPartitionedGroups = Boolean(scopeStore), podOwnershipEnabled = false } = {}) {
     if (!store?.read || !store?.update) throw new TypeError('Competition storage requires conditional updates.');
     this.store = coordinateCompetitionWrites(store); this.now = now; this.createId = createId;
     this.identityStore = identityStore;
     if (scopeStore && !identityStore) throw new TypeError('Partitioned group control requires scoped identities.');
     this.scopeStore = scopeStore;
+    this.podOwnershipEnabled = Boolean(podOwnershipEnabled && !identityStore && !scopeStore);
     this.createPartitionedGroups = createPartitionedGroups;
     this.directoryView = identityStore ? new CompetitionDirectoryView({ store: this.store, identities: identityStore }) : null;
     this.tableClaims = identityStore ? new CompetitionTableClaims({ store: this.store }) : null;
@@ -218,6 +220,7 @@ export class Competitions {
   }
   podDto(scope, directory, identityId) {
     const me = this.member(scope, identityId);
+    const ownership = this.podOwnershipEnabled ? podOwnership(scope, directory) : null;
     const members = Object.values(scope.members).filter(member => member.kind !== 'guest').map(member => ({
       id: member.id, name: this.name(directory, scope.id, member), role: member.role,
       status: directory.identities[member.identityId] ? member.status : 'deleted',
@@ -226,6 +229,8 @@ export class Competitions {
     return {
       id: scope.id, kind: 'pod', name: scope.name, createdAt: scope.createdAt, version: scope.version,
       me: me.id, role: me.role, members,
+      ...(ownership ? { ownerId:ownership.ownerId, nextOwnerId:ownership.nextOwnerId,
+        ownershipNeedsReview:ownership.needsReview, canManageAdmins:ownership.ownerId===me.id, canDelete:ownership.ownerId===me.id } : {}),
       audit: scope.audit.slice(-30).map(item => ({ ...item,
         actor: this.name(directory, scope.id, scope.members[item.actorId] || { id: item.actorId }),
       })),
@@ -242,7 +247,9 @@ export class Competitions {
       if (current) throw competitionError('Please try creating that Pod again.', 409);
       return {
         schemaVersion: 1, id, kind: 'pod', name: title, createdAt: this.now(), version: 1,
-        members: { [memberId]: { id: memberId, identityId, kind: 'member', role: 'admin', status: 'active', joinedAt: this.now() } },
+        ...(this.podOwnershipEnabled ? { ownerId:memberId } : {}),
+        members: { [memberId]: { id: memberId, identityId, kind: 'member', role: 'admin', status: 'active', joinedAt: this.now(),
+          ...(this.podOwnershipEnabled ? { adminOrder:0, adminSince:this.now() } : {}) } },
         invites: {}, tables: {}, games: {}, standings: {}, audit: [],
       };
     }, { actorIdentityId: identityId });
@@ -261,11 +268,13 @@ export class Competitions {
     }
     const confirmationName = cleanText(input.confirmationName, 'Pod name');
     const identityId = await this.identity(accountId);
+    const directory = this.podOwnershipEnabled ? await this.directory() : null;
     await this.store.update(scopePath('pod', requiredId(id)), current => {
       if (!current) throw competitionError('That private group or event is unavailable.', 404, 'COMPETITION_NOT_FOUND');
       if (current.deleted) return current;
       const scope = normalizeScope(current);
-      this.member(scope, identityId, { admin: true });
+      const me = this.member(scope, identityId, { admin: true });
+      if (this.podOwnershipEnabled) requirePodOwner(podOwnership(scope, directory), me.id);
       if (confirmationName !== scope.name) throw competitionError('Type the current Pod name to confirm deletion.');
       if (Object.values(scope.tables).some(table => Object.values(table.captures).some(command => command.status === 'accepted'))) {
         throw competitionError('Finish active Pod games before deleting. If a game just finished, open its history and try again.', 409, 'POD_GAME_ACTIVE');
@@ -385,6 +394,7 @@ export class Competitions {
       this.assertDirectory(state, directory);
       const invite = this.validInvite(state, secretHash);
       if (!directory.identities[state.members[invite.by].identityId]) throw competitionError('That invite is unavailable.', 404);
+      if (this.podOwnershipEnabled) applyPodOwnership(state, podOwnership(state, directory));
       const existing = Object.values(state.members).find(member => member.identityId === identityId);
       if (existing?.status === 'removed' && (!invite.adminIssued || state.members[invite.by].role !== 'admin'
         || invite.issuedVersion <= existing.removedVersion)) {
@@ -406,10 +416,20 @@ export class Competitions {
     await this.changeScope('pod', id, scope => {
       this.assertDirectory(scope, directory);
       const me = this.member(scope, identityId);
+      const ownership = this.podOwnershipEnabled ? podOwnership(scope, directory) : null;
+      const ownershipChanged = ownership ? applyPodOwnership(scope, ownership) : false;
       if (action === 'leave') {
+        if (ownership && (ownership.ownerId === me.id || (ownership.needsReview && me.role === 'admin'))) {
+          requirePodOwner(ownership, me.id);
+          if (!ownership.nextOwnerId) throw competitionError('Appoint another admin before leaving, or delete the Pod if it is no longer needed.', 409, 'POD_SUCCESSOR_REQUIRED');
+          scope.ownerId = ownership.nextOwnerId;
+          this.audit(scope, 'ownership_transferred', me.id, ownership.nextOwnerId);
+        }
+        delete me.adminOrder; delete me.adminSince;
         me.status = 'left'; me.role = 'member'; this.audit(scope, 'member_left', me.id); return;
       }
       if (action === 'takeover') {
+        if (ownership) throw competitionError('Only the Pod owner can appoint admins. A vacant Pod needs an ownership review.', 403, 'POD_OWNER_REQUIRED');
         if (Object.values(scope.members).some(member => active(member) && member.role === 'admin' && directory.identities[member.identityId])) {
           throw competitionError('This Pod already has an active admin.', 409, 'ADMIN_PRESENT');
         }
@@ -423,9 +443,18 @@ export class Competitions {
       if (!active(target)) throw competitionError('Choose an active member.');
       if (action === 'remove') {
         if (target.id === me.id) throw competitionError('Use Leave Pod for your own membership.');
+        if (ownership && (target.role === 'admin' || target.id === ownership.ownerId)) requirePodOwner(ownership, me.id);
+        delete target.adminOrder; delete target.adminSince;
         target.status = 'removed'; target.role = 'member'; target.removedVersion = scope.version;
         this.audit(scope, 'member_removed', me.id, target.id);
       } else if (action === 'admin' && typeof enabled === 'boolean') {
+        if (ownership) {
+          requirePodOwner(ownership, me.id);
+          if (target.id === ownership.ownerId && !enabled) throw competitionError('Leave the Pod to transfer ownership to the longest-serving admin.', 409, 'POD_OWNER_TRANSFER_REQUIRED');
+          if ((target.role === 'admin') === enabled) return ownershipChanged ? undefined : false;
+          if (enabled) { target.adminOrder = scope.version + 1; target.adminSince = this.now(); }
+          else { delete target.adminOrder; delete target.adminSince; }
+        }
         target.role = enabled ? 'admin' : 'member'; this.audit(scope, enabled ? 'admin_appointed' : 'admin_removed', me.id, target.id);
       } else throw competitionError('Choose a valid member action.');
     }, { actorIdentityId: identityId });
@@ -440,6 +469,7 @@ export class Competitions {
       directory.closed[key] = true;
       delete directory.accounts[key];
       if (identityId) {
+        if (this.podOwnershipEnabled) (directory.erasedIdentities ??= {})[identityId] = true;
         delete directory.identities[identityId]; delete directory.scopes[identityId];
         for (const [aliasKey, alias] of Object.entries(directory.aliases)) {
           if (alias.identityId === identityId) delete directory.aliases[aliasKey];

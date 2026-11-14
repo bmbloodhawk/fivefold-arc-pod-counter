@@ -1926,7 +1926,7 @@ export function createRealtimeServer(options = {}) {
     now: options.now,
   });
   const service = options.service ?? new RoomService({ ...options, tableDeviceActivity, completionEvidenceEnabled: Boolean(options.competitions || options.competitionStore), autoRecoverRooms: options.autoRecoverRooms ?? (appEnv === "staging" || durableRecoveryEnabled) });
-  const competitions = options.competitions ?? (options.competitionStore ? new Competitions({ store: options.competitionStore, now: options.now }) : null);
+  const competitions = options.competitions ?? (options.competitionStore ? new Competitions({ store: options.competitionStore, now: options.now, podOwnershipEnabled: appEnv === "staging" }) : null);
   const competitionEraser = options.competitionEraser ?? competitions;
   const tournaments = competitions ? new Tournaments({ domain: competitions }) : null;
   const competitionTables = competitions ? new CompetitionTables({ domain: competitions, service, ledger: service.ledger, tournaments }) : null;

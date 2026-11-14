@@ -177,9 +177,13 @@ export function createCompetitionHub(adapter) {
     bind('#podHistory', () => historyScreen('pod', id)); bind('#podPending', () => historyScreen('pod', id)); bind('#podManage', () => podMenu(pod));
   }
   function podMenu(pod) {
-    const noAdmins = !pod.members.some(row => row.status === 'active' && row.role === 'admin');
-    draw('Pod menu', `<div class="competition-actions">${button('podInvite', 'Invite someone')}${button('podLeave', 'Leave Pod')}${noAdmins ? button('podTakeover', 'Become an admin') : ''}</div>
-      ${pod.role === 'admin' ? `<h3>Members</h3><div class="competition-list">${pod.members.filter(row => row.status === 'active').map(row => `<div class="competition-member"><strong>${escape(row.name)}</strong><small>${row.role === 'admin' ? 'Admin' : 'Member'}</small><div class="competition-actions"><button type="button" data-admin="${escape(row.id)}" data-enabled="${row.role !== 'admin'}" class="secondary-action">${row.role === 'admin' ? 'Remove admin role' : 'Make admin'}</button>${row.id !== pod.me ? `<button type="button" data-remove="${escape(row.id)}" class="text-action">Remove member</button>` : ""}</div></div>`).join('')}</div>` : ''}
+    const ownerRules = Object.hasOwn(pod, 'ownerId');
+    const canManageAdmins = ownerRules ? pod.canManageAdmins : pod.role === 'admin';
+    const owner = pod.members.find(row => row.id === pod.ownerId), successor = pod.members.find(row => row.id === pod.nextOwnerId);
+    const noAdmins = !ownerRules && !pod.members.some(row => row.status === 'active' && row.role === 'admin');
+    draw('Pod menu', `${ownerRules ? `<p>${owner ? `Owner: <strong>${escape(owner.name)}</strong>. Only the owner can appoint admins or delete this Pod.` : 'Pod ownership needs review before admin changes or deletion. Your games and results remain available.'}</p>` : ''}
+      <div class="competition-actions">${button('podInvite', 'Invite someone')}${button('podLeave', 'Leave Pod')}${noAdmins ? button('podTakeover', 'Become an admin') : ''}</div>
+      ${pod.role === 'admin' ? `<h3>Members</h3><div class="competition-list">${pod.members.filter(row => row.status === 'active').map(row => `<div class="competition-member"><strong>${escape(row.name)}</strong><small>${row.id === pod.ownerId ? 'Owner' : row.role === 'admin' ? 'Admin' : 'Member'}</small><div class="competition-actions">${canManageAdmins && row.id !== pod.ownerId ? `<button type="button" data-admin="${escape(row.id)}" data-enabled="${row.role !== 'admin'}" class="secondary-action">${row.role === 'admin' ? 'Remove admin role' : 'Make admin'}</button>` : ''}${row.id !== pod.me && (!ownerRules || canManageAdmins || row.role !== 'admin') ? `<button type="button" data-remove="${escape(row.id)}" class="text-action">Remove member</button>` : ""}</div></div>`).join('')}</div>` : ''}
       <details><summary>Recent membership changes</summary>${pod.audit.map(item => `<p>${escape(item.actor)} · ${escape(item.action.replaceAll('_', ' '))} · ${dateLabel(item.at)}</p>`).join('') || '<p>No membership changes.</p>'}</details>`, () => podScreen(pod.id));
     if (pod.role === 'admin') {
       content.querySelector('.competition-actions').insertAdjacentHTML('beforeend', button('podRename', 'Rename Pod'));
@@ -187,7 +191,7 @@ export function createCompetitionHub(adapter) {
         draw('Rename Pod', `<form id="renamePodForm">${field('name', 'Pod name', `required maxlength="80" value="${escape(pod.name)}"`)}<button type="submit" class="primary-action">Save name</button></form>`, () => podMenu(pod));
         submit('#renamePodForm', async form => { await request(route('pod', pod.id, 'members'), { body: { action: 'rename', name: form.get('name') } }); await podScreen(pod.id); });
       });
-      if (podDeletionEnabled) {
+      if (podDeletionEnabled && (!ownerRules || pod.canDelete)) {
         content.querySelector('.competition-actions').insertAdjacentHTML('beforeend', '<button type="button" id="podDelete" class="danger-action">Delete Pod</button>');
         bind('#podDelete', async () => {
           await request(route('pod', pod.id, 'reconcile'), { body: {} });
@@ -197,9 +201,13 @@ export function createCompetitionHub(adapter) {
     }
     content.querySelector('.competition-actions').insertAdjacentHTML('beforeend', button('podInvites', 'Manage invites'));
     bind('#podInvite', () => inviteScreen('pod', pod.id)); bind('#podInvites', () => issuedInvitesScreen('pod', pod.id));
-    bind('#podLeave', () => confirmScreen('Leave this Pod?', 'You lose access to the member list and history. Your results and rating are kept; an invite lets you resume later.', async () => {
-      await request(route('pod', pod.id, 'members'), { body: { action: 'leave' } }); context = null; await home('pod');
-    }, () => podMenu(pod)));
+    bind('#podLeave', () => {
+      if (ownerRules && pod.ownerId === pod.me && !successor) { message('Appoint another admin before leaving, or delete the Pod if it is no longer needed.'); return; }
+      const transfer = ownerRules && pod.ownerId === pod.me ? `Ownership will pass to ${successor.name}, the current admin appointed earliest. ` : '';
+      return confirmScreen('Leave this Pod?', transfer + 'You lose access to the member list and history. Your results and rating are kept; an invite lets you resume later.', async () => {
+        await request(route('pod', pod.id, 'members'), { body: { action: 'leave' } }); context = null; await home('pod');
+      }, () => podMenu(pod));
+    });
     bind('#podTakeover', async () => { await request(route('pod', pod.id, 'members'), { body: { action: 'takeover' } }); await podScreen(pod.id); });
     content.querySelectorAll('[data-admin]').forEach(node => node.addEventListener('click', () => void run(async () => {
       await request(route('pod', pod.id, 'members'), { body: { action: 'admin', targetId: node.dataset.admin, enabled: node.dataset.enabled === 'true' } }); await podScreen(pod.id);
