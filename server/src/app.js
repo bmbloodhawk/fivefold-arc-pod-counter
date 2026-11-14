@@ -2052,6 +2052,21 @@ export function createRealtimeServer(options = {}) {
       });
       if (req.method === "GET" && url.pathname === "/api/account/history") { const accountId = await account(req); return json(res, 200, { history: await accountHistory.summary(accountId) }); }
       if (req.method === "POST" && url.pathname === "/api/account/achievements/viewed") { const accountId = await account(req); const input = await readJson(req); return json(res, 200, { viewed: await accountHistory.markAchievementRarityViewed(accountId, input?.rarity) }); }
+      if (req.method === 'GET' && url.pathname === '/api/account/appearance-catch-up') {
+        const accountId = await account(req);
+        const notice = await accountHistory.appearanceCatchUp(accountId);
+        if (!notice) return json(res, 200, { notice: null });
+        const awards = await accountHistory.earnedSkinAwards(accountId, notice.achievementIds);
+        const skins = [...earnedSkins.values()]
+          .filter(skin => notice.achievementIds.includes(skin.achievement.id) && awards[skin.achievement.id])
+          .map(({ id, name, achievement }) => ({ id, name, achievement }));
+        return json(res, 200, { notice: skins.length ? { id: notice.id, createdAt: notice.createdAt, skins } : null });
+      }
+      if (req.method === 'POST' && url.pathname === '/api/account/appearance-catch-up/viewed') {
+        const accountId = await account(req), input = await readJson(req);
+        if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).length !== 1 || !Object.hasOwn(input, 'id')) throw Object.assign(new TypeError('Catch-up notice is invalid'), { status: 400 });
+        return json(res, 200, { acknowledged: await accountHistory.acknowledgeAppearanceCatchUp(accountId, input.id) });
+      }
       if (req.method === "GET" && url.pathname === "/api/account/skin-access") {
         const accountId = await account(req);
         const [access, choices] = await Promise.all([accountHistory.skinAccess(accountId), profileSkinChoices(accountId)]);

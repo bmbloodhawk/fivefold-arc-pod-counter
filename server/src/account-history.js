@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { chooseMatchMoment, RECENT_ACCOLADE_LIMIT } from "./match-moments.js";
 import { APPEARANCE_ACHIEVEMENTS, nextAppearanceAchievement } from "./appearance-milestones.js";
+import { appearanceCommanderGames, legacyAppearanceGames } from './appearance-history-recovery.js';
 
 const accountPath = (accountId) => `account-history/accounts/${encodeURIComponent(accountId)}.json`;
 const gamesPath = (accountId) => `account-history/games/${encodeURIComponent(accountId)}.json`;
@@ -354,6 +355,83 @@ export class AccountHistory {
     await this.store.write(accountPath(accountId), { ...account, skinEntitlements: grants }); return grants;
   }
 
+  // Private, additive migration. There is deliberately no public recovery API.
+  // The operator backs up records and resolves proofs from retained server data.
+  async recoverAppearanceHistory(accountId, { completionProofs, appearanceAchievementIds, runId, apply = false } = {}) {
+    if (!/^acct_[A-Za-z0-9-]{1,120}$/.test(accountId || '') || !/^[a-z0-9-]{1,80}$/.test(runId || '')
+      || !Array.isArray(completionProofs) || !Array.isArray(appearanceAchievementIds)) throw new TypeError('Appearance recovery is invalid');
+    const [account, records, deckRecords] = await Promise.all([
+      this.store.read(accountPath(accountId)), this.store.read(gamesPath(accountId)), this.store.read(decksPath(accountId)),
+    ]);
+    const unavailable = () => Object.assign(new Error('This profile is unavailable'), { status: 409, code: 'PROFILE_UNAVAILABLE' });
+    if (!account) throw unavailable();
+    const legacyGames = Object.values(records || {}), now = this.now();
+    let report;
+    const change = current => {
+      if (current?.closed) throw unavailable();
+      const progress = current || initialProgress(legacyGames, Object.values(deckRecords || {}), now);
+      if (progress.appearanceRecovery) {
+        if (progress.appearanceRecovery.runId !== runId) throw Object.assign(new Error('A different appearance recovery is already recorded'), { status: 409 });
+        report = { accountId, runId, recoveredGames: Object.keys(progress.appearanceRecovery.games || {}).length,
+          qualifyingGames: appearanceCommanderGames(progress, legacyGames).length, newAchievementIds: [], applied: false, skipped: [] };
+        return current;
+      }
+      const { games, skipped } = legacyAppearanceGames(legacyGames, progress, completionProofs);
+      const recovery = { schemaVersion: 1, runId, recoveredAt: now, games };
+      const commanderGames = appearanceCommanderGames({ ...progress, appearanceRecovery: recovery }, legacyGames)
+        .sort((a, b) => a.completedAt - b.completedAt || a.gameId.localeCompare(b.gameId));
+      const awards = { ...progress.awards }, played = [], newAchievementIds = [];
+      for (const game of commanderGames) {
+        played.push(game);
+        const award = nextAppearanceAchievement(longTermContext(played), appearanceAchievementIds, awards);
+        if (!award) continue;
+        awards[award.id] = { gameId: game.gameId, earnedAt: game.completedAt, ruleVersion: AWARD_RULE_VERSION, recoveryRunId: runId };
+        newAchievementIds.push(award.id);
+      }
+      report = { accountId, runId, recoveredGames: Object.keys(games).length, qualifyingGames: commanderGames.length, newAchievementIds, applied: apply, skipped };
+      if (!apply) return current;
+      return { ...progress, awards, appearanceRecovery: recovery,
+        ...(newAchievementIds.length ? { appearanceCatchUp: {
+          id: subjectKey(accountId + ':' + runId), runId, achievementIds: newAchievementIds, createdAt: now,
+        } } : {}),
+      };
+    };
+    if (apply) await this.store.update(progressPath(accountId), change);
+    else change(await this.store.read(progressPath(accountId)));
+    return report;
+  }
+
+  async appearanceCatchUp(accountId) {
+    const [account, progress] = await Promise.all([this.store.read(accountPath(accountId)), this.store.read(progressPath(accountId))]);
+    const notice = progress?.appearanceCatchUp;
+    if (!account || progress?.closed || !notice || notice.acknowledgedAt != null) return null;
+    return { id: notice.id, achievementIds: notice.achievementIds, createdAt: notice.createdAt };
+  }
+
+  async acknowledgeAppearanceCatchUp(accountId, id) {
+    if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(id)) throw Object.assign(new TypeError('Catch-up notice is invalid'), { status: 400 });
+    const account = await this.store.read(accountPath(accountId));
+    if (!account) throw Object.assign(new Error('This profile is unavailable'), { status: 409 });
+    await this.store.update(progressPath(accountId), progress => {
+      const notice = progress?.appearanceCatchUp;
+      if (progress?.closed || !notice || notice.id !== id) throw Object.assign(new Error('Catch-up notice changed'), { status: 409 });
+      if (notice.acknowledgedAt != null) return progress;
+      return { ...progress, appearanceCatchUp: { ...notice, acknowledgedAt: this.now() } };
+    });
+    return true;
+  }
+
+  async rollbackAppearanceRecovery(accountId, runId) {
+    await this.store.update(progressPath(accountId), progress => {
+      if (progress?.closed || progress?.appearanceRecovery?.runId !== runId) return progress;
+      const next = { ...progress, awards: Object.fromEntries(Object.entries(progress.awards || {})
+        .filter(([, award]) => award.recoveryRunId !== runId)) };
+      delete next.appearanceRecovery;
+      if (next.appearanceCatchUp?.runId === runId) delete next.appearanceCatchUp;
+      return next;
+    });
+  }
+
   // Only the room service constructs a completed seat for this method.
   async saveCompletedGame(accountId, completion, deckId = null, appearanceAchievementIds = []) {
     if (completion.sessionKind !== "standard") {
@@ -439,8 +517,7 @@ export class AccountHistory {
         unlockedAchievements.push({ id, title, detail, rarity: longTermRarity(tier) });
       }
       if (appearanceAchievementIds.length && game.gameFormat === "commander") {
-        const commanderGames = [...verifiedGames, game]
-          .filter(item => item.completionVerified === true && item.gameFormat === "commander");
+        const commanderGames = [...appearanceCommanderGames(progress, legacyGames), game];
         const appearance = nextAppearanceAchievement(longTermContext(commanderGames), appearanceAchievementIds, awards);
         if (appearance) {
           awards[appearance.id] = evidence;
@@ -556,12 +633,22 @@ export class AccountHistory {
 
   async removeGame(accountId, gameId) {
     if (!/^game_[A-Za-z0-9-]{1,80}$/.test(gameId || "")) throw new TypeError("Game is invalid");
+    const legacy = (await this.store.read(gamesPath(accountId)))?.[gameId];
     await this.preserveLegacyAwards(accountId);
     let removed = false;
     await this.store.update(progressPath(accountId), progress => {
       const entry = Object.entries(progress?.games || {}).find(([, game]) => game.gameId === gameId);
       removed = Boolean(entry);
-      if (!entry) return progress;
+      if (!entry) {
+        if (!legacy?.sourceGameId || progress?.closed) return progress;
+        const awards = Object.fromEntries(Object.entries(progress?.awards || {}).map(([id, evidence]) => [
+          id, evidence.gameId === gameId ? { evidenceRemoved: true, ...(evidence.recoveryRunId ? { recoveryRunId: evidence.recoveryRunId } : {}) } : evidence,
+        ]));
+        const recovery = progress?.appearanceRecovery;
+        return { ...progress, awards, removedLegacy: { ...progress?.removedLegacy, [subjectKey(legacy.sourceGameId)]: true },
+          ...(recovery ? { appearanceRecovery: { ...recovery, games: Object.fromEntries(Object.entries(recovery.games || {}).filter(([, game]) => game.gameId !== gameId)) } } : {}),
+        };
+      }
       const [key] = entry;
       const games = { ...progress.games };
       delete games[key];
