@@ -3,27 +3,24 @@ import fs from 'node:fs';
 import test from 'node:test';
 
 const styles = fs.readFileSync(new URL('./styles.css', import.meta.url), 'utf8');
+const dialStyles = fs.readFileSync(new URL('./dial-layout.css', import.meta.url), 'utf8');
 const app = fs.readFileSync(new URL('./app.js', import.meta.url), 'utf8');
 const index = fs.readFileSync(new URL('./index.html', import.meta.url), 'utf8');
 
-test('the enlarged dial drag target remains beneath the fixed-size side tap zones', () => {
-  assert.match(styles, /\.dial-controls \{ position: absolute; z-index: 5;[\s\S]*pointer-events: auto; touch-action: none;/);
-  assert.match(styles, /\.dial-controls \{ position: absolute; z-index: 5;[\s\S]*grid-template-columns: minmax\(64px, 1fr\) minmax\(168px, 255px\) minmax\(64px, 1fr\);/);
-  assert.match(styles, /\.dial-gesture \{[\s\S]*z-index: 0;[\s\S]*width: min\(88vw, 346px\);[\s\S]*height: min\(88vw, 346px\);[\s\S]*pointer-events: auto;[\s\S]*transform: translate\(-50%, -50%\);/);
-  assert.match(styles, /\.dial-step \{ position: relative; z-index: 1;[\s\S]*pointer-events: auto; touch-action: manipulation;/);
+test('dial taps and dragging keep separate accessible input routes', () => {
+  assert.match(index, /id="dialControls"[^>]*role="group"[^>]*aria-label="Dial counter controls"/);
+  assert.match(index, /id="dialGesture"[^>]*role="slider"[^>]*tabindex="0"/);
   assert.match(app, /#gameView \.dial-gesture\{position:absolute;z-index:1;overflow:visible;transform-origin:50% 50%\}/);
-  assert.match(app, /#gameView \.dial-step\{position:relative;z-index:2\}/);
-  assert.match(styles, /\.dial-step-minus \{ grid-column: 1; \}/);
-  assert.match(styles, /\.dial-step-plus \{ grid-column: 3; \}/);
   assert.match(app, /event\.target\.closest\('\[data-delta\]'\)/);
   assert.match(app, /dom\.dialControls\.addEventListener\('pointerup',[\s\S]*?\.dial-step\[data-delta\][\s\S]*?void adjust\(Number\(button\.dataset\.delta\)\)/);
+  assert.match(app, /dom\.dialGesture\.addEventListener\('keydown'/);
 });
 
 test('side tap zones show restrained plus and minus affordances without changing their labels', () => {
   assert.match(index, /dial-step-minus[^>]*aria-label="Decrease counter by one"><span class="dial-step-label" aria-hidden="true">−<\/span>/);
   assert.match(index, /dial-step-plus[^>]*aria-label="Increase counter by one"><span class="dial-step-label" aria-hidden="true">\+<\/span>/);
-  assert.match(styles, /\.dial-step-label \{[\s\S]*font-size: 1\.5rem;[\s\S]*opacity: \.48;/);
-  assert.match(styles, /\.dial-step:not\(:disabled\):active \.dial-step-label,[\s\S]*\.dial-step:focus-visible \.dial-step-label \{[\s\S]*opacity: 1;/);
+  assert.match(dialStyles, /\.dial-step-label \{[\s\S]*font-size: 1\.5rem;[\s\S]*opacity: \.48;/);
+  assert.match(dialStyles, /\.dial-step:not\(:disabled\):active \.dial-step-label,[\s\S]*\.dial-step:focus-visible \.dial-step-label \{[\s\S]*opacity: 1;/);
 });
 
 test('rendering a Dial simulation reads the saved interface style without invoking it', () => {
@@ -32,17 +29,17 @@ test('rendering a Dial simulation reads the saved interface style without invoki
   assert.doesNotMatch(app, /interfaceStyle\(\)/);
 });
 
-test('visible Dial layers use one shared center while the life total gets only an optical lift', () => {
-  assert.match(styles, /#gameView\[data-interface-style="dial"\] \{ --dial-center-y: calc\(48% \+ 5px\); \}/);
-  assert.match(styles, /counter-stage::after \{ transform: translate\(-50%, -50%\) rotate/);
-  assert.match(styles, /counter-sigil \{[\s\S]*transform: translate\(-50%, -50%\) rotate/);
-  assert.match(styles, /counter-stage::after \{ top: var\(--dial-center-y\); \}/);
-  assert.match(styles, /dial-controls \{ top: var\(--dial-center-y\); \}/);
-  assert.match(styles, /counter-readout \.main-value \{ position: absolute; top: var\(--dial-center-y\); left: 50%;[\s\S]*translate\(-50%, calc\(-50% - 6px\)\)/);
+test('Dial uses one shared assembly and no screen-size or turn-specific positioning rules', () => {
+  const assembly = index.slice(index.indexOf('<div class="dial-assembly">'), index.indexOf('<section id="sourcePanel"'));
+  for (const part of ['counter-sigil', 'counter-readout', 'dialControls', 'lifeChangeIndicator', 'statusMessage', 'lethalMark']) assert.ok(assembly.includes(part), part);
+  assert.match(index, /href="dial-layout\.css\?v=1"/);
+  assert.match(app, /dialLayout\.update\(\)/);
+  assert.doesNotMatch(dialStyles, /@media[^\{]*(?:width|height)|data-your-turn/);
+  assert.doesNotMatch(styles, /--dial-center-y|--dial-tax-height|--dial-side-seat-stack|--dial-source-height/);
 });
 
 test('the tracked mode label is centered by its visible lettering', () => {
   assert.match(index, /<p class="counter-mode"><span id="modeTitle">LIFE<\/span><\/p>/);
   assert.match(styles, /\.counter-mode > #modeTitle \{ margin-right: -\.16em; margin-left: \.16em; \}/);
-  assert.match(styles, /#gameView\[data-interface-style="dial"\] \.counter-readout \.counter-mode \{ position: absolute; top: calc\(var\(--dial-center-y\) - min\(22vw, 88px\)\); left: 50%; width: 100%; margin: 0; transform: translateX\(-50%\); \}/);
+  assert.match(dialStyles, /\.counter-readout \.counter-mode \{[\s\S]*transform: translate\(-50%, -50%\)/);
 });

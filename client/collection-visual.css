@@ -130,18 +130,18 @@ html[data-collection-treatment] #lobbyView .lobby-controls {
 html[data-collection-treatment] #gameView .pod-seat:is(.active, .turn-active) {
   border-color: var(--collection-accent);
 }
-html[data-collection-treatment] #gameView .counter-stage::before {
+html[data-collection-treatment] #gameView :is(.counter-stage, .dial-face)::before {
   z-index: 1;
   background: var(--identity-seal, transparent);
 }
-html[data-collection-treatment] #gameView .counter-stage::after {
+html[data-collection-treatment] #gameView :is(.counter-stage, .dial-face)::after {
   background: var(--collection-face-art), var(--collection-background);
   border-color: var(--collection-border);
   border-radius: var(--collection-bezel-corner);
   clip-path: var(--collection-bezel-cut);
   box-shadow: var(--collection-ring-finish);
 }
-html:is([data-collection-treatment="grid"], [data-collection-treatment="weave"], [data-collection-treatment="facet"]):not([data-collection-artwork]) #gameView[data-interface-style="dial"] .counter-stage::after {
+html:is([data-collection-treatment="grid"], [data-collection-treatment="weave"], [data-collection-treatment="facet"]):not([data-collection-artwork]) #gameView[data-interface-style="dial"] :is(.counter-stage, .dial-face)::after {
   transform: translate(-50%, -50%);
   transition: none;
 }
@@ -192,8 +192,8 @@ html[data-collection-artwork] body:has(#gameView:not([hidden]), #lobbyView:not([
     var(--collection-backdrop-image) center top / cover no-repeat,
     var(--collection-background);
 }
-html[data-collection-artwork] #gameView .counter-stage::after {
-  width: var(--collection-art-width);
+html[data-collection-artwork] #gameView :is(.counter-stage, .dial-face)::after {
+  width: 100%;
   background:
     var(--collection-bezel-image) center / contain no-repeat,
     radial-gradient(closest-side, color-mix(in srgb, var(--collection-background) 94%, transparent) 0 65%, color-mix(in srgb, var(--collection-background) 64%, transparent) 78%, transparent 100%);
@@ -204,7 +204,8 @@ html[data-collection-artwork] #gameView .counter-stage::after {
   opacity: 1;
   pointer-events: none;
 }
-html[data-collection-artwork] #gameView:not([data-interface-style="dial"]) .counter-stage::after {
+html[data-collection-artwork] #gameView:not([data-interface-style="dial"]) :is(.counter-stage, .dial-face)::after {
+  width: var(--collection-art-width);
   transform: translate(-50%, -50%);
 }
 html[data-collection-artwork] #gameView :is(.counter-mode, .counter-context) {
@@ -298,56 +299,3 @@ html[data-private-skin-review] #quickTestButton:not([hidden]) { display: block; 
 
 /* The offline warning takes priority over the preceding recovery confirmation. */
 :where(html[data-private-skin-review]) #disconnectBanner:not([hidden]) + #syncBanner { display: none; }
-
-/* Keep a tall action stack below the readout when it would otherwise cover
-   the counter. The same layout applies to both turn states. */
-@media (max-width: 599px) {
-  :where(html[data-private-skin-review]) #gameView[data-interface-style="dial"]:is([data-counter-mode="commander"]:not([data-dial-side-seat-count="0"]), :has(#disconnectBanner:not([hidden]), #syncBanner:not([hidden]))) >
-    :is(#turnActions, .commander-tax-quick, .side-seats:not([hidden]), .source-panel) {
-    position: relative;
-    inset: auto;
-    margin: var(--dial-control-gap) 0 0;
-    transform: none;
-    scroll-margin-bottom: calc(var(--mode-nav-height) + env(safe-area-inset-bottom) + 12px);
-  }
-}
-@media (max-width: 599px) and (max-height: 740px) {
-  :where(html[data-private-skin-review]) #gameView[data-interface-style="dial"]:is([data-counter-mode="commander"], :not([data-dial-side-seat-count="0"])) >
-    :is(#turnActions, .commander-tax-quick, .side-seats:not([hidden]), .source-panel) {
-    position: relative;
-    inset: auto;
-    margin: var(--dial-control-gap) 0 0;
-    transform: none;
-    scroll-margin-bottom: calc(var(--mode-nav-height) + env(safe-area-inset-bottom) + 12px);
-  }
-  :where(html[data-private-skin-review]) #gameView[data-interface-style="dial"] .counter-stage {
-    min-height: clamp(200px, calc(70dvh - 190px), 300px);
-  }
-  :where(html[data-private-skin-review]) #gameView[data-interface-style="dial"] .dial-controls { min-height: min(78vw, 42dvh); }
-  :where(html[data-private-skin-review]) #gameView[data-interface-style="dial"] .dial-gesture {
-    width: min(88vw, 42dvh);
-    height: min(88vw, 42dvh);
-  }
-}
-
-@media (max-width: 599px) {
-  :where(html[data-private-skin-review]) #gameView .mode-nav { z-index: 12; }
-  html:where([data-private-skin-review]):has(#gameView:not([hidden])) { scroll-padding-bottom: calc(var(--mode-nav-height) + env(safe-area-inset-bottom) + 10px); }
-}
-@media (max-width: 599px) and (max-height: 640px) {
-  :where(html[data-private-skin-review]) #disconnectBanner { padding-block: 7px; }
-  :where(html[data-private-skin-review]) #gameView[data-interface-style="dial"][data-your-turn] >
-    :is(#turnActions, .commander-tax-quick, .side-seats:not([hidden]), .source-panel) {
-    position: relative;
-    inset: auto;
-    margin: var(--dial-control-gap) 0 0;
-    transform: none;
-    scroll-margin-bottom: calc(var(--mode-nav-height) + env(safe-area-inset-bottom) + 12px);
-  }
-  :where(html[data-private-skin-review]) #gameView[data-interface-style="dial"] .counter-stage::before,
-  :where(html[data-private-skin-review]) #gameView[data-interface-style="dial"] .counter-stage::after,
-  :where(html[data-private-skin-review]) #gameView[data-interface-style="dial"] .counter-sigil,
-  :where(html[data-private-skin-review]) #gameView[data-interface-style="dial"] .dial-gesture { width: min(77vw, 36dvh); }
-  :where(html[data-private-skin-review]) #gameView[data-interface-style="dial"] .dial-gesture { height: min(77vw, 36dvh); }
-  :where(html[data-private-skin-review]) #gameView[data-interface-style="dial"] .dial-controls { min-height: min(77vw, 36dvh); }
-}

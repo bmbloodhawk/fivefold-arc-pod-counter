@@ -51,6 +51,10 @@ export class RealtimeAdapter extends EventTarget {
       return { ...result, snapshot: this.snapshot };
     } catch (error) {
       if (!this.#isCurrentSession(epoch)) return { ignored: true };
+      // A failed confirmation must pause writes too. Retire the old stream so
+      // a late open cannot re-enable controls before the seat reconnects.
+      this.events?.close(); this.events = null;
+      this.#scheduleReconnect(epoch);
       throw error;
     }
   }

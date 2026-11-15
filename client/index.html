@@ -8,9 +8,10 @@
   <title>Fivefold Arc — Table Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=242">
-  <link rel="stylesheet" href="collection-visual.css?v=4">
+  <link rel="stylesheet" href="styles.css?v=243">
+  <link rel="stylesheet" href="collection-visual.css?v=5">
   <link rel="stylesheet" href="competition.css?v=1">
+  <link rel="stylesheet" href="dial-layout.css?v=1">
 </head>
 <body>
   <header class="brand-bar">
@@ -328,28 +329,32 @@
       </section>
       <div class="counter-stage" aria-live="polite">
         <aside id="sideSeats" class="side-seats" aria-label="Additional table seats" hidden></aside>
-        <div class="counter-sigil" aria-hidden="true">
-          <svg viewBox="0 0 100 100" focusable="false">
-            <circle cx="50" cy="50" r="45"></circle>
-            <circle cx="50" cy="50" r="39"></circle>
-            <path d="M50 11 73 82 14 38H86L27 82Z"></path>
-            <circle cx="50" cy="50" r="7"></circle>
-          </svg>
+        <div class="dial-assembly">
+          <div class="dial-face">
+            <div class="counter-sigil" aria-hidden="true">
+              <svg viewBox="0 0 100 100" focusable="false">
+                <circle cx="50" cy="50" r="45"></circle>
+                <circle cx="50" cy="50" r="39"></circle>
+                <path d="M50 11 73 82 14 38H86L27 82Z"></path>
+                <circle cx="50" cy="50" r="7"></circle>
+              </svg>
+            </div>
+            <div id="lethalMark" class="lethal-mark" hidden><img src="assets/elimination-skull-v1.png" alt=""><span class="sr-only">Eliminated</span></div>
+          </div>
+          <div class="counter-readout">
+            <p class="counter-mode"><span id="modeTitle">LIFE</span></p>
+            <output id="mainValue" class="main-value">40</output>
+            <div id="eliminationOutcome" class="elimination-outcome" hidden aria-live="polite"><strong></strong><span></span></div>
+            <p id="counterContext" class="counter-context">P1 · YOU</p>
+          </div>
+          <div id="dialControls" class="dial-controls" role="group" aria-label="Dial counter controls" hidden>
+            <button type="button" class="dial-step dial-step-minus" data-delta="-1" aria-label="Decrease counter by one"><span class="dial-step-label" aria-hidden="true">−</span></button>
+            <div id="dialGesture" class="dial-gesture" role="slider" tabindex="0" aria-label="Counter dial. Drag clockwise to increase and counterclockwise to decrease." aria-valuemin="0" aria-valuenow="40" aria-valuetext="40"></div>
+            <button type="button" class="dial-step dial-step-plus" data-delta="1" aria-label="Increase counter by one"><span class="dial-step-label" aria-hidden="true">+</span></button>
+          </div>
+          <output id="lifeChangeIndicator" class="life-change-indicator" aria-live="polite" hidden></output>
+          <p id="statusMessage" class="status-message" hidden></p>
         </div>
-        <div id="lethalMark" class="lethal-mark" hidden><img src="assets/elimination-skull-v1.png" alt=""><span class="sr-only">Eliminated</span></div>
-        <div class="counter-readout">
-          <p class="counter-mode"><span id="modeTitle">LIFE</span></p>
-          <output id="mainValue" class="main-value">40</output>
-          <div id="eliminationOutcome" class="elimination-outcome" hidden aria-live="polite"><strong></strong><span></span></div>
-          <p id="counterContext" class="counter-context">P1 · YOU</p>
-        </div>
-        <div id="dialControls" class="dial-controls" role="group" aria-label="Dial counter controls" hidden>
-          <button type="button" class="dial-step dial-step-minus" data-delta="-1" aria-label="Decrease counter by one"><span class="dial-step-label" aria-hidden="true">−</span></button>
-          <div id="dialGesture" class="dial-gesture" role="slider" tabindex="0" aria-label="Counter dial. Drag clockwise to increase and counterclockwise to decrease." aria-valuemin="0" aria-valuenow="40" aria-valuetext="40"></div>
-          <button type="button" class="dial-step dial-step-plus" data-delta="1" aria-label="Increase counter by one"><span class="dial-step-label" aria-hidden="true">+</span></button>
-        </div>
-        <output id="lifeChangeIndicator" class="life-change-indicator" aria-live="polite" hidden></output>
-        <p id="statusMessage" class="status-message" hidden></p>
       </div>
 
       <section id="sourcePanel" class="source-panel" hidden aria-label="Commander damage sources"></section>
@@ -371,7 +376,7 @@
       <nav id="modeNav" class="mode-nav" aria-label="Counter mode">
         <button type="button" data-mode="life"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 20.3 4.7 13C1 9.3 3.2 4 7.5 4c2 0 3.5 1.1 4.5 2.4C13 5.1 14.5 4 16.5 4 20.8 4 23 9.3 19.3 13Z"/></svg><small>Life</small></button>
         <button type="button" data-mode="commander" aria-label="Commander damage"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 2 20 6v6c0 5.2-3.4 8.2-8 10-4.6-1.8-8-4.8-8-10V6Z"/><path d="M12 5v13M8 8l4-3 4 3"/></svg><small aria-hidden="true">Cmdr</small></button>
-        <button type="button" data-mode="radiation"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2"/><path d="M12 10 8 4.5M14 13l5.8 2.2M10 13l-5.8 2.2"/></svg><small>Radiation</small></button>
+        <button type="button" data-mode="radiation" aria-label="Radiation"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2"/><path d="M12 10 8 4.5M14 13l5.8 2.2M10 13l-5.8 2.2"/></svg><small>Radiation</small></button>
         <button type="button" data-mode="poison"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 15.5C3.3 13.7 3 10.8 3 9a9 9 0 0 1 18 0c0 1.8-.3 4.7-3 6.5V20h-3v-3h-2v3h-2v-3H9v3H6Z"/><circle cx="8.5" cy="10" r="1.6"/><circle cx="15.5" cy="10" r="1.6"/></svg><small>Poison</small></button>
         <button type="button" data-mode="energy"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14 2-9 12h7l-2 8 9-12h-7Z"/></svg><small>Energy</small></button>
         <button type="button" data-mode="generic"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m12 2 8 4.5v10L12 21l-8-4.5v-10Z"/><path d="m4 6.5 8 4.5 8-4.5M12 11v10"/></svg><small>Generic</small></button>
@@ -772,6 +777,6 @@
   </dialog>
   <p id="competitionSetupStatus" role="status" hidden></p>
   <script src="vendor/jsqr.js?v=1"></script>
-  <script type="module" src="app.js?v=303"></script>
+  <script type="module" src="app.js?v=304"></script>
 </body>
 </html>

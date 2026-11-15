@@ -11,6 +11,72 @@ class FakeEventSource {
   emit(type, event = {}) { this.listeners.get(type)?.(event); }
 }
 
+test('a failed room confirmation pauses writes until reconnect, without replaying failed input', async () => {
+  const keys = ['fetch', 'EventSource', 'document', 'localStorage', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'];
+  const originals = Object.fromEntries(keys.map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  const timers = [];
+  let adapter;
+  let offline = false;
+  let adjustmentRequests = 0;
+  let snapshot = { code: 'POD123', version: 1, life: 40 };
+  try {
+    globalThis.document = { visibilityState: 'visible' };
+    globalThis.EventSource = FakeEventSource;
+    globalThis.localStorage = { getItem: () => null, setItem: () => {} };
+    globalThis.setTimeout = (callback, delay) => { const timer = { callback, delay }; timers.push(timer); return timer; };
+    globalThis.clearTimeout = timer => { if (timer) timer.cancelled = true; };
+    globalThis.setInterval = () => ({});
+    globalThis.clearInterval = () => {};
+    globalThis.fetch = async (url, options = {}) => {
+      const path = new URL(url).pathname;
+      if (offline) throw new TypeError('Network unavailable');
+      if (path === '/api/connections') return response({ connectionId: 'connection-1' });
+      if (path === '/api/rooms') return response({ snapshot, seatId: 0, reclaimToken: 'pod-token' });
+      if (path === '/api/rooms/POD123' || path.endsWith('/claim')) return response({ snapshot });
+      if (path.endsWith('/adjust')) {
+        adjustmentRequests++;
+        snapshot = { ...snapshot, version: snapshot.version + 1, life: snapshot.life + JSON.parse(options.body).delta };
+        return response({ snapshot });
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    };
+    const { RealtimeAdapter } = await import('./realtime.js');
+    adapter = new RealtimeAdapter({ apiBase: 'https://pod.test' });
+    await adapter.createRoom({ playerCount: 8, startingLife: 40 });
+    const oldStream = FakeEventSource.instances.at(-1);
+    offline = true;
+
+    await assert.rejects(adapter.refreshRoom(), /could not be reached/);
+    assert.equal(adapter.status, 'disconnected');
+    assert.equal(oldStream.closed, true);
+    oldStream.emit('open');
+    assert.equal(adapter.status, 'disconnected', 'a late event cannot re-enable writes');
+    assert.deepEqual(await adapter.adjust({ counter: 'life', delta: 3 }), { blocked: true });
+    assert.equal(adjustmentRequests, 0);
+
+    const failedReconnect = timers.find(timer => timer.delay === 3000 && !timer.cancelled);
+    assert.ok(failedReconnect, 'recovery is scheduled without needing another counter tap');
+    await failedReconnect.callback();
+    assert.equal(adapter.status, 'disconnected', 'a failed reconnect keeps writes paused');
+    offline = false;
+    const reconnect = timers.find(timer => timer !== failedReconnect && timer.delay === 3000 && !timer.cancelled);
+    assert.ok(reconnect, 'recovery keeps retrying while the network is unavailable');
+    await reconnect.callback();
+    assert.equal(adapter.status, 'connected');
+    assert.equal(adapter.snapshot.life, 40);
+    assert.equal(adjustmentRequests, 0, 'input attempted while offline is never replayed');
+    await adapter.adjust({ counter: 'life', delta: 1 });
+    assert.equal(adapter.snapshot.life, 41);
+    assert.equal(adjustmentRequests, 1);
+  } finally {
+    adapter?.clearSession();
+    for (const [key, descriptor] of Object.entries(originals)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else delete globalThis[key];
+    }
+  }
+});
+
 test('does not emit a second state event for an unchanged snapshot', async () => {
   const originals = Object.fromEntries(['fetch', 'EventSource', 'document', 'localStorage'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   try {
@@ -512,6 +578,8 @@ test('a cleared room cannot overwrite or mutate a new room through late response
     assert.deepEqual(adjustmentPaths, ['/api/rooms/OLD111/adjust']);
     assert.equal(adapter.roomCode, 'NEW222');
     assert.equal(adapter.snapshot.code, 'NEW222');
+    assert.equal(adapter.status, 'connected', 'an old failed refresh cannot pause the new table');
+    assert.equal(adapter.events.closed, false);
     assert.deepEqual(states, ['OLD111', 'NEW222']);
   } finally {
     adapter?.clearSession();

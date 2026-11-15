@@ -8,6 +8,7 @@ const html = await readFile(new URL('index.html', root), 'utf8');
 const app = await readFile(new URL('app.js', root), 'utf8');
 const accountAuth = await readFile(new URL('account-auth.js', root), 'utf8');
 const styles = await readFile(new URL('styles.css', root), 'utf8');
+const dialStyles = await readFile(new URL('dial-layout.css', root), 'utf8');
 const feedbackPage = await readFile(new URL('feedback.html', root), 'utf8');
 const layoutInvariants = await readFile(new URL('../UI_LAYOUT_INVARIANTS.md', root), 'utf8');
 const newAccoladeAssets = await Promise.all(['second-serving', 'back-in-the-fight', 'commander-crossfire', 'hazard-pay', 'power-surge', 'hot-zone', 'the-dice-chose', 'table-trilogy'].map(name => readFile(new URL(`assets/accolades/${name}.png`, root))));
@@ -317,15 +318,12 @@ test('commander damage keeps one defender context while choosing a source', () =
   assert.match(styles, /\.source-panel\.commander-source-pair \{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(app, /dom\.game\.dataset\.counterMode = state\.mode/);
   assert.match(styles, /\.game-shell\[data-counter-mode="commander"\] #turnActions \{ margin-top: 2px; transform: none; \}/);
-  assert.match(styles, /\[data-interface-style="dial"\]\[data-dial-side-seat-count="0"\]:not\(\[data-counter-mode="commander"\]\) \.turn-actions \{[\s\S]*bottom: calc\(var\(--mode-nav-height\) \+ var\(--dial-control-gap\) \+ var\(--dial-tax-height\) \+ var\(--dial-control-gap\) \+ env\(safe-area-inset-bottom\)\); transform: none;/);
-  assert.match(styles, /\.side-seats \.pod-seat \{ position: relative; min-height: 82px; padding: 9px 4px 12px; \}/);
-  assert.match(styles, /\.side-seats \.pod-seat \{ min-height: 62px; padding: 6px 3px 9px; \}/);
-  assert.match(styles, /data-dial-side-seat-count="1"\],\r?\n  #gameView\[data-interface-style="dial"\]\[data-dial-side-seat-count="2"\] \{ --dial-side-seat-stack: 82px; \}/);
-  assert.match(styles, /data-dial-side-seat-count="3"\],\r?\n  #gameView\[data-interface-style="dial"\]\[data-dial-side-seat-count="4"\] \{ --dial-side-seat-stack: 82px; \}/);
-  assert.match(styles, /data-dial-side-seat-count="3"\],\r?\n  #gameView\[data-interface-style="dial"\]\[data-dial-side-seat-count="4"\] \{ --dial-side-seat-stack: 62px; \}/);
-  assert.match(styles, /#gameView\[data-interface-style="dial"\]:not\(\[data-counter-mode="commander"\]\) \.turn-actions \{ transform: none; \}/);
-  assert.match(styles, /#gameView\[data-interface-style="dial"\] > \.side-seats \{[\s\S]*gap: 5px/);
-  assert.match(styles, /> \.side-seats:not\(\[hidden\]\) \{[\s\S]*right: 12px;[\s\S]*left: 12px;/);
+  // Browser geometry checks cover the live controls. These guards keep the
+  // removed fixed-stack accounting from returning alongside the shared layout.
+  assert.match(dialStyles, /#turnActions \{ order: 1; position: static;/);
+  assert.match(dialStyles, /> \.side-seats \{ order: 2;/);
+  assert.match(dialStyles, /> \.source-panel \{ order: 3; position: static;/);
+  assert.doesNotMatch(app, /dataset\.dialCommanderSourceHeight|dataset\.dialSideSeatCount/);
 });
 
 test('the host can record a non-life player elimination without choosing a winner', () => {
@@ -422,7 +420,7 @@ test('large-pod side seats keep their visible card as the tap target', () => {
 
 test('turn state keeps the Your Turn active-play geometry as its anchor', () => {
   assert.match(layoutInvariants, /Your Turn.*fixed geometry anchor/s);
-  assert.match(layoutInvariants, /must not move the header, table summary, center emblem, mode[\s\S]*fixed navigation/);
+  assert.match(layoutInvariants, /must not move the header, table summary, center emblem, mode[\s\S]*counter navigation/);
   assert.match(styles, /HARD LAYOUT INVARIANT: Your Turn is the geometry anchor/);
   assert.match(styles, /\.game-shell \.counter-stage,[\s\S]*\.game-shell\[data-your-turn="true"\] \.counter-stage,[\s\S]*\.game-shell\[data-your-turn="false"\] \.counter-stage/s);
   assert.match(styles, /#turnActions \{[\s\S]*transform: translateY\(-28px\)/);
