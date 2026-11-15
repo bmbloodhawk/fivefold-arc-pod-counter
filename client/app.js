@@ -2250,7 +2250,18 @@ emailSignInFields.addEventListener('keydown', event => {
   void signInWithEmailPassword();
 });
 emailSignInButton.addEventListener('click', async () => { const showingEmailFields = !emailSignInFields.hidden; emailSignInFields.hidden = false; forgotPasswordButton.hidden = false; createAccountButton.hidden = false; emailSignInButton.textContent = 'Sign in with email'; emailSignInButton.classList.replace('secondary-action', 'primary-action'); myGamesSignInButton.classList.replace('primary-action', 'secondary-action'); if (!showingEmailFields) { myGamesStatus.textContent = 'Enter your email and password, then choose Sign in with email.'; accountEmail.focus(); return; } await signInWithEmailPassword(); });
-forgotPasswordButton.addEventListener('click', async () => { if (!accountEmail.value) { accountEmail.focus(); myGamesStatus.textContent = 'Enter the email address for your account first.'; return; } try { await sendAccountPasswordReset(accountEmail.value); myGamesStatus.textContent = 'Password-reset email sent. Check your inbox and spam folder.'; } catch (error) { myGamesStatus.textContent = error?.message || 'The password-reset email could not be sent.'; } });
+forgotPasswordButton.addEventListener('click', async () => {
+  if (forgotPasswordButton.disabled) return;
+  if (!accountEmail.value) { accountEmail.focus(); myGamesStatus.textContent = 'Enter the email address for your account first.'; return; }
+  forgotPasswordButton.disabled = true;
+  myGamesStatus.textContent = 'Sending reset email…';
+  try {
+    await sendAccountPasswordReset(accountEmail.value);
+    myGamesStatus.textContent = 'Password-reset email sent. Check your inbox and spam folder.';
+  } catch (error) {
+    myGamesStatus.textContent = error?.message || 'The password-reset email could not be sent.';
+  } finally { forgotPasswordButton.disabled = false; }
+});
 createAccountButton.addEventListener('click', async () => { try { await finishAccountSignIn(await emailAccountToken(accountEmail.value, accountPassword.value, true)); } catch (error) { myGamesStatus.textContent = error?.message || 'Account creation did not work.'; } });
 myDecksButton.addEventListener('click', () => { myDecksDialog.showModal(); showMyDecks(); });
 myDecksSignInButton.addEventListener('click', () => showMyDecks(true)); saveAccountPreferencesButton.addEventListener('click', () => void saveAccountPreferences());
