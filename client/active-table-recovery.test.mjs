@@ -24,11 +24,12 @@ const target = { code: 'NEW222', seatId: 1, updatedAt: 200 };
 const previous = { code: 'OLD111', seatId: 0, lastUsedAt: 300 };
 const confirmed = { code: target.code, seats: [{}, { counters: { life: 37 } }] };
 
-function startPage({ active = target, activeRaw, legacy, history = [previous], credentials = () => true, search = '', hash = '', claim = async () => confirmed } = {}) {
+function startPage({ active = target, activeRaw, legacy, legacyRaw, history = [previous], credentials = () => true, search = '', hash = '', claim = async () => confirmed } = {}) {
   const stored = new Map([[historyKey, JSON.stringify(history)]]);
   if (activeRaw !== undefined) stored.set(activeKey, activeRaw);
   else if (active) stored.set(activeKey, JSON.stringify(active));
-  if (legacy !== undefined) stored.set(legacyKey, JSON.stringify(legacy));
+  if (legacyRaw !== undefined) stored.set(legacyKey, legacyRaw);
+  else if (legacy !== undefined) stored.set(legacyKey, JSON.stringify(legacy));
   const calls = [], shown = [], invites = [], listeners = new Map();
   const landing = { hidden: false }, create = {}, join = {}, game = {}, registrationView = {};
   const transport = {
@@ -85,6 +86,12 @@ test('first upgrade migrates the legacy active marker when it is newest', async 
 
 test('a stale legacy marker cannot override a newer saved seat', async () => {
   const page = startPage({ active: null, legacy: { code: 'OLD111', seatId: 0, updatedAt: 100 }, history: [{ ...target, lastUsedAt: 400 }] });
+  await setImmediate();
+  assert.deepEqual(page.calls, [{ code: target.code, seatId: target.seatId, reclaimOnly: true }]);
+});
+
+test('unreadable legacy metadata does not block valid saved-table migration', async () => {
+  const page = startPage({ active: null, legacyRaw: '{broken', history: [{ ...target, lastUsedAt: 400 }] });
   await setImmediate();
   assert.deepEqual(page.calls, [{ code: target.code, seatId: target.seatId, reclaimOnly: true }]);
 });

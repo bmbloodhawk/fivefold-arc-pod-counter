@@ -988,7 +988,8 @@ function readActiveTable() {
     }
     // First upgrade only: use the newest real target across old metadata.
     // An existing new marker, including null after Leave, is authoritative.
-    const legacy = JSON.parse(localStorage.getItem(LEGACY_ACTIVE_TABLE_KEY));
+    let legacy;
+    try { legacy = JSON.parse(localStorage.getItem(LEGACY_ACTIVE_TABLE_KEY)); } catch { /* Ignore corrupt legacy metadata. */ }
     const candidates = [legacy, ...savedTables().filter(table => !table.recoveryOnly)
       .map(table => ({ code: table.code, seatId: table.seatId, updatedAt: table.lastUsedAt }))]
       .filter(validActiveTableTarget).sort((left, right) => right.updatedAt - left.updatedAt);
