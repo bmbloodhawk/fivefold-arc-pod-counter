@@ -278,14 +278,14 @@ test('the life readout stays together and the tax action cannot overlap custom l
   assert.match(html, /class="counter-readout"[\s\S]*id="modeTitle"[\s\S]*id="mainValue"[\s\S]*id="counterContext"/);
   assert.match(html, /class="counter-stage"[\s\S]*id="turnActions"[\s\S]*id="adjustControls"/);
   assert.match(styles, /#turnActions \{ position: relative; z-index: 4; margin-top: -32px; margin-bottom: 20px; \}/);
-  assert.match(styles, /\.counter-readout \{[\s\S]*justify-items: center/);
-  assert.match(styles, /\.counter-readout \.main-value \{ margin: 0; transform: translateY\(-10px\); \}/);
-  assert.match(styles, /\.counter-readout \.counter-context \{ margin: 24px 0 0; transform: translateY\(8px\); \}/);
-  assert.match(styles, /\.counter-readout \.counter-context \{ margin-top: 18px; transform: translateY\(6px\); \}/);
+  assert.match(dialStyles, /#gameView \.counter-readout \{[^}]*text-align: center/);
+  assert.match(dialStyles, /\.counter-readout \.main-value \{[^}]*top: 47\.8%; left: 50%/);
+  assert.match(dialStyles, /\.counter-readout \.counter-context \{[^}]*top: 77%/);
+  assert.doesNotMatch(styles, /\.counter-readout[^}]*translateY/);
   assert.match(styles, /\.custom-life-button, \.commander-tax-quick \{ margin-top: 2px; \}/);
   assert.match(styles, /A turn adds one action, not a different screen/);
   assert.match(styles, /\.game-shell\[data-your-turn="true"\] \.counter-stage \{ min-height: 318px; margin-top: 0; margin-bottom: 0; \}/);
-  assert.match(styles, /\.game-shell\[data-your-turn="true"\] \.counter-readout \{ min-height: 282px; \}/);
+  assert.match(styles, /#gameView\[data-interface-style="button"\] \.dial-assembly \{[^}]*min-height: 282px/);
   assert.match(styles, /\.game-shell\[data-your-turn="true"\] \.commander-tax-quick \{ transform: none; margin-bottom: 0; \}/);
 });
 
@@ -332,7 +332,7 @@ test('the host can record a non-life player elimination without choosing a winne
 });
 
 test('a long Commander warning wraps on phones and a reconnect refreshes only counter availability', () => {
-  assert.match(styles, /\.status-message \{[\s\S]*overflow-wrap: anywhere;[\s\S]*white-space: normal;/);
+  assert.match(dialStyles, /:is\(\.life-change-indicator, \.status-message\) \{[^}]*white-space: normal; overflow-wrap: anywhere;/);
   assert.doesNotMatch(app, /dom\.connectionDetail\.textContent = \$\{presentation\.detail\}[\s\S]{0,220}if \(state && !dom\.game\.hidden\) render\(\);/);
   assert.match(app, /function renderMutationAvailability\(\)/);
   assert.match(app, /transport\.addEventListener\('status', event => \{ renderConnection\(event\.detail\); renderMutationAvailability\(\); \}\);/);
@@ -381,11 +381,9 @@ test('every player has a confirmed route home that preserves their reclaimable s
 });
 
 test('life changes and low-life warnings do not reflow the fixed play surface', () => {
-  assert.match(styles, /A changing total must never reflow the play surface/);
-  assert.match(styles, /\.main-value \{ display: block; min-width: 3ch; font-feature-settings: "tnum" 1; \}/);
-  assert.match(styles, /compact overlay slot between the player title[\s\S]*fixed turn-action slot/);
-  assert.match(styles, /\.life-change-indicator,[\s\S]*\.status-message \{[\s\S]*position: absolute;[\s\S]*bottom: 51px;/);
-  assert.match(styles, /font-size: 1\.2rem;[\s\S]*line-height: 1\.1;/);
+  assert.match(dialStyles, /\.counter-readout \.main-value \{[^}]*position: absolute;[^}]*min-width: 0;/);
+  assert.match(dialStyles, /:is\(\.life-change-indicator, \.status-message\) \{[^}]*position: absolute;[^}]*--counter-feedback-top/);
+  assert.doesNotMatch(styles, /\.main-value[^}]*min-width: 3ch/);
   assert.match(app, /lifeChangeOwnsStatusSlot = lifeChange\?\.playerId === player\.id/);
   assert.match(app, /\$\{safetyStatus\} · \$\{sign\}\$\{Math\.abs\(lifeChange\.delta\)\} LIFE/);
   assert.doesNotMatch(app, /SYNCED JUST NOW/);
@@ -395,11 +393,11 @@ test('the elimination mark is an overlay, not a layout row', () => {
   assert.match(html, /id="lethalMark" class="lethal-mark" hidden><img src="assets\/elimination-skull-v1\.png" alt="">/);
   assert.match(html, /id="eliminationOutcome" class="elimination-outcome" hidden/);
   assert.match(styles, /Elimination is a visible state, never a new layout row[\s\S]*artwork shares[\s\S]*behind the readout/);
-  assert.match(styles, /\.lethal-mark \{ position: absolute; z-index: 1; top: 47%; left: 50%;[\s\S]*translate\(-50%, -43%\)/);
+  assert.match(dialStyles, /#gameView \.lethal-mark \{ top: 50%; left: 50%;[^}]*translate\(-50%, -50%\)/);
   assert.match(styles, /\.lethal-mark img \{[\s\S]*opacity: \.46;/);
   assert.match(app, /ELIMINATION_ART = \{ life: 'assets\/elimination-skull-v1\.png', poison: 'assets\/elimination-skull-poison-v1\.png', commander: 'assets\/elimination-skull-commander-v1\.png' \}/);
   assert.match(styles, /\.main-value\.elimination-placeholder \{ visibility: hidden; \}[\s\S]*\.elimination-outcome \{ position: absolute; z-index: 3;/);
-  assert.match(styles, /\.counter-readout \{[\s\S]*z-index: 2;/);
+  assert.match(dialStyles, /#gameView \.counter-readout \{[^}]*z-index: 4;/);
   assert.match(app, /detail: `COMMANDER DAMAGE · \$\{displaySource\(lethalSource\)\}`, art: 'commander'/);
   assert.match(app, /detail: 'POISON', art: 'poison'/);
   assert.match(app, /detail: 'LIFE TOTAL 0', art: 'life'/);
@@ -408,11 +406,12 @@ test('the elimination mark is an overlay, not a layout row', () => {
 });
 
 test('counter titles clear the number without reflowing the fixed readout', () => {
-  assert.match(styles, /Keep the counter title clear of wide or tall totals[\s\S]*\.counter-mode \{ transform: translateY\(-18px\); \}/);
+  assert.match(dialStyles, /\.counter-readout \.counter-mode \{[^}]*top: 22%; left: 50%/);
+  assert.doesNotMatch(styles, /\.counter-mode[^}]*translateY/);
 });
 
 test('large-pod side seats keep their visible card as the tap target', () => {
-  assert.match(styles, /focused readout is display-only[\s\S]*\.counter-readout \{ pointer-events: none; \}/);
+  assert.match(dialStyles, /#gameView \.counter-readout \{[^}]*pointer-events: none;/);
 });
 
 test('turn state keeps the Your Turn active-play geometry as its anchor', () => {

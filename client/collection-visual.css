@@ -141,7 +141,7 @@ html[data-collection-treatment] #gameView :is(.counter-stage, .dial-face)::after
   clip-path: var(--collection-bezel-cut);
   box-shadow: var(--collection-ring-finish);
 }
-html:is([data-collection-treatment="grid"], [data-collection-treatment="weave"], [data-collection-treatment="facet"]):not([data-collection-artwork]) #gameView[data-interface-style="dial"] :is(.counter-stage, .dial-face)::after {
+html:is([data-collection-treatment="grid"], [data-collection-treatment="weave"], [data-collection-treatment="facet"]):not([data-collection-artwork]) #gameView .dial-face::after {
   transform: translate(-50%, -50%);
   transition: none;
 }
@@ -203,10 +203,6 @@ html[data-collection-artwork] #gameView :is(.counter-stage, .dial-face)::after {
   clip-path: none;
   opacity: 1;
   pointer-events: none;
-}
-html[data-collection-artwork] #gameView:not([data-interface-style="dial"]) :is(.counter-stage, .dial-face)::after {
-  width: var(--collection-art-width);
-  transform: translate(-50%, -50%);
 }
 html[data-collection-artwork] #gameView :is(.counter-mode, .counter-context) {
   text-shadow: 0 1px 2px var(--collection-shadow), 0 0 5px var(--collection-shadow);

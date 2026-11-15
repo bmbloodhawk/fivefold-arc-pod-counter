@@ -33,21 +33,32 @@ body.dial-layout .connection-pill { flex: none; min-height: 34px; padding: 5px 8
 #gameView[data-interface-style="dial"] .counter-stage::before,
 #gameView[data-interface-style="dial"] .counter-stage::after { content: none; }
 .dial-assembly, .dial-face { display: contents; }
+#gameView { --counter-seal-anchor-y: -50%; --appearance-life-number-transform-scale: 1; }
+#gameView .counter-stage::before, #gameView .counter-stage::after { content: none; }
 #gameView[data-interface-style="dial"] .dial-assembly { position: absolute; top: 50%; left: 50%; display: block; width: min(calc(100cqi - 12px), 100cqb, 400px); height: min(calc(100cqi - 12px), 100cqb, 400px); transform: translate(-50%, -50%); container-type: size; }
 /* A rotated square can enlarge a mobile viewport even when its visible art
    is circular. Contain only decoration; text and controls keep full bounds. */
-#gameView[data-interface-style="dial"] .dial-face { position: absolute; inset: 0; display: block; overflow: clip; overflow-clip-margin: 6px; }
-#gameView[data-interface-style="dial"] .dial-face::before,
-#gameView[data-interface-style="dial"] .dial-face::after { content: ""; position: absolute; top: 50%; left: 50%; width: 100%; height: 100%; transform: translate(-50%, -50%) rotate(var(--dial-seal-rotation, 0deg)); transition: transform 180ms cubic-bezier(.2, .8, .2, 1); pointer-events: none; }
-#gameView[data-interface-style="dial"] .dial-face::before { z-index: 1; width: 90%; height: 90%; background: repeating-conic-gradient(from -45deg, transparent 0 42deg, #090909 42deg 72deg), var(--identity-seal, transparent); -webkit-mask: radial-gradient(circle, transparent 0 54%, #000 55% 57%, transparent 58% 64%, #000 65% 66.5%, transparent 67%); mask: radial-gradient(circle, transparent 0 54%, #000 55% 57%, transparent 58% 64%, #000 65% 66.5%, transparent 67%); filter: drop-shadow(0 0 4px rgb(255 255 255 / .18)); }
-#gameView[data-interface-style="dial"] .dial-face::after { z-index: 0; border: 1px solid rgb(211 185 132 / .28); border-radius: 50%; background: repeating-conic-gradient(from 18deg, rgb(205 185 147 / .09) 0 .55deg, transparent .55deg 36deg), radial-gradient(circle, transparent 0 61%, rgb(205 185 147 / .1) 61.4% 61.8%, transparent 62.2%); box-shadow: inset 0 0 0 5px rgb(5 5 5 / .94), inset 0 0 0 6px rgb(211 185 132 / .2), inset 0 0 0 29px rgb(3 3 3 / .38), 0 0 0 5px rgb(0 0 0 / .45); }
-#gameView[data-interface-style="dial"] .counter-sigil { position: absolute; z-index: 2; top: 50%; left: 50%; width: 82%; height: 82%; opacity: .68; transform: translate(-50%, -50%) rotate(var(--dial-seal-rotation, 0deg)); transition: transform 180ms cubic-bezier(.2, .8, .2, 1); }
-#gameView[data-interface-style="dial"] .counter-readout { position: absolute; z-index: 4; inset: 0; display: block; min-height: 0; margin: 0; padding: 0; transform: none; pointer-events: none; }
+#gameView .dial-face { position: absolute; inset: 0; display: block; overflow: clip; overflow-clip-margin: 6px; }
+#gameView .dial-face::before,
+#gameView .dial-face::after { content: ""; position: absolute; top: 50%; left: 50%; width: 100%; height: 100%; transform: translate(-50%, -50%) rotate(var(--counter-art-rotation, var(--dial-seal-rotation, 0deg))); transition: transform 180ms cubic-bezier(.2, .8, .2, 1); pointer-events: none; }
+#gameView .dial-face::before { z-index: 1; width: 90%; height: 90%; background: repeating-conic-gradient(from -45deg, transparent 0 42deg, #090909 42deg 72deg), var(--identity-seal, transparent); -webkit-mask: radial-gradient(circle, transparent 0 54%, #000 55% 57%, transparent 58% 64%, #000 65% 66.5%, transparent 67%); mask: radial-gradient(circle, transparent 0 54%, #000 55% 57%, transparent 58% 64%, #000 65% 66.5%, transparent 67%); filter: drop-shadow(0 0 4px rgb(255 255 255 / .18)); }
+#gameView .dial-face::after { z-index: 0; border: 1px solid rgb(211 185 132 / .28); border-radius: 50%; background: repeating-conic-gradient(from 18deg, rgb(205 185 147 / .09) 0 .55deg, transparent .55deg 36deg), radial-gradient(circle, transparent 0 61%, rgb(205 185 147 / .1) 61.4% 61.8%, transparent 62.2%); box-shadow: inset 0 0 0 5px rgb(5 5 5 / .94), inset 0 0 0 6px rgb(211 185 132 / .2), inset 0 0 0 29px rgb(3 3 3 / .38), 0 0 0 5px rgb(0 0 0 / .45); }
+#gameView .counter-sigil { position: absolute; z-index: 2; top: 50%; left: 50%; width: 82%; height: 82%; opacity: .68; transform: translate(-50%, -50%) rotate(var(--counter-art-rotation, var(--dial-seal-rotation, 0deg))); transition: transform 180ms cubic-bezier(.2, .8, .2, 1); }
+#gameView .counter-readout { position: absolute; z-index: 4; inset: 0; display: block; min-height: 0; margin: 0; padding: 0; text-align: center; transform: none; pointer-events: none; container-type: size; }
+/* Button retains its surrounding flow. Only decoration and the protected
+   readout use this same stage center; the artwork may extend behind cards. */
+#gameView[data-interface-style="button"] { --counter-art-rotation: 0deg; }
+#gameView[data-interface-style="button"] .dial-face { inset: auto; top: 50%; left: 50%; width: var(--counter-art-size, min(89vw, 354px)); height: var(--counter-art-size, min(89vw, 354px)); transform: translate(-50%, -50%); pointer-events: none; }
+#gameView[data-interface-style="button"] .turn-banner { position: relative; z-index: 2; }
+#gameView[data-interface-style="button"] .counter-readout { inset: auto; top: calc(50% - var(--counter-text-height, 166px) / 2); left: calc(50% - var(--counter-text-width, 100%) / 2); width: var(--counter-text-width, 100%); height: var(--counter-text-height, 166px); --counter-number-fluid: 50cqi; --counter-number-height: 55cqb; }
 /* Size the font itself for Studio scaling. Scaling the translate(-50%)
    transform would also scale its centering translation and move the number. */
-#gameView[data-interface-style="dial"] .counter-readout .main-value { position: absolute; top: 47.8%; left: 50%; width: auto; margin: 0; font-size: calc(clamp(calc(3rem / var(--dial-digit-factor, 1)), calc((1rem + 25cqi) / var(--dial-digit-factor, 1)), calc(7.5rem / var(--dial-digit-factor, 1))) * var(--appearance-life-number-scale, 1)); font-variant-numeric: normal; font-feature-settings: normal; line-height: .68; text-align: center; transform: translate(calc(-50% + var(--dial-glyph-x, 0px)), calc(-50% + var(--dial-glyph-y, 0px))); }
-#gameView[data-interface-style="dial"] .counter-readout .counter-mode { position: absolute; top: 22%; left: 50%; width: max-content; max-width: 86%; margin: 0; font-size: clamp(.6875rem, calc(.4rem + 4cqi), 1rem); line-height: 1.1; white-space: nowrap; opacity: .88; transform: translate(-50%, -50%); }
-#gameView[data-interface-style="dial"] .counter-readout .counter-context { position: absolute; top: 77%; right: auto; left: 50%; width: max-content; max-width: 86%; margin: 0; overflow: hidden; font-size: clamp(.6875rem, calc(.35rem + 3cqi), .875rem); line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; opacity: .88; transform: translate(-50%, -50%); }
+#gameView .counter-readout .main-value { position: absolute; top: 47.8%; left: 50%; width: auto; margin: 0; min-width: 0; font-size: calc(min(clamp(calc(3rem / var(--dial-digit-factor, 1)), calc((1rem + var(--counter-number-fluid, 25cqi)) / var(--dial-digit-factor, 1)), calc(7.5rem / var(--dial-digit-factor, 1))), var(--counter-number-height, 1000px)) * var(--appearance-life-number-scale, 1) * var(--counter-ink-fit, 1)); font-variant-numeric: normal; font-feature-settings: normal; line-height: .68; text-align: center; transform: translate(calc(-50% + var(--dial-glyph-x, 0px)), calc(-50% + var(--dial-glyph-y, 0px))); }
+#gameView .counter-readout .counter-mode { position: absolute; display: flex; align-items: center; gap: 12px; top: 22%; left: 50%; width: max-content; max-width: 86%; margin: 0; font-size: clamp(.6875rem, calc(.4rem + 4cqi), 1rem); line-height: 1.1; white-space: nowrap; opacity: .88; transform: translate(-50%, -50%); }
+#gameView .counter-readout .counter-context { position: absolute; top: 77%; right: auto; left: 50%; width: max-content; max-width: 86%; margin: 0; overflow: hidden; font-size: clamp(.6875rem, calc(.35rem + 3cqi), .875rem); line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; opacity: .88; transform: translate(-50%, -50%); }
+#gameView[data-interface-style="button"] .counter-mode { gap: 0; white-space: normal; overflow-wrap: anywhere; text-align: center; }
+#gameView[data-interface-style="button"] .counter-mode::before, #gameView[data-interface-style="button"] .counter-mode::after { content: none; }
+#gameView[data-interface-style="button"] #modeTitle { min-width: 0; max-width: 100%; }
 #gameView[data-interface-style="dial"] .dial-controls { position: absolute; z-index: 5; inset: 0; width: 100%; height: 100%; min-height: 0; transform: none; pointer-events: none; }
 #gameView[data-interface-style="dial"] .dial-gesture { position: absolute; z-index: 0; inset: 0; width: 100%; height: 100%; min-height: 0; border-radius: 50%; background: transparent; transform: none; cursor: grab; pointer-events: auto; touch-action: none; user-select: none; }
 #gameView[data-interface-style="dial"] .dial-gesture.dragging { cursor: grabbing; }
@@ -58,19 +69,19 @@ body.dial-layout .connection-pill { flex: none; min-height: 34px; padding: 5px 8
 .dial-step-label { color: var(--brass); font-family: Georgia, "Times New Roman", serif; font-size: 1.5rem; font-weight: 500; line-height: 1; opacity: .48; transition: color 120ms ease, opacity 120ms ease, text-shadow 120ms ease; }
 .dial-step:not(:disabled):active .dial-step-label,
 .dial-step:focus-visible .dial-step-label { color: var(--ink); opacity: 1; text-shadow: 0 0 12px rgb(216 174 97 / .6); }
-#gameView[data-interface-style="dial"] :is(.life-change-indicator, .status-message) { position: absolute; z-index: 6; top: 92%; right: auto; bottom: auto; left: 50%; width: max-content; max-width: calc(min(100vw, 720px) - 24px); min-width: 0; margin: 0; padding: 0; border: 0; font-size: .6875rem; line-height: 1.1; text-align: center; white-space: normal; overflow-wrap: anywhere; transform: translate(-50%, -50%); }
+#gameView :is(.life-change-indicator, .status-message) { position: absolute; z-index: 6; top: var(--counter-feedback-top, 92%); right: auto; bottom: auto; left: 50%; width: max-content; max-width: var(--counter-feedback-width, calc(min(100vw, 720px) - 24px)); min-width: 0; margin: 0; padding: 0; border: 0; font-size: .6875rem; line-height: 1.1; text-align: center; white-space: normal; overflow-wrap: anywhere; transform: translate(-50%, -50%); }
 /* Feedback can use the stage's width while staying on the dial's shared
    centerline. Keep a warning in one wrapping phrase instead of stacking an
    icon, source and detail into three competing rows on a small dial. */
-#gameView[data-interface-style="dial"] .status-message::before { content: none; }
-#gameView[data-interface-style="dial"] .status-message.commander-near-lethal > span { display: inline; }
-#gameView[data-interface-style="dial"] .status-message .status-warning-detail { margin: 0; font-size: 1em; letter-spacing: inherit; }
-#gameView[data-interface-style="dial"] .status-warning-detail::before { content: " · "; }
-#gameView[data-interface-style="dial"] .lethal-mark { top: 50%; left: 50%; width: 82%; height: 82%; transform: translate(-50%, -50%); }
-#gameView[data-interface-style="dial"] .elimination-outcome { top: 47.8%; width: max-content; max-width: calc(min(100vw, 720px) - 24px); }
-#gameView[data-interface-style="dial"] .elimination-outcome > * { min-width: 0; overflow-wrap: anywhere; }
-#gameView[data-interface-style="dial"] .elimination-outcome strong { font-size: clamp(1rem, 6cqi, 1.85rem); }
-#gameView[data-interface-style="dial"] .elimination-outcome span { font-size: .6875rem; }
+#gameView .status-message::before { content: none; }
+#gameView .status-message.commander-near-lethal > span { display: inline; }
+#gameView .status-message .status-warning-detail { margin: 0; font-size: 1em; letter-spacing: inherit; }
+#gameView .status-warning-detail::before { content: " · "; }
+#gameView .lethal-mark { top: 50%; left: 50%; width: 82%; height: 82%; transform: translate(-50%, -50%); }
+#gameView .elimination-outcome { top: 47.8%; width: max-content; max-width: var(--counter-text-width, calc(min(100vw, 720px) - 24px)); }
+#gameView .elimination-outcome > * { min-width: 0; overflow-wrap: anywhere; }
+#gameView .elimination-outcome strong { font-size: clamp(1rem, 6cqi, 1.85rem); }
+#gameView .elimination-outcome span { font-size: .6875rem; }
 #gameView[data-interface-style="dial"] #turnActions { order: 1; position: static; inset: auto; min-height: 44px; margin: 0; transform: none; }
 #gameView[data-interface-style="dial"] :is(.end-turn-button, .undo-turn-button) { min-height: 44px; padding: 6px; font-size: .75rem; }
 #gameView[data-interface-style="dial"] > .side-seats { order: 2; }

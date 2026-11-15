@@ -229,21 +229,25 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .pod-seat.turn-active { box-shadow: inset 0 0 0 2px var(--brass), 0 0 14px rgb(216 174 97 / .13); background: linear-gradient(145deg, #312a1d, #181613 68%); }
 @keyframes turn-handoff { 0% { filter: brightness(1); } 35% { filter: brightness(1.55); } 100% { filter: brightness(1); } }
 .counter-stage { position: relative; isolation: isolate; display: grid; justify-items: center; min-height: 270px; margin-top: 10px; padding: 58px 10px 6px; background: radial-gradient(circle at 50% 46%, rgb(216 174 97 / .09), transparent 61%); }
-.counter-stage::after { content: ""; position: absolute; z-index: 0; top: 52%; left: 50%; width: min(89vw, 354px); aspect-ratio: 1; transform: translate(-50%, -43%); border: 1px solid rgb(216 174 97 / .28); border-radius: 50%; background: repeating-conic-gradient(from 18deg, rgb(216 174 97 / .14) 0 1deg, transparent 1deg 18deg); box-shadow: inset 0 0 0 5px rgb(8 8 8 / .88), inset 0 0 0 6px rgb(216 174 97 / .13), inset 0 0 0 24px rgb(8 8 8 / .34), 0 0 0 5px rgb(0 0 0 / .36); opacity: .9; pointer-events: none; }
-.counter-stage::before { content: ""; position: absolute; z-index: 0; top: 52%; left: 50%; width: min(80vw, 318px); aspect-ratio: 1; transform: translate(-50%, -43%); background: var(--identity-seal, transparent); -webkit-mask: radial-gradient(circle, transparent 0 46%, #000 47% 51%, transparent 52% 58%, #000 59% 62%, transparent 63%); mask: radial-gradient(circle, transparent 0 46%, #000 47% 51%, transparent 52% 58%, #000 59% 62%, transparent 63%); opacity: .9; pointer-events: none; }
 .counter-stage > * { position: relative; z-index: 1; }
-.counter-mode { display: flex; align-items: center; width: 100%; gap: 12px; margin: 0; color: var(--brass); font-family: Georgia, "Times New Roman", serif; font-size: 1.45rem; font-weight: 500; letter-spacing: .16em; transform: translateY(52px); }
+.counter-mode { color: var(--brass); font-family: Georgia, "Times New Roman", serif; font-weight: 500; letter-spacing: .16em; }
 .counter-mode > #modeTitle { margin-right: -.16em; margin-left: .16em; }
 .counter-mode::before, .counter-mode::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, #5e5037); }.counter-mode::after { background: linear-gradient(90deg, #5e5037, transparent); }
-.main-value { margin-top: 0; font-family: Georgia, serif; font-size: clamp(8rem, 38vw, 12rem); line-height: .68; font-variant-numeric: tabular-nums; text-shadow: 0 3px 28px rgb(216 174 97 / .22); }
-.life-change-indicator { min-width: 116px; margin-top: 18px; padding: 6px 12px; border: 1px solid var(--brass-dark); border-radius: 5px; background: #1f1a12; color: var(--brass); font-family: Georgia, serif; font-size: .78rem; font-weight: 700; letter-spacing: .09em; text-align: center; }
+.main-value { font-family: Georgia, serif; text-shadow: 0 3px 28px rgb(216 174 97 / .22); }
+.life-change-indicator { border-radius: 5px; color: var(--brass); font-family: Georgia, serif; font-weight: 700; letter-spacing: .09em; text-align: center; }
 .life-change-indicator.negative { border-color: var(--danger); color: var(--danger); }
-.counter-context { margin: 16px 0 0; color: var(--brass); font-family: Georgia, serif; font-size: 1.1rem; letter-spacing: .13em; }
-.status-message { margin: 12px 0 0; padding: 7px 12px; border: 1px solid currentColor; color: var(--warning); font-size: .72rem; font-weight: 900; letter-spacing: .08em; }
+.counter-context { color: var(--brass); font-family: Georgia, serif; letter-spacing: .13em; }
+.status-message { color: var(--warning); font-weight: 900; letter-spacing: .08em; }
 .status-message.lethal { color: var(--danger); }
+/* Preserve Button seats and action positions while its inner artwork and text
+   share a center. These are the existing outer flow-slot heights. */
+#gameView[data-interface-style="button"] .dial-assembly { display: block; position: static; z-index: auto; width: 100%; min-height: 282px; pointer-events: none; }
+@media (max-width: 599px) { #gameView[data-interface-style="button"] .dial-assembly { min-height: 246px; } }
+@media (max-width: 359px), (max-height: 740px) { #gameView[data-interface-style="button"] .dial-assembly { min-height: 222px; } }
+
 /* Elimination is a visible state, never a new layout row. The artwork shares
    the seal's center but stays behind the readout and every active control. */
-.lethal-mark { position: absolute; z-index: 1; top: 47%; left: 50%; width: min(70vw, 275px); aspect-ratio: 1; pointer-events: none; transform: translate(-50%, -43%); }
+.lethal-mark { position: absolute; z-index: 1; pointer-events: none; }
 .lethal-mark img { display: block; width: 100%; height: 100%; object-fit: contain; opacity: .46; }
 .source-panel { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin: -3px 0 13px; }
 .source-panel { grid-template-columns: 1fr; gap: 4px; margin: 2px 0 7px; }
@@ -445,8 +449,6 @@ dialog p { color: var(--muted); line-height: 1.5; }
   .turn-actions { margin: 4px 0; }
   .end-turn-button { min-height: 36px; padding: 6px 10px; font-size: .72rem; }
   .counter-stage { min-height: 126px; padding: 5px 8px; }
-  .main-value { font-size: clamp(4.6rem, 22vw, 6.2rem); }
-  .counter-context { margin-top: 3px; }
   .adjust-controls { gap: 6px; }
   .adjust-controls button { min-height: 46px; }
   .adjust-controls span { font-size: 1.35rem; }
@@ -482,11 +484,6 @@ dialog p { color: var(--muted); line-height: 1.5; }
   .turn-actions { margin: 4px 0; }
   .end-turn-button { min-height: 42px; padding-block: 7px; }
   .counter-stage { min-height: 286px; margin-top: 4px; padding-top: 13px; }
-  .counter-stage::after { width: min(77vw, 300px); }
-  .counter-stage::before { width: min(69vw, 270px); }
-  .counter-mode { font-size: 1.15rem; }
-  .main-value { margin-top: 50px; font-size: min(32vw, 8.4rem); }
-  .counter-context { margin-top: 17px; font-size: .88rem; }
   .adjust-controls button { min-height: 54px; }
   .custom-life-button { min-height: 38px; margin-top: 6px; }
   .commander-tax-quick { margin-top: 7px; }
@@ -517,14 +514,12 @@ body { background: radial-gradient(circle at 50% 0%, var(--ambient-glow), transp
 .pod-strip { gap: 10px; margin: 4px 0 22px; }.pod-seat { min-height: 132px; padding: 20px 7px 14px; border: 1px solid #6a604d; border-radius: 8px; background: linear-gradient(135deg, #242321, #121212 70%); box-shadow: inset 0 0 0 2px rgb(0 0 0 / .38), inset 0 1px rgb(255 255 255 / .075), 0 3px 0 #060606, 0 8px 12px rgb(0 0 0 / .22); }
 .pod-seat .seat-name { color: #ddd5c8; font-size: clamp(.72rem, 3vw, 1rem); letter-spacing: .045em; }.pod-seat .seat-life { margin-top: 14px; color: #f0eadf; font-size: clamp(2.2rem, 11vw, 4.4rem); text-shadow: 0 3px 8px rgb(0 0 0 / .7); }.identity-rail { right: 9px; bottom: 9px; left: 9px; height: 9px; border-color: rgb(255 255 255 / .3); box-shadow: 0 0 8px rgb(0 0 0 / .65); }
 .pod-seat.active { border-color: #e2c17d; box-shadow: inset 0 0 0 2px #16130d, inset 0 0 0 4px #d4b16c, 0 0 16px rgb(213 175 112 / .2); }.pod-seat.active::after { display: none; }
-.counter-stage { min-height: 540px; margin-top: 5px; padding: 25px 10px 0; background: radial-gradient(circle at 50% 46%, rgb(214 175 112 / .075), transparent 63%); }
-.counter-stage::after { top: 53%; width: min(94vw, 520px); transform: translate(-50%, -43%); border: 1px solid rgb(211 185 132 / .28); background: repeating-conic-gradient(from 18deg, rgb(201 171 113 / .12) 0 .7deg, transparent .7deg 18deg), radial-gradient(circle, transparent 0 64%, rgb(255 255 255 / .04) 64.3% 65%, transparent 65.4%); box-shadow: inset 0 0 0 5px rgb(5 5 5 / .94), inset 0 0 0 6px rgb(211 185 132 / .2), inset 0 0 0 29px rgb(3 3 3 / .38), 0 0 0 5px rgb(0 0 0 / .45), 0 12px 28px rgb(0 0 0 / .28); }
-.counter-stage::before { top: 53%; width: min(86vw, 466px); transform: translate(-50%, -43%); opacity: 1; filter: drop-shadow(0 0 8px rgb(255 255 255 / .12)); }.counter-mode { color: #cfaa6d; font-size: clamp(1.45rem, 6vw, 2rem); }.counter-mode::before, .counter-mode::after { background: linear-gradient(90deg, transparent, #65563c); }.counter-mode::after { background: linear-gradient(90deg, #65563c, transparent); }
-.main-value { margin-top: 118px; color: #f3eee4; font-size: clamp(9rem, 43vw, 16rem); line-height: .61; text-shadow: 0 3px 1px #938269, 0 5px 22px rgb(0 0 0 / .55); }.life-change-indicator { margin-top: 40px; border: 2px solid #8a6d42; border-radius: 9px; background: linear-gradient(145deg, #26221b, #151412); box-shadow: inset 0 0 0 2px #12110f, 0 3px 0 #060606; color: #dbb777; font-size: 1rem; }.counter-context { margin-top: 29px; color: #d2ad6d; font-size: 1.35rem; }
+.counter-stage { min-height: 540px; margin-top: 5px; padding: 25px 10px 0; background: radial-gradient(circle at 50% 46%, rgb(214 175 112 / .075), transparent 63%); }.counter-mode { color: #cfaa6d; }.counter-mode::before, .counter-mode::after { background: linear-gradient(90deg, transparent, #65563c); }.counter-mode::after { background: linear-gradient(90deg, #65563c, transparent); }
+.main-value { color: #f3eee4; text-shadow: 0 3px 1px #938269, 0 5px 22px rgb(0 0 0 / .55); }.life-change-indicator { border-radius: 9px; box-shadow: inset 0 0 0 2px #12110f, 0 3px 0 #060606; color: #dbb777; }.counter-context { color: #d2ad6d; }
 .adjust-controls { gap: 12px; }.adjust-controls button { min-height: 116px; border-color: #6d604b; border-radius: 8px; background: linear-gradient(135deg, #282724, #121212); box-shadow: inset 0 0 0 2px rgb(0 0 0 / .38), inset 0 1px rgb(255 255 255 / .075), 0 3px 0 #050505; }.adjust-controls span { color: #eee8dd; font-size: clamp(2.3rem, 11vw, 4rem); text-shadow: 0 3px 6px rgb(0 0 0 / .6); }
 .custom-life-button { min-height: 78px; margin-top: 14px; border-color: #756649; border-radius: 8px; background: linear-gradient(135deg, #24231f, #101010); font-size: 1.1rem; letter-spacing: .13em; text-transform: uppercase; }.commander-tax-quick button { min-height: 102px; border-color: #756649; border-radius: 8px; background: linear-gradient(135deg, #24231f, #101010); }.commander-tax-quick-title { font-size: 1.1rem; letter-spacing: .13em; text-transform: uppercase; }
 .mode-nav { width: min(100%, 860px); padding-top: 12px; background: rgb(15 15 15 / .98); box-shadow: 0 -1px rgb(255 255 255 / .045); }.mode-nav button { min-height: 90px; border-left: 1px solid #292825; border-top: 3px solid transparent; }.mode-nav button:first-child { border-left: 0; }.mode-nav button > span { font-size: 2rem; }.mode-nav small { margin-top: 4px; color: #bcb4a8; font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }.mode-nav button.active { border-top-color: #e0bd78; color: #e0bd78; }.mode-nav button.active small { color: #e0bd78; }
-@media (max-width: 520px) { .brand-bar { min-height: 82px; padding: max(12px, env(safe-area-inset-top)) 17px 12px; }.brand span { gap: 9px; }.brand strong { font-size: 1.35rem; }.connection-pill { padding: 7px 10px; font-size: .59rem; }.game-shell { padding-inline: 12px; }.game-topline { min-height: 119px; }.pod-label { font-size: .79rem; }.owner-label { font-size: 1.9rem; }.pod-seat { min-height: 98px; padding-top: 14px; }.pod-seat .seat-life { margin-top: 10px; font-size: 2.65rem; }.counter-stage { min-height: 432px; }.main-value { margin-top: 96px; font-size: min(43vw, 10.7rem); }.adjust-controls { gap: 8px; }.adjust-controls button { min-height: 91px; }.custom-life-button { min-height: 68px; }.commander-tax-quick button { min-height: 82px; }.mode-nav button { min-height: 75px; }.mode-nav button > span { font-size: 1.6rem; } }
+@media (max-width: 520px) { .brand-bar { min-height: 82px; padding: max(12px, env(safe-area-inset-top)) 17px 12px; }.brand span { gap: 9px; }.brand strong { font-size: 1.35rem; }.connection-pill { padding: 7px 10px; font-size: .59rem; }.game-shell { padding-inline: 12px; }.game-topline { min-height: 119px; }.pod-label { font-size: .79rem; }.owner-label { font-size: 1.9rem; }.pod-seat { min-height: 98px; padding-top: 14px; }.pod-seat .seat-life { margin-top: 10px; font-size: 2.65rem; }.counter-stage { min-height: 432px; }.adjust-controls { gap: 8px; }.adjust-controls button { min-height: 91px; }.custom-life-button { min-height: 68px; }.commander-tax-quick button { min-height: 82px; }.mode-nav button { min-height: 75px; }.mode-nav button > span { font-size: 1.6rem; } }
 
 /* Phone composition mirrors the supplied single-screen instrument layout. */
 @media (max-width: 599px) {
@@ -534,20 +529,16 @@ body { background: radial-gradient(circle at 50% 0%, var(--ambient-glow), transp
   .game-shell { padding: 5px 12px calc(78px + env(safe-area-inset-bottom)); }
   .game-topline { min-height: 82px; }.game-identity { gap: 2px; padding-top: 7px; }.pod-label { font-size: .72rem; }.owner-label { margin-top: 0; font-size: 1.55rem; }.commander-identity-name { font-size: .82rem; }.identity-header-rail { display: none; }.icon-button { top: 8px; width: 42px; min-height: 42px; }
   .pod-strip { gap: 5px; margin: 3px 0 8px; }.pod-seat { min-height: 82px; padding: 9px 4px 12px; }.pod-seat .seat-name { font-size: .6rem; }.pod-seat .seat-life { margin-top: 7px; font-size: 2.25rem; }.identity-rail { right: 5px; bottom: 5px; left: 5px; height: 5px; }
-  .counter-stage { min-height: 318px; margin-top: 0; padding-top: 9px; }.counter-stage::after { width: min(79vw, 310px); }.counter-stage::before { width: min(72vw, 282px); }.counter-mode { font-size: 1.08rem; }.main-value { margin-top: 67px; font-size: min(37vw, 8.9rem); }.life-change-indicator { margin-top: 20px; font-size: .72rem; }.counter-context { margin-top: 13px; font-size: .86rem; }
+  .counter-stage { min-height: 318px; margin-top: 0; padding-top: 9px; }
   .adjust-controls { gap: 7px; }.adjust-controls button { min-height: 64px; }.adjust-controls span { font-size: 2rem; }.custom-life-button { min-height: 46px; margin-top: 8px; font-size: .78rem; }.commander-tax-quick { margin-top: 8px; }.commander-tax-quick button { min-height: 64px; }
   .mode-nav { padding-top: 4px; }.mode-nav button { min-height: 70px; }.mode-nav button > span { font-size: 1.35rem; }.mode-nav small { font-size: .54rem; }
   .game-menu { position: fixed; top: 66px; right: 10px; width: min(310px, calc(100% - 20px)); max-height: calc(100dvh - 86px); overflow-y: auto; padding: 10px; }
   .game-menu .turn-banner { margin-bottom: 6px; }.game-menu .turn-actions { margin: 0 0 8px; }.game-menu .active-seat-bar { display: grid; margin: 5px 0 8px; }
 }
 
-.counter-sigil { position: absolute; z-index: 0; top: 53%; left: 50%; width: min(69vw, 300px); aspect-ratio: 1; transform: translate(-50%, -43%); opacity: .3; pointer-events: none; }
 .counter-sigil svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 1px 0 rgb(220 196 150 / .16)) drop-shadow(0 -1px 0 #000); }
 .counter-sigil circle, .counter-sigil path { fill: none; stroke: #6f685b; stroke-width: .85; vector-effect: non-scaling-stroke; }
 .counter-sigil path { stroke-width: 1.15; }
-.counter-stage::before { background: repeating-conic-gradient(from -45deg, transparent 0 42deg, #090909 42deg 72deg), var(--identity-seal, transparent); -webkit-mask: radial-gradient(circle, transparent 0 54%, #000 55% 57%, transparent 58% 64%, #000 65% 66.5%, transparent 67%); mask: radial-gradient(circle, transparent 0 54%, #000 55% 57%, transparent 58% 64%, #000 65% 66.5%, transparent 67%); filter: drop-shadow(0 0 4px rgb(255 255 255 / .18)); }
-.counter-stage::after { background: repeating-conic-gradient(from 18deg, rgb(205 185 147 / .09) 0 .55deg, transparent .55deg 36deg), radial-gradient(circle, transparent 0 61%, rgb(205 185 147 / .1) 61.4% 61.8%, transparent 62.2%); }
-@media (max-width: 599px) { .counter-sigil { width: min(65vw, 255px); }.counter-stage::before { width: min(72vw, 282px); } }
 
 .life-change-indicator.negative { border-color: var(--brass-dark); color: var(--brass); }
 .commander-tax-quick button { grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto 1fr; }
@@ -574,7 +565,7 @@ html.game-menu-open, body.game-menu-open { overflow: hidden; overscroll-behavior
 @media (max-width: 359px), (max-height: 740px) {
   .brand-bar { min-height: 52px; padding-block: max(5px, env(safe-area-inset-top)) 5px; }.game-shell { padding-top: 2px; }.game-topline { min-height: 74px; }.game-identity { padding-top: 4px; }.owner-label { font-size: 1.38rem; }
   .pod-strip[data-player-count] .pod-seat { min-height: 62px; padding: 6px 3px 9px; }.pod-seat .seat-life, .pod-strip[data-player-count] .seat-life { margin-top: 3px; font-size: 1.72rem; }.identity-rail { bottom: 4px; height: 4px; }
-  .counter-stage { min-height: 258px; }.counter-stage::after { width: min(76vw, 252px); }.counter-stage::before { width: min(69vw, 228px); }.counter-sigil { width: min(61vw, 204px); }.counter-mode { font-size: .94rem; }.main-value { margin-top: 49px; font-size: min(35vw, 7rem); }.life-change-indicator { margin-top: 13px; padding-block: 4px; }.counter-context { margin-top: 8px; font-size: .76rem; }
+  .counter-stage { min-height: 258px; }
   .adjust-controls button { min-height: 54px; }.adjust-controls span { font-size: 1.72rem; }.custom-life-button { min-height: 44px; margin-top: 6px; }.commander-tax-quick { margin-top: 6px; }.commander-tax-quick button { min-height: 54px; padding-block: 4px; }.commander-tax-quick-value { min-height: 44px; }.commander-tax-quick-name { font-size: .9rem; }
   .mode-nav button { min-height: 58px; }.mode-nav svg { width: 18px; height: 18px; }
 }
@@ -629,11 +620,7 @@ html.game-menu-open, body.game-menu-open { overflow: hidden; overscroll-behavior
      pulled the life controls under End Turn on compact phone layouts. */
   .game-shell[data-your-turn="true"] .turn-actions { position: relative; z-index: 4; margin-bottom: 5px; transform: none; }
   .game-shell[data-your-turn="true"] .counter-stage { min-height: 302px; margin-top: 20px; }
-  .game-shell[data-your-turn="true"] .counter-stage::after { width: min(84vw, 330px); }
-  .game-shell[data-your-turn="true"] .counter-stage::before { width: min(76vw, 300px); }
-  .game-shell[data-your-turn="true"] .counter-sigil { width: min(70vw, 275px); }
-  .game-shell[data-your-turn="true"] .counter-mode { transform: translateY(20px); }
-  .game-shell[data-your-turn="true"] .main-value { margin-top: 0; }
+
   .game-shell[data-your-turn="true"] .commander-tax-quick { margin-top: 4px; }
 }
 @media (max-width: 359px), (max-height: 740px) {
@@ -641,7 +628,6 @@ html.game-menu-open, body.game-menu-open { overflow: hidden; overscroll-behavior
   .game-shell[data-your-turn="true"] .pod-seat { min-height: 54px; }
   .game-shell[data-your-turn="true"] .pod-seat .seat-life { font-size: 1.62rem; }
   .game-shell[data-your-turn="true"] .counter-stage { min-height: 215px; }
-  .game-shell[data-your-turn="true"] .main-value { margin-top: 39px; }
   /* Keep the direct commander-tax action clear of the fixed counter navigation. */
   .game-shell[data-your-turn="true"] .commander-tax-quick { transform: translateY(-32px); margin-bottom: -32px; }
 }
@@ -661,9 +647,6 @@ html.game-menu-open, body.game-menu-open { overflow: hidden; overscroll-behavior
   .pod-seat .seat-name { top: 6px; right: 3px; left: 3px; }
   .side-seats .seat-life { font-size: 1.72rem; }
   .counter-stage.has-side-seats { min-height: 258px; padding-top: 3px; }
-  .counter-stage.has-side-seats .counter-mode { transform: translateY(8px); }
-  .counter-stage.has-side-seats .main-value { margin-top: 24px; font-size: min(31vw, 6.25rem); }
-  .counter-stage.has-side-seats .counter-context { margin-top: 3px; }
 }
 .adjust-controls { margin-top: -10px; }
 .adjust-controls button {
@@ -697,16 +680,7 @@ html.game-menu-open, body.game-menu-open { overflow: hidden; overscroll-behavior
   backdrop-filter: blur(7px) saturate(100%);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / .24), inset 0 0 0 1px rgb(255 255 255 / .075), 0 3px 0 #050505, 0 8px 16px rgb(0 0 0 / .18);
 }
-@media (max-width: 599px) {
-  .counter-stage::after { width: min(84vw, 330px); }
-  .counter-stage::before { width: min(76vw, 300px); }
-  .counter-sigil { width: min(70vw, 275px); }
-}
-@media (max-width: 359px), (max-height: 740px) {
-  .counter-stage::after { width: min(84vw, 330px); }
-  .counter-stage::before { width: min(76vw, 300px); }
-  .counter-sigil { width: min(70vw, 275px); }
-}
+
 @media (min-height: 780px) {
   .game-shell[data-your-turn="false"] .adjust-controls { margin-top: clamp(0px, calc(10dvh - 58px), 42px); }
 }
@@ -719,24 +693,6 @@ html.game-menu-open, body.game-menu-open { overflow: hidden; overscroll-behavior
   .game-shell[data-your-turn="true"] .commander-tax-quick { transform: translateY(-32px); margin-bottom: -32px; }
 }
 
-/* Keep the live-counter labels as one readout, centered inside the accent ring. */
-.counter-readout {
-  position: relative;
-  z-index: 2;
-  display: grid;
-  width: 100%;
-  min-height: 282px;
-  align-content: center;
-  justify-items: center;
-  padding-top: 12px;
-  text-align: center;
-}
-/* The focused readout is display-only. In large pods it overlaps the edge
-   summary cards, so it must never steal their direct tap target. */
-.counter-readout { pointer-events: none; }
-.counter-readout .counter-mode { width: min(100%, 300px); margin: 0 0 10px; transform: none; }
-.counter-readout .main-value { margin: 0; transform: translateY(-10px); }
-.counter-readout .counter-context { margin: 24px 0 0; transform: translateY(8px); }
 .main-value.elimination-placeholder { visibility: hidden; }
 .elimination-outcome { position: absolute; z-index: 3; top: 50%; left: 50%; display: grid; gap: 5px; width: min(78vw, 300px); transform: translate(-50%, -50%); color: #f3eee4; font-family: Georgia, "Times New Roman", serif; letter-spacing: .11em; line-height: 1.1; text-align: center; text-shadow: 0 3px 12px rgb(0 0 0 / .82); pointer-events: none; }
 .elimination-outcome strong { color: #f3eee4; font-size: clamp(1.25rem, 6vw, 1.85rem); }
@@ -775,14 +731,9 @@ html.game-menu-open, body.game-menu-open { overflow: hidden; overscroll-behavior
 @media (max-width: 599px) {
   .game-shell[data-your-turn="true"] .commander-tax-quick { transform: none; margin-bottom: 0; }
   .game-shell[data-your-turn="true"] .counter-stage { min-height: 250px; margin-bottom: 18px; }
-  .game-shell[data-your-turn="true"] .counter-readout { min-height: 250px; }
 }
 @media (max-width: 359px), (max-height: 740px) {
   .game-shell[data-your-turn="true"] .counter-stage { min-height: 160px; }
-  .game-shell[data-your-turn="true"] .counter-readout { min-height: 160px; padding-top: 4px; }
-  .counter-readout .counter-mode { margin-bottom: 5px; }
-  .counter-readout .main-value { transform: translateY(-14px); }
-  .counter-readout .counter-context { margin-top: 18px; transform: translateY(6px); }
   .custom-life-button, .commander-tax-quick { margin-top: 2px; }
 }
 
@@ -799,13 +750,13 @@ html.game-menu-open, body.game-menu-open { overflow: hidden; overscroll-behavior
 .pod-strip[data-player-count="6"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .pod-strip[data-player-count="7"],
 .pod-strip[data-player-count="8"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.pod-strip .pod-seat,
+  .pod-strip .pod-seat,
 .pod-strip[data-player-count] .pod-seat {
   min-height: 78px;
   padding: 8px 5px 12px;
 }
-.pod-strip[data-player-count="2"] .pod-seat,
-.pod-strip[data-player-count="3"] .pod-seat,
+  .pod-strip[data-player-count="2"] .pod-seat,
+  .pod-strip[data-player-count="3"] .pod-seat,
 .pod-strip[data-player-count="4"] .pod-seat { min-height: 88px; }
 .pod-strip .pod-seat .seat-name {
   position: static;
@@ -822,7 +773,7 @@ html.game-menu-open, body.game-menu-open { overflow: hidden; overscroll-behavior
 }
 .pod-strip[data-player-count="5"] .seat-life,
 .pod-strip[data-player-count="6"] .seat-life { font-size: clamp(1.55rem, 7vw, 2.18rem); }
-.pod-strip[data-player-count="7"] .seat-life,
+  .pod-strip[data-player-count="7"] .seat-life,
 .pod-strip[data-player-count="8"] .seat-life { font-size: clamp(1.42rem, 6.4vw, 2rem); }
 .pod-seat.is-owner { border: 2px solid var(--brass); background: linear-gradient(145deg, rgb(216 174 97 / .20), rgb(18 16 12 / .54)); }
 .pod-seat.disconnected { opacity: .76; }
@@ -836,10 +787,10 @@ html.game-menu-open, body.game-menu-open { overflow: hidden; overscroll-behavior
 .pod-strip[data-player-count="6"],
 .pod-strip[data-player-count="7"],
 .pod-strip[data-player-count="8"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.pod-strip[data-player-count="5"] .pod-seat,
-.pod-strip[data-player-count="6"] .pod-seat,
-.pod-strip[data-player-count="7"] .pod-seat,
-.pod-strip[data-player-count="8"] .pod-seat,
+  .pod-strip[data-player-count="5"] .pod-seat,
+  .pod-strip[data-player-count="6"] .pod-seat,
+  .pod-strip[data-player-count="7"] .pod-seat,
+  .pod-strip[data-player-count="8"] .pod-seat,
 .side-seats .pod-seat { min-height: 82px; }
 .side-seats .pod-seat .seat-name { position: absolute; top: 9px; right: 4px; left: 4px; padding-inline: 0; }
 .side-seats .pod-seat .seat-life { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; padding-top: 4px; font-size: clamp(1.42rem, 6.4vw, 2rem); }
@@ -892,10 +843,6 @@ html.game-menu-open, body.game-menu-open { overflow: hidden; overscroll-behavior
   .game-shell[data-your-turn="false"] .turn-actions { position: static; margin: 4px 0 5px; transform: none; }
   .game-shell[data-your-turn="true"] .counter-stage,
   .game-shell[data-your-turn="false"] .counter-stage { min-height: 318px; margin-top: 0; margin-bottom: 0; }
-  .game-shell[data-your-turn="true"] .counter-readout,
-  .game-shell[data-your-turn="false"] .counter-readout { min-height: 282px; }
-  .game-shell[data-your-turn="true"] .counter-mode,
-  .game-shell[data-your-turn="false"] .counter-mode { transform: none; }
 }
 @media (max-width: 359px), (max-height: 740px) {
   .game-shell[data-your-turn="true"] .game-topline,
@@ -906,8 +853,6 @@ html.game-menu-open, body.game-menu-open { overflow: hidden; overscroll-behavior
   .game-shell[data-your-turn="false"] .pod-seat .seat-life { font-size: 1.72rem; }
   .game-shell[data-your-turn="true"] .counter-stage,
   .game-shell[data-your-turn="false"] .counter-stage { min-height: 258px; }
-  .game-shell[data-your-turn="true"] .counter-readout,
-  .game-shell[data-your-turn="false"] .counter-readout { min-height: 258px; padding-top: 4px; }
 }
 
 /* A turn adds one action, not a different screen: preserve the calmer table composition. */
@@ -923,15 +868,12 @@ html.game-menu-open, body.game-menu-open { overflow: hidden; overscroll-behavior
   .game-shell[data-your-turn="true"] .pod-strip[data-player-count="4"] .seat-life { margin-top: 7px; font-size: 2.25rem; }
   .game-shell[data-your-turn="true"] .turn-actions { position: static; margin: 4px 0 5px; transform: none; }
   .game-shell[data-your-turn="true"] .counter-stage { min-height: 318px; margin-top: 0; margin-bottom: 0; }
-  .game-shell[data-your-turn="true"] .counter-readout { min-height: 282px; }
-  .game-shell[data-your-turn="true"] .counter-mode { transform: none; }
 }
 @media (max-width: 359px), (max-height: 740px) {
   .game-shell[data-your-turn="true"] .game-topline { min-height: 74px; }
   .game-shell[data-your-turn="true"] .pod-seat { min-height: 62px; }
   .game-shell[data-your-turn="true"] .pod-seat .seat-life { font-size: 1.72rem; }
   .game-shell[data-your-turn="true"] .counter-stage { min-height: 258px; }
-  .game-shell[data-your-turn="true"] .counter-readout { min-height: 258px; padding-top: 4px; }
 }
 
 /* The pod label is enough orientation on the play surface; seat ownership is
@@ -1037,36 +979,12 @@ button:disabled { cursor: not-allowed; filter: saturate(.45); }
     min-height: 282px;
     margin-top: 0;
     margin-bottom: 0;
-  }
-  .game-shell .counter-readout,
-  .game-shell[data-your-turn="true"] .counter-readout,
-  .game-shell[data-your-turn="false"] .counter-readout {
-    min-height: 246px;
-    padding-top: 12px;
-    transform: translateY(-22px);
-  }
-  .game-shell .counter-stage::before,
-  .game-shell .counter-stage::after { top: 46%; }
-  .game-shell .counter-sigil { top: 47%; }
-  .game-shell .counter-readout .counter-mode { margin-bottom: 10px; transform: none; }
-  .game-shell .counter-readout .main-value { margin: 0; transform: translateY(-10px); }
-  .game-shell .counter-readout .counter-context { margin-top: 24px; transform: translateY(8px); }
+}
 }
 @media (max-width: 359px), (max-height: 740px) {
   .game-shell .counter-stage,
   .game-shell[data-your-turn="true"] .counter-stage,
   .game-shell[data-your-turn="false"] .counter-stage { min-height: 242px; }
-  .game-shell .counter-readout,
-  .game-shell[data-your-turn="true"] .counter-readout,
-  .game-shell[data-your-turn="false"] .counter-readout {
-    min-height: 222px;
-    padding-top: 4px;
-    transform: translateY(-16px);
-  }
-  .game-shell .counter-sigil { top: 45%; }
-  .game-shell .counter-readout .counter-mode { margin-bottom: 5px; }
-  .game-shell .counter-readout .main-value { transform: translateY(-14px); }
-  .game-shell .counter-readout .counter-context { margin-top: 18px; transform: translateY(6px); }
 }
 
 @media (max-width: 599px) {
@@ -1086,14 +1004,10 @@ button:disabled { cursor: not-allowed; filter: saturate(.45); }
 @media (max-width: 599px) {
   .game-shell[data-your-turn="true"] .counter-stage,
   .game-shell[data-your-turn="false"] .counter-stage { min-height: 282px; }
-  .game-shell[data-your-turn="true"] .counter-readout,
-  .game-shell[data-your-turn="false"] .counter-readout { min-height: 246px; }
 }
 @media (max-width: 359px), (max-height: 740px) {
   .game-shell[data-your-turn="true"] .counter-stage,
   .game-shell[data-your-turn="false"] .counter-stage { min-height: 242px; }
-  .game-shell[data-your-turn="true"] .counter-readout,
-  .game-shell[data-your-turn="false"] .counter-readout { min-height: 222px; }
 }
 
 /* Keep the handoff duration inside the existing turn-status band. */
@@ -1114,64 +1028,6 @@ button:disabled { cursor: not-allowed; filter: saturate(.45); }
   white-space: nowrap;
 }
 
-/* The center dial and its focused value sit nearer the turn-status band;
-   the shorter status band above makes room without changing control layout. */
-.counter-stage::before,
-.counter-stage::after { top: 46%; }
-.counter-sigil { top: 47%; }
-.counter-readout { transform: translateY(-22px); }
-@media (max-width: 359px), (max-height: 740px) {
-  .counter-readout { transform: translateY(-16px); }
-  .counter-sigil { top: 45%; }
-}
-
-/* A changing total must never reflow the play surface. Reserve a stable
-   numeric measure, and use one compact overlay slot between the player title
-   and the fixed turn-action slot. */
-.main-value { display: block; min-width: 3ch; font-feature-settings: "tnum" 1; }
-
-/* Keep the counter title clear of wide or tall totals without reflowing the
-   centered number, player identity, or the fixed controls below. */
-.game-shell .counter-readout .counter-mode { transform: translateY(-18px); }
-@media (max-width: 359px), (max-height: 740px) {
-  .game-shell .counter-readout .counter-mode { transform: translateY(-12px); }
-}
-.life-change-indicator,
-.status-message {
-  position: absolute;
-  z-index: 2;
-  right: 10px;
-  bottom: 51px;
-  left: 10px;
-  width: auto;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  font-size: 1.2rem;
-  line-height: 1.1;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.life-change-indicator { min-height: 0; }
-.status-message { bottom: 51px; }
-.status-message.commander-near-lethal {
-  text-overflow: clip;
-  white-space: normal;
-}
-.status-message.commander-near-lethal > span { display: block; }
-.status-message.commander-near-lethal .status-warning-detail {
-  margin-top: 2px;
-  font-size: .78em;
-  letter-spacing: .12em;
-}
-@media (max-width: 359px), (max-height: 740px) {
-  .life-change-indicator,
-  .status-message { right: 6px; bottom: 40px; left: 6px; font-size: 1.12rem; }
-  .life-change-indicator { min-height: 0; }
-  .status-message { bottom: 40px; }
-}
-
 /* The turn action overlaps the dial's unused lower edge, keeping it visually
    attached to the focused life readout in either turn state. */
 @media (max-width: 599px) {
@@ -1187,12 +1043,12 @@ button:disabled { cursor: not-allowed; filter: saturate(.45); }
    this same slot, so neither can be left behind by a state-specific rule. */
 @media (max-width: 599px) {
   #turnActions {
-    position: relative;
+  position: relative;
     z-index: 4;
     margin-top: 2px;
     margin-bottom: 2px;
     transform: translateY(-28px);
-  }
+}
 }
 @media (max-width: 359px), (max-height: 740px) {
   #turnActions { margin-top: 1px; margin-bottom: 1px; transform: translateY(-20px); }
