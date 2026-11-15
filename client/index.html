@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Table Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=241">
+  <link rel="stylesheet" href="styles.css?v=242">
   <link rel="stylesheet" href="collection-visual.css?v=4">
   <link rel="stylesheet" href="competition.css?v=1">
 </head>
@@ -56,6 +56,42 @@
           <p>Your seat recovery credential stays on this phone. You can optionally sign in to save your own games and decks. <a href="privacy.html">Privacy and data</a> · <a href="terms.html">Terms of use</a>.</p>
         </details>
       </div>
+    </section>
+
+    <section id="registerView" class="view registration-view" hidden aria-labelledby="registerTitle">
+      <h1 id="registerTitle" tabindex="-1">Create account</h1>
+      <p class="registration-intro">Save your games, decks, and preferences.</p>
+      <form id="registerForm" class="registration-form" method="post">
+        <div class="registration-field">
+          <label for="registerEmail">Email</label>
+          <input id="registerEmail" name="email" type="email" autocomplete="username" inputmode="email" spellcheck="false" aria-invalid="false" required>
+          <p id="registerEmailError" class="registration-error" hidden></p>
+        </div>
+        <div class="registration-field">
+          <label for="registerPassword">Password</label>
+          <div class="registration-password-row">
+            <input id="registerPassword" name="password" type="password" autocomplete="new-password" aria-describedby="registerPasswordHelp" aria-invalid="false" required>
+            <button id="registerPasswordToggle" class="registration-password-toggle" type="button" aria-controls="registerPassword" aria-label="Show password" aria-pressed="false">Show</button>
+          </div>
+          <p id="registerPasswordHelp" class="registration-help">Use a unique password.</p>
+          <p id="registerPasswordError" class="registration-error" hidden></p>
+        </div>
+        <div class="registration-field">
+          <label for="registerDisplayName">Display name <span class="registration-optional">(optional)</span></label>
+          <input id="registerDisplayName" name="displayName" type="text" maxlength="24" autocomplete="nickname" aria-describedby="registerNameHelp">
+          <p id="registerNameHelp" class="registration-help">Your name at the table.</p>
+        </div>
+        <label class="registration-agreement" for="registerAgreement">
+          <input id="registerAgreement" name="agreement" type="checkbox" required>
+          <span>I agree to the <a href="terms.html" target="_blank" rel="noopener">Terms of use</a> and have read the <a href="privacy.html" target="_blank" rel="noopener">Privacy notice</a>.</span>
+        </label>
+        <p id="registerStatus" class="registration-status" hidden></p>
+        <div class="registration-actions">
+          <button id="registerSubmit" class="primary-action" type="submit">Create account</button>
+          <button id="registerBack" class="secondary-action" type="button">Back to sign in</button>
+        </div>
+      </form>
+      <p id="registerAnnouncer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
     </section>
 
     <section id="createView" class="view setup-shell" hidden aria-labelledby="createTitle">
@@ -736,6 +772,6 @@
   </dialog>
   <p id="competitionSetupStatus" role="status" hidden></p>
   <script src="vendor/jsqr.js?v=1"></script>
-  <script type="module" src="app.js?v=301"></script>
+  <script type="module" src="app.js?v=302"></script>
 </body>
 </html>

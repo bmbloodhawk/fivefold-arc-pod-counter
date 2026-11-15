@@ -4,7 +4,8 @@ import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=114';
 import { connectionPresentation } from './connection-state.js?v=1';
 import { createInteractionAdvice } from './card-interaction-advice.js?v=1';
 import { commanderFallbackLabel } from './commander-source-flow.js?v=1';
-import { currentAccountToken, emailAccountToken, googleAccountToken, restoredAccountToken, sendAccountPasswordReset, signOutAccount } from './account-auth.js?v=6';
+import { currentAccountToken, emailAccountToken, googleAccountToken, restoredAccountToken, sendAccountPasswordReset, signOutAccount, validateAccountPassword } from './account-auth.js?v=7';
+import { createAccountScreen, saveRegistrationPreferredName } from './create-account.js?v=1';
 import { JoinQrScanner } from './join-qr-scanner.js?v=5';
 import { GameWakeLock } from './game-wake-lock.js?v=1';
 import { applyCollectionVisual } from './collection-visual.js?v=4';
@@ -131,6 +132,27 @@ const homeSignOutButton = $('#homeSignOutButton');
 const homeAccountMessage = $('#homeAccountMessage');
 let homeAccountSignedIn = false;
 let signOutInFlight = false;
+const registrationView = $('#registerView');
+let registrationReturnView = null;
+const registration = createAccountScreen({
+  root: registrationView,
+  register: (email, password) => emailAccountToken(email, password, true),
+  complete: finishAccountSignIn,
+  savePreferredName: saveRegistrationPreferredName,
+  validatePassword: validateAccountPassword,
+  onPendingChange(pending) {
+    for (const button of [myGamesSignInButton, emailSignInButton, createAccountButton]) button.disabled = pending;
+  },
+  onBack(email) {
+    accountEmail.value = email;
+    showView(registrationReturnView || dom.landing);
+    openSignIn({ returnToJoin: pendingSignInReturn?.view === 'join' });
+  },
+  onBackgroundError(message) {
+    if (myGamesDialog.open) myGamesStatus.textContent = message;
+    else { homeAccountMessage.textContent = message; homeAccountMessage.hidden = false; }
+  },
+});
 const accountSkinRewards = $('#accountSkinRewards');
 const accountInterfaceStyleField = $('#accountInterfaceStyleField'); const accountInterfaceStyle = $('#accountInterfaceStyle'); const accountPersonalSkinField = $('#accountPersonalSkinField'); const accountPersonalSkin = $('#accountPersonalSkin'); const accountUsePersonalSkinField = $('#accountUsePersonalSkinField'); const accountUsePersonalSkin = $('#accountUsePersonalSkin');
 let state = null;
@@ -908,7 +930,7 @@ function renderHomeAccount(signedIn) {
   myDecksButton.disabled = !signedIn;
   signInButton.hidden = signedIn;
 }
-function openSignIn({ returnToJoin = false } = {}) { pendingSignInReturn = returnToJoin ? { view: 'join', code: $('#podCode').value.trim().toUpperCase(), step: joinStep } : null; myGamesDialog.querySelector('#myGamesTitle').textContent = 'Sign in'; myGamesStatus.textContent = 'Save your profile, games, and decks. Guest play is always available.'; myGamesContent.hidden = true; accountPreferredNameField.hidden = true; accountDefaultPlayerCountField.hidden = true; accountDefaultRoundLimitField.hidden = true; accountInterfaceStyleField.hidden = true; accountPersonalSkinField.hidden = true; accountUsePersonalSkinField.hidden = true; accountSkinRewards.hidden = true; emailSignInFields.hidden = true; accountPassword.value = ''; myGamesSignInButton.hidden = false; emailSignInButton.hidden = false; emailSignInButton.textContent = 'Use email'; emailSignInButton.classList.replace('primary-action', 'secondary-action'); myGamesSignInButton.classList.replace('secondary-action', 'primary-action'); forgotPasswordButton.hidden = true; createAccountButton.hidden = true; saveAccountPreferencesButton.hidden = true; exportAccountButton.hidden = true; deleteAccountButton.hidden = true; signOutButton.hidden = true; myGamesDialog.showModal(); }
+function openSignIn({ returnToJoin = false } = {}) { pendingSignInReturn = returnToJoin ? { view: 'join', code: $('#podCode').value.trim().toUpperCase(), step: joinStep } : null; myGamesDialog.querySelector('#myGamesTitle').textContent = 'Sign in'; myGamesStatus.textContent = 'Save your profile, games, and decks. Guest play is always available.'; myGamesContent.hidden = true; accountPreferredNameField.hidden = true; accountDefaultPlayerCountField.hidden = true; accountDefaultRoundLimitField.hidden = true; accountInterfaceStyleField.hidden = true; accountPersonalSkinField.hidden = true; accountUsePersonalSkinField.hidden = true; accountSkinRewards.hidden = true; emailSignInFields.hidden = true; accountPassword.value = ''; myGamesSignInButton.hidden = false; emailSignInButton.hidden = false; emailSignInButton.textContent = 'Use email'; emailSignInButton.classList.replace('primary-action', 'secondary-action'); myGamesSignInButton.classList.replace('secondary-action', 'primary-action'); forgotPasswordButton.hidden = true; createAccountButton.hidden = true; saveAccountPreferencesButton.hidden = true; exportAccountButton.hidden = true; deleteAccountButton.hidden = true; signOutButton.hidden = true; if (registration.pending) myGamesStatus.textContent = 'Creating your account…'; myGamesDialog.showModal(); }
 let emailSignInInFlight = false;
 async function signInWithEmailPassword() {
   if (emailSignInInFlight) return;
@@ -2262,7 +2284,12 @@ forgotPasswordButton.addEventListener('click', async () => {
     myGamesStatus.textContent = error?.message || 'The password-reset email could not be sent.';
   } finally { forgotPasswordButton.disabled = false; }
 });
-createAccountButton.addEventListener('click', async () => { try { await finishAccountSignIn(await emailAccountToken(accountEmail.value, accountPassword.value, true)); } catch (error) { myGamesStatus.textContent = error?.message || 'Account creation did not work.'; } });
+createAccountButton.addEventListener('click', () => {
+  if (emailSignInInFlight || registration.pending) return;
+  registrationReturnView = dom.views.find(view => !view.hidden) || dom.landing;
+  myGamesDialog.close(); accountPassword.value = '';
+  showView(registrationView); registration.open(accountEmail.value);
+});
 myDecksButton.addEventListener('click', () => { myDecksDialog.showModal(); showMyDecks(); });
 myDecksSignInButton.addEventListener('click', () => showMyDecks(true)); saveAccountPreferencesButton.addEventListener('click', () => void saveAccountPreferences());
 async function accountTokenForSkin(id) {
