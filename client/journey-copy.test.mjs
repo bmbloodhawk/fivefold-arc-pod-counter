@@ -35,7 +35,6 @@ test('shared life sends one net adjustment for a rapid correction burst', () => 
   assert.match(app, /new LifeAdjustmentBatcher\(\{ delayMs: 300,/);
   assert.match(app, /lifeBatcher\.add\(delta\)/);
   assert.match(app, /document\.addEventListener\('visibilitychange',[\s\S]*?lifeBatcher\.flush\(\)/);
-  assert.match(app, /if \(!optimisticLifeDelta\) \{ clearTimeout\(lifeChangeTimer\); lifeChange = null; render\(\); \}/);
   assert.match(app, /optimisticLifeDelta -= delta;\s*try \{\s*const result = await transport\.adjust\(\{ counter: 'life', delta, operationId \}\)/);
   assert.match(app, /if \(result\.ignored \|\| result\.local \|\| result\.locked\) return;/);
 });

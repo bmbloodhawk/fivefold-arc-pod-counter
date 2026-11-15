@@ -1462,12 +1462,15 @@ function render() {
 }
 function renderLifeChange(player) {
   if (!dom.lifeChangeIndicator) return;
+  if (lifeChange && lifeChange.playerId !== player?.id) {
+    clearTimeout(lifeChangeTimer); lifeChange = null;
+  }
   // A fresh life change combines with low-life/lethal state into one line,
   // then returns to the standalone warning without competing text.
   const visible = lifeChange?.playerId === player?.id;
   dom.lifeChangeIndicator.hidden = !visible;
   if (!visible) return;
-  const sign = lifeChange.delta > 0 ? '+' : '−';
+  const sign = lifeChange.delta > 0 ? '+' : lifeChange.delta < 0 ? '−' : '';
   const safetyStatus = player?.warning;
   dom.lifeChangeIndicator.textContent = safetyStatus
     ? `${safetyStatus} · ${sign}${Math.abs(lifeChange.delta)} LIFE`
@@ -1501,8 +1504,9 @@ function showLifeChange(playerId, delta, from, to, { confirmed = false } = {}) {
   if (!delta) return;
   // Keep one rolling confirmation while a player is entering a burst of life
   // changes. The total resets only after four quiet seconds or a seat switch.
-  const prior = lifeChange?.playerId === playerId && Math.sign(lifeChange.delta) === Math.sign(delta) ? lifeChange : null;
+  const prior = lifeChange?.playerId === playerId ? lifeChange : null;
   const start = prior?.from ?? from;
+  to = prior ? prior.to + delta : to;
   lifeChange = { playerId, from: start, to, delta: to - start, confirmed, startedAt: Date.now() };
   clearTimeout(lifeChangeTimer);
   lifeChangeTimer = setTimeout(() => { lifeChange = null; if (state) render(); }, 4000);
@@ -1787,8 +1791,7 @@ async function adjust(delta) {
   if (state.mode === 'life') {
     optimisticLifeDelta += delta;
     lifeBatcher.add(delta);
-    if (!optimisticLifeDelta) { clearTimeout(lifeChangeTimer); lifeChange = null; render(); }
-    else showLifeChange(player.id, optimisticLifeDelta, player.life, player.life + optimisticLifeDelta);
+    showLifeChange(player.id, delta, previous, previous + delta);
     return;
   }
   $$('[data-delta]').forEach(button => { button.disabled = true; });
