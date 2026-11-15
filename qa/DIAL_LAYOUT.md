@@ -3,14 +3,15 @@
 The local replacement follows Google's Modern Web Guidance `fluid-scaling`
 and `size-aware-styling` guides (CLI 1.0.0). It replaces the Dial-specific
 fixed stacks and size/turn overrides with one component. Button presentation
-keeps its existing layout.
+shares the inner artwork, readout anchors and ink alignment while keeping its
+existing surrounding card/control arrangement. See [Button QA](BUTTON_LAYOUT.md).
 
-- `client/dial-layout.css` owns available-space layout, proportions and touch targets.
+- `client/dial-layout.css` owns shared inner proportions and Dial's available-space layout/touch targets.
 - `client/dial-layout.js` aligns visible numeral ink after renders, resizes and font changes.
 - `client/index.html` provides one assembly with a contained decorative face.
 - Studio and Device Preview render the same game document and component.
 
-The stage gets space left after visible controls. Its circle fits both axes,
+In Dial presentation, the stage gets space left after visible controls. Its circle fits both axes,
 caps at 400px and retains an 8rem readable minimum. A short/crowded or enlarged
 text view scrolls. It never uniformly shrinks the text and 44px tap targets.
 The ring, seal and gesture share a center. Visible numerals have a 2.2% upward
