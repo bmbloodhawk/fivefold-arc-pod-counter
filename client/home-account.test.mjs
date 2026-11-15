@@ -116,6 +116,7 @@ test('reopening Sign in hides profile settings while preserving either saved int
     context.openSignIn();
     for (const name of profileFields) assert.equal(context[name].hidden, true, `${name} must stay out of Sign in`);
     assert.equal(context.myGamesDialog.open, true);
+    assert.equal(context.createAccountButton.hidden, false, 'Create account must be available in the initial chooser');
     if (pending) assert.equal(context.myGamesStatus.textContent, 'Creating your account…');
     assert.equal(context.accountInterfaceStyle.value, style);
     assert.equal(context.interfaceStyle, style);
