@@ -78,3 +78,110 @@ test('tapping Casual again resets life without replacing the chosen player count
   assert.equal(choices.selected.startingLife, '20');
   assert.equal(choices.selected.playerCount, '4');
 });
+
+function createTableLife({ format = 'custom', preset = '30', override = '', badInput = false } = {}) {
+  const fields = new Map(Object.entries({ gameFormat: format, startingLife: preset, customStartingLife: override,
+    playerCount: '4', seatCapacity: '4', commanderCount: '1', name: '', roundLimitMinutes: '', tableSkinId: '' }));
+  const elements = new Map();
+  let focused;
+  const element = selector => {
+    if (!elements.has(selector)) elements.set(selector, {
+      hidden: true, textContent: '', attributes: {}, listeners: {}, validity: { badInput },
+      addEventListener(type, listener) { this.listeners[type] = listener; },
+      setAttribute(name, value) { this.attributes[name] = value; }, focus() { focused = selector; },
+    });
+    return elements.get(selector);
+  };
+  const steps = [1, 2, 3, 4, 5].map(step => ({ dataset: { createStep: String(step) }, hidden: step !== 1 }));
+  const created = [];
+  const setupStart = app.indexOf('let createStep = 1;');
+  const setupEnd = app.indexOf("$('#joinStepTwoNext').addEventListener", setupStart);
+  const submitStart = app.indexOf("$('#createForm').addEventListener('submit'");
+  const submitEnd = app.indexOf("$('#joinForm').addEventListener", submitStart);
+  assert.ok(setupStart >= 0 && setupEnd > setupStart && submitStart >= 0 && submitEnd > submitStart);
+  const flow = runInNewContext(app.slice(setupStart, setupEnd) + '\n' + app.slice(submitStart, submitEnd) + '\n({ showCreateStep })', {
+    $: element, $$: selector => selector === '[data-create-step]' ? steps : [],
+    FormData: class extends Map { constructor() { super(fields); } }, window: { scrollTo() {} },
+    selectedGameFormat: () => fields.get('gameFormat'),
+    dom: { createCommanderNames: {}, seatCapacity: element('#seatCapacity'), roundLimitMinutes: element('#roundLimitMinutes'), localSimulation: { checked: false } },
+    commanderNamesFromForm: () => [''], commanderColorsFromFields: () => [[]],
+    accountTokenForSkin: async () => null,
+    transport: { async createRoom(config) { created.push(config); return { snapshot: { code: 'LOCAL' } }; } },
+    showSharedGame() {}, competitionHub: { async tableCreated() {} }, showError(error) { throw error; },
+  });
+  return {
+    created, fields, element, showStep: flow.showCreateStep,
+    get step() { return Number(steps.find(step => !step.hidden).dataset.createStep); },
+    get focused() { return focused; },
+    next: () => element('#createStepOneNext').listeners.click(),
+    submit: () => element('#createForm').listeners.submit({ preventDefault() {}, currentTarget: element('#createForm') }),
+  };
+}
+
+test('Custom creates tables with the selected 20/30/40 when its optional override is blank', async () => {
+  for (const preset of ['20', '30', '40']) {
+    for (const override of ['', '  ']) {
+      const table = createTableLife({ preset, override });
+      table.next();
+      assert.equal(table.step, 2);
+      await table.submit();
+      assert.equal(table.created[0]?.startingLife, Number(preset));
+    }
+  }
+});
+
+test('an entered Custom life total overrides the preset, including the supported boundaries', async () => {
+  for (const override of ['1', '25', '999']) {
+    const table = createTableLife({ preset: '30', override });
+    table.next();
+    assert.equal(table.step, 2);
+    await table.submit();
+    assert.equal(table.created[0]?.startingLife, Number(override));
+  }
+});
+
+test('invalid Custom values stay on the rules step with a focused, visible error', async () => {
+  for (const [override, badInput] of [['0', false], ['-1', false], ['1000', false], ['2.5', false], ['', true]]) {
+    const table = createTableLife({ override, badInput });
+    table.next();
+    assert.equal(table.step, 1);
+    assert.equal(table.focused, '#customStartingLife');
+    assert.equal(table.element('#customStartingLifeError').hidden, false);
+    assert.match(table.element('#customStartingLifeError').textContent, /whole number.*1.*999/);
+    assert.equal(table.element('#customStartingLife').attributes['aria-invalid'], 'true');
+    assert.match(table.element('#customStartingLife').attributes['aria-describedby'], /customStartingLifeError/);
+    await table.submit();
+    assert.equal(table.created.length, 0);
+  }
+});
+
+test('final submission also validates life and returns invalid Custom input to step one', async () => {
+  const table = createTableLife({ override: '0' });
+  table.showStep(5);
+  await table.submit();
+  assert.equal(table.step, 1);
+  assert.equal(table.created.length, 0);
+});
+
+test('editing an invalid Custom value clears its old error before the next validation', () => {
+  const table = createTableLife({ override: '0' });
+  table.next();
+  table.fields.set('customStartingLife', '25');
+  table.element('#customStartingLife').listeners.input();
+  assert.equal(table.element('#customStartingLifeError').hidden, true);
+  assert.equal(table.element('#customStartingLifeError').textContent, '');
+  assert.equal(table.element('#customStartingLife').attributes['aria-invalid'], 'false');
+  assert.equal(table.element('#customStartingLife').attributes['aria-describedby'], 'customStartingLifeHelp');
+  table.next();
+  assert.equal(table.step, 2);
+});
+
+test('Commander and Casual submit their presets even when a Custom draft is invalid', async () => {
+  for (const [format, preset] of [['commander', '40'], ['casual', '20']]) {
+    const table = createTableLife({ format, preset, override: '0', badInput: true });
+    table.next();
+    assert.equal(table.step, 2);
+    await table.submit();
+    assert.equal(table.created[0]?.startingLife, Number(preset));
+  }
+});

@@ -1152,7 +1152,7 @@ function syncSeatCapacityChoices() {
 }
 function fillSetupControls() { dom.playerCountChoices.innerHTML = Array.from({ length: 7 }, (_, index) => { const value = index + 2; return `<label><input type="radio" name="playerCount" value="${value}" ${value === 4 ? 'checked' : ''}><span>${value}</span></label>`; }).join(''); dom.playerCountChoices.querySelectorAll('input').forEach(input => input.addEventListener('change', syncSeatCapacityChoices)); syncSeatCapacityChoices(); }
 function selectedGameFormat() { return $('input[name="gameFormat"]:checked')?.value || 'commander'; }
-function updateFormatSetup() { const format = selectedGameFormat(); const commander = format === 'commander'; dom.createCommanderNames.previousElementSibling.hidden = !commander; dom.createCommanderNames.hidden = !commander; dom.createDeckField.hidden = !commander || !setupDecks.length; $('#customStartingLifeField').hidden = format !== 'custom'; $('#createStepThreeNext').textContent = commander ? 'Next: commander' : 'Next: table settings'; const joiningCommander = joinGameFormat === 'commander'; dom.joinCommanderNames.previousElementSibling.hidden = !joiningCommander; dom.joinCommanderNames.hidden = !joiningCommander; dom.joinDeckField.hidden = !joiningCommander || !setupDecks.length; }
+function updateFormatSetup() { const format = selectedGameFormat(); const commander = format === 'commander'; dom.createCommanderNames.previousElementSibling.hidden = !commander; dom.createCommanderNames.hidden = !commander; dom.createDeckField.hidden = !commander || !setupDecks.length; $('#customStartingLifeField').hidden = format !== 'custom'; $('#customStartingLife').disabled = format !== 'custom'; $('#createStepThreeNext').textContent = commander ? 'Next: commander' : 'Next: table settings'; const joiningCommander = joinGameFormat === 'commander'; dom.joinCommanderNames.previousElementSibling.hidden = !joiningCommander; dom.joinCommanderNames.hidden = !joiningCommander; dom.joinDeckField.hidden = !joiningCommander || !setupDecks.length; }
 function commanderNamesFromForm(form, count) { return Array.from({ length: count }, (_, slot) => String(form.get(`commanderName${slot}`) || '').trim()); }
 function commanderColorsFromFields(container, count) { return Array.from({ length: count }, (_, slot) => normaliseIdentity(String(container.querySelector(`input[name="commanderName${slot}"]`)?.dataset.commanderColors || '').split(',').filter(Boolean))); }
 async function lookupCommanderIdentity(name) {
@@ -2113,7 +2113,27 @@ function showCreateStep(step) { createStep = step; $$('[data-create-step]').forE
 let joinStep = 2;
 function showJoinStep(step) { joinStep = step; $$('[data-join-step]').forEach(section => { section.hidden = Number(section.dataset.joinStep) !== step; }); window.scrollTo({ top: 0, behavior: 'instant' }); }
 function skipCreateCommanders() { dom.createCommanderNames.querySelectorAll('input[name^="commanderName"]').forEach(input => { input.value = ''; delete input.dataset.commanderColors; }); showCreateStep(5); }
-$('#createStepOneNext').addEventListener('click', () => showCreateStep(2)); $('#createStepTwoNext').addEventListener('click', () => showCreateStep(3)); $('#createStepThreeNext').addEventListener('click', () => showCreateStep(selectedGameFormat() === 'commander' ? 4 : 5)); $('#createStepFourSkip').addEventListener('click', skipCreateCommanders); $('#createStepFourNext').addEventListener('click', async () => { const { unresolved } = await confirmUnresolvedCommanderDetails(dom.createCommanderNames, selectedCommanderCount('commanderCount')); if (!unresolved.length) showCreateStep(5); }); $$('[data-create-back]').forEach(button => button.addEventListener('click', () => showCreateStep(Math.max(1, createStep - 1))));
+function validateCreateStartingLife(form = new FormData($('#createForm'))) {
+  const input = $('#customStartingLife');
+  const custom = form.get('gameFormat') === 'custom';
+  const override = custom ? String(form.get('customStartingLife') || '').trim() : '';
+  const startingLife = Number(override || form.get('startingLife'));
+  const valid = Number.isInteger(startingLife) && startingLife >= 1 && startingLife <= 999 && !(custom && input.validity.badInput);
+  const error = $('#customStartingLifeError');
+  error.textContent = valid ? '' : 'Choose a whole number from 1 to 999 for starting life.';
+  error.hidden = valid;
+  input.setAttribute('aria-invalid', String(!valid));
+  input.setAttribute('aria-describedby', valid ? 'customStartingLifeHelp' : 'customStartingLifeHelp customStartingLifeError');
+  if (!valid) { showCreateStep(1); input.focus(); return null; }
+  return startingLife;
+}
+$('#customStartingLife').addEventListener('input', () => {
+  $('#customStartingLifeError').hidden = true;
+  $('#customStartingLifeError').textContent = '';
+  $('#customStartingLife').setAttribute('aria-invalid', 'false');
+  $('#customStartingLife').setAttribute('aria-describedby', 'customStartingLifeHelp');
+});
+$('#createStepOneNext').addEventListener('click', () => { if (validateCreateStartingLife() !== null) showCreateStep(2); }); $('#createStepTwoNext').addEventListener('click', () => showCreateStep(3)); $('#createStepThreeNext').addEventListener('click', () => showCreateStep(selectedGameFormat() === 'commander' ? 4 : 5)); $('#createStepFourSkip').addEventListener('click', skipCreateCommanders); $('#createStepFourNext').addEventListener('click', async () => { const { unresolved } = await confirmUnresolvedCommanderDetails(dom.createCommanderNames, selectedCommanderCount('commanderCount')); if (!unresolved.length) showCreateStep(5); }); $$('[data-create-back]').forEach(button => button.addEventListener('click', () => showCreateStep(Math.max(1, createStep - 1))));
 $('#joinStepTwoNext').addEventListener('click', () => { if (/^P[1-8]$/.test(dom.joinSeat.value)) showJoinStep(3); }); $('#joinStepThreeNext').addEventListener('click', () => showJoinStep(4)); $$('[data-join-back]').forEach(button => button.addEventListener('click', () => showJoinStep(Math.max(2, joinStep - 1))));
 signInButton.addEventListener('click', () => openSignIn());
 homeSignOutButton.addEventListener('click', () => void signOut());
@@ -2180,9 +2200,9 @@ $('#createForm').addEventListener('submit', async event => {
   const ownerCommanderColors = gameFormat === 'commander' ? commanderColorsFromFields(dom.createCommanderNames, ownerCommanderCount) : [[]];
   const ownerPlayerId = 'P1';
   const ownerName = String(form.get('name') || '').trim() || ownerPlayerId;
-  const startingLife = Number(gameFormat === 'custom' ? form.get('customStartingLife') : form.get('startingLife'));
   if (!Number.isInteger(seatCapacity) || seatCapacity < playerCount || seatCapacity > 8) { dom.seatCapacity.focus(); return; }
-  if (!Number.isInteger(startingLife) || startingLife < 1 || startingLife > 999) { $('#customStartingLife').focus(); return; }
+  const startingLife = validateCreateStartingLife(form);
+  if (startingLife === null) return;
   const enteredRoundLimit = String(form.get('roundLimitMinutes') || '').trim();
   const roundLimitMinutes = enteredRoundLimit ? Number(enteredRoundLimit) : null;
   const tableSkinId = String(form.get('tableSkinId') || '');

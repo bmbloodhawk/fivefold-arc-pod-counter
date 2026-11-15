@@ -118,9 +118,10 @@
               <label><input type="radio" name="startingLife" value="40" checked><span>40</span></label>
             </div>
           </fieldset>
-          <label id="customStartingLifeField" class="select-field" hidden>Other starting life
-            <input id="customStartingLife" name="customStartingLife" type="number" inputmode="numeric" min="1" max="999" step="1" placeholder="e.g. 25">
-            <small>Choose any whole number from 1 to 999.</small>
+          <label id="customStartingLifeField" class="select-field" hidden>Other starting life (optional)
+            <input id="customStartingLife" name="customStartingLife" type="number" inputmode="numeric" min="1" max="999" step="1" disabled placeholder="e.g. 25" aria-invalid="false" aria-describedby="customStartingLifeHelp">
+            <small id="customStartingLifeHelp">Blank uses your selection. Or enter 1 to 999.</small>
+            <small id="customStartingLifeError" class="field-help" hidden></small>
           </label>
           <button id="createStepOneNext" class="primary-action" type="button">Next: players</button>
         </section>
@@ -776,6 +777,6 @@
   </dialog>
   <p id="competitionSetupStatus" role="status" hidden></p>
   <script src="vendor/jsqr.js?v=1"></script>
-  <script type="module" src="app.js?v=304"></script>
+  <script type="module" src="app.js?v=305"></script>
 </body>
 </html>
