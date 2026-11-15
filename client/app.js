@@ -2085,7 +2085,12 @@ function returnToSetup() {
 function renderConnection(status = transport.status) {
   if (status !== 'connected' && optimisticLifeDelta) { lifeBatcher.clear(); optimisticLifeDelta = 0; }
   const presentation = connectionPresentation({ status });
-  if (presentation.showOffline) { awaitingConfirmedResync = true; clearTimeout(syncBannerTimer); dom.syncBanner.hidden = true; }
+  if (presentation.showOffline || status === 'local') {
+    // Initial setup is not a reconnect: a false Synced notice would take
+    // space from the dial, then resize it again when the notice disappears.
+    awaitingConfirmedResync = presentation.showOffline && Boolean(state && !state.localSimulation);
+    clearTimeout(syncBannerTimer); dom.syncBanner.hidden = true;
+  }
   dom.connectionButton.dataset.state = status; dom.connectionText.textContent = presentation.label; dom.disconnectBanner.hidden = !presentation.showOffline;
   // The lobby is the single source for sharing a table code. This optional
   // status dialog reports connection health only, so it does not interrupt
