@@ -162,6 +162,7 @@ let state = null;
 let developerMode = sessionStorage.getItem(DEVELOPER_MODE_KEY) === 'on';
 const SAVED_TABLES_KEY = 'fivefold-arc:saved-tables';
 const ACTIVE_TABLE_KEY = 'fivefold-arc:active-table';
+const LEGACY_ACTIVE_TABLE_KEY = 'fivefold-arc:last-active-table';
 const clearPastTablesButton = $('#clearPastTablesButton');
 const clearPastTablesDialog = $('#clearPastTablesDialog');
 const clearPastTablesError = $('#clearPastTablesError');
@@ -973,20 +974,38 @@ function showView(view) {
   window.scrollTo({ top: 0, behavior: 'instant' });
 }
 function savedTables() { try { const tables = JSON.parse(localStorage.getItem(SAVED_TABLES_KEY)); return Array.isArray(tables) ? tables.filter(table => /^[A-Z0-9]{6}$/.test(table?.code)).slice(0, 8) : []; } catch { return []; } }
+function validActiveTableTarget(target) {
+  return typeof target?.code === 'string' && /^[A-Z0-9]{6}$/.test(target.code)
+    && Number.isInteger(target.seatId) && target.seatId >= 0 && target.seatId < 8
+    && Number.isFinite(target.updatedAt);
+}
 function readActiveTable() {
   try {
-    const target = JSON.parse(localStorage.getItem(ACTIVE_TABLE_KEY));
-    if (typeof target?.code !== 'string' || !/^[A-Z0-9]{6}$/.test(target.code)
-        || !Number.isInteger(target.seatId) || target.seatId < 0 || target.seatId >= 8) return null;
+    const current = localStorage.getItem(ACTIVE_TABLE_KEY);
+    if (current !== null) {
+      const target = JSON.parse(current);
+      return validActiveTableTarget(target) && transport.hasStoredReclaimToken(target.code, target.seatId) ? target : null;
+    }
+    // First upgrade only: use the newest real target across old metadata.
+    // An existing new marker, including null after Leave, is authoritative.
+    const legacy = JSON.parse(localStorage.getItem(LEGACY_ACTIVE_TABLE_KEY));
+    const candidates = [legacy, ...savedTables().filter(table => !table.recoveryOnly)
+      .map(table => ({ code: table.code, seatId: table.seatId, updatedAt: table.lastUsedAt }))]
+      .filter(validActiveTableTarget).sort((left, right) => right.updatedAt - left.updatedAt);
+    const latest = candidates[0];
+    const target = latest && transport.hasStoredReclaimToken(latest.code, latest.seatId)
+      ? { code: latest.code, seatId: latest.seatId, updatedAt: latest.updatedAt } : null;
+    // Missing credentials must not silently select an older different table.
+    localStorage.setItem(ACTIVE_TABLE_KEY, JSON.stringify(target));
     return target;
   } catch { return null; }
 }
 function clearActiveTable(expected) {
   if (expected) {
     const active = readActiveTable();
-    if (active?.code !== expected.code || active.seatId !== expected.seatId) return;
+    if (active && (active.code !== expected.code || active.seatId !== expected.seatId)) return;
   }
-  try { localStorage.removeItem(ACTIVE_TABLE_KEY); } catch { /* Storage is optional. */ }
+  try { localStorage.setItem(ACTIVE_TABLE_KEY, 'null'); } catch { /* Storage is optional. */ }
 }
 function cancelActiveTableRecovery() {
   if (activeTableRecoveryEpoch !== transport.sessionEpoch) return;

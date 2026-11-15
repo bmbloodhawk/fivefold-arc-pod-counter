@@ -11,7 +11,7 @@ function segment(from, to) {
   return start < 0 || end < 0 ? '' : app.slice(start, end);
 }
 const source = [
-  app.match(/^const (?:SAVED_TABLES_KEY|ACTIVE_TABLE_KEY) = .*;$/gm).join('\n'),
+  app.match(/^const (?:SAVED_TABLES_KEY|ACTIVE_TABLE_KEY|LEGACY_ACTIVE_TABLE_KEY) = .*;$/gm).join('\n'),
   segment('function showView(view)', 'function latestRecoverableHostTable()'),
   segment('async function recoverActiveTable()', 'let joinQrScanner'),
   segment('function clearPastTables(event)', 'async function openJoinCode(code)'),
@@ -19,14 +19,16 @@ const source = [
   segment('function leaveTable()', 'async function leaveNextGameTable()'),
   segment('const deepJoinCode =', '\nif (!appearancePreviewMode) {\n  void loadGameDefaultLayout();'),
 ].join('\n');
-const activeKey = 'fivefold-arc:active-table', historyKey = 'fivefold-arc:saved-tables';
+const activeKey = 'fivefold-arc:active-table', legacyKey = 'fivefold-arc:last-active-table', historyKey = 'fivefold-arc:saved-tables';
 const target = { code: 'NEW222', seatId: 1, updatedAt: 200 };
 const previous = { code: 'OLD111', seatId: 0, lastUsedAt: 300 };
 const confirmed = { code: target.code, seats: [{}, { counters: { life: 37 } }] };
 
-function startPage({ active = target, search = '', hash = '', claim = async () => confirmed } = {}) {
-  const stored = new Map([[historyKey, JSON.stringify([previous])]]);
-  if (active) stored.set(activeKey, JSON.stringify(active));
+function startPage({ active = target, activeRaw, legacy, history = [previous], credentials = () => true, search = '', hash = '', claim = async () => confirmed } = {}) {
+  const stored = new Map([[historyKey, JSON.stringify(history)]]);
+  if (activeRaw !== undefined) stored.set(activeKey, activeRaw);
+  else if (active) stored.set(activeKey, JSON.stringify(active));
+  if (legacy !== undefined) stored.set(legacyKey, JSON.stringify(legacy));
   const calls = [], shown = [], invites = [], listeners = new Map();
   const landing = { hidden: false }, create = {}, join = {}, game = {}, registrationView = {};
   const transport = {
@@ -40,6 +42,7 @@ function startPage({ active = target, search = '', hash = '', claim = async () =
     },
     clearSession() { this.sessionEpoch++; this.roomCode = null; },
     useLocal() { this.clearSession(); },
+    hasStoredReclaimToken: credentials,
   };
   const context = createContext({
     URLSearchParams, parseCompetitionFragment, location: { search, hash }, transport, state: null,
@@ -66,10 +69,44 @@ test('reload returns to the exact active seat and authoritative life, not newest
   assert.equal(page.shown[0].seats[1].counters.life, 37);
 });
 
-test('saved history alone never starts automatic return', async () => {
-  const page = startPage({ active: null });
+test('first upgrade returns the newest validated saved seat without manual Return', async () => {
+  const page = startPage({ active: null, history: [{ ...target, lastUsedAt: 400 }, previous] });
+  await setImmediate();
+  assert.deepEqual(page.calls, [{ code: target.code, seatId: target.seatId, reclaimOnly: true }]);
+  assert.equal(JSON.parse(page.stored.get(activeKey)).code, target.code);
+});
+
+test('first upgrade migrates the legacy active marker when it is newest', async () => {
+  const page = startPage({ active: null, legacy: { ...target, updatedAt: 400 } });
+  await setImmediate();
+  assert.deepEqual(page.calls, [{ code: target.code, seatId: target.seatId, reclaimOnly: true }]);
+  assert.equal(JSON.parse(page.stored.get(activeKey)).updatedAt, 400);
+});
+
+test('a stale legacy marker cannot override a newer saved seat', async () => {
+  const page = startPage({ active: null, legacy: { code: 'OLD111', seatId: 0, updatedAt: 100 }, history: [{ ...target, lastUsedAt: 400 }] });
+  await setImmediate();
+  assert.deepEqual(page.calls, [{ code: target.code, seatId: target.seatId, reclaimOnly: true }]);
+});
+
+test('the latest real target losing its credential does not select an older table', async () => {
+  const page = startPage({ active: null, history: [{ ...target, lastUsedAt: 400 }, previous], credentials: code => code !== target.code });
   await setImmediate();
   assert.deepEqual(page.calls, []);
+  assert.equal(JSON.parse(page.stored.get(activeKey)), null);
+});
+
+test('invalid and recovery-only history entries do not become migration targets', async () => {
+  const page = startPage({ active: null, history: [{ code: 'BAD111', seatId: 99, lastUsedAt: 900 }, { code: 'REC111', seatId: 0, recoveryOnly: true, lastUsedAt: 800 }, { ...target, lastUsedAt: 400 }] });
+  await setImmediate();
+  assert.deepEqual(page.calls, [{ code: target.code, seatId: target.seatId, reclaimOnly: true }]);
+});
+
+test('a null tombstone blocks both legacy and history migration', async () => {
+  const page = startPage({ activeRaw: 'null', legacy: { ...target, updatedAt: 900 } });
+  await setImmediate();
+  assert.deepEqual(page.calls, []);
+  assert.equal(page.stored.get(activeKey), 'null');
 });
 
 for (const entry of [{ search: '?join=QR0001' }, { hash: '#invite=pod.id.secret' }, { hash: '#event=event_one&guest=guest1234' }]) {
@@ -98,7 +135,7 @@ for (const code of ['ROOM_NOT_FOUND', 'RECLAIM_UNAVAILABLE', 'SEAT_RESERVED', 'I
   test(`a permanent recovery failure clears only automatic return: ${code}`, async () => {
     const page = startPage({ claim: async () => { throw Object.assign(new Error('Unavailable'), { code }); } });
     await setImmediate();
-    assert.equal(page.stored.has(activeKey), false);
+    assert.equal(JSON.parse(page.stored.get(activeKey)), null);
     assert.deepEqual(JSON.parse(page.stored.get(historyKey)), [previous]);
   });
 }
@@ -110,7 +147,7 @@ for (const action of ['showView(dom.create)', 'showView(dom.join)', 'showView(re
     runInContext(action, page.context);
     resolve(confirmed);
     await setImmediate();
-    assert.equal(page.stored.has(activeKey), false);
+    assert.equal(JSON.parse(page.stored.get(activeKey)), null);
     assert.deepEqual(page.shown, []);
   });
 }
@@ -122,12 +159,12 @@ test('a new competition invite cancels an in-flight automatic return', async () 
   page.listeners.get('hashchange')?.();
   resolve(confirmed);
   await setImmediate();
-  assert.equal(page.stored.has(activeKey), false);
+  assert.equal(JSON.parse(page.stored.get(activeKey)), null);
   assert.deepEqual(page.shown, []);
 });
 
 test('saving the current shared seat records a separate active marker', async () => {
-  const page = startPage({ active: null });
+  const page = startPage({ active: null, history: [] });
   page.context.state = { localSimulation: false, podCode: 'OWN333', ownerPlayerId: 'P2', hostSeatId: 0, players: [{ id: 'P2', name: 'Player Two' }] };
   runInContext('saveTable()', page.context);
   const active = JSON.parse(page.stored.get(activeKey));
@@ -142,6 +179,6 @@ for (const action of ['leaveTable()', 'forgetCurrentTable()', "clearPastTables({
     await setImmediate();
     page.context.state = { localSimulation: false, podCode: target.code };
     runInContext(action, page.context);
-    assert.equal(page.stored.has(activeKey), false);
+    assert.equal(JSON.parse(page.stored.get(activeKey)), null);
   });
 }

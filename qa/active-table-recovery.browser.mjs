@@ -29,6 +29,12 @@ export async function checkActiveTableRecovery({ page, context }, base, output) 
   assert.ok(Math.max(...report.diameter) - Math.min(...report.diameter) < 1, 'auto-return does not produce a delayed Dial resize');
   await page.screenshot({ path: resolve(output, 'restored-seat.png') });
   report.checks.push('Reload restores the same owner and confirmed life; Dial diameter stays stable for 6.2 seconds');
+  // Only nonsecret return metadata is changed to simulate a pre-upgrade install.
+  await page.evaluate(() => localStorage.removeItem('fivefold-arc:active-table'));
+  await page.reload();
+  await page.locator('#gameView').waitFor({ state: 'visible' });
+  assert.equal(await page.locator('#mainValue').textContent(), String(before - 3));
+  report.checks.push('An existing install migrates its latest saved seat on first reload without manual Return');
   await plus.tap();
   await page.waitForResponse(response => response.url().endsWith('/adjust') && response.ok());
   const after = await snapshot();
@@ -40,18 +46,19 @@ export async function checkActiveTableRecovery({ page, context }, base, output) 
   await page.locator('#leaveTableButton').click();
   await page.locator('#confirmLeaveTableButton').click();
   await page.locator('#landingView').waitFor({ state: 'visible' });
+  await page.evaluate(code => localStorage.setItem('fivefold-arc:last-active-table', JSON.stringify({ code, seatId: 0, updatedAt: Date.now() })), code);
   const previousRequests = reclaimRequests;
   await page.reload();
   await page.locator('#landingView').waitFor({ state: 'visible' });
   await page.waitForTimeout(500);
-  assert.equal(reclaimRequests, previousRequests, 'deliberate leave prevents automatic return');
+  assert.equal(reclaimRequests, previousRequests, 'Leave tombstone prevents legacy/history resurrection');
   report.checks.push('Leaving deliberately, then reloading, stays Home despite saved history');
   await page.locator(`#savedTablesList button[data-saved-code="${code}"]`).click();
   await page.locator('#gameView').waitFor({ state: 'visible' });
   await page.reload();
   await page.locator('#gameView').waitFor({ state: 'visible' });
   assert.equal(await page.locator('#mainValue').textContent(), String(before - 2));
-  report.checks.push('Returning to a saved table once establishes the active marker for future reloads');
+  report.checks.push('An explicit saved-table Return after Leave makes the seat active again');
 
   let entered, release;
   const seen = new Promise(resolve => { entered = resolve; });
