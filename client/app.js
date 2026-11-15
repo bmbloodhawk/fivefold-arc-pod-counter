@@ -10,6 +10,7 @@ import { JoinQrScanner } from './join-qr-scanner.js?v=5';
 import { GameWakeLock } from './game-wake-lock.js?v=1';
 import { applyCollectionVisual } from './collection-visual.js?v=4';
 import { createCompetitionHub } from './competition-ui.js?v=5';
+import { parseCompetitionFragment } from './competition-model.mjs?v=1';
 import { createAppearanceCatchUp } from './appearance-catch-up.js?v=2';
 import { createDialLayout } from './dial-layout.js?v=1';
 
@@ -160,6 +161,7 @@ const accountInterfaceStyleField = $('#accountInterfaceStyleField'); const accou
 let state = null;
 let developerMode = sessionStorage.getItem(DEVELOPER_MODE_KEY) === 'on';
 const SAVED_TABLES_KEY = 'fivefold-arc:saved-tables';
+const ACTIVE_TABLE_KEY = 'fivefold-arc:active-table';
 const clearPastTablesButton = $('#clearPastTablesButton');
 const clearPastTablesDialog = $('#clearPastTablesDialog');
 const clearPastTablesError = $('#clearPastTablesError');
@@ -213,6 +215,7 @@ let selectedDeckId = ''; let setupDecks = []; let commanderDecks = []; let joinG
 let optimisticLifeDelta = 0;
 let awaitingConfirmedResync = false;
 let syncBannerTimer = null;
+let activeTableRecoveryEpoch = null;
 // New players begin with the Dial. An explicit previous Button choice remains
 // respected on this device.
 let interfaceStyle = (() => { try { return localStorage.getItem(INTERFACE_STYLE_KEY) === 'button' ? 'button' : 'dial'; } catch { return 'dial'; } })();
@@ -958,6 +961,11 @@ function syncGameWakeLock() {
   void gameWakeLock.sync({ active, enabled: keepScreenAwake });
 }
 function showView(view) {
+  if (view === dom.create || view === dom.join
+      || (activeTableRecoveryEpoch === transport.sessionEpoch && ![dom.game, dom.lobby, dom.intermission].includes(view))) {
+    clearActiveTable();
+    cancelActiveTableRecovery();
+  }
   const activeView = view === dom.game && state ? tableViewForState() : view;
   dom.views.forEach(item => { item.hidden = item !== activeView; });
   dialLayout.update();
@@ -965,9 +973,31 @@ function showView(view) {
   window.scrollTo({ top: 0, behavior: 'instant' });
 }
 function savedTables() { try { const tables = JSON.parse(localStorage.getItem(SAVED_TABLES_KEY)); return Array.isArray(tables) ? tables.filter(table => /^[A-Z0-9]{6}$/.test(table?.code)).slice(0, 8) : []; } catch { return []; } }
+function readActiveTable() {
+  try {
+    const target = JSON.parse(localStorage.getItem(ACTIVE_TABLE_KEY));
+    if (typeof target?.code !== 'string' || !/^[A-Z0-9]{6}$/.test(target.code)
+        || !Number.isInteger(target.seatId) || target.seatId < 0 || target.seatId >= 8) return null;
+    return target;
+  } catch { return null; }
+}
+function clearActiveTable(expected) {
+  if (expected) {
+    const active = readActiveTable();
+    if (active?.code !== expected.code || active.seatId !== expected.seatId) return;
+  }
+  try { localStorage.removeItem(ACTIVE_TABLE_KEY); } catch { /* Storage is optional. */ }
+}
+function cancelActiveTableRecovery() {
+  if (activeTableRecoveryEpoch !== transport.sessionEpoch) return;
+  activeTableRecoveryEpoch = null;
+  transport.clearSession();
+}
 function saveTable() {
   if (!state || state.localSimulation || !/^[A-Z0-9]{6}$/.test(state.podCode)) return;
   const entry = { code: state.podCode, seatId: transport.seatId, name: displayName(state.players.find(player => player.id === state.ownerPlayerId)), isHost: transport.seatId === state.hostSeatId, lastUsedAt: Date.now() };
+  // History includes deliberately left seats; only this marker permits auto-return.
+  try { localStorage.setItem(ACTIVE_TABLE_KEY, JSON.stringify({ code: entry.code, seatId: entry.seatId, updatedAt: entry.lastUsedAt })); } catch { /* Storage is optional. */ }
   try { localStorage.setItem(SAVED_TABLES_KEY, JSON.stringify([entry, ...savedTables().filter(table => table.code !== entry.code || table.seatId !== entry.seatId)].slice(0, 8))); } catch { /* Storage is optional; reclaim remains available when the browser can retain it. */ }
 }
 function latestRecoverableHostTable() {
@@ -1071,6 +1101,8 @@ function clearPastTables(event) {
     clearPastTablesError.textContent = 'Could not clear the table list on this device. Please try again.';
     return;
   }
+  clearActiveTable();
+  cancelActiveTableRecovery();
   clearPastTablesDialog.close('confirm');
   renderSavedTables(true);
   $('#savedTablesTitle').focus();
@@ -1079,6 +1111,26 @@ async function openJoinCode(code) {
   const normalizedCode = String(code || '').toUpperCase();
   if (!/^[A-Z0-9]{6}$/.test(normalizedCode)) return;
   showView(dom.join); $('#podCode').value = normalizedCode; dom.joinCodeStatus.textContent = 'Finding your table…'; await refreshJoinSeats();
+}
+async function recoverActiveTable() {
+  if (dom.landing.hidden || competitionHub.isOpen() || transport.roomCode || activeTableRecoveryEpoch !== null) return;
+  const target = readActiveTable();
+  if (!target) return;
+  const attempt = transport.claimRoom({ code: target.code, seatId: target.seatId, reclaimOnly: true });
+  const epoch = transport.sessionEpoch;
+  activeTableRecoveryEpoch = epoch;
+  try {
+    const result = await attempt;
+    if (!result?.snapshot || transport.sessionEpoch !== epoch) return;
+    showSharedGame(transport.snapshot);
+  } catch (error) {
+    if (transport.sessionEpoch !== epoch) return;
+    if (['ROOM_NOT_FOUND', 'RECLAIM_UNAVAILABLE', 'SEAT_RESERVED', 'INVALID_INPUT'].includes(error?.code)) clearActiveTable(target);
+    awaitingConfirmedResync = false;
+    transport.clearSession();
+  } finally {
+    if (activeTableRecoveryEpoch === epoch) activeTableRecoveryEpoch = null;
+  }
 }
 let joinQrScanner = null;
 function stopJoinQrScanner() { joinQrScanner?.stop(dom.joinQrScannerVideo); }
@@ -1228,7 +1280,7 @@ function renderCommanderNameFields(container, count, names = [], identities = []
 function selectedCommanderCount(formName) { return Number($(`input[name="${formName}"]:checked`)?.value || 1); }
 function refreshSetupCommanderNames() { renderCommanderNameFields(dom.createCommanderNames, selectedCommanderCount('commanderCount')); renderCommanderNameFields(dom.joinCommanderNames, selectedCommanderCount('joinCommanderCount')); }
 function showTableView() { showView(tableViewForState()); }
-function beginLocalGame(config) { transport.useLocal(); state = { ...createState(config), localDemoLastInteractionAt: Date.now() }; showTableView(); render(); void applySelectedAppearance(); }
+function beginLocalGame(config) { clearActiveTable(); cancelActiveTableRecovery(); transport.useLocal(); state = { ...createState(config), localDemoLastInteractionAt: Date.now() }; showTableView(); render(); void applySelectedAppearance(); }
 function clearDeepJoinCode() {
   const url = new URL(location.href);
   if (!url.searchParams.has('join')) return;
@@ -2241,11 +2293,13 @@ function beginDialDrag(event) {
   dialPointer = { id: event.pointerId, angle: dialAngle(event), accumulated: 0 }; document.body.classList.add('dial-dragging'); dom.dialGesture.classList.add('dragging'); dom.dialGesture.setPointerCapture?.(event.pointerId); event.preventDefault();
 }
 function leaveTable() {
+  if (state && !state.localSimulation) clearActiveTable({ code: state.podCode, seatId: transport.seatId });
   closeGameOverlays(); clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); clearStartingRollTimers(); clearInterval(turnTicker); lifeBatcher.clear(); optimisticLifeDelta = 0; dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); state = null; transport.clearSession(); renderSavedTables(); showView(dom.landing);
 }
 function forgetCurrentTable() {
   if (!state?.podCode || state.localSimulation) return;
   const code = state.podCode; const seatId = transport.seatId;
+  clearActiveTable({ code, seatId });
   try { localStorage.setItem(SAVED_TABLES_KEY, JSON.stringify(savedTables().filter(table => table.code !== code || table.seatId !== seatId))); } catch { /* Optional browser storage only. */ }
 }
 async function leaveNextGameTable() {
@@ -2419,7 +2473,15 @@ dom.startingRollCanvas?.addEventListener('webglcontextlost', () => recordClientD
 transport.addEventListener('protocolerror', () => recordClientDiagnostic('protocol_error'));
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js').catch(() => {});
 const deepJoinCode = new URLSearchParams(location.search).get('join');
-if (!appearancePreviewMode && /^[A-Z0-9]{6}$/i.test(deepJoinCode || '')) openJoinCode(deepJoinCode);
+if (!appearancePreviewMode) {
+  if (/^[A-Z0-9]{6}$/i.test(deepJoinCode || '')) void openJoinCode(deepJoinCode);
+  else if (parseCompetitionFragment(location.hash)) clearActiveTable();
+  else void recoverActiveTable();
+  window.addEventListener('online', recoverActiveTable);
+  window.addEventListener('hashchange', () => {
+    if (parseCompetitionFragment(location.hash)) { clearActiveTable(); cancelActiveTableRecovery(); }
+  });
+}
 if (!appearancePreviewMode) {
   void loadGameDefaultLayout();
   void loadPublishedSkinChoices();

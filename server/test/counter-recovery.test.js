@@ -51,6 +51,30 @@ async function fixture(t, intercept = async () => null, options = {}) {
   return {...app,ledger,database,call,room,releases,origin};
 }
 
+test('automatic seat reclaim waits for its durable recovery acknowledgement', { timeout: 10000 }, async t => {
+  const blocked = gate(), entered = gate(); let heldPath;
+  const f = await fixture(t, async (url, options) => {
+    if (recoveryWrite(url, options, heldPath)) { entered.release(); await blocked.promise; }
+  });
+  f.releases.push(blocked.release);
+  const host = f.service.createConnection().connectionId;
+  const created = f.service.createRoom(host, { playerCount: 2, startingLife: 40 });
+  await f.ledger.flush();
+  const code = created.snapshot.code;
+  heldPath = '/recovery/' + code + '.json';
+  let replied = false;
+  const pending = f.call(code, 'reclaim', f.service.createConnection().connectionId, { seatId: 0, reclaimToken: created.reclaimToken })
+    .then(result => { replied = true; return result; });
+  await entered.promise; await pause(40);
+  assert.equal(replied, false, 'a reclaimed seat is not acknowledged before its saved state');
+  assert.equal(f.database.read('recovery/' + code + '.json').room.version, created.snapshot.version);
+  blocked.release();
+  const result = await pending;
+  assert.equal(result.status, 200);
+  assert.equal(result.data.seatId, 0);
+  assert.equal(f.database.read('recovery/' + code + '.json').room.version, result.data.snapshot.version);
+});
+
 for (const method of ['POST','PATCH']) {
   test(method + ' counter confirmation waits for its frozen recovery save; another Table stays responsive', {timeout:10000}, async t => {
     const blocked=gate(), entered=gate(); let heldPath;

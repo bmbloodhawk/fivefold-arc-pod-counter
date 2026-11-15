@@ -76,13 +76,16 @@ export class RealtimeAdapter extends EventTarget {
     return resume;
   }
 
-  async claimRoom({ code, seatId, name, commanderCount = 1, commanderNames = Array.from({ length: commanderCount }, () => ''), commanderColors = Array.from({ length: commanderCount }, () => []), accountToken = null }) {
+  async claimRoom({ code, seatId, name, commanderCount = 1, commanderNames = Array.from({ length: commanderCount }, () => ''), commanderColors = Array.from({ length: commanderCount }, () => []), accountToken = null, reclaimOnly = false }) {
     const epoch = this.#beginSession();
     try {
-      if (!await this.#startConnection(epoch)) return { ignored: true };
       const normalizedCode = code.toUpperCase();
-      const savedToken = this.#storedToken(normalizedCode, seatId);
-      const result = await this.#request(`/api/rooms/${encodeURIComponent(normalizedCode)}/claim`, {
+      const recoveryToken = reclaimOnly ? this.#storedToken(normalizedCode, seatId) : null;
+      if (reclaimOnly && !recoveryToken) throw Object.assign(new Error('This phone no longer has the saved seat credential.'), { code: 'RECLAIM_UNAVAILABLE' });
+      if (!await this.#startConnection(epoch)) return { ignored: true };
+      const savedToken = recoveryToken || this.#storedToken(normalizedCode, seatId);
+      const action = reclaimOnly ? 'reclaim' : 'claim';
+      const result = await this.#request(`/api/rooms/${encodeURIComponent(normalizedCode)}/${action}`, {
         method: 'POST', authenticated: true, accountToken, body: { seatId, ...(savedToken ? { reclaimToken: savedToken } : { name, commanderCount, commanderNames, commanderColors }) }
       });
       if (!this.#isCurrentSession(epoch)) return { ignored: true };

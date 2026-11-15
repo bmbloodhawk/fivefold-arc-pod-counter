@@ -11,6 +11,56 @@ class FakeEventSource {
   emit(type, event = {}) { this.listeners.get(type)?.(event); }
 }
 
+test('automatic return requires the saved credential before opening a connection', async () => {
+  const originals = Object.fromEntries(['fetch', 'localStorage'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  let adapter, requests = 0;
+  try {
+    globalThis.localStorage = { getItem: () => null, setItem() {} };
+    globalThis.fetch = async () => { requests++; throw new Error('Unexpected network request'); };
+    const { RealtimeAdapter } = await import('./realtime.js');
+    adapter = new RealtimeAdapter({ apiBase: 'https://pod.test' });
+    await assert.rejects(adapter.claimRoom({ code: 'POD123', seatId: 1, reclaimOnly: true }), { code: 'RECLAIM_UNAVAILABLE' });
+    assert.equal(requests, 0);
+  } finally {
+    adapter?.clearSession();
+    for (const [key, descriptor] of Object.entries(originals)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key];
+    }
+  }
+});
+
+test('automatic return uses the strict endpoint and preserves account authentication', async () => {
+  const originals = Object.fromEntries(['fetch', 'EventSource', 'document', 'localStorage'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  let adapter, reclaimed = false;
+  const snapshot = { code: 'POD123', version: 2 };
+  try {
+    globalThis.document = { visibilityState: 'visible' };
+    globalThis.EventSource = FakeEventSource;
+    globalThis.localStorage = { getItem: key => key === 'fivefold-arc:reclaim:POD123:1' ? 'fixture-seat-token' : null, setItem() {} };
+    globalThis.fetch = async (url, options = {}) => {
+      const path = new URL(url).pathname;
+      if (path === '/api/connections') return response({ connectionId: 'connection-1' });
+      if (path === '/api/rooms/POD123') return response({ snapshot });
+      assert.equal(path, '/api/rooms/POD123/reclaim');
+      assert.equal(options.headers.Authorization, 'Bearer fixture-account-token');
+      assert.deepEqual(JSON.parse(options.body), { seatId: 1, reclaimToken: 'fixture-seat-token' });
+      reclaimed = true;
+      return response({ snapshot, seatId: 1 });
+    };
+    const { RealtimeAdapter } = await import('./realtime.js');
+    adapter = new RealtimeAdapter({ apiBase: 'https://pod.test' });
+    await adapter.claimRoom({ code: 'pod123', seatId: 1, accountToken: 'fixture-account-token', reclaimOnly: true });
+    assert.equal(reclaimed, true);
+    assert.equal(adapter.status, 'connected');
+    assert.equal(adapter.seatId, 1);
+  } finally {
+    adapter?.clearSession();
+    for (const [key, descriptor] of Object.entries(originals)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key];
+    }
+  }
+});
+
 test('a failed room confirmation pauses writes until reconnect, without replaying failed input', async () => {
   const keys = ['fetch', 'EventSource', 'document', 'localStorage', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'];
   const originals = Object.fromEntries(keys.map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));

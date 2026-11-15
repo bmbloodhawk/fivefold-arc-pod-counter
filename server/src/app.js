@@ -975,7 +975,7 @@ export class RoomService {
     };
   }
 
-  claimSeat(code, connectionId, input = {}) {
+  claimSeat(code, connectionId, input = {}, { reclaimOnly = false } = {}) {
     const room = this.room(code);
     const connection = this.getConnection(connectionId);
     this.requireCompatibleTableProtocol(connection, room.protocolVersion);
@@ -988,6 +988,7 @@ export class RoomService {
     const wasClaimed = seat.claimed;
     let reclaimToken = input.reclaimToken;
     if (!seat.claimed) {
+      if (reclaimOnly) throw Object.assign(new Error('That saved seat is no longer reserved'), { status: 403, code: 'RECLAIM_UNAVAILABLE' });
       if (["playing", "complete"].includes(room.lifecycle?.status)) {
         throw Object.assign(new Error("New seats can join during next-game setup, not while a game is active"), { status: 409, code: "GAME_IN_PROGRESS", snapshot: this.snapshot(room) });
       }
@@ -2212,6 +2213,10 @@ export function createRealtimeServer(options = {}) {
           return await roomJson(res, 200, competitionTables && req.headers.authorization
             ? await competitionTables.claimRoom(code, connectionId, input, () => account(req))
             : service.claimSeat(code, connectionId, input));
+        }
+        if (req.method === "POST" && parts[3] === "reclaim") {
+          const input = await readJson(req);
+          return await roomJson(res, 200, service.claimSeat(code, connectionId, { seatId: input?.seatId, reclaimToken: input?.reclaimToken }, { reclaimOnly: true }));
         }
         if (req.method === "PATCH" && parts[3] === "me") return await roomJson(res, 200, service.mutateOwnSeat(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "adjust") return await roomJson(res, 200, service.adjustOwnSeat(code, connectionId, await readJson(req)));

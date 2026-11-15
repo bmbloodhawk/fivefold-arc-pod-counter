@@ -364,6 +364,31 @@ describe("room configuration and claims", () => {
 });
 
 describe("authority and convergence", () => {
+  test("automatic return requires an existing reservation and preserves seat details", async () => {
+    const made = await room();
+    const code = made.snapshot.code;
+    const path = `/api/rooms/${code}/reclaim`;
+    const anonymous = await call(path, { method: "POST", body: { seatId: 0, reclaimToken: made.reclaimToken } });
+    assert.equal(anonymous.status, 401);
+    const unavailable = await call(path, { method: "POST", connectionId: await connection(), body: { seatId: 1, reclaimToken: "stale-token" } });
+    assert.equal(unavailable.status, 403);
+    assert.equal(unavailable.body.error.code, "RECLAIM_UNAVAILABLE");
+    const untouched = (await call(`/api/rooms/${code}`)).body.snapshot;
+    assert.equal(untouched.version, made.snapshot.version);
+    assert.equal(untouched.seats[1].claimed, false);
+    const claimed = await call(`/api/rooms/${code}/claim`, { method: "POST", connectionId: await connection(), body: { seatId: 1, name: "Jace", commanderCount: 2 } });
+    const wrong = await call(path, { method: "POST", connectionId: await connection(), body: { seatId: 1, reclaimToken: "wrong-token" } });
+    assert.equal(wrong.status, 403);
+    assert.equal(wrong.body.error.code, "SEAT_RESERVED");
+    assert.equal((await call(`/api/rooms/${code}`)).body.snapshot.version, claimed.body.snapshot.version);
+    const reclaimed = await call(path, { method: "POST", connectionId: await connection(), body: { seatId: 1, reclaimToken: claimed.body.reclaimToken, name: "Ignored rename", commanderCount: 1, counters: { life: 999 } } });
+    assert.equal(reclaimed.status, 200);
+    assert.equal(reclaimed.body.seatId, 1);
+    assert.equal(reclaimed.body.snapshot.seats[1].name, "Jace");
+    assert.equal(reclaimed.body.snapshot.seats[1].commanderCount, 2);
+    assert.equal(reclaimed.body.snapshot.seats[1].counters.life, 40);
+  });
+
   test("allows an exact-version owner rename and keeps duplicate names presentation-only", async () => {
     const made = await room({ name: "Alex" });
     const playerConnection = await connection();
