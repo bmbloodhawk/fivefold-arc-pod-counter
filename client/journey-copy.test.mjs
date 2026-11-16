@@ -156,7 +156,7 @@ test('creating a table is distinct from starting a game', () => {
 });
 
 test('the lobby explains its two-player start threshold and what happens to empty seats', () => {
-  assert.match(html, /Start with 2\+ ready players\. Other seats stay unused\./);
+  assert.match(html, /Start with 2 or more players\./);
   assert.match(app, /dom\.startGameButton\.disabled = !isHost \|\| claimedPlayers\.length < 2;/);
 });
 

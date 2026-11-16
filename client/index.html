@@ -242,6 +242,7 @@
     </section>
 
     <section id="lobbyView" class="view setup-shell lobby-screen" hidden aria-labelledby="lobbyHeading">
+      <button id="leaveLobbyButton" class="secondary-action" type="button">Leave table</button>
       <p class="eyebrow">GATHER YOUR TABLE</p>
       <h1 id="lobbyHeading">Set up your game</h1>
       <p class="setup-intro">Share the table code, wait for your players, then start when everyone is ready.</p>
@@ -307,7 +308,7 @@
         <button id="copyLobbyJoinLinkButton" class="primary-action" type="button">Copy invite link</button>
         <button id="showJoinQrButton" class="secondary-action" type="button">Show join QR</button>
         <div id="lobbyRoster" class="intermission-roster" hidden></div>
-        <p class="lobby-start-help">Start with 2+ ready players. Other seats stay unused.</p>
+        <p class="lobby-start-help">Start with 2 or more players.</p>
         <button id="startGameButton" class="primary-action" type="button">Start game · P1 goes first</button>
         <details id="firstPlayerOptions" class="lobby-options">
           <summary>Choose a different first player</summary>
@@ -777,6 +778,6 @@
   </dialog>
   <p id="competitionSetupStatus" role="status" hidden></p>
   <script src="vendor/jsqr.js?v=1"></script>
-  <script type="module" src="app.js?v=307"></script>
+  <script type="module" src="app.js?v=308"></script>
 </body>
 </html>

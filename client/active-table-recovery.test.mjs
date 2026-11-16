@@ -6,6 +6,21 @@ import { createContext, runInContext } from 'node:vm';
 import { parseCompetitionFragment } from './competition-model.mjs';
 
 const app = (await readFile(new URL('./app.js', import.meta.url), 'utf8')).replace(/\r\n/g, '\n');
+const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+
+test('the lobby exposes Leave table through the existing confirmation', () => {
+  const lobby = html.slice(html.indexOf('<section id="lobbyView"'), html.indexOf('<section id="intermissionView"'));
+  assert.match(lobby, /id="leaveLobbyButton"[^>]*>Leave table<\/button>/);
+  const handler = app.match(/^\$\('#leaveLobbyButton'\).*$/m)?.[0];
+  assert.ok(handler, 'the lobby exit needs its own handler');
+  let click, confirmations = 0;
+  const context = createContext({
+    $: () => ({ addEventListener(type, listener) { assert.equal(type, 'click'); click = listener; } }),
+    dom: { leaveTableDialog: { showModal() { confirmations++; } } },
+  });
+  runInContext(handler, context); click();
+  assert.equal(confirmations, 1);
+});
 function segment(from, to) {
   const start = app.indexOf(from), end = app.indexOf(to, start);
   return start < 0 || end < 0 ? '' : app.slice(start, end);
