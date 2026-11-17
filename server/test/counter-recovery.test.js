@@ -1,3 +1,4 @@
+import { expireEliminationWindow } from '../test-support/expire-elimination-window.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { spawn } from 'node:child_process';
@@ -137,7 +138,7 @@ test('failed saves return a retryable error; a room refresh retries the same fro
   assert.equal(duplicate.data.snapshot.seats[0].counters.life,41);
 });
 
-test('a completed-game adjustment waits for the final recovery record, including frozen result evidence', {timeout:10000}, async t=>{
+test('expired elimination completion reads wait for the final recovery record, including frozen result evidence', {timeout:10000}, async t=>{
   const blocked=gate(),entered=gate();let target;
   const f=await fixture(t,async(url,options)=>{
     if(recoveryWrite(url,options,target)?.room.completedGames?.length){
@@ -145,8 +146,10 @@ test('a completed-game adjustment waits for the final recovery record, including
     }
   });
   f.releases.push(blocked.release);const a=await f.room();target='/recovery/'+a.code+'.json';let replied=false;
-  const pending=f.call(a.code,'adjust',a.guest,{counter:'life',delta:-40,operationId:'lethal_recovery_change_0001'})
-    .then(result=>{replied=true;return result;});
+  const adjustment = await f.call(a.code,'adjust',a.guest,{counter:'life',delta:-40,operationId:'lethal_recovery_change_0001'});
+  assert.equal(adjustment.status, 200); assert.equal(adjustment.data.snapshot.gameResult, null);
+  expireEliminationWindow(f.service, a.code);
+  const pending = f.call(a.code,'',a.host,undefined,'GET').then(result=>{replied=true;return result;});
   await entered.promise;await pause(40);
   assert.equal(replied,false,'Completion must wait for the final snapshot, not the earlier result event.');
   blocked.release();const result=await pending;assert.equal(result.status,200);

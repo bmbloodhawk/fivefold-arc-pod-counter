@@ -136,7 +136,7 @@ export class RealtimeAdapter extends EventTarget {
       this.#acceptSnapshot(result.snapshot, epoch); return result;
     } catch (error) {
       if (!this.#isCurrentSession(epoch)) return { ignored: true };
-      if (error.status === 409 && error.code === 'GAME_NOT_PLAYING' && error.payload?.snapshot) {
+      if (error.status === 409 && ['GAME_NOT_PLAYING', 'FINISH_PENDING'].includes(error.code) && error.payload?.snapshot) {
         this.#acceptSnapshot(error.payload.snapshot, epoch);
         return { locked: true };
       }
@@ -209,6 +209,7 @@ export class RealtimeAdapter extends EventTarget {
   async handoffTurn() { return this.#turnRequest('/turn-handoff'); }
 
   async undoTurnHandoff() { return this.#turnRequest('/turn-handoff/undo'); }
+  async undoElimination(eliminationId) { return this.#turnRequest('/undo-elimination', { eliminationId }); }
   async setTurnTracking(enabled) { return this.#hostGameRequest('/turn-tracking', { enabled }); }
   async setTurnCues(cueMode) { return this.#hostGameRequest('/turn-cues', { cueMode }); }
   async setSessionKind(sessionKind) { return this.#hostGameRequest('/session-kind', { sessionKind }); }

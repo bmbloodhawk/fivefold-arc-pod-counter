@@ -1,3 +1,4 @@
+import { expireEliminationWindow } from '../test-support/expire-elimination-window.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Competitions } from '../src/competitions.js';
@@ -193,6 +194,8 @@ test('capture failure blocks progression but never a life tap or the existing pr
   f.service.adjustOwnSeat(f.code, f.host, { counter: 'life', delta: -1 });
   f.service.adjustOwnSeat(f.code, f.guest, { counter: 'life', delta: -40 });
   assert.deepEqual({ reads, writes }, { reads: 0, writes: 0 });
+  assert.equal(f.service.room(f.code).gameResult, null);
+  expireEliminationWindow(f.service, f.code);
   assert.equal(f.service.completedSeat(f.code, f.host, f.service.room(f.code).gameId).game.tableSize, 2);
   f.store.update = async () => { throw new Error('Competition storage unavailable'); };
   await assert.rejects(() => f.tables.beforeProgress(f.code, f.host, 'reset'), /unavailable/);

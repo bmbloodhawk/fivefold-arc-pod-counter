@@ -1,4 +1,6 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=90';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=91';
+import { eliminationUndoPresentation } from './elimination-undo.js?v=1';
+import { captureLocalElimination, rememberLocalElimination, advanceLocalElimination, undoLocalElimination } from './local-elimination-undo.js?v=1';
 import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=73';
 import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=114';
 import { connectionPresentation } from './connection-state.js?v=1';
@@ -31,6 +33,7 @@ const ELIMINATION_ART = { life: 'assets/elimination-skull-v1.png', poison: 'asse
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const dom = {
+  undoEliminationButton: $('#undoEliminationButton'), eliminationUndoStatus: $('#eliminationUndoStatus'),
   views: $$('.view'), landing: $('#landingView'), create: $('#createView'), join: $('#joinView'), joinSeatView: $('#joinSeatView'), lobby: $('#lobbyView'), lobbyMount: $('#lobbyMount'), game: $('#gameView'), joinCodeForm: $('#joinCodeForm'), joinCodeStatus: $('#joinCodeStatus'), scanJoinQrButton: $('#scanJoinQrButton'), joinQrScannerDialog: $('#joinQrScannerDialog'), joinQrScannerVideo: $('#joinQrScannerVideo'), joinQrScannerStatus: $('#joinQrScannerStatus'), joinQrCameraFallback: $('#joinQrCameraFallback'), joinQrCameraInput: $('#joinQrCameraInput'), savedTables: $('#savedTables'), savedTablesList: $('#savedTablesList'), quickTestButton: $('#quickTestButton'), localSimulationField: $('#localSimulationField'),
   connectionButton: $('#connectionButton'), connectionText: $('#connectionText'), connectionDialog: $('#connectionDialog'), connectionDetail: $('#connectionDetail'), tableActionDialog: $('#tableActionDialog'), tableActionDetail: $('#tableActionDetail'), editPlayerNameButton: $('#editPlayerNameButton'), editPlayerNameDialog: $('#editPlayerNameDialog'), editPlayerNameForm: $('#editPlayerNameForm'), editPlayerName: $('#editPlayerName'), eliminatePlayerButton: $('#eliminatePlayerButton'), eliminatePlayerDialog: $('#eliminatePlayerDialog'), eliminatePlayerForm: $('#eliminatePlayerForm'), eliminatePlayerSeat: $('#eliminatePlayerSeat'), eliminatePlayerReason: $('#eliminatePlayerReason'), eliminatePlayerDetail: $('#eliminatePlayerDetail'), leaveTableButton: $('#leaveTableButton'), leaveTableDialog: $('#leaveTableDialog'), confirmLeaveTableButton: $('#confirmLeaveTableButton'),
   playerCountChoices: $('#playerCountChoices'), seatCapacity: $('#seatCapacity'), createName: $('#createName'), joinSeat: $('#joinSeat'), joinName: $('#joinName'), joinSeatClaim: $('#joinSeatClaim'), activeSeat: $('#activeSeat'), localSimulation: $('#localSimulation'), roundLimitMinutes: $('#roundLimitMinutes'), createCommanderNames: $('#createCommanderNames'), joinCommanderNames: $('#joinCommanderNames'), gameCommanderNames: $('#gameCommanderNames'), createDeckField: $('#createDeckField'), createDeck: $('#createDeck'), joinDeckField: $('#joinDeckField'), joinDeck: $('#joinDeck'),
@@ -204,6 +207,8 @@ let localStartingRollKey = null;
 let pendingStartingRoll = null;
 let pendingStartingSeatId = null;
 let turnTicker = null;
+let pendingEliminationUndoId = null;
+let announcedEliminationUndoId = null;
 let turnUndoTimer = null;
 let lastTurnHandoffKey = null;
 let shownVictoryKey = null; let victoryDismissReady = false; let victoryDismissTimer = null; let victoryStage = 'winner';
@@ -330,9 +335,10 @@ function stateFromSnapshot(snapshot) {
   const activePlayerId = previous?.localSimulation === false && previous.podCode === snapshot.code && snapshot.seats.some(seat => `P${seat.seatId + 1}` === previous.activePlayerId) ? previous.activePlayerId : ownerPlayerId;
   const turn = snapshot.turn || { activeSeatId: 0, gameStarted: true, gameStartedAt: Date.now(), turnStartedAt: Date.now(), turnNumber: 1, roundEndsAt: null, startingPlayerSeatId: 0, startingPlayerRoll: null, lastHandoff: null, trackingEnabled: true, cueMode: 'off', pausedAt: null };
   return {
+    pendingFinish: snapshot.pendingFinish || null,
     playerCount: snapshot.config.playerCount, seatCapacity: snapshot.config.seatCapacity || snapshot.config.playerCount, startingLife: snapshot.config.startingLife, gameFormat: snapshot.config.gameFormat || 'commander', roundLimitMinutes: snapshot.config.roundLimitMinutes || null, commanderSources, commanderCastCounts: castCountsFromSnapshot(snapshot, commanderSources), ownerPlayerId, activePlayerId, turnSeatId: `P${turn.activeSeatId + 1}`, turn,
     localSimulation: false, podCode: snapshot.code, version: snapshot.version, hostSeatId: snapshot.hostSeatId, tableSkinId: snapshot.config.tableSkinId || '', earnedTableSkinName: snapshot.config.earnedTableSkinName || '', sessionKind: snapshot.sessionKind || 'standard', feedbackPromptSeatId: snapshot.feedbackPromptSeatId, lastCoinToss: snapshot.lastCoinToss || null, gameResult: snapshot.gameResult ? { ...snapshot.gameResult, gameId: snapshot.completedGameId, saveEligible: snapshot.completedGameEligible === true } : null, lifecycle: snapshot.lifecycle || { status: snapshot.turn?.gameStarted ? 'playing' : 'lobby', seatIds: snapshot.seats.filter(seat => seat.claimed).map(seat => seat.seatId), readySeatIds: [] }, lastGameWinnerSeatId: Number.isInteger(snapshot.lastGameWinnerSeatId) ? snapshot.lastGameWinnerSeatId : null, mode: previous?.mode || 'life', selectedSourceId: previous?.selectedSourceId || null,
-    players: snapshot.seats.map(seat => ({ id: `P${seat.seatId + 1}`, name: seat.name, commanderCount: seat.commanderCount === 2 ? 2 : 1, commanderNames: seat.commanderNames || [], commanderColors: (seat.commanderColors || []).map(normaliseIdentity), life: seat.counters.life, poison: seat.counters.poison, poisonReceived: seat.counterTotals?.poison || 0, commanderDamage: damageFromSnapshot(seat, commanderSources), radiation: seat.counters.radiation ?? 0, energy: seat.counters.energy, generic: seat.counters.generic, alternateElimination: seat.alternateElimination || null, connectionStatus: seat.connected ? 'connected' : seat.claimed ? 'disconnected' : 'waiting', eliminated: false, lethalCause: null, warning: null }))
+    players: snapshot.seats.map(seat => ({ id: `P${seat.seatId + 1}`, name: seat.name, commanderCount: seat.commanderCount === 2 ? 2 : 1, commanderNames: seat.commanderNames || [], commanderColors: (seat.commanderColors || []).map(normaliseIdentity), life: seat.counters.life, poison: seat.counters.poison, poisonReceived: seat.counterTotals?.poison || 0, commanderDamage: damageFromSnapshot(seat, commanderSources), radiation: seat.counters.radiation ?? 0, energy: seat.counters.energy, generic: seat.counters.generic, alternateElimination: seat.alternateElimination || null, eliminationUndo: seat.eliminationUndo || null, connectionStatus: seat.connected ? 'connected' : seat.claimed ? 'disconnected' : 'waiting', eliminated: false, lethalCause: null, warning: null }))
   };
 }
 function sourcesForDefender(_playerId) { return state.commanderSources; }
@@ -385,9 +391,7 @@ function renderStatusMessage(status, { hidden = false } = {}) {
   dom.statusMessage.textContent = status;
 }
 function localLastPlayerStanding() {
-  if (!state?.localSimulation || state.gameResult) return;
-  const survivors = state.players.filter(player => !player.eliminated);
-  if (state.players.length >= 2 && survivors.length === 1) { state.gameResult = { winnerSeatId: Number(survivors[0].id.slice(1)) - 1, reason: 'last_player_standing', decidedAt: Date.now() }; state.lifecycle = { ...state.lifecycle, status: 'complete' }; }
+  advanceLocalElimination(state);
 }
 function victoryKey(result) { return result ? result.gameId || `${result.winnerSeatId}:${result.reason}:${result.decidedAt}` : null; }
 function winnerFromResult() { return Number.isInteger(state?.gameResult?.winnerSeatId) ? state.players.find(player => player.id === `P${state.gameResult.winnerSeatId + 1}`) : null; }
@@ -1323,6 +1327,10 @@ function turnPlayer() { return state.players.find(player => player.id === state.
 function formatDuration(milliseconds) { const seconds = Math.max(0, Math.floor(milliseconds / 1000)); return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`; }
 function renderTurnFlow() {
   if (!state?.turn) return;
+  if (state.localSimulation && state.pendingFinish) {
+    advanceLocalElimination(state);
+    if (state.gameResult) { render(); return; }
+  }
   const turnPlayerValue = turnPlayer(); const now = Date.now(); const handoff = state.turn.lastHandoff;
   const claimedPlayers = state.players.filter(player => player.connectionStatus !== 'waiting');
   const isHost = state.localSimulation || transport.seatId === state.hostSeatId;
@@ -1330,6 +1338,7 @@ function renderTurnFlow() {
   const lifecycleStatus = state.lifecycle?.status || (state.turn.gameStarted ? 'playing' : 'lobby');
   const isIntermission = lifecycleStatus === 'intermission';
   const isComplete = lifecycleStatus === 'complete';
+  const eliminationUndo = renderEliminationUndo();
   const isStarted = Boolean(state.turn.gameStarted) && !isComplete;
   dom.lobbyControls.hidden = isStarted || isIntermission || isComplete;
   dom.intermissionPanel.hidden = !isIntermission;
@@ -1371,7 +1380,7 @@ function renderTurnFlow() {
     dom.intermissionStartButton.textContent = everyoneReady ? `Start next game · ${rosterIds.length} players` : `Waiting for every player · ${readyIds.length}/${rosterIds.length} ready`;
     dom.intermissionLeaveButton.disabled = !state.localSimulation && transport.status !== 'connected';
   }
-  const freezeGameControls = isIntermission || isComplete;
+  const freezeGameControls = isIntermission || isComplete || eliminationUndo.gamePending;
   $('#adjustControls').hidden = freezeGameControls;
   // `interfaceStyle` is the current saved value, not a getter. Calling it
   // halted rendering in a local simulation just after the visual style was
@@ -1381,10 +1390,10 @@ function renderTurnFlow() {
   dom.showJoinQrMenuButton.hidden = !canShareJoin || !isHost;
   const trackingEnabled = state.turn.trackingEnabled !== false;
   const paused = Boolean(state.turn.pausedAt);
-  dom.turnBanner.hidden = !isStarted || !trackingEnabled;
+  dom.turnBanner.hidden = !isStarted || (!trackingEnabled && !eliminationUndo.gamePending);
   dom.turnActions.hidden = !isStarted;
   dom.toggleTurnTrackingButton.hidden = !isHost;
-  dom.toggleTurnTrackingButton.disabled = !isHost || !(state.localSimulation || transport.status === 'connected');
+  dom.toggleTurnTrackingButton.disabled = !isHost || !(state.localSimulation || transport.status === 'connected') || eliminationUndo.gamePending;
   dom.toggleTurnTrackingButton.textContent = `Turn tracking: ${trackingEnabled ? 'on' : 'off'}`;
   dom.toggleTurnCuesButton.hidden = !isHost;
   dom.toggleTurnCuesButton.disabled = !isHost || !(state.localSimulation || transport.status === 'connected');
@@ -1393,7 +1402,7 @@ function renderTurnFlow() {
   dom.turnSoundPreferencesButton.textContent = `My turn sound: ${turnSound().replace('-', ' ')}`;
   dom.toggleTouchFeedbackButton.textContent = `Touch feedback: ${touchFeedbackEnabled() ? 'on' : 'off'}`;
   dom.pauseTurnButton.hidden = !isStarted || !isHost || !trackingEnabled;
-  if (freezeGameControls) {
+  if (isIntermission || isComplete) {
     clearInterval(turnTicker); turnTicker = null;
     return;
   }
@@ -1433,26 +1442,60 @@ function renderTurnFlow() {
   const timerNow = state.turn.pausedAt || now;
   const actingSeatId = state.localSimulation ? state.activePlayerId : state.ownerPlayerId;
   const isOwnerActive = state.turnSeatId === actingSeatId;
-  dom.game.dataset.yourTurn = String(isOwnerActive && trackingEnabled && !paused);
-  dom.turnLabel.textContent = paused ? 'TURN PAUSED' : isOwnerActive ? 'YOUR TURN' : `${state.turnSeatId}'S TURN`;
-  dom.turnPlayer.textContent = turnPlayerValue ? displayName(turnPlayerValue) : state.turnSeatId;
+  dom.game.dataset.yourTurn = String(isOwnerActive && trackingEnabled && !paused && !eliminationUndo.gamePending);
+  dom.turnLabel.textContent = eliminationUndo.gamePending ? (eliminationUndo.pendingSeconds ? `RESULT IN ${eliminationUndo.pendingSeconds}s` : 'FINALIZING RESULT') : paused ? 'TURN PAUSED' : isOwnerActive ? 'YOUR TURN' : `${state.turnSeatId}'S TURN`;
+  const pendingWinner = state.players.find(player => player.id === `P${state.pendingFinish?.winnerSeatId + 1}`);
+  dom.turnPlayer.textContent = eliminationUndo.gamePending && pendingWinner ? displayName(pendingWinner) : turnPlayerValue ? displayName(turnPlayerValue) : state.turnSeatId;
   dom.turnElapsed.textContent = `TURN ${formatDuration(timerNow - state.turn.turnStartedAt)}`;
   dom.gameTimer.textContent = state.turn.roundEndsAt ? `ROUND ENDS IN ${formatDuration(state.turn.roundEndsAt - timerNow)}` : `GAME TIME ${formatDuration(timerNow - state.turn.gameStartedAt)}`;
   const recentHandoff = handoff && Number.isFinite(handoff.turnLengthMs) && now - handoff.handedOffAt <= 15_000;
   dom.lastTurnSummary.hidden = false;
   dom.lastTurnSummary.textContent = `TURN ${Math.max(1, Number(state.turn.turnNumber) || 1)}${recentHandoff ? ` · LAST TURN ${formatDuration(handoff.turnLengthMs)}` : ''}`;
-  const canAct = (state.localSimulation || transport.status === 'connected') && isOwnerActive && trackingEnabled && !paused;
+  const canAct = (state.localSimulation || transport.status === 'connected') && isOwnerActive && trackingEnabled && !paused && !eliminationUndo.gamePending;
   dom.endTurnButton.disabled = !canAct;
-  dom.pauseTurnButton.disabled = !isHost || !(state.localSimulation || transport.status === 'connected');
+  dom.pauseTurnButton.disabled = !isHost || !(state.localSimulation || transport.status === 'connected') || eliminationUndo.gamePending;
   dom.pauseTurnButton.textContent = paused ? 'Resume timers' : 'Pause timers';
   dom.turnActionDetail.textContent = !trackingEnabled ? 'Turn tracking is off for this table.' : paused ? 'Timers are paused by the host.' : isOwnerActive ? 'You are active. Press once when you pass the turn.' : `${turnPlayerValue ? displayName(turnPlayerValue) : state.turnSeatId} controls this turn.`;
   const undoAvailable = trackingEnabled && handoff && !handoff.automatic && Date.now() - handoff.handedOffAt <= 15_000 && actingSeatId === `P${handoff.fromSeatId + 1}`;
-  dom.endTurnButton.hidden = !isOwnerActive || !trackingEnabled || undoAvailable;
-  dom.undoTurnButton.hidden = !undoAvailable;
+  dom.endTurnButton.hidden = !isOwnerActive || !trackingEnabled || undoAvailable || eliminationUndo.visible || eliminationUndo.gamePending;
+  dom.undoTurnButton.hidden = !undoAvailable || eliminationUndo.visible || eliminationUndo.gamePending;
   if (undoAvailable) dom.undoTurnButton.textContent = `Undo handoff · ${Math.max(0, Math.ceil((15_000 - (Date.now() - handoff.handedOffAt)) / 1000))}s`;
-  promptRadiationAfterHandoff(isOwnerActive, handoff);
+  if (!eliminationUndo.gamePending) promptRadiationAfterHandoff(isOwnerActive, handoff);
   clearInterval(turnTicker);
   if (!appearancePreviewMode) turnTicker = setInterval(() => { if (state && !dom.game.hidden) renderTurnFlow(); }, 1000);
+}
+function renderEliminationUndo() {
+  const view = eliminationUndoPresentation(state, { status: transport.status, submitting: pendingEliminationUndoId !== null });
+  dom.undoEliminationButton.hidden = !view.visible;
+  dom.undoEliminationButton.disabled = view.disabled;
+  dom.undoEliminationButton.textContent = pendingEliminationUndoId ? 'Undoing elimination…' : `Undo elimination · ${view.seconds}s`;
+  if (view.visible && view.eliminationId !== announcedEliminationUndoId) {
+    announcedEliminationUndoId = view.eliminationId;
+    closeGameOverlays(); closeGameMenu();
+    dom.eliminationUndoStatus.textContent = `You were eliminated. You have ${view.seconds} seconds to undo the entry.`;
+  }
+  return view;
+}
+async function undoElimination() {
+  const view = eliminationUndoPresentation(state, { status: transport.status, submitting: pendingEliminationUndoId !== null });
+  if (!view.visible || view.disabled) return;
+  const id = view.eliminationId;
+  pendingEliminationUndoId = id;
+  render();
+  try {
+    let result;
+    if (state.localSimulation) { undoLocalElimination(state, id); result = { local: true }; }
+    else result = await transport.undoElimination(id);
+    if (result.conflict) { showTableActionError('The undo window ended or the table changed. The latest state is shown.'); return; }
+    if (result.blocked || result.ignored) return;
+    if (state && !state.localSimulation) state.activePlayerId = state.ownerPlayerId;
+    lifeBatcher.clear(); optimisticLifeDelta = 0;
+    clearTimeout(lifeChangeTimer); lifeChange = null;
+  } catch (error) { showTableRequestError(error); }
+  finally {
+    if (pendingEliminationUndoId === id) pendingEliminationUndoId = null;
+    if (state) render();
+  }
 }
 function radiationTurnKey(handoff) { return handoff ? `${state.podCode}:${handoff.toSeatId}:${handoff.handedOffAt}` : ''; }
 function promptRadiationAfterHandoff(isOwnerActive, handoff) {
@@ -1466,7 +1509,7 @@ async function resolveRadiation() {
   if (!Number.isInteger(nonlandCount) || nonlandCount < 0 || !player || nonlandCount > player.radiation || !key) { dom.radiationNonlandCount.focus(); return; }
   dom.resolveRadiationButton.disabled = true;
   try {
-    if (transport.status === 'local') { const removed = Math.min(nonlandCount, player.radiation); player.radiation -= removed; player.life -= nonlandCount; showLifeChange(player.id, -nonlandCount, player.life + nonlandCount, player.life); }
+    if (transport.status === 'local') { const before = captureLocalElimination(player); const removed = Math.min(nonlandCount, player.radiation); player.radiation -= removed; player.life -= nonlandCount; evaluatePlayer(player); rememberLocalElimination(state, player.id, before); showLifeChange(player.id, -nonlandCount, player.life + nonlandCount, player.life); }
     else { const result = await transport.resolveRadiation(nonlandCount); if (result.conflict) throw new Error('The table changed first. Check your radiation counters and try again.'); }
     resolvedRadiationTurnKey = key; dom.radiationDialog.close('confirm'); render();
   } catch (error) { showError(error); } finally { dom.resolveRadiationButton.disabled = false; }
@@ -1480,7 +1523,10 @@ function render() {
   dom.commanderTaxQuickButton.closest('.commander-tax-quick').hidden = !commanderFormat;
   dom.commanderSetupButton.hidden = !commanderFormat;
   if (!state.commanderCastCounts) state.commanderCastCounts = blankDamage(state.commanderSources);
-  state.players.forEach(evaluatePlayer); localLastPlayerStanding(); const player = activePlayer(); const source = state.mode === 'commander' ? selectedSourceFor(player) : null;
+  state.players.forEach(evaluatePlayer); localLastPlayerStanding();
+  const eliminatedOwner = state.players.find(player => player.id === state.ownerPlayerId && player.eliminated && player.eliminationUndo?.id);
+  if (!state.localSimulation && eliminatedOwner && eliminatedOwner.eliminationUndo.id !== announcedEliminationUndoId) state.activePlayerId = eliminatedOwner.id;
+  const player = activePlayer(); const source = state.mode === 'commander' ? selectedSourceFor(player) : null;
   dom.game.style.setProperty('--identity-seal', identityBackground(playerIdentity(player)) || 'none');
   dom.game.dataset.hasIdentity = String(playerIdentity(player).length > 0);
   dom.game.dataset.counterMode = state.mode;
@@ -1523,6 +1569,10 @@ function render() {
   dom.coinTossButton.disabled = !(transport.status === 'local' || transport.status === 'connected');
   dom.declareWinnerButton.hidden = !state.turn.gameStarted || (!state.localSimulation && transport.seatId !== state.hostSeatId);
   dom.eliminatePlayerButton.hidden = !tableHost || !state.turn.gameStarted;
+  dom.declareWinnerButton.disabled = Boolean(state.pendingFinish);
+  dom.eliminatePlayerButton.disabled = Boolean(state.pendingFinish);
+  dom.commanderSetupButton.disabled = Boolean(state.pendingFinish);
+  $('#resetButton').disabled = Boolean(state.pendingFinish);
   dom.playtestNotesButton.hidden = state.localSimulation; dom.playtestNotesButton.disabled = transport.status !== 'connected'; dom.refreshTableButton.hidden = state.localSimulation; dom.refreshTableButton.disabled = transport.status !== 'connected';
   dom.playtestRecapButton.hidden = !developerMenuVisible; dom.playtestRecapButton.disabled = transport.status !== 'connected'; dom.savedPlaytestsButton.hidden = !developerMenuVisible; dom.savedPlaytestsButton.disabled = transport.status !== 'connected';
   dom.fieldTestButton.hidden = !developerMenuVisible || state.localSimulation || !state.turn.gameStarted; dom.fieldTestButton.disabled = transport.status !== 'connected';
@@ -1549,7 +1599,7 @@ function renderLifeChange(player) {
     : `${sign}${Math.abs(lifeChange.delta)} LIFE · ${lifeChange.from} → ${lifeChange.to}`;
   dom.lifeChangeIndicator.classList.toggle('negative', lifeChange.delta < 0);
 }
-function countersLocked(lifecycle) { return ['complete', 'intermission'].includes(lifecycle?.status); }
+function countersLocked(lifecycle, pendingFinish = null) { return pendingEliminationUndoId !== null || Boolean(pendingFinish) || ['complete', 'intermission'].includes(lifecycle?.status); }
 function renderMutationAvailability() {
   if (!state) return;
   // Refresh shared actions without rebuilding the dial on connection changes.
@@ -1561,7 +1611,7 @@ function renderMutationAvailability() {
   const source = state.mode === 'commander' ? selectedSourceFor(player) : null;
   const counterValue = currentValue(player);
   const playerCanMutate = state.localSimulation || player.id === state.ownerPlayerId;
-  const gameFrozen = countersLocked(state.lifecycle);
+  const gameFrozen = countersLocked(state.lifecycle, state.pendingFinish);
   const mutationsEnabled = !gameFrozen && playerCanMutate && (transport.status === 'local' || transport.status === 'connected') && (state.mode !== 'commander' || Boolean(source));
   $$('[data-delta]').forEach(button => { button.disabled = !mutationsEnabled; });
   dom.dialControls.hidden = interfaceStyle !== 'dial' || gameFrozen;
@@ -1761,7 +1811,7 @@ function counterModeLabel(mode) {
 function renderModeNav() { $$('[data-mode]').forEach(button => { const active = button.dataset.mode === state.mode; button.classList.toggle('active', active); button.setAttribute('aria-current', active ? 'page' : 'false'); const label = button.querySelector('small'); if (label) label.textContent = counterModeLabel(button.dataset.mode); }); }
 function renderSeatPicker() { dom.activeSeat.innerHTML = state.players.map(player => `<option value="${player.id}">${escapeHtml(displayPlayer(player))}${player.id === state.ownerPlayerId ? ' (you)' : ''}</option>`).join(''); dom.activeSeat.value = state.activePlayerId; }
 function commanderTaxPlayer() { return activePlayer(); }
-function commanderTaxEnabled() { return transport.status === 'local' || transport.status === 'connected'; }
+function commanderTaxEnabled() { return !countersLocked(state?.lifecycle, state?.pendingFinish) && (transport.status === 'local' || transport.status === 'connected'); }
 function renderCommanderTaxQuick(player, inspectingSharedSeat) {
   if (!dom.commanderTaxQuickButton) return;
   const sources = ownCommanderSources(player.id);
@@ -1844,7 +1894,7 @@ function renderCommanderTaxDialog() {
   $$('[data-commander-undo]').forEach(button => button.addEventListener('click', () => updateCommanderCastCount(button.dataset.commanderUndo, -1)));
 }
 async function adjust(delta) {
-  if (!state || countersLocked(state.lifecycle) || !(transport.status === 'local' || transport.status === 'connected')) return; const player = activePlayer(); if (!state.localSimulation && player.id !== state.ownerPlayerId) return; const source = state.mode === 'commander' ? selectedSourceFor(player) : null; if (state.mode === 'commander' && !source) return;
+  if (!state || countersLocked(state.lifecycle, state.pendingFinish) || !(transport.status === 'local' || transport.status === 'connected')) return; const player = activePlayer(); if (!state.localSimulation && player.id !== state.ownerPlayerId) return; const source = state.mode === 'commander' ? selectedSourceFor(player) : null; if (state.mode === 'commander' && !source) return;
   const target = state.mode === 'commander' ? 'commanderDamage' : state.mode;
   const previous = currentValue(player);
   const next = state.mode === 'life' ? player.life + delta : Math.max(0, previous + delta);
@@ -1855,8 +1905,10 @@ async function adjust(delta) {
   const lifeBefore = player.life; const lifeAfter = lifeBefore + lifeDelta;
   if (state.mode === 'commander' && commanderDelta === 0) return;
   if (transport.status === 'local') {
+    const before = captureLocalElimination(player);
     if (state.mode === 'commander') { player.commanderDamage[source.id] = next; player.life += lifeDelta; }
     else player[target] = next;
+    evaluatePlayer(player); rememberLocalElimination(state, player.id, before);
     if (lifeDelta) showLifeChange(player.id, lifeDelta, lifeBefore, lifeAfter);
     render(); return;
   }
@@ -1899,7 +1951,7 @@ async function updateCommanderCastCount(sourceId, delta) {
 }
 async function resetGame() {
   pendingStartingSeatId = null;
-  if (transport.status === 'local') { const sources = state.commanderSources; const preservedCueMode = cueMode(state.turn); const previousStarterSeatId = Number.isInteger(state.turn.startingPlayerSeatId) ? state.turn.startingPlayerSeatId : state.turn.activeSeatId; const claimedPlayers = state.players.filter(player => player.connectionStatus !== 'waiting'); const startIndex = claimedPlayers.findIndex(player => Number(player.id.slice(1)) - 1 === previousStarterSeatId); const nextStartingSeatId = Number(claimedPlayers[(Math.max(startIndex, -1) + 1) % claimedPlayers.length]?.id.slice(1)) - 1 || 0; state.players = state.players.map(player => ({ ...playerTemplate(Number(player.id.slice(1)), state.startingLife, player.commanderCount, sources, player.commanderNames, player.commanderColors), name: player.name, commanderCount: player.commanderCount, commanderNames: player.commanderNames, commanderColors: player.commanderColors })); state.commanderCastCounts = blankDamage(sources); state.lastCoinToss = null; state.lastGameWinnerSeatId = Number.isInteger(state.gameResult?.winnerSeatId) ? state.gameResult.winnerSeatId : null; state.gameResult = null; state.turn = { activeSeatId: nextStartingSeatId, gameStarted: false, gameStartedAt: null, turnStartedAt: null, turnNumber: 0, roundEndsAt: null, startingPlayerSeatId: nextStartingSeatId, startingPlayerRoll: null, lastHandoff: null, trackingEnabled: true, cueMode: preservedCueMode, pausedAt: null }; state.turnSeatId = `P${nextStartingSeatId + 1}`; coinTossNotice = null; clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); clearStartingRollTimers(); state.selectedSourceId = null; render(); return; }
+  if (transport.status === 'local') { const sources = state.commanderSources; const preservedCueMode = cueMode(state.turn); const previousStarterSeatId = Number.isInteger(state.turn.startingPlayerSeatId) ? state.turn.startingPlayerSeatId : state.turn.activeSeatId; const claimedPlayers = state.players.filter(player => player.connectionStatus !== 'waiting'); const startIndex = claimedPlayers.findIndex(player => Number(player.id.slice(1)) - 1 === previousStarterSeatId); const nextStartingSeatId = Number(claimedPlayers[(Math.max(startIndex, -1) + 1) % claimedPlayers.length]?.id.slice(1)) - 1 || 0; state.players = state.players.map(player => ({ ...playerTemplate(Number(player.id.slice(1)), state.startingLife, player.commanderCount, sources, player.commanderNames, player.commanderColors), name: player.name, commanderCount: player.commanderCount, commanderNames: player.commanderNames, commanderColors: player.commanderColors })); state.commanderCastCounts = blankDamage(sources); state.lastCoinToss = null; state.lastGameWinnerSeatId = Number.isInteger(state.gameResult?.winnerSeatId) ? state.gameResult.winnerSeatId : null; state.gameResult = null; state.pendingFinish = null; state.turn = { activeSeatId: nextStartingSeatId, gameStarted: false, gameStartedAt: null, turnStartedAt: null, turnNumber: 0, roundEndsAt: null, startingPlayerSeatId: nextStartingSeatId, startingPlayerRoll: null, lastHandoff: null, trackingEnabled: true, cueMode: preservedCueMode, pausedAt: null }; state.turnSeatId = `P${nextStartingSeatId + 1}`; coinTossNotice = null; clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); clearStartingRollTimers(); state.selectedSourceId = null; render(); return; }
   try { const result = await transport.reset(); if (result.conflict) showError(new Error('The table changed first. The latest totals are shown; confirm reset again if it is still needed.')); else { coinTossNotice = null; clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); render(); } } catch (error) { showError(error); }
 }
 async function handoffTurn() {
@@ -1929,7 +1981,7 @@ async function startGame() {
   if (!state || state.turn.gameStarted) return;
   if (state.localSimulation) {
     const startedAt = Date.now(); const startingPlayerSeatId = state.turn.startingPlayerSeatId ?? state.turn.activeSeatId;
-    state.turn = { ...state.turn, gameStarted: true, activeSeatId: startingPlayerSeatId, startingPlayerSeatId, gameStartedAt: startedAt, turnStartedAt: startedAt, turnNumber: 1, roundEndsAt: state.roundLimitMinutes ? startedAt + state.roundLimitMinutes * 60000 : null, lastHandoff: null }; state.lifecycle = { ...state.lifecycle, status: 'playing', readySeatIds: [] }; state.gameResult = null; state.turnSeatId = `P${startingPlayerSeatId + 1}`; state.activePlayerId = state.turnSeatId; render(); return;
+    state.turn = { ...state.turn, gameStarted: true, activeSeatId: startingPlayerSeatId, startingPlayerSeatId, gameStartedAt: startedAt, turnStartedAt: startedAt, turnNumber: 1, roundEndsAt: state.roundLimitMinutes ? startedAt + state.roundLimitMinutes * 60000 : null, lastHandoff: null }; state.lifecycle = { ...state.lifecycle, status: 'playing', readySeatIds: [] }; state.gameResult = null; state.pendingFinish = null; state.turnSeatId = `P${startingPlayerSeatId + 1}`; state.activePlayerId = state.turnSeatId; render(); return;
   }
   const startingNextGame = state.lifecycle?.status === 'intermission';
   try {
@@ -1957,7 +2009,7 @@ function openResetDialog({ nextGame = false } = {}) {
   dom.resetDialog.showModal();
 }
 async function toggleTurnTracking() {
-  if (!state || (!state.localSimulation && transport.seatId !== state.hostSeatId)) return;
+  if (!state || state.pendingFinish || (!state.localSimulation && transport.seatId !== state.hostSeatId)) return;
   dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false');
   const enabled = state.turn.trackingEnabled === false;
   if (transport.status === 'local') { state.turn = { ...state.turn, trackingEnabled: enabled, pausedAt: null, turnStartedAt: enabled && state.turn.gameStarted ? Date.now() : state.turn.turnStartedAt, lastHandoff: null }; render(); return; }
@@ -2085,7 +2137,7 @@ async function eliminatePlayer() {
     if (state.localSimulation) {
       const player = state.players[targetSeatId];
       if (!player || player.eliminated) return;
-      player.alternateElimination = { reason, detail: detail || null }; state.players.forEach(evaluatePlayer); evaluateLocalVictory(); render();
+      const before = captureLocalElimination(player); player.alternateElimination = { reason, detail: detail || null }; state.players.forEach(evaluatePlayer); rememberLocalElimination(state, player.id, before); render();
     } else {
       const result = await transport.eliminatePlayer(targetSeatId, reason, detail);
       if (result.conflict) showError(new Error('The table changed first. The latest game state is shown.'));
@@ -2125,7 +2177,7 @@ async function tossCoin({ dialog = true } = {}) {
     } catch (error) { if (error.status || await reconcileTableWriteError(error)) showError(error); return; }
   }
 }
-function closeGameOverlays() { [dom.resetDialog, dom.connectionDialog, dom.tableActionDialog, dom.leaveTableDialog, dom.coinTossDialog, dom.startingRollDialog, dom.turnCueDialog, dom.turnSoundDialog, dom.customLifeDialog, dom.commanderSourceDialog, dom.commanderCountDialog, dom.commanderTaxDialog, dom.victoryDialog, dom.achievementDialog, dom.declareWinnerDialog, dom.eliminatePlayerDialog, dom.playtestNotesDialog, dom.playtestRecapDialog, dom.savedPlaytestsDialog, dom.cardCameraDialog, dom.joinQrScannerDialog].forEach(dialog => { if (dialog?.open) dialog.close(); }); }
+function closeGameOverlays() { [dom.radiationDialog, dom.editPlayerNameDialog, dom.resetDialog, dom.connectionDialog, dom.tableActionDialog, dom.leaveTableDialog, dom.coinTossDialog, dom.startingRollDialog, dom.turnCueDialog, dom.turnSoundDialog, dom.customLifeDialog, dom.commanderSourceDialog, dom.commanderCountDialog, dom.commanderTaxDialog, dom.victoryDialog, dom.achievementDialog, dom.declareWinnerDialog, dom.eliminatePlayerDialog, dom.playtestNotesDialog, dom.playtestRecapDialog, dom.savedPlaytestsDialog, dom.cardCameraDialog, dom.joinQrScannerDialog].forEach(dialog => { if (dialog?.open) dialog.close(); }); }
 
 async function openCardCamera() {
   dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false');
@@ -2365,6 +2417,7 @@ dom.radiationForm.addEventListener('submit', event => { if (event.submitter?.val
 // every deliberate tap so a cue changed by another phone is ready too.
 document.addEventListener('pointerdown', () => prepareTurnCueAudio(false, cueMode(), true));
 document.addEventListener('pointerup', event => { const button = event.target.closest('button'); if (!button || button.disabled || button.hidden || !button.getClientRects().length) return; pulseTouchFeedback(); });
+dom.undoEliminationButton.addEventListener('click', () => void undoElimination());
 dom.endTurnButton.addEventListener('click', handoffTurn); dom.undoTurnButton.addEventListener('click', undoTurnHandoff); dom.pauseTurnButton.addEventListener('click', toggleTurnPause); dom.toggleTurnTrackingButton.addEventListener('click', toggleTurnTracking); dom.toggleTurnCuesButton.addEventListener('click', openTurnCueDialog); dom.turnCueForm.addEventListener('submit', async event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); const mode = String(new FormData(dom.turnCueForm).get('cueMode') || 'off'); prepareTurnCueAudio(false, mode); if (await setTurnCue(mode)) dom.turnCueDialog.close('confirm'); }); dom.toggleDeviceCuesButton.addEventListener('click', () => { setDeviceTurnCues(!deviceTurnCuesEnabled()); render(); }); dom.toggleTouchFeedbackButton.addEventListener('click', () => { setTouchFeedback(!touchFeedbackEnabled()); render(); });
 dom.turnSoundPreferencesButton.addEventListener('click', openTurnSoundDialog); dom.turnSoundVolume.addEventListener('input', () => { dom.turnSoundVolumeValue.value = `${dom.turnSoundVolume.value}%`; }); dom.previewTurnSoundButton.addEventListener('click', () => { setTurnSound(dom.turnSoundChoice.value, Number(dom.turnSoundVolume.value)); playTurnCue(true); }); dom.turnSoundForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); setTurnSound(dom.turnSoundChoice.value, Number(dom.turnSoundVolume.value)); dom.turnSoundDialog.close('confirm'); render(); }); dom.toggleInterfaceStyleButton.addEventListener('click', () => setInterfaceStyle(interfaceStyle === 'dial' ? 'button' : 'dial', { persistAccount: true }));
 dom.startingSeat.addEventListener('change', () => { pendingStartingSeatId = Number(dom.startingSeat.value); renderTurnFlow(); }); dom.chooseFirstButton.addEventListener('click', () => chooseStartingPlayer(pendingStartingSeatId ?? Number(dom.startingSeat.value))); dom.winnerFirstButton.addEventListener('click', () => { if (Number.isInteger(state?.lastGameWinnerSeatId)) chooseStartingPlayer(state.lastGameWinnerSeatId); }); dom.randomFirstButton.addEventListener('click', () => chooseStartingPlayer()); dom.startGameButton.addEventListener('click', startGame);
@@ -2479,7 +2532,7 @@ $('#quickFeedbackForm').addEventListener('submit', async event => { event.preven
 dom.viewCelebrationButton.addEventListener('click', () => { shownVictoryKey = null; dom.gameMenu.hidden = true; renderVictory(); });
 transport.addEventListener('status', event => { renderConnection(event.detail); renderMutationAvailability(); });
 transport.addEventListener('state', event => {
-  if (!countersLocked(event.detail?.lifecycle)) return;
+  if (!countersLocked(event.detail?.lifecycle, event.detail?.pendingFinish)) return;
   lifeBatcher.clear();
   optimisticLifeDelta = 0;
 });

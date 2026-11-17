@@ -1,3 +1,4 @@
+import { expireEliminationWindow } from '../test-support/expire-elimination-window.js';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import test from 'node:test';
@@ -294,6 +295,8 @@ test('a completed loss at negative life is saved, and custom games never award C
   const f = await fixture(t);
   const game = f.start({ gameFormat: 'custom' });
   f.service.adjustOwnSeat(game.code, game.guest, { counter: 'life', delta: -41 });
+  assert.equal(f.service.room(game.code).gameResult, null);
+  expireEliminationWindow(f.service, game.code);
   const saved = await f.save(game);
   assert.equal(saved.status, 201);
   assert.equal(saved.data.game.achievementFacts.lowestLife, -1);

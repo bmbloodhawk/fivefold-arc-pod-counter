@@ -1,3 +1,4 @@
+import { expireEliminationWindow } from '../test-support/expire-elimination-window.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createRealtimeServer } from '../src/app.js';
@@ -73,6 +74,8 @@ test('existing Table start/reset routes seal and retain competition results, wit
   const prior = JSON.stringify([...f.competitionStore.values.values()]);
   await f.request(`/api/rooms/${code}/adjust`, { method: 'POST', token: null, connectionId: guest, body: { counter: 'life', delta: -40 } });
   assert.equal(JSON.stringify([...f.competitionStore.values.values()]), prior);
+  assert.equal(f.service.room(code).gameResult, null);
+  expireEliminationWindow(f.service, code);
   const reset = await f.request(`/api/rooms/${code}/reset`, { method: 'POST', token: null, connectionId: host, body: { baseVersion: f.service.room(code).version } });
   assert.equal(reset.status, 200);
   const history = await f.request(`/api/competitions/pod/${pod.id}/history`);
