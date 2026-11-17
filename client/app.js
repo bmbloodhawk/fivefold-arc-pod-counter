@@ -1,4 +1,4 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=93';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=94';
 import { eliminationUndoPresentation } from './elimination-undo.js?v=1';
 import { captureLocalElimination, rememberLocalElimination, advanceLocalElimination, undoLocalElimination } from './local-elimination-undo.js?v=1';
 import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=73';
@@ -15,6 +15,7 @@ import { createCompetitionHub } from './competition-ui.js?v=5';
 import { parseCompetitionFragment } from './competition-model.mjs?v=1';
 import { createAppearanceCatchUp } from './appearance-catch-up.js?v=2';
 import { createDialLayout } from './dial-layout.js?v=2';
+import { nextGameStarterPolicy } from './next-game-starter.js?v=1';
 
 const appearancePreviewMode = new URLSearchParams(location.search).get('appearance-preview') === '1';
 const appearanceParams = new URLSearchParams(location.search);
@@ -33,6 +34,7 @@ const ELIMINATION_ART = { life: 'assets/elimination-skull-v1.png', poison: 'asse
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const dom = {
+  nextGameStarter: $('#nextGameStarter'), nextGameStarterHelp: $('#nextGameStarterHelp'), cancelNextGameStartButton: $('#cancelNextGameStartButton'),
   intermissionSetupButton: $('#intermissionSetupButton'), commanderSetupTitle: $('#commanderSetupTitle'), commanderSetupEyebrow: $('#commanderSetupEyebrow'), commanderSetupStatus: $('#commanderSetupStatus'),
   undoEliminationButton: $('#undoEliminationButton'), eliminationUndoStatus: $('#eliminationUndoStatus'),
   views: $$('.view'), landing: $('#landingView'), create: $('#createView'), join: $('#joinView'), joinSeatView: $('#joinSeatView'), lobby: $('#lobbyView'), lobbyMount: $('#lobbyMount'), game: $('#gameView'), joinCodeForm: $('#joinCodeForm'), joinCodeStatus: $('#joinCodeStatus'), scanJoinQrButton: $('#scanJoinQrButton'), joinQrScannerDialog: $('#joinQrScannerDialog'), joinQrScannerVideo: $('#joinQrScannerVideo'), joinQrScannerStatus: $('#joinQrScannerStatus'), joinQrCameraFallback: $('#joinQrCameraFallback'), joinQrCameraInput: $('#joinQrCameraInput'), savedTables: $('#savedTables'), savedTablesList: $('#savedTablesList'), quickTestButton: $('#quickTestButton'), localSimulationField: $('#localSimulationField'),
@@ -220,6 +222,7 @@ const unlockedAchievementsByGame = new Map();
 let resolvedRadiationTurnKey = null;
 let selectedDeckId = ''; let setupDecks = []; let commanderDecks = []; let joinGameFormat = 'commander'; let savedDecks = []; let editingDeckId = null; let deckCommanderColors = [];
 let commanderSetupDraft = null; let pendingNextGameSetup = false;
+let nextGameConfirmation = null; let nextGameStarterPending = false; let nextGameStartPending = false;
 let optimisticLifeDelta = 0;
 let awaitingConfirmedResync = false;
 let syncBannerTimer = null;
@@ -1344,6 +1347,11 @@ function turnPlayer() { return state.players.find(player => player.id === state.
 function formatDuration(milliseconds) { const seconds = Math.max(0, Math.floor(milliseconds / 1000)); return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`; }
 function renderTurnFlow() {
   if (!state?.turn) return;
+  if (nextGameConfirmation && dom.nextGameConfirmDialog.open && !nextGameStarterPending && !nextGameStartPending && !nextGameConfirmationMatches(nextGameConfirmation)) {
+    const sameTable = nextGameConfirmation.roomCode === state.podCode;
+    dom.nextGameConfirmDialog.close('stale');
+    if (sameTable && state.lifecycle?.status === 'intermission') showTableActionError('The table changed. Review the players and first player before starting.');
+  }
   if (commanderSetupDraft?.nextGame && !commanderSetupContextMatches(commanderSetupDraft)) dom.commanderCountDialog.close('stale');
   if (state.localSimulation && state.pendingFinish) {
     advanceLocalElimination(state);
@@ -2145,16 +2153,18 @@ async function chooseStartingPlayer(startingSeatId = undefined) {
   }
   try { const result = await transport.chooseStartingPlayer(startingSeatId); if (result.conflict) showError(new Error('The table changed first. The latest lobby is shown.')); } catch (error) { showError(error); }
 }
-async function startGame() {
+async function startGame({ baseVersion } = {}) {
   if (!state || state.turn.gameStarted) return;
   if (state.localSimulation) {
     const startedAt = Date.now(); const startingPlayerSeatId = state.turn.startingPlayerSeatId ?? state.turn.activeSeatId;
     state.turn = { ...state.turn, gameStarted: true, activeSeatId: startingPlayerSeatId, startingPlayerSeatId, gameStartedAt: startedAt, turnStartedAt: startedAt, turnNumber: 1, roundEndsAt: state.roundLimitMinutes ? startedAt + state.roundLimitMinutes * 60000 : null, lastHandoff: null }; state.lifecycle = { ...state.lifecycle, status: 'playing', readySeatIds: [] }; state.gameResult = null; state.pendingFinish = null; state.turnSeatId = `P${startingPlayerSeatId + 1}`; state.activePlayerId = state.turnSeatId; render(); return;
   }
   const startingNextGame = state.lifecycle?.status === 'intermission';
+  const requestRoom = state.podCode, requestEpoch = transport.sessionEpoch;
   try {
     await competitionHub.beforeStart();
-    const result = await transport.startGame();
+    if (startingNextGame && (state?.podCode !== requestRoom || transport.sessionEpoch !== requestEpoch || state.lifecycle?.status !== 'intermission')) return;
+    const result = await transport.startGame({ baseVersion });
     if (result.conflict) {
       if (startingNextGame) showTableActionError('The table changed first. Check the next-game roster.');
       else showError(new Error('The table changed first. The latest lobby is shown.'));
@@ -2211,7 +2221,7 @@ function openDeclareWinner() {
 }
 async function beginIntermission(gameKey) {
   if (!gameKey || gameKey !== victoryKey(state?.gameResult) || state.lifecycle?.status === 'intermission') return;
-  if (state.localSimulation) { state.lifecycle = { status: 'intermission', seatIds: state.players.filter(player => player.connectionStatus !== 'waiting').map(player => Number(player.id.slice(1)) - 1), readySeatIds: [] }; state.turn = { ...state.turn, gameStarted: false }; showTableView(); render(); return; }
+  if (state.localSimulation) { const previousSeatIds = [...state.lifecycle.seatIds]; const previousStarterSeatId = state.turn.startingPlayerSeatId ?? state.turn.activeSeatId; state.lifecycle = { status: 'intermission', seatIds: previousSeatIds.filter(id => state.players.some(player => player.id === `P${id + 1}` && player.connectionStatus !== 'waiting')), readySeatIds: [], nextGameStarter: { previousStarterSeatId, previousSeatIds, overrideSeatId: null } }; state.turn = { ...state.turn, gameStarted: false }; refreshLocalNextGameStarter(); showTableView(); render(); return; }
   if (state.lifecycle?.status !== 'complete' || transport.seatId !== state.hostSeatId) return;
   const podCode = state.podCode;
   const requestKey = podCode + ':' + gameKey;
@@ -2240,7 +2250,7 @@ async function setNextGameReady() {
   } catch (error) { showTableRequestError(error); }
 }
 async function skipNextGameSeat(seatId) {
-  if (state?.localSimulation) { state.lifecycle.seatIds = state.lifecycle.seatIds.filter(id => id !== seatId); state.lifecycle.readySeatIds = state.lifecycle.readySeatIds.filter(id => id !== seatId); render(); return; }
+  if (state?.localSimulation) { state.lifecycle.seatIds = state.lifecycle.seatIds.filter(id => id !== seatId); state.lifecycle.readySeatIds = state.lifecycle.readySeatIds.filter(id => id !== seatId); refreshLocalNextGameStarter(); render(); return; }
   try {
     const result = await transport.skipNextGameSeat(seatId);
     if (result.conflict) showTableActionError('The table changed first. Check the next-game roster.');
@@ -2250,28 +2260,105 @@ async function moveNextGameSeat(seatId, direction) {
   const order = [...(state?.lifecycle?.seatIds || [])]; const index = order.indexOf(seatId); const nextIndex = index + direction;
   if (index < 0 || nextIndex < 0 || nextIndex >= order.length) return;
   [order[index], order[nextIndex]] = [order[nextIndex], order[index]];
-  if (state?.localSimulation) { state.lifecycle.seatIds = order; render(); return; }
+  if (state?.localSimulation) { state.lifecycle.seatIds = order; refreshLocalNextGameStarter(); render(); return; }
   try {
     const result = await transport.reorderNextGameSeats(order);
     if (result.conflict) showTableActionError('The table changed first. Check the next-game seating order.');
   } catch (error) { showTableRequestError(error); }
 }
+function refreshLocalNextGameStarter(overrideSeatId = state.lifecycle.nextGameStarter?.overrideSeatId ?? null) {
+  const policy = nextGameStarterPolicy({ ...state.lifecycle.nextGameStarter, seatIds: state.lifecycle.seatIds, overrideSeatId });
+  state.lifecycle.nextGameStarter = policy;
+  state.turn = { ...state.turn, activeSeatId: policy.selectedSeatId, startingPlayerSeatId: policy.selectedSeatId, startingPlayerRoll: null };
+  state.turnSeatId = `P${policy.selectedSeatId + 1}`;
+}
+function nextGameRosterKey() { return JSON.stringify(state?.lifecycle?.seatIds || []); }
+function nextGameConfirmationMatches(context) {
+  return Boolean(context && state?.lifecycle?.status === 'intermission' && (state.localSimulation || transport.seatId === state.hostSeatId)
+    && context.roomCode === state.podCode && context.sessionEpoch === transport.sessionEpoch
+    && context.rosterKey === nextGameRosterKey() && context.starterSeatId === state.turn.startingPlayerSeatId && context.version === state.version);
+}
+function renderNextGameConfirmation({ notice = '' } = {}) {
+  if (state?.lifecycle?.status !== 'intermission' || (!state.localSimulation && transport.seatId !== state.hostSeatId)) return;
+  const rosterIds = state.lifecycle.seatIds || [];
+  const players = rosterIds.map(id => state.players.find(player => player.id === `P${id + 1}`)).filter(Boolean);
+  const policy = state.lifecycle.nextGameStarter;
+  const defaultSeatId = policy?.defaultSeatId ?? state.turn.startingPlayerSeatId;
+  const defaultPlayer = state.players.find(player => player.id === `P${defaultSeatId + 1}`);
+  dom.nextGameConfirmDetail.textContent = `${players.length} players at this table.`;
+  dom.nextGameConfirmRoster.innerHTML = players.map((player, index) => `<li>P${index + 1} · ${escapeHtml(displayName(player))}</li>`).join('');
+  dom.nextGameStarter.innerHTML = `<option value="default">Default · ${escapeHtml(displayName(defaultPlayer))}</option>${rosterIds.map((id, index) => `<option value="${id}">${escapeHtml(displayName(state.players.find(player => player.id === `P${id + 1}`)))} · P${index + 1}</option>`).join('')}`;
+  dom.nextGameStarter.value = Number.isInteger(policy?.overrideSeatId) ? String(policy.overrideSeatId) : 'default';
+  const busy = nextGameStarterPending || nextGameStartPending;
+  const everyoneReady = rosterIds.length >= 2 && rosterIds.every(id => state.lifecycle.readySeatIds.includes(id));
+  dom.nextGameStarter.disabled = busy || (!state.localSimulation && transport.status !== 'connected');
+  dom.confirmNextGameStart.disabled = busy || !everyoneReady || (!state.localSimulation && transport.status !== 'connected');
+  dom.cancelNextGameStartButton.disabled = nextGameStartPending;
+  if (nextGameStartPending) dom.nextGameConfirmDialog.setAttribute('closedby', 'none');
+  else dom.nextGameConfirmDialog.removeAttribute('closedby');
+  dom.confirmNextGameStart.textContent = nextGameStartPending ? 'Starting…' : `Start with ${players.length} players`;
+  const previousPlayer = rosterIds.includes(policy?.previousStarterSeatId) && !policy?.departedSeatIds?.includes(policy.previousStarterSeatId) ? state.players.find(player => player.id === `P${policy.previousStarterSeatId + 1}`) : null;
+  dom.nextGameStarterHelp.textContent = notice || (nextGameStarterPending ? 'Updating first player…' : Number.isInteger(policy?.overrideSeatId) ? `Host choice. Default: ${displayName(defaultPlayer)}.` : previousPlayer ? `Next in table order after ${displayName(previousPlayer)}. Change if needed.` : 'Next remaining player from the last game’s order. Change if needed.');
+  nextGameConfirmation = { roomCode: state.podCode, sessionEpoch: transport.sessionEpoch, rosterKey: nextGameRosterKey(), starterSeatId: state.turn.startingPlayerSeatId, version: state.version };
+}
 async function confirmNextGameStart() {
   if (!state?.lifecycle || state.lifecycle.status !== 'intermission') return;
+  const roomCode = state.podCode, epoch = transport.sessionEpoch;
   if (!state.localSimulation) {
     try {
       const result = await transport.refreshRoom();
       if (result.ignored) return;
     } catch (error) { showTableRequestError(error); return; }
   }
+  if (state?.lifecycle?.status !== 'intermission' || state.podCode !== roomCode || transport.sessionEpoch !== epoch || (!state.localSimulation && transport.seatId !== state.hostSeatId)) return;
   const rosterIds = state.lifecycle.seatIds || [];
   const readyIds = state.lifecycle.readySeatIds || [];
   if (rosterIds.length < 2 || !rosterIds.every(id => readyIds.includes(id))) return showTableActionError('Review the next-game roster: every listed player must be ready before starting.');
-  const players = rosterIds.map(id => state.players.find(player => player.id === `P${id + 1}`)).filter(Boolean);
-  dom.nextGameConfirmDetail.textContent = `You are starting with ${players.length} players in this order.`;
-  dom.nextGameConfirmRoster.innerHTML = players.map((player, index) => `<li>P${index + 1} · ${escapeHtml(displayName(player))}</li>`).join('');
-  dom.confirmNextGameStart.textContent = `Start with ${players.length} players`;
+  renderNextGameConfirmation();
   dom.nextGameConfirmDialog.showModal();
+}
+async function chooseNextGameStarter() {
+  if (nextGameStarterPending || nextGameStartPending || state?.lifecycle?.status !== 'intermission' || (!state.localSimulation && (transport.seatId !== state.hostSeatId || transport.status !== 'connected'))) return;
+  const value = dom.nextGameStarter.value, useDefault = value === 'default';
+  const seatId = useDefault ? undefined : Number(value);
+  if (!useDefault && (!Number.isInteger(seatId) || !state.lifecycle.seatIds.includes(seatId))) return;
+  const roomCode = state.podCode, epoch = transport.sessionEpoch;
+  nextGameStarterPending = true;
+  dom.nextGameStarter.disabled = true; dom.confirmNextGameStart.disabled = true;
+  dom.nextGameStarterHelp.textContent = 'Updating first player…';
+  let notice = '';
+  try {
+    if (state.localSimulation) { refreshLocalNextGameStarter(useDefault ? null : seatId); render(); }
+    else {
+      const result = await transport.chooseStartingPlayer(seatId, { useDefault });
+      if (result.conflict || result.blocked || result.ignored) notice = 'First player was not changed. Review the current selection and try again.';
+    }
+  } catch (error) { notice = error.message || 'First player was not changed. Try again.'; }
+  finally {
+    nextGameStarterPending = false;
+    if (state?.podCode === roomCode && transport.sessionEpoch === epoch && dom.nextGameConfirmDialog.open && state.lifecycle?.status === 'intermission') renderNextGameConfirmation({ notice });
+  }
+}
+async function submitNextGameStart(event) {
+  if (event.submitter?.value !== 'confirm') return;
+  event.preventDefault();
+  if (nextGameStarterPending || nextGameStartPending) return;
+  const context = nextGameConfirmation;
+  const rosterIds = state?.lifecycle?.seatIds || [], readyIds = state?.lifecycle?.readySeatIds || [];
+  if (!nextGameConfirmationMatches(context) || (!state.localSimulation && transport.status !== 'connected') || rosterIds.length < 2 || !rosterIds.includes(context?.starterSeatId) || !rosterIds.every(id => readyIds.includes(id))) {
+    dom.nextGameConfirmDialog.close('stale');
+    showTableActionError('The table changed. Review the players and first player before starting.');
+    return;
+  }
+  nextGameStartPending = true;
+  renderNextGameConfirmation();
+  try {
+    await startGame({ baseVersion: context.version });
+    if (state?.lifecycle?.status === 'playing') dom.nextGameConfirmDialog.close('confirm');
+  } finally {
+    nextGameStartPending = false;
+    if (dom.nextGameConfirmDialog.open && state?.lifecycle?.status === 'intermission') renderNextGameConfirmation();
+  }
 }
 function ownPlayer() { return state?.localSimulation ? activePlayer() : state?.players.find(player => player.id === state?.ownerPlayerId); }
 function openEditPlayerName() {
@@ -2723,7 +2810,10 @@ dom.commanderCountDialog.addEventListener('cancel', event => { if (commanderSetu
 dom.commanderCountDialog.addEventListener('close', () => { commanderSetupDraft = null; commanderDecks = []; dom.commanderCountDialog.removeAttribute('closedby'); });
 dom.intermissionSetupButton.addEventListener('click', () => void openNextGameSetup());
 dom.declareWinnerForm.addEventListener('submit', event => { if (event.submitter?.value === 'confirm') declareWinner(); });
-dom.intermissionReadyButton.addEventListener('click', () => void setNextGameReady()); dom.intermissionStartButton.addEventListener('click', () => void confirmNextGameStart()); dom.intermissionLeaveButton.addEventListener('click', () => dom.intermissionLeaveDialog.showModal()); dom.intermissionLeaveForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); dom.intermissionLeaveDialog.close('confirm'); void leaveNextGameTable(); }); dom.nextGameConfirmForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); dom.nextGameConfirmDialog.close('confirm'); void startGame(); });
+dom.intermissionReadyButton.addEventListener('click', () => void setNextGameReady()); dom.intermissionStartButton.addEventListener('click', () => void confirmNextGameStart()); dom.intermissionLeaveButton.addEventListener('click', () => dom.intermissionLeaveDialog.showModal()); dom.intermissionLeaveForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); dom.intermissionLeaveDialog.close('confirm'); void leaveNextGameTable(); }); dom.nextGameConfirmForm.addEventListener('submit', submitNextGameStart);
+dom.nextGameStarter.addEventListener('change', () => void chooseNextGameStarter());
+dom.nextGameConfirmDialog.addEventListener('cancel', event => { if (nextGameStartPending) event.preventDefault(); });
+dom.nextGameConfirmDialog.addEventListener('close', () => { nextGameConfirmation = null; dom.nextGameConfirmDialog.removeAttribute('closedby'); });
 dom.victoryDialog.addEventListener('click', () => { if (victoryDismissReady && dom.victoryDialog.open) advanceEndGameFlow(victoryKey(state?.gameResult)); }); dom.achievementDialog.addEventListener('close', () => {
   if (dom.achievementDialog.dataset.catchUpId) {
     delete dom.achievementDialog.dataset.catchUpId;
@@ -2737,7 +2827,7 @@ dom.victoryDialog.addEventListener('click', () => { if (victoryDismissReady && d
 dom.commanderDamageDetails.addEventListener('click', () => { const player = activePlayer(); if (player) openCommanderSourceDialog(player, { readOnly: true }); });
 $('#quickFeedbackForm').addEventListener('submit', async event => { event.preventDefault(); const response = event.submitter?.value; const until = Date.now() + (response === 'skip' ? 30 : 7) * 24 * 60 * 60 * 1000; localStorage.setItem('fivefold-arc:quick-feedback-until', String(until)); if (response !== 'skip') await transport.recordQuickFeedback({ response }); $('#quickFeedbackDialog').close(); });
 dom.viewCelebrationButton.addEventListener('click', () => { shownVictoryKey = null; dom.gameMenu.hidden = true; renderVictory(); });
-transport.addEventListener('status', event => { renderConnection(event.detail); renderMutationAvailability(); });
+transport.addEventListener('status', event => { renderConnection(event.detail); renderMutationAvailability(); if (dom.nextGameConfirmDialog.open) renderNextGameConfirmation(); });
 transport.addEventListener('state', event => {
   if (!countersLocked(event.detail?.lifecycle, event.detail?.pendingFinish)) return;
   lifeBatcher.clear();

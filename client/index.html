@@ -278,7 +278,11 @@
           <h2 id="nextGameConfirmTitle">Start the next game?</h2>
           <p id="nextGameConfirmDetail"></p>
           <ul id="nextGameConfirmRoster" class="confirm-roster"></ul>
-          <div class="dialog-actions"><button class="secondary-action" value="cancel" type="submit">Back</button><button id="confirmNextGameStart" class="primary-action" value="confirm" type="submit">Start game</button></div>
+          <label class="select-field" for="nextGameStarter">First player
+            <select id="nextGameStarter" name="startingPlayer" aria-describedby="nextGameStarterHelp"></select>
+            <small id="nextGameStarterHelp" role="status"></small>
+          </label>
+          <div class="dialog-actions"><button id="cancelNextGameStartButton" class="secondary-action" value="cancel" type="submit">Back</button><button id="confirmNextGameStart" class="primary-action" value="confirm" type="submit">Start game</button></div>
         </form>
       </dialog>
     </section>
@@ -780,6 +784,6 @@
   </dialog>
   <p id="competitionSetupStatus" role="status" hidden></p>
   <script src="vendor/jsqr.js?v=1"></script>
-  <script type="module" src="app.js?v=311"></script>
+  <script type="module" src="app.js?v=312"></script>
 </body>
 </html>

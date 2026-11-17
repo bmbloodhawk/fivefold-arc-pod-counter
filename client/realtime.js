@@ -261,7 +261,7 @@ export class RealtimeAdapter extends EventTarget {
 
   async eliminatePlayer(targetSeatId, reason, detail = '') { return this.#hostGameRequest('/eliminate-player', { targetSeatId, reason, detail }); }
 
-  async chooseStartingPlayer(startingSeatId) { return this.#hostGameRequest('/choose-starting-player', startingSeatId === undefined ? {} : { startingSeatId }); }
+  async chooseStartingPlayer(startingSeatId, { useDefault = false } = {}) { return this.#hostGameRequest('/choose-starting-player', useDefault ? { useDefault: true } : startingSeatId === undefined ? {} : { startingSeatId }); }
 
   async reportStartingPlayerRoll(value) {
     if (this.localMode) return { local: true };
@@ -274,7 +274,7 @@ export class RealtimeAdapter extends EventTarget {
     } catch (error) { if (!this.#isCurrentSession(epoch)) return { ignored: true }; return this.#handleConflict(error, epoch); }
   }
 
-  async startGame() { return this.#hostGameRequest('/start-game'); }
+  async startGame({ baseVersion } = {}) { return this.#hostGameRequest('/start-game', baseVersion === undefined ? {} : { baseVersion }); }
 
   async #hostGameRequest(path, extra = {}, accountToken = null) {
     if (this.localMode) return { local: true };

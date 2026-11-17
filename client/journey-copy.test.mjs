@@ -329,11 +329,11 @@ test('the host can record a non-life player elimination without choosing a winne
   assert.match(app, /transport\.eliminatePlayer\(targetSeatId, reason, detail\)/);
 });
 
-test('a long Commander warning wraps on phones and a reconnect refreshes only counter availability', () => {
+test('a long Commander warning wraps on phones and reconnect refreshes availability without rebuilding the counter', () => {
   assert.match(dialStyles, /:is\(\.life-change-indicator, \.status-message\) \{[^}]*white-space: normal; overflow-wrap: anywhere;/);
   assert.doesNotMatch(app, /dom\.connectionDetail\.textContent = \$\{presentation\.detail\}[\s\S]{0,220}if \(state && !dom\.game\.hidden\) render\(\);/);
   assert.match(app, /function renderMutationAvailability\(\)/);
-  assert.match(app, /transport\.addEventListener\('status', event => \{ renderConnection\(event\.detail\); renderMutationAvailability\(\); \}\);/);
+  assert.match(app, /transport\.addEventListener\('status', event => \{ renderConnection\(event\.detail\); renderMutationAvailability\(\); if \(dom\.nextGameConfirmDialog\.open\) renderNextGameConfirmation\(\); \}\);/);
 });
 
 test('a seated player can update only their own displayed name after the game starts', () => {

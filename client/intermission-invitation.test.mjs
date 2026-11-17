@@ -22,7 +22,7 @@ function intermission({ capacity = 8, claimed = 2, host = true, local = false } 
   const start = app.indexOf('function renderTurnFlow()');
   const end = app.indexOf('\nfunction renderEliminationUndo()', start);
   const render = runInNewContext(app.slice(start, end) + '\nrenderTurnFlow', {
-    dom, state, commanderSetupDraft: null, pendingNextGameSetup: false, transport: { seatId: host ? 0 : 1, status: 'connected' },
+    dom, state, commanderSetupDraft: null, pendingNextGameSetup: false, nextGameConfirmation: null, transport: { seatId: host ? 0 : 1, status: 'connected' },
     turnPlayer: () => state.players[0], renderEliminationUndo: () => ({}),
     displayName: player => player.name, escapeHtml: value => value,
     $: element, interfaceStyle: 'dial', cueMode: () => 'off',

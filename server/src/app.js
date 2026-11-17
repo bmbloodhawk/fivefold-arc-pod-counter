@@ -14,6 +14,7 @@ import { activeGameDurationMs, NullPlaytestLedger, recapFromRoom } from "./playt
 import { TableDeviceActivity, normalizedTableDeviceId } from "./table-device-activity.js";
 import { ProductMeasurement } from "./product-measurement.js";
 import { blankMatchMoment, chooseMatchMoment, RECENT_ACCOLADE_LIMIT, recordMatchMoment, recordTurnMoment, tableMatchMomentDecisions } from "./match-moments.js";
+import { nextGameStarterPolicy } from "../../client/next-game-starter.js";
 
 const JOIN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const MUTABLE_COUNTERS = new Set(["life", "radiation", "poison", "energy", "generic", "commanderDamage"]);
@@ -481,6 +482,20 @@ function gameSeats(room) {
   // still stable, so moving a person never transfers their account or deck.
   return ids.map((seatId) => room.seats[seatId]).filter((seat) => seat?.claimed);
 }
+function refreshNextGameStarter(room, { rosterChanged = false } = {}) {
+  if (room.lifecycle?.status !== 'intermission') return;
+  const seatIds = gameSeats(room).map(seat => seat.seatId);
+  // Old intermissions saved only the already-selected next starter. Retain it
+  // as an override; the overwritten previous starter cannot be reconstructed.
+  const anchor = room.lifecycle.nextGameStarter || {
+    previousStarterSeatId: null, previousSeatIds: seatIds,
+    overrideSeatId: room.turn.startingPlayerSeatId ?? room.turn.activeSeatId,
+  };
+  const { selectedSeatId, ...policy } = nextGameStarterPolicy({ ...anchor, seatIds });
+  room.lifecycle.nextGameStarter = policy;
+  if (rosterChanged && room.turn.startingPlayerRoll?.status === 'rolling') room.turn.startingPlayerRoll = null;
+  if (room.turn.startingPlayerRoll?.status !== 'rolling') room.turn = { ...room.turn, activeSeatId: selectedSeatId, startingPlayerSeatId: selectedSeatId };
+}
 function crossesStartingSeat(room, fromSeatId, toSeatId) {
   const ids = gameSeats(room).map(seat => seat.seatId);
   const start = Math.max(0, ids.indexOf(room.turn.startingPlayerSeatId));
@@ -713,7 +728,7 @@ export class RoomService {
       pendingFinish: room.pendingFinish ? { winnerSeatId: room.pendingFinish.winnerSeatId, expiresAt: room.pendingFinish.expiresAt } : null,
       completedGameId: room.gameResult ? room.gameId : null,
       completedGameEligible: Boolean(room.gameResult && room.completedGames?.some(game => game.gameId === room.gameId && game.sessionKind === "standard")),
-      lifecycle: { status: room.lifecycle?.status || (room.turn.gameStarted ? "playing" : "lobby"), seatIds: [...(room.lifecycle?.seatIds || room.seats.filter((seat) => seat.claimed).map((seat) => seat.seatId))], readySeatIds: [...(room.lifecycle?.readySeatIds || [])], seatOrderConfirmed: room.lifecycle?.seatOrderConfirmed === true },
+      lifecycle: { status: room.lifecycle?.status || (room.turn.gameStarted ? "playing" : "lobby"), seatIds: [...(room.lifecycle?.seatIds || room.seats.filter((seat) => seat.claimed).map((seat) => seat.seatId))], readySeatIds: [...(room.lifecycle?.readySeatIds || [])], seatOrderConfirmed: room.lifecycle?.seatOrderConfirmed === true, nextGameStarter: room.lifecycle?.nextGameStarter ? { ...room.lifecycle.nextGameStarter, previousSeatIds: [...room.lifecycle.nextGameStarter.previousSeatIds], departedSeatIds: [...room.lifecycle.nextGameStarter.departedSeatIds] } : null },
       lastGameWinnerSeatId: Number.isInteger(room.lastGameWinnerSeatId) ? room.lastGameWinnerSeatId : null,
       feedbackPromptSeatId: feedbackPromptSeatId(room),
       sessionKind: room.sessionKind || "standard",
@@ -1149,6 +1164,7 @@ export class RoomService {
       // be silently discarded just because it joined between games.
       if (room.lifecycle.status === "intermission") room.lifecycle.readySeatIds = [...new Set([...room.lifecycle.readySeatIds, seatId])];
     }
+    if (!wasClaimed) refreshNextGameStarter(room, { rosterChanged: true });
     room.version += 1;
     this.recordLedger(room, seat.claimed && input.reclaimToken ? "seat_reclaimed" : "seat_claimed", seatId, { name: seat.name, commanderCount: seat.commanderCount });
     this.tableDeviceActivity.record(connection.tableDeviceId);
@@ -1460,8 +1476,8 @@ export class RoomService {
     const nextSeatIds = gameSeats(room).map((seat) => seat.seatId);
     for (const seat of room.seats) resetSeatForNextGame(seat, room.config.startingLife);
     room.lastGameWinnerSeatId = room.gameResult.winnerSeatId;
-    room.lifecycle = { status: "intermission", seatIds: nextSeatIds, readySeatIds: [] };
-    const nextStarter = nextSeatIds.find((id) => id > previousStarter) ?? nextSeatIds[0] ?? room.hostSeatId;
+    const { selectedSeatId: nextStarter, ...nextGameStarter } = nextGameStarterPolicy({ previousStarterSeatId: previousStarter, previousSeatIds: nextSeatIds, seatIds: nextSeatIds });
+    room.lifecycle = { status: "intermission", seatIds: nextSeatIds, readySeatIds: [], nextGameStarter };
     room.turn = { ...room.turn, activeSeatId: nextStarter, gameStarted: false, gameStartedAt: null, turnStartedAt: null, turnNumber: 0, roundEndsAt: null, startingPlayerSeatId: nextStarter, startingPlayerRoll: null, lastHandoff: null, pausedAt: null, pausedDurationMs: 0 };
     room.version += 1; this.recordLedger(room, "next_game_setup_started", seatId, { seatIds: nextSeatIds }); this.broadcast(room);
     return { snapshot: this.snapshot(room) };
@@ -1498,6 +1514,7 @@ export class RoomService {
     if (targetSeatId === room.hostSeatId || !room.lifecycle.seatIds.includes(targetSeatId)) throw Object.assign(new Error("Choose another next-game seat to skip"), { status: 400, code: "INVALID_INPUT" });
     room.lifecycle.seatIds = room.lifecycle.seatIds.filter((id) => id !== targetSeatId);
     room.lifecycle.readySeatIds = room.lifecycle.readySeatIds.filter((id) => id !== targetSeatId);
+    refreshNextGameStarter(room, { rosterChanged: true });
     room.version += 1; this.recordLedger(room, "next_game_seat_skipped", seatId, { targetSeatId }); this.broadcast(room);
     return { snapshot: this.snapshot(room) };
   }
@@ -1537,6 +1554,7 @@ export class RoomService {
       throw Object.assign(new Error("Send every next-game seat once when arranging the table"), { status: 400, code: "INVALID_INPUT" });
     }
     room.lifecycle.seatIds = [...proposed]; room.lifecycle.seatOrderConfirmed = true;
+    refreshNextGameStarter(room, { rosterChanged: true });
     room.version += 1; this.recordLedger(room, "table_seats_reordered", seatId, { seatIds: room.lifecycle.seatIds }); this.broadcast(room);
     return { snapshot: this.snapshot(room) };
   }
@@ -1574,6 +1592,8 @@ export class RoomService {
     const room = this.room(code); this.requireNoPendingFinish(room); const { connection, seat, seatId } = this.requireOwner(room, connectionId);
     if (room.lifecycle?.status !== "intermission") throw Object.assign(new Error("You can leave after a game, while the next game is being set up"), { status: 409, code: "NOT_IN_INTERMISSION", snapshot: this.snapshot(room) });
     if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
+    refreshNextGameStarter(room);
+    room.lifecycle.nextGameStarter.departedSeatIds = [...new Set([...room.lifecycle.nextGameStarter.departedSeatIds, seatId])];
     room.lifecycle.seatIds = room.lifecycle.seatIds.filter((id) => id !== seatId);
     room.lifecycle.readySeatIds = room.lifecycle.readySeatIds.filter((id) => id !== seatId);
     seat.claimed = false;
@@ -1591,6 +1611,7 @@ export class RoomService {
       }
     }
     synchronizeCommanderState(room);
+    refreshNextGameStarter(room, { rosterChanged: true });
     room.version += 1;
     this.recordLedger(room, "next_game_seat_left", seatId, { hostTransferredToSeatId: Number.isInteger(room.hostSeatId) ? room.hostSeatId : null });
     this.broadcast(room);
@@ -1605,15 +1626,21 @@ export class RoomService {
     if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
     const claimedSeats = gameSeats(room);
     if (claimedSeats.length < 2) throw Object.assign(new Error("At least two claimed players are needed to choose who goes first"), { status: 409, code: "NOT_ENOUGH_PLAYERS", snapshot: this.snapshot(room) });
-    const requestedSeatId = input.startingSeatId;
+    const useDefault = input.useDefault === true;
+    if (useDefault && room.lifecycle?.status !== 'intermission') throw Object.assign(new Error('The automatic next-game starter is available during next-game setup'), { status: 400, code: 'INVALID_INPUT' });
+    const requestedSeatId = useDefault ? room.lifecycle.nextGameStarter?.defaultSeatId : input.startingSeatId;
     const roll = requestedSeatId === undefined ? createStartingPlayerRoll(claimedSeats, this.now()) : null;
     const chosen = roll ? null : room.seats[asInteger(requestedSeatId, "startingSeatId", 0, room.config.playerCount - 1)];
-    if (!roll && !chosen?.claimed) throw Object.assign(new Error("The starting player must be a claimed seat"), { status: 400, code: "INVALID_INPUT" });
+    if (!roll && !claimedSeats.some(seat => seat.seatId === chosen?.seatId)) throw Object.assign(new Error("The starting player must be in this game's roster"), { status: 400, code: "INVALID_INPUT" });
     room.turn = roll
       ? { ...room.turn, startingPlayerRoll: roll, lastHandoff: null }
       : { ...room.turn, activeSeatId: chosen.seatId, startingPlayerSeatId: chosen.seatId, startingPlayerRoll: null, lastHandoff: null };
+    if (!roll && room.lifecycle?.status === 'intermission') {
+      room.lifecycle.nextGameStarter.overrideSeatId = useDefault ? null : chosen.seatId;
+      refreshNextGameStarter(room);
+    }
     room.version += 1;
-    this.recordLedger(room, roll ? "first_player_roll_started" : "first_player_selected", seatId, roll ? { method: "local_d20" } : { startingSeatId: chosen.seatId, method: "host" });
+    this.recordLedger(room, roll ? "first_player_roll_started" : "first_player_selected", seatId, roll ? { method: "local_d20" } : { startingSeatId: chosen.seatId, method: useDefault ? 'next_game_default' : "host" });
     this.broadcast(room);
     return { snapshot: this.snapshot(room) };
   }
@@ -1640,6 +1667,8 @@ export class RoomService {
     }
     if (playerCountAtStart < 2) throw Object.assign(new Error("At least two claimed players are needed to start the game"), { status: 409, code: "NOT_ENOUGH_PLAYERS", snapshot: this.snapshot(room) });
     if (room.turn.startingPlayerRoll?.status === "rolling") throw Object.assign(new Error("Wait for every local d20 roll to report before starting the game"), { status: 409, code: "ROLL_IN_PROGRESS", snapshot: this.snapshot(room) });
+    const startingSeatId = room.turn.startingPlayerSeatId ?? room.turn.activeSeatId;
+    if (!claimedSeats.some(seat => seat.seatId === startingSeatId)) throw Object.assign(new Error("The starting player must be in this game's roster"), { status: 409, code: "INVALID_STARTING_PLAYER", snapshot: this.snapshot(room) });
     const startedAt = this.now();
     const usedLocalD20 = room.turn.startingPlayerRoll?.status === "complete";
     for (const seat of claimedSeats) {
@@ -1649,6 +1678,7 @@ export class RoomService {
     }
     room.turn = {
       ...room.turn,
+      activeSeatId: startingSeatId,
       gameStarted: true,
       gameStartedAt: startedAt,
       originalGameStartedAt: startedAt,
@@ -1659,7 +1689,7 @@ export class RoomService {
       startedAsDevelopment: room.sessionKind === "development",
       startingCommanderSourceIds: commanderSources(room).filter(source => claimedSeats.some(seat => seat.seatId === source.ownerSeatId)).map(source => source.id),
       roundEndsAt: room.config.roundLimitMinutes ? startedAt + room.config.roundLimitMinutes * 60 * 1000 : null,
-      startingPlayerSeatId: room.turn.startingPlayerSeatId ?? room.turn.activeSeatId,
+      startingPlayerSeatId: startingSeatId,
       lastHandoff: null,
     };
     room.lifecycle = { status: "playing", seatIds: [...room.lifecycle.seatIds], readySeatIds: [] };
@@ -1866,7 +1896,7 @@ export class RoomService {
     const value = asInteger(input.value, "value", 1, 20); round.rolls.push({ seatId, value, reportedAt: this.now() });
     if (round.rolls.length === round.contenderSeatIds.length) {
       const high = Math.max(...round.rolls.map((item) => item.value)); const tiedSeatIds = round.rolls.filter((item) => item.value === high).map((item) => item.seatId); round.tiedSeatIds = tiedSeatIds;
-      if (tiedSeatIds.length === 1) { roll.status = "complete"; roll.winnerSeatId = tiedSeatIds[0]; room.turn = { ...room.turn, activeSeatId: tiedSeatIds[0], startingPlayerSeatId: tiedSeatIds[0], startingPlayerRoll: roll, lastHandoff: null }; this.recordLedger(room, "first_player_selected", seatId, { startingSeatId: tiedSeatIds[0], method: "local_d20" }); }
+      if (tiedSeatIds.length === 1) { roll.status = "complete"; roll.winnerSeatId = tiedSeatIds[0]; room.turn = { ...room.turn, activeSeatId: tiedSeatIds[0], startingPlayerSeatId: tiedSeatIds[0], startingPlayerRoll: roll, lastHandoff: null }; if (room.lifecycle?.status === 'intermission') { room.lifecycle.nextGameStarter.overrideSeatId = tiedSeatIds[0]; refreshNextGameStarter(room); } this.recordLedger(room, "first_player_selected", seatId, { startingSeatId: tiedSeatIds[0], method: "local_d20" }); }
       else roll.rounds.push({ contenderSeatIds: tiedSeatIds, rolls: [] });
     }
     room.version += 1; this.broadcast(room); return { snapshot: this.snapshot(room) };
@@ -1957,6 +1987,7 @@ export class RoomService {
     });
     room.lastActiveAt = this.now();
     synchronizeCommanderState(room);
+    refreshNextGameStarter(room);
     this.rooms.set(code, room);
     if (!this.finishExpiredElimination(room)) this.schedulePendingFinish(room);
     return room;
