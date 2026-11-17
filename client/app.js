@@ -1,4 +1,4 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=92';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=93';
 import { eliminationUndoPresentation } from './elimination-undo.js?v=1';
 import { captureLocalElimination, rememberLocalElimination, advanceLocalElimination, undoLocalElimination } from './local-elimination-undo.js?v=1';
 import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=73';
@@ -33,6 +33,7 @@ const ELIMINATION_ART = { life: 'assets/elimination-skull-v1.png', poison: 'asse
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const dom = {
+  intermissionSetupButton: $('#intermissionSetupButton'), commanderSetupTitle: $('#commanderSetupTitle'), commanderSetupEyebrow: $('#commanderSetupEyebrow'), commanderSetupStatus: $('#commanderSetupStatus'),
   undoEliminationButton: $('#undoEliminationButton'), eliminationUndoStatus: $('#eliminationUndoStatus'),
   views: $$('.view'), landing: $('#landingView'), create: $('#createView'), join: $('#joinView'), joinSeatView: $('#joinSeatView'), lobby: $('#lobbyView'), lobbyMount: $('#lobbyMount'), game: $('#gameView'), joinCodeForm: $('#joinCodeForm'), joinCodeStatus: $('#joinCodeStatus'), scanJoinQrButton: $('#scanJoinQrButton'), joinQrScannerDialog: $('#joinQrScannerDialog'), joinQrScannerVideo: $('#joinQrScannerVideo'), joinQrScannerStatus: $('#joinQrScannerStatus'), joinQrCameraFallback: $('#joinQrCameraFallback'), joinQrCameraInput: $('#joinQrCameraInput'), savedTables: $('#savedTables'), savedTablesList: $('#savedTablesList'), quickTestButton: $('#quickTestButton'), localSimulationField: $('#localSimulationField'),
   connectionButton: $('#connectionButton'), connectionText: $('#connectionText'), connectionDialog: $('#connectionDialog'), connectionDetail: $('#connectionDetail'), tableActionDialog: $('#tableActionDialog'), tableActionDetail: $('#tableActionDetail'), editPlayerNameButton: $('#editPlayerNameButton'), editPlayerNameDialog: $('#editPlayerNameDialog'), editPlayerNameForm: $('#editPlayerNameForm'), editPlayerName: $('#editPlayerName'), eliminatePlayerButton: $('#eliminatePlayerButton'), eliminatePlayerDialog: $('#eliminatePlayerDialog'), eliminatePlayerForm: $('#eliminatePlayerForm'), eliminatePlayerSeat: $('#eliminatePlayerSeat'), eliminatePlayerReason: $('#eliminatePlayerReason'), eliminatePlayerDetail: $('#eliminatePlayerDetail'), leaveTableButton: $('#leaveTableButton'), leaveTableDialog: $('#leaveTableDialog'), confirmLeaveTableButton: $('#confirmLeaveTableButton'),
@@ -218,6 +219,7 @@ let pendingSignInReturn = null;
 const unlockedAchievementsByGame = new Map();
 let resolvedRadiationTurnKey = null;
 let selectedDeckId = ''; let setupDecks = []; let commanderDecks = []; let joinGameFormat = 'commander'; let savedDecks = []; let editingDeckId = null; let deckCommanderColors = [];
+let commanderSetupDraft = null; let pendingNextGameSetup = false;
 let optimisticLifeDelta = 0;
 let awaitingConfirmedResync = false;
 let syncBannerTimer = null;
@@ -497,8 +499,22 @@ function advanceEndGameFlow(key) {
 async function loadSaveGameDecks() {
   try { const token = await currentAccountToken(); if (!token) return; const response = await fetch('/api/account/decks', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) return; const { decks } = await response.json(); dom.saveGameDeck.innerHTML = `<option value="">No deck selected</option>${decks.map(deck => `<option value="${escapeHtml(deck.deckId)}">${escapeHtml([deck.commanderName, deck.name].filter(Boolean).join(' · '))}</option>`).join('')}`; } catch { /* Saving a game remains available without a deck. */ }
 }
-async function loadCommanderDecks() {
-  try { const token = await currentAccountToken(); if (!token) return; const response = await fetch('/api/account/decks', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) return; const { decks } = await response.json(); commanderDecks = decks; dom.commanderDeck.innerHTML = `<option value="">No deck selected</option>${decks.map(deck => `<option value="${escapeHtml(deck.deckId)}">${escapeHtml([deck.commanderName, deck.name].filter(Boolean).join(' · '))}</option>`).join('')}`; dom.commanderDeck.value = selectedDeckId; dom.commanderDeckField.hidden = false; } catch { /* Deck choice remains optional. */ }
+async function loadCommanderDecks(draft = commanderSetupDraft) {
+  try {
+    const token = await currentAccountToken();
+    if (!token || draft !== commanderSetupDraft || !commanderSetupContextMatches(draft)) return;
+    const response = await fetch('/api/account/decks', { headers: { authorization: `Bearer ${token}` } });
+    if (!response.ok) throw new Error('Saved decks could not load. You can enter commanders manually.');
+    const { decks } = await response.json();
+    if (draft !== commanderSetupDraft || !commanderSetupContextMatches(draft) || draft.saving) return;
+    const draftDeckId = dom.commanderDeck.value;
+    commanderDecks = decks;
+    dom.commanderDeck.innerHTML = `<option value="">Enter commanders manually</option>${decks.map(deck => `<option value="${escapeHtml(deck.deckId)}">${escapeHtml([deck.name, deck.commanderName].filter(Boolean).join(' · '))}</option>`).join('')}`;
+    dom.commanderDeck.value = draftDeckId;
+    dom.commanderDeckField.hidden = false;
+  } catch (error) {
+    if (draft === commanderSetupDraft && commanderSetupContextMatches(draft)) showCommanderSetupError(error.message);
+  }
 }
 function sortSetupDecks(decks) { return [...decks].sort((left, right) => Number(right.favorite) - Number(left.favorite) || String(left.name || left.commanderName || '').localeCompare(String(right.name || right.commanderName || ''), undefined, { sensitivity: 'base' })); }
 async function loadSetupDecks() {
@@ -918,6 +934,7 @@ async function signOut() {
   try {
     await signOutAccount();
     selectedDeckId = ''; setupDecks = []; savedDecks = [];
+    try { sessionStorage.removeItem('fivefold-arc:confirmed-commander-deck'); } catch { /* Optional browser storage. */ }
     clearAccountAppearance();
     renderHomeAccount(false);
     competitionHub.authChanged(false);
@@ -1046,7 +1063,7 @@ async function saveGameToHistory({ automatic = false, gameKey = victoryKey(state
   if (savingGameKey === gameKey) return null;
 
   const roomCode = state.podCode;
-  const deckId = selectedDeckId || null;
+  const deckId = selectedDeckForGame(gameKey) || null;
   const seatId = transport.seatId;
   const transportEpoch = transport.sessionEpoch;
   const profileEpoch = awardProfileEpoch;
@@ -1256,20 +1273,25 @@ function showCommanderMatchChoices(field, input, status, matches) {
   field.append(choices);
   status.textContent = 'Choose the card you meant before applying its color identity.';
 }
-async function confirmUnresolvedCommanderDetails(container, count) {
+async function confirmUnresolvedCommanderDetails(container, count, isCurrent = () => true) {
   const unresolved = [];
   for (let slot = 0; slot < count; slot += 1) {
+    if (!isCurrent()) return { colors: [], unresolved: [] };
     const input = container.querySelector(`input[name="commanderName${slot}"]`);
     const name = input?.value.trim();
     if (!name || input.dataset.commanderColors !== undefined || input.dataset.commanderLookupFailed === 'true') continue;
+    const current = () => isCurrent() && container.querySelector(`input[name="commanderName${slot}"]`) === input
+      && input.value.trim() === name && input.dataset.commanderColors === undefined;
     const status = input.closest('.commander-identity-field')?.querySelector('.commander-lookup-status');
     if (status) status.textContent = 'Confirming commander…';
     try {
       const card = await lookupCommanderIdentity(name);
+      if (!current()) return { colors: [], unresolved: [name] };
       input.value = card.name;
       input.dataset.commanderColors = card.colors.join(',');
       if (status) status.textContent = `✓ Confirmed: ${card.colors.join('') || 'Colorless'}`;
     } catch (error) {
+      if (!current()) return { colors: [], unresolved: [name] };
       unresolved.push(name);
       if (error.matches?.length && status) showCommanderMatchChoices(input.closest('.commander-identity-field'), input, status, error.matches);
       else { input.dataset.commanderLookupFailed = 'true'; if (status) status.textContent = error.message || 'Commander not found. Check the spelling and try again.'; }
@@ -1294,7 +1316,7 @@ function renderCommanderNameFields(container, count, names = [], identities = []
   const current = [...container.querySelectorAll('input[name^="commanderName"]')].map(input => ({ name: input.value, colors: input.dataset.commanderColors || '' }));
   container.innerHTML = Array.from({ length: count }, (_, slot) => { const prior = current[slot]; const colors = normaliseIdentity((prior?.colors || identities[slot] || []).toString().split(',').filter(Boolean)); const name = names[slot] ?? prior?.name ?? ''; const identity = colors.length ? `✓ Confirmed: ${colors.join('')}` : 'Confirm the card to apply its color identity.'; const colorData = colors.length ? ` data-commander-colors="${escapeHtml(colors.join(','))}"` : ''; return `<div class="commander-identity-field"><label class="select-field">Commander ${count === 2 ? slot === 0 ? 'A' : 'B' : ''} name <small>(optional)</small><input name="commanderName${slot}" type="text" maxlength="60" autocomplete="off" placeholder="e.g. Atraxa, Praetors’ Voice" value="${escapeHtml(name)}"${colorData}></label><button class="commander-lookup" data-lookup-commander="${slot}" type="button">Find commander details</button><small class="commander-lookup-status" aria-live="polite">${identity}</small></div>`; }).join('');
   container.querySelectorAll('input[name^="commanderName"]').forEach(input => input.addEventListener('input', () => { delete input.dataset.commanderColors; input.closest('.commander-identity-field').querySelector('.commander-match-choices')?.remove(); const status = input.closest('.commander-identity-field').querySelector('.commander-lookup-status'); status.textContent = 'Name changed. Confirm the card to apply its color identity.'; }));
-  container.querySelectorAll('[data-lookup-commander]').forEach(button => button.addEventListener('click', async () => { const field = button.closest('.commander-identity-field'); const input = field.querySelector('input'); const status = field.querySelector('.commander-lookup-status'); const name = input.value.trim(); if (!name) { input.focus(); return; } button.disabled = true; status.textContent = 'Finding commander…'; try { const card = await lookupCommanderIdentity(name); applyCommanderIdentity(input, status, card); field.querySelector('.commander-manual-colors')?.remove(); } catch (error) { delete input.dataset.commanderColors; if (error.matches?.length) showCommanderMatchChoices(field, input, status, error.matches); else { input.dataset.commanderLookupFailed = 'true'; status.textContent = error.message; if (container === dom.createCommanderNames && !field.querySelector('.commander-manual-colors')) { field.insertAdjacentHTML('beforeend', '<div class="commander-manual-colors"><button type="button" class="secondary-action" data-enter-colors>Enter colors manually</button><button type="button" class="text-action" data-skip-colors>Keep without colors</button></div>'); field.querySelector('[data-enter-colors]').addEventListener('click', () => { const chooser = document.createElement('fieldset'); chooser.className = 'commander-color-chooser'; chooser.innerHTML = '<legend>Color identity</legend>W U B R G'.split(' ').map(color => `<label><input type="checkbox" value="${color}">${color}</label>`).join(''); chooser.addEventListener('change', () => { input.dataset.commanderColors = [...chooser.querySelectorAll('input:checked')].map(item => item.value).join(','); status.textContent = `Manual identity: ${input.dataset.commanderColors || 'Colorless'}`; }); field.querySelector('.commander-manual-colors').replaceWith(chooser); }); field.querySelector('[data-skip-colors]').addEventListener('click', () => { status.textContent = 'Kept without a color identity.'; field.querySelector('.commander-manual-colors').remove(); }); } } } finally { button.disabled = false; } }));
+  container.querySelectorAll('[data-lookup-commander]').forEach(button => button.addEventListener('click', async () => { const field = button.closest('.commander-identity-field'); const input = field.querySelector('input'); const status = field.querySelector('.commander-lookup-status'); const name = input.value.trim(); if (!name) { input.focus(); return; } const expectedColors = input.dataset.commanderColors; const current = () => container.querySelector(`input[name="commanderName${button.dataset.lookupCommander}"]`) === input && input.value.trim() === name && input.dataset.commanderColors === expectedColors; button.disabled = true; status.textContent = 'Finding commander…'; try { const card = await lookupCommanderIdentity(name); if (!current()) return; applyCommanderIdentity(input, status, card); field.querySelector('.commander-manual-colors')?.remove(); } catch (error) { if (!current()) return; delete input.dataset.commanderColors; if (error.matches?.length) showCommanderMatchChoices(field, input, status, error.matches); else { input.dataset.commanderLookupFailed = 'true'; status.textContent = error.message; if (container === dom.createCommanderNames && !field.querySelector('.commander-manual-colors')) { field.insertAdjacentHTML('beforeend', '<div class="commander-manual-colors"><button type="button" class="secondary-action" data-enter-colors>Enter colors manually</button><button type="button" class="text-action" data-skip-colors>Keep without colors</button></div>'); field.querySelector('[data-enter-colors]').addEventListener('click', () => { const chooser = document.createElement('fieldset'); chooser.className = 'commander-color-chooser'; chooser.innerHTML = '<legend>Color identity</legend>W U B R G'.split(' ').map(color => `<label><input type="checkbox" value="${color}">${color}</label>`).join(''); chooser.addEventListener('change', () => { input.dataset.commanderColors = [...chooser.querySelectorAll('input:checked')].map(item => item.value).join(','); status.textContent = `Manual identity: ${input.dataset.commanderColors || 'Colorless'}`; }); field.querySelector('.commander-manual-colors').replaceWith(chooser); }); field.querySelector('[data-skip-colors]').addEventListener('click', () => { status.textContent = 'Kept without a color identity.'; field.querySelector('.commander-manual-colors').remove(); }); } } } finally { button.disabled = false; } }));
 }
 function selectedCommanderCount(formName) { return Number($(`input[name="${formName}"]:checked`)?.value || 1); }
 function refreshSetupCommanderNames() { renderCommanderNameFields(dom.createCommanderNames, selectedCommanderCount('commanderCount')); renderCommanderNameFields(dom.joinCommanderNames, selectedCommanderCount('joinCommanderCount')); }
@@ -1322,6 +1344,7 @@ function turnPlayer() { return state.players.find(player => player.id === state.
 function formatDuration(milliseconds) { const seconds = Math.max(0, Math.floor(milliseconds / 1000)); return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`; }
 function renderTurnFlow() {
   if (!state?.turn) return;
+  if (commanderSetupDraft?.nextGame && !commanderSetupContextMatches(commanderSetupDraft)) dom.commanderCountDialog.close('stale');
   if (state.localSimulation && state.pendingFinish) {
     advanceLocalElimination(state);
     if (state.gameResult) { render(); return; }
@@ -1370,8 +1393,10 @@ function renderTurnFlow() {
     dom.intermissionInviteCode.textContent = state.podCode;
     renderSeatOrder(dom.intermissionRoster, rosterIds, { intermission: true });
     dom.intermissionReadyButton.hidden = !rosterIds.includes(ownSeatId);
+    dom.intermissionSetupButton.hidden = !rosterIds.includes(ownSeatId) || youAreReady;
+    dom.intermissionSetupButton.disabled = pendingNextGameSetup || (!state.localSimulation && transport.status !== 'connected');
     dom.intermissionReadyButton.textContent = youAreReady ? 'I need to make a change' : 'I’m ready';
-    dom.intermissionReadyButton.disabled = !state.localSimulation && transport.status !== 'connected';
+    dom.intermissionReadyButton.disabled = pendingNextGameSetup || (!state.localSimulation && transport.status !== 'connected');
     dom.intermissionStartButton.hidden = !isHost;
     const everyoneReady = rosterIds.length >= 2 && rosterIds.every(id => readyIds.includes(id));
     dom.intermissionStartButton.disabled = !everyoneReady || (!state.localSimulation && transport.status !== 'connected');
@@ -1933,10 +1958,155 @@ function remapLocalCastCounts(previousSources, nextSources) {
   const oldId = new Map(previousSources.map(source => [`${source.ownerPlayerId}:${source.slot || 'A'}`, source.id]));
   state.commanderCastCounts = Object.fromEntries(nextSources.map(source => [source.id, state.commanderCastCounts[oldId.get(`${source.ownerPlayerId}:${source.slot || 'A'}`)] || 0]));
 }
-async function updateCommanderSetup(count, names, colors) {
-  const player = state.localSimulation ? activePlayer() : state.players.find(item => item.id === state.ownerPlayerId);
-  if (transport.status === 'local') { const previousSources = state.commanderSources; player.commanderCount = count; player.commanderNames = names; player.commanderColors = colors; state.commanderSources = sourcesFromPlayers(state.players); remapLocalDamage(previousSources, state.commanderSources); remapLocalCastCounts(previousSources, state.commanderSources); state.selectedSourceId = null; render(); return; }
-  try { dom.saveCommanderCountButton.disabled = true; const result = await transport.setCommanderSetup(count, names, colors); if (result.conflict) showError(new Error('The table changed first. The latest commander setup is shown.')); } catch (error) { showError(error); } finally { dom.saveCommanderCountButton.disabled = false; }
+async function updateCommanderSetup(count, names, colors, { ownerOnly = false } = {}) {
+  const player = state.localSimulation && !ownerOnly ? activePlayer() : state.players.find(item => item.id === state.ownerPlayerId);
+  if (transport.status === 'local') { const previousSources = state.commanderSources; player.commanderCount = count; player.commanderNames = names; player.commanderColors = colors; state.commanderSources = sourcesFromPlayers(state.players); remapLocalDamage(previousSources, state.commanderSources); remapLocalCastCounts(previousSources, state.commanderSources); state.selectedSourceId = null; render(); return true; }
+  try { const result = await transport.setCommanderSetup(count, names, colors); if (result.conflict) showError(new Error('The table changed first. The latest commander setup is shown.')); return !result.conflict && !result.blocked && !result.ignored; } catch (error) { showError(error); return false; }
+}
+function confirmedCommanderDeck() {
+  try {
+    const record = JSON.parse(sessionStorage.getItem('fivefold-arc:confirmed-commander-deck'));
+    const seatId = transport.seatId, player = state?.players.find(item => item.id === state.ownerPlayerId);
+    const signature = JSON.stringify([player?.commanderCount, player?.commanderNames, player?.commanderColors]);
+    return record && !state?.localSimulation && Number.isInteger(seatId) && player?.id === `P${seatId + 1}`
+      && record.roomCode === state.podCode && record.seatId === seatId && record.commanderSignature === signature
+      && typeof record.deckId === 'string' && typeof record.previousDeckId === 'string'
+      && (record.excludedGameId === null || typeof record.excludedGameId === 'string') ? record : null;
+  } catch { return null; }
+}
+function selectedDeckForGame(gameKey) {
+  const record = confirmedCommanderDeck();
+  return record ? (record.excludedGameId && record.excludedGameId === gameKey ? record.previousDeckId : record.deckId) : selectedDeckId;
+}
+function rememberCommanderDeck(deckId, { nextGame = false } = {}) {
+  const seatId = transport.seatId, player = state?.players.find(item => item.id === state.ownerPlayerId);
+  const excludedGameId = nextGame ? victoryKey(state?.gameResult) : null;
+  let previousDeckId = selectedDeckId;
+  try {
+    const previous = JSON.parse(sessionStorage.getItem('fivefold-arc:confirmed-commander-deck'));
+    // A confirmed edit changes the signature; retain the original game's deck
+    // through subsequent edits of this same owner's next-game setup.
+    if (nextGame && excludedGameId && previous?.roomCode === state.podCode && previous.seatId === seatId
+      && previous.excludedGameId === excludedGameId && typeof previous.previousDeckId === 'string') previousDeckId = previous.previousDeckId;
+    if (!state?.localSimulation && Number.isInteger(seatId) && player?.id === `P${seatId + 1}`) {
+      sessionStorage.setItem('fivefold-arc:confirmed-commander-deck', JSON.stringify({
+        roomCode: state.podCode, seatId,
+        commanderSignature: JSON.stringify([player.commanderCount, player.commanderNames, player.commanderColors]),
+        deckId, excludedGameId, previousDeckId,
+      }));
+    }
+  } catch { /* Optional browser storage must not prevent a confirmed save. */ }
+  selectedDeckId = deckId;
+  try { sessionStorage.setItem('fivefold-arc:selected-deck', deckId); } catch { /* Optional browser storage. */ }
+}
+function myIntermissionSeat() {
+  const seatId = state?.localSimulation ? Number(String(state.ownerPlayerId).slice(1)) - 1 : transport.seatId;
+  return state?.lifecycle?.status === 'intermission' && state.lifecycle.seatIds.includes(seatId) ? seatId : null;
+}
+function commanderSetupContextMatches(draft) {
+  if (!draft || !state || draft.roomCode !== state.podCode || draft.sessionEpoch !== transport.sessionEpoch || draft.profileEpoch !== awardProfileEpoch) return false;
+  const seatId = state.localSimulation ? Number(String(state.ownerPlayerId).slice(1)) - 1 : transport.seatId;
+  return draft.seatId === seatId && (!draft.nextGame || (myIntermissionSeat() === seatId && draft.gameKey === victoryKey(state.gameResult)));
+}
+function showCommanderSetupError(message = '') {
+  dom.commanderSetupStatus.textContent = message;
+  dom.commanderSetupStatus.hidden = !message;
+}
+function openCommanderSetup({ nextGame = false } = {}) {
+  const confirmedDeck = confirmedCommanderDeck();
+  if (confirmedDeck) selectedDeckId = confirmedDeck.deckId;
+  const player = state.localSimulation && !nextGame ? activePlayer() : state.players.find(item => item.id === state.ownerPlayerId);
+  commanderSetupDraft = { nextGame, roomCode: state.podCode, seatId: state.localSimulation ? Number(String(state.ownerPlayerId).slice(1)) - 1 : transport.seatId, sessionEpoch: transport.sessionEpoch, profileEpoch: awardProfileEpoch, gameKey: victoryKey(state.gameResult), saving: false, writing: false, revision: 0 };
+  dom.gameMenu.hidden = true;
+  dom.commanderCountDialog.classList.toggle('next-game-setup', nextGame);
+  dom.commanderSetupEyebrow.hidden = !nextGame;
+  dom.commanderSetupTitle.textContent = nextGame ? 'Deck & commander' : 'My commander setup';
+  dom.commanderCountDetail.textContent = nextGame ? 'Save your changes, then tap I’m ready at the table.' : state.localSimulation ? `Local simulation: change ${displayName(player)}'s commander details.` : 'Change your commander names and color identity for this table. Your current game and seat stay in place.';
+  dom.saveCommanderCountButton.textContent = nextGame ? 'Save changes' : 'Update this pod';
+  dom.saveCommanderCountButton.disabled = false;
+  showCommanderSetupError();
+  commanderDecks = [];
+  dom.commanderDeckField.hidden = true;
+  dom.commanderDeck.innerHTML = `<option value="">Enter commanders manually</option>${selectedDeckId ? `<option value="${escapeHtml(selectedDeckId)}">Current deck</option>` : ''}`;
+  dom.commanderDeck.value = selectedDeckId;
+  $(`input[name="gameCommanderCount"][value="${player.commanderCount}"]`).checked = true;
+  dom.gameCommanderNames.replaceChildren();
+  renderCommanderNameFields(dom.gameCommanderNames, player.commanderCount, player.commanderNames, player.commanderColors);
+  dom.commanderCountDialog.showModal();
+  void loadCommanderDecks(commanderSetupDraft);
+}
+async function openNextGameSetup() {
+  const seatId = myIntermissionSeat();
+  if (seatId === null || pendingNextGameSetup || (!state.localSimulation && transport.status !== 'connected')) return;
+  const roomCode = state.podCode, epoch = transport.sessionEpoch;
+  pendingNextGameSetup = true;
+  renderTurnFlow();
+  try {
+    if (state.lifecycle.readySeatIds.includes(seatId)) {
+      if (state.localSimulation) state.lifecycle.readySeatIds = state.lifecycle.readySeatIds.filter(id => id !== seatId);
+      else {
+        const result = await transport.setNextGameReady(false);
+        if (result.ignored) return;
+        if (result.blocked || result.conflict) { showTableActionError(result.blocked ? 'Reconnect before changing your setup.' : 'The table changed first. Review it and try again.'); return; }
+      }
+    }
+    if (state?.podCode !== roomCode || transport.sessionEpoch !== epoch || myIntermissionSeat() !== seatId || state.lifecycle.readySeatIds.includes(seatId)) return;
+    openCommanderSetup({ nextGame: true });
+  } catch (error) { showTableRequestError(error); }
+  finally { pendingNextGameSetup = false; renderTurnFlow(); }
+}
+function selectCommanderDeck(event) {
+  if (!commanderSetupDraft) return;
+  commanderSetupDraft.revision++;
+  const deck = commanderDecks.find(item => item.deckId === event.currentTarget.value);
+  const commanderNames = deck?.commanderNames?.length ? deck.commanderNames : [deck?.commanderName].filter(Boolean);
+  if (!commanderNames.length) return;
+  const identities = savedDeckCommanderColors(deck, commanderNames.length);
+  $(`input[name="gameCommanderCount"][value="${commanderNames.length}"]`).checked = true;
+  dom.gameCommanderNames.replaceChildren();
+  renderCommanderNameFields(dom.gameCommanderNames, commanderNames.length, commanderNames, identities);
+}
+function markCommanderSetupManual() {
+  if (!commanderSetupDraft) return;
+  commanderSetupDraft.revision++;
+  dom.commanderDeck.value = '';
+}
+async function saveCommanderSetupDraft(event) {
+  if (event.submitter?.value !== 'confirm') return;
+  event.preventDefault();
+  const draft = commanderSetupDraft;
+  if (!draft || draft.saving || !commanderSetupContextMatches(draft)) return;
+  const count = Number(new FormData(dom.commanderCountForm).get('gameCommanderCount'));
+  const revision = draft.revision;
+  const saveLabel = dom.saveCommanderCountButton.textContent;
+  let controls = [];
+  draft.saving = true;
+  dom.saveCommanderCountButton.disabled = true;
+  showCommanderSetupError();
+  try {
+    const { colors, unresolved } = await confirmUnresolvedCommanderDetails(dom.gameCommanderNames, count, () => commanderSetupDraft === draft && commanderSetupContextMatches(draft) && draft.revision === revision);
+    if (commanderSetupDraft !== draft || !commanderSetupContextMatches(draft)) return;
+    if (draft.revision !== revision) { showCommanderSetupError('Your setup changed while checking card details. Save again.'); return; }
+    if (unresolved.length) { dom.saveCommanderCountButton.textContent = draft.nextGame ? 'Save without colors' : 'Update without colors'; return; }
+    const names = commanderNamesFromForm(new FormData(dom.commanderCountForm), count);
+    const deckId = dom.commanderDeck.value || '';
+    controls = [...dom.commanderCountForm.querySelectorAll('input, select, button')].map(control => [control, control.disabled]);
+    controls.forEach(([control]) => { control.disabled = true; });
+    draft.writing = true;
+    dom.saveCommanderCountButton.textContent = draft.nextGame ? 'Saving changes…' : 'Updating…';
+    dom.commanderCountDialog.setAttribute('closedby', 'none');
+    const result = draft.nextGame && !state.localSimulation ? await transport.setNextGameCommanderSetup(count, names, colors) : await updateCommanderSetup(count, names, colors, { ownerOnly: draft.nextGame });
+    if (commanderSetupDraft !== draft || !commanderSetupContextMatches(draft)) return;
+    if (result === false || result?.conflict || result?.blocked || result?.ignored) { showCommanderSetupError('Changes were not saved. Check your connection and try again.'); return; }
+    rememberCommanderDeck(deckId, { nextGame: draft.nextGame });
+    dom.commanderCountDialog.close('confirm');
+  } catch (error) {
+    if (commanderSetupDraft === draft && commanderSetupContextMatches(draft)) showCommanderSetupError(error.message || 'Changes were not saved. Try again.');
+  } finally {
+    draft.saving = false; draft.writing = false;
+    controls.forEach(([control, disabled]) => { control.disabled = disabled; });
+    if (commanderSetupDraft === draft) { dom.commanderCountDialog.removeAttribute('closedby'); dom.saveCommanderCountButton.disabled = false; if (['Saving changes…', 'Updating…'].includes(dom.saveCommanderCountButton.textContent)) dom.saveCommanderCountButton.textContent = saveLabel; }
+  }
 }
 async function updateCommanderCastCount(sourceId, delta) {
   if (!commanderTaxEnabled()) return;
@@ -2059,8 +2229,10 @@ async function beginIntermission(gameKey) {
   }
 }
 async function setNextGameReady() {
+  if (commanderSetupDraft?.nextGame || pendingNextGameSetup) return;
   const ownSeatId = state?.localSimulation ? Number(String(state.ownerPlayerId).slice(1)) - 1 : transport.seatId;
   const ready = !(state?.lifecycle?.readySeatIds || []).includes(ownSeatId);
+  if (!ready) { await openNextGameSetup(); return; }
   if (state?.localSimulation) { state.lifecycle.readySeatIds = ready ? [...state.lifecycle.readySeatIds, ownSeatId] : state.lifecycle.readySeatIds.filter(id => id !== ownSeatId); render(); return; }
   try {
     const result = await transport.setNextGameReady(ready);
@@ -2324,17 +2496,8 @@ $('#createPodButton').addEventListener('click', () => { selectedDeckId = ''; try
 $('#joinSignInDeckButton').addEventListener('click', () => openSignIn({ returnToJoin: true }));
 function selectSetupDeck(event) { selectedDeckId = event.currentTarget.value || ''; try { sessionStorage.setItem('fivefold-arc:selected-deck', selectedDeckId); } catch {} if (selectedDeckId && (event.currentTarget === dom.createDeck || event.currentTarget === dom.joinDeck)) { const deck = setupDecks.find(item => item.deckId === selectedDeckId); const commanderNames = deck?.commanderNames?.length ? deck.commanderNames : [deck?.commanderName].filter(Boolean); const joining = event.currentTarget === dom.joinDeck; if (commanderNames.length) { const container = joining ? dom.joinCommanderNames : dom.createCommanderNames; const identities = savedDeckCommanderColors(deck, commanderNames.length); $(`input[name="${joining ? 'joinCommanderCount' : 'commanderCount'}"][value="${commanderNames.length}"]`).checked = true; renderCommanderNameFields(container, commanderNames.length, commanderNames, identities); if (identities.length !== commanderNames.length) void confirmUnresolvedCommanderDetails(container, commanderNames.length); } } }
 dom.createDeck.addEventListener('change', selectSetupDeck); dom.joinDeck.addEventListener('change', selectSetupDeck);
-dom.commanderDeck.addEventListener('change', event => {
-  selectedDeckId = event.currentTarget.value || '';
-  try { sessionStorage.setItem('fivefold-arc:selected-deck', selectedDeckId); } catch {}
-  const deck = commanderDecks.find(item => item.deckId === selectedDeckId);
-  const commanderNames = deck?.commanderNames?.length ? deck.commanderNames : [deck?.commanderName].filter(Boolean);
-  if (!commanderNames.length) return;
-  const identities = savedDeckCommanderColors(deck, commanderNames.length);
-  $(`input[name="gameCommanderCount"][value="${commanderNames.length}"]`).checked = true;
-  renderCommanderNameFields(dom.gameCommanderNames, commanderNames.length, commanderNames, identities);
-  if (identities.length !== commanderNames.length) void confirmUnresolvedCommanderDetails(dom.gameCommanderNames, commanderNames.length);
-});
+dom.commanderDeck.addEventListener('change', selectCommanderDeck);
+dom.gameCommanderNames.addEventListener('input', markCommanderSetupManual);
 $$('input[name="deckCommanderCount"]').forEach(input => input.addEventListener('change', () => { const paired = Number(input.value) === 2; deckCommanderNameTwoField.hidden = !paired; if (!paired) deckCommanderNameTwo.value = ''; deckCommanderColors = []; deckCommanderStatus.textContent = 'Commander count changed. Find colors again to update the deck identity.'; }));
 document.addEventListener('pointerdown', touchLocalDemo);
 document.addEventListener('keydown', touchLocalDemo);
@@ -2544,7 +2707,7 @@ dom.markDevelopmentButton.addEventListener('click', async () => { try { await tr
 dom.startingRollDialog.addEventListener('close', () => { startingRollSequence += 1; clearStartingRollTimers(); });
 dom.rollMyD20Button.addEventListener('click', rollMyStartingD20);
 $('#closeGameMenuButton').addEventListener('click', () => { dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); });
-dom.commanderSetupButton.addEventListener('click', () => { dom.gameMenu.hidden = true; const player = state.localSimulation ? activePlayer() : state.players.find(item => item.id === state.ownerPlayerId); dom.commanderCountDetail.textContent = state.localSimulation ? `Local simulation: change ${displayName(player)}'s commander details.` : `Change your commander names and color identity for this pod. Your current game and seat stay in place.`; dom.saveCommanderCountButton.textContent = 'Update this pod'; dom.saveCommanderCountButton.disabled = false; dom.commanderDeckField.hidden = true; $(`input[name="gameCommanderCount"][value="${player.commanderCount}"]`).checked = true; renderCommanderNameFields(dom.gameCommanderNames, player.commanderCount, player.commanderNames, player.commanderColors); dom.commanderCountDialog.showModal(); void loadCommanderDecks(); });
+dom.commanderSetupButton.addEventListener('click', () => openCommanderSetup());
 let developerHoldTimer = null;
 const clearDeveloperHold = () => { clearTimeout(developerHoldTimer); developerHoldTimer = null; };
 dom.podLabel.addEventListener('pointerdown', () => { if (!developerMode && developerHost()) developerHoldTimer = setTimeout(() => { developerHoldTimer = null; dom.developerModeKey.value = ''; dom.developerModeStatus.textContent = ''; dom.developerModeDialog.showModal(); dom.developerModeKey.focus(); }, 750); });
@@ -2554,8 +2717,12 @@ dom.lockDeveloperModeButton.addEventListener('click', () => { developerMode = fa
 $('#leaveLobbyButton')?.addEventListener('click', () => dom.leaveTableDialog.showModal());
 dom.commanderTaxQuickButton?.addEventListener('click', () => { renderCommanderTaxDialog(); dom.commanderTaxDialog.showModal(); });
 dom.backToSetupButton?.addEventListener('click', returnToSetup); dom.leaveTableButton?.addEventListener('click', () => { dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); dom.leaveTableDialog.showModal(); }); dom.confirmLeaveTableButton?.addEventListener('click', leaveTable);
-$$('input[name="gameCommanderCount"]').forEach(input => input.addEventListener('change', () => renderCommanderNameFields(dom.gameCommanderNames, selectedCommanderCount('gameCommanderCount'))));
-dom.commanderCountForm.addEventListener('submit', async event => { if (event.submitter?.value === 'confirm') { event.preventDefault(); const form = new FormData(dom.commanderCountForm); const count = Number(form.get('gameCommanderCount')); dom.saveCommanderCountButton.disabled = true; const { colors, unresolved } = await confirmUnresolvedCommanderDetails(dom.gameCommanderNames, count); if (unresolved.length) { dom.saveCommanderCountButton.textContent = 'Update without colors'; dom.saveCommanderCountButton.disabled = false; return; } const names = commanderNamesFromForm(new FormData(dom.commanderCountForm), count); selectedDeckId = dom.commanderDeck.value || ''; try { sessionStorage.setItem('fivefold-arc:selected-deck', selectedDeckId); } catch {} await updateCommanderSetup(count, names, colors); dom.commanderCountDialog.close('confirm'); } }); dom.declareWinnerForm.addEventListener('submit', event => { if (event.submitter?.value === 'confirm') declareWinner(); });
+$$('input[name="gameCommanderCount"]').forEach(input => input.addEventListener('change', () => { markCommanderSetupManual(); renderCommanderNameFields(dom.gameCommanderNames, selectedCommanderCount('gameCommanderCount')); }));
+dom.commanderCountForm.addEventListener('submit', saveCommanderSetupDraft);
+dom.commanderCountDialog.addEventListener('cancel', event => { if (commanderSetupDraft?.writing) event.preventDefault(); });
+dom.commanderCountDialog.addEventListener('close', () => { commanderSetupDraft = null; commanderDecks = []; dom.commanderCountDialog.removeAttribute('closedby'); });
+dom.intermissionSetupButton.addEventListener('click', () => void openNextGameSetup());
+dom.declareWinnerForm.addEventListener('submit', event => { if (event.submitter?.value === 'confirm') declareWinner(); });
 dom.intermissionReadyButton.addEventListener('click', () => void setNextGameReady()); dom.intermissionStartButton.addEventListener('click', () => void confirmNextGameStart()); dom.intermissionLeaveButton.addEventListener('click', () => dom.intermissionLeaveDialog.showModal()); dom.intermissionLeaveForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); dom.intermissionLeaveDialog.close('confirm'); void leaveNextGameTable(); }); dom.nextGameConfirmForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); dom.nextGameConfirmDialog.close('confirm'); void startGame(); });
 dom.victoryDialog.addEventListener('click', () => { if (victoryDismissReady && dom.victoryDialog.open) advanceEndGameFlow(victoryKey(state?.gameResult)); }); dom.achievementDialog.addEventListener('close', () => {
   if (dom.achievementDialog.dataset.catchUpId) {

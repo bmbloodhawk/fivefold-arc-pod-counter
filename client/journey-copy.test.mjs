@@ -82,18 +82,18 @@ test('manual card-data refresh remains in the protected developer page and opens
 test('switching a deck during next-game commander setup applies that deck’s commanders', () => {
   assert.match(app, /let selectedDeckId = ''; let setupDecks = \[\]; let commanderDecks = \[\];/);
   assert.match(app, /commanderDecks = decks;/);
-  assert.match(app, /dom\.commanderDeck\.addEventListener\('change', event => \{/);
+  assert.match(app, /dom\.commanderDeck\.addEventListener\('change', selectCommanderDeck\)/);
   assert.match(app, /renderCommanderNameFields\(dom\.gameCommanderNames, commanderNames\.length, commanderNames, identities\)/);
 });
 
 test('updating a pod confirms only entered commander names that have not already been checked', () => {
-  assert.match(app, /async function confirmUnresolvedCommanderDetails\(container, count\)/);
+  assert.match(app, /async function confirmUnresolvedCommanderDetails\(container, count, isCurrent = \(\) => true\)/);
   assert.match(app, /input\.dataset\.commanderLookupFailed === 'true'/);
   assert.match(app, /input\.dataset\.commanderLookupFailed = 'true';/);
   assert.match(app, /status\.textContent = error\.message \|\| 'Commander not found\. Check the spelling and try again\.'/);
-  assert.match(app, /dom\.saveCommanderCountButton\.textContent = 'Update without colors';/);
-  assert.match(app, /event\.preventDefault\(\);[\s\S]*await confirmUnresolvedCommanderDetails\(dom\.gameCommanderNames, count\)/);
-  assert.match(app, /dom\.saveCommanderCountButton\.textContent = 'Update this pod';[\s\S]*dom\.saveCommanderCountButton\.disabled = false;[\s\S]*dom\.commanderCountDialog\.showModal\(\)/);
+  assert.match(app, /dom\.saveCommanderCountButton\.textContent = draft\.nextGame \? 'Save without colors' : 'Update without colors';/);
+  assert.match(app, /event\.preventDefault\(\);[\s\S]*await confirmUnresolvedCommanderDetails\(dom\.gameCommanderNames, count(?:,|\))/);
+  assert.match(app, /dom\.saveCommanderCountButton\.textContent = nextGame \? 'Save changes' : 'Update this pod';[\s\S]*dom\.saveCommanderCountButton\.disabled = false;[\s\S]*dom\.commanderCountDialog\.showModal\(\)/);
 });
 
 test('joining explains the claimed-seat boundary and normalizes the join code', () => {

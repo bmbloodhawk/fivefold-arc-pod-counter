@@ -1189,7 +1189,7 @@ export class RoomService {
     }
   }
 
-  mutateOwnSeat(code, connectionId, input = {}) {
+  mutateOwnSeat(code, connectionId, input = {}, { clearNextGameReady = false } = {}) {
     const room = this.room(code); this.requireNoPendingFinish(room);
     const { seat } = this.requireOwner(room, connectionId);
     if (input.baseVersion !== room.version) {
@@ -1271,6 +1271,7 @@ export class RoomService {
     this.rememberElimination(room, seat, eliminationBefore, wasEliminated);
     const now = this.now(); recordLastPlayerStanding(room, now); this.schedulePendingFinish(room);
     const automaticHandoff = advancePastEliminatedActiveSeat(room, now);
+    if (clearNextGameReady) room.lifecycle.readySeatIds = room.lifecycle.readySeatIds.filter(id => id !== seat.seatId);
     room.version += 1;
     this.recordLedger(room, "seat_configured", seat.seatId, {
       counters: Object.keys(counters), commanderDamageSources: Object.keys(commander), commanderCastSources: Object.keys(commanderCastCounts),
@@ -1474,6 +1475,18 @@ export class RoomService {
     room.lifecycle.readySeatIds = ready ? [...new Set([...room.lifecycle.readySeatIds, seatId])] : room.lifecycle.readySeatIds.filter((id) => id !== seatId);
     room.version += 1; this.recordLedger(room, ready ? "next_game_ready" : "next_game_not_ready", seatId); this.broadcast(room);
     return { snapshot: this.snapshot(room) };
+  }
+
+  setNextGameSetup(code, connectionId, input = {}) {
+    const room = this.room(code); this.requireNoPendingFinish(room);
+    const { seatId } = this.requireOwner(room, connectionId);
+    if (room.lifecycle?.status !== 'intermission' || !room.lifecycle.seatIds.includes(seatId)) throw Object.assign(new Error('This seat is not in next-game setup.'), { status: 409, code: 'NOT_IN_INTERMISSION', snapshot: this.snapshot(room) });
+    const fields = ['baseVersion', 'commanderCount', 'commanderNames', 'commanderColors'];
+    if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some(key => !fields.includes(key))) throw Object.assign(new Error('Next-game setup can change only your commander details.'), { status: 400, code: 'INVALID_INPUT' });
+    return this.mutateOwnSeat(code, connectionId, {
+      baseVersion: input.baseVersion, commanderCount: input.commanderCount,
+      commanderNames: input.commanderNames, commanderColors: input.commanderColors,
+    }, { clearNextGameReady: true });
   }
 
   skipNextGameSeat(code, connectionId, input = {}) {
@@ -2363,6 +2376,7 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "POST" && parts[3] === "reset") { const input = await readJson(req); return await roomJson(res, 200, competitionTables ? await competitionTables.reset(code, connectionId, input) : service.resetRoom(code, connectionId, input)); }
         if (req.method === "POST" && parts[3] === "begin-intermission") { const input = await readJson(req); if (competitionTables) await competitionTables.beforeProgress(code, connectionId, 'begin-intermission'); return await roomJson(res, 200, service.beginIntermission(code, connectionId, input)); }
         if (req.method === "POST" && parts[3] === "next-game-ready") return await roomJson(res, 200, service.setNextGameReady(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "next-game-setup") return await roomJson(res, 200, service.setNextGameSetup(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "next-game-skip") return await roomJson(res, 200, service.skipNextGameSeat(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "leave-intermission") return await roomJson(res, 200, service.leaveIntermission(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "next-game-reorder") return await roomJson(res, 200, service.reorderNextGameSeats(code, connectionId, await readJson(req)));

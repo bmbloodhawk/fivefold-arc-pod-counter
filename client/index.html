@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Table Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=246">
+  <link rel="stylesheet" href="styles.css?v=247">
   <link rel="stylesheet" href="collection-visual.css?v=6">
   <link rel="stylesheet" href="competition.css?v=1">
   <link rel="stylesheet" href="dial-layout.css?v=2">
@@ -259,6 +259,7 @@
             <button id="showIntermissionJoinQrButton" class="secondary-action" type="button">Show join QR</button>
           </div>
         </details>
+        <button id="intermissionSetupButton" class="secondary-action" type="button">Change deck / commander</button>
         <button id="intermissionReadyButton" class="primary-action" type="button">I’m ready</button>
         <button id="intermissionStartButton" class="primary-action" type="button" hidden>Start next game</button>
         <button id="intermissionLeaveButton" class="text-action" type="button">Leave table</button>
@@ -512,10 +513,12 @@
     </form>
   </dialog>
 
-  <dialog id="commanderCountDialog">
+  <dialog id="commanderCountDialog" aria-labelledby="commanderSetupTitle" aria-describedby="commanderCountDetail">
     <form id="commanderCountForm" method="dialog">
-      <h2>My commander setup</h2>
+      <p id="commanderSetupEyebrow" class="eyebrow" hidden>NEXT GAME</p>
+      <h2 id="commanderSetupTitle">My commander setup</h2>
       <p id="commanderCountDetail">Change your commander names for this table. Your current game and seat stay in place.</p>
+      <label id="commanderDeckField" class="select-field" hidden>My saved deck <small>(optional)</small><select id="commanderDeck"><option value="">Enter commanders manually</option></select></label>
       <fieldset class="choice-field">
         <legend class="sr-only">Commander count</legend>
         <div class="segmented commander-count-choice" role="radiogroup" aria-label="Commander count">
@@ -524,7 +527,7 @@
         </div>
       </fieldset>
       <div id="gameCommanderNames" class="commander-name-fields"></div>
-      <label id="commanderDeckField" class="select-field" hidden>My deck <small>(optional)</small><select id="commanderDeck"><option value="">No deck selected</option></select></label>
+      <p id="commanderSetupStatus" class="field-help" role="status" hidden></p>
       <div class="dialog-actions">
         <button value="cancel" class="secondary-action">Cancel</button>
         <button id="saveCommanderCountButton" value="confirm" class="primary-action">Update this table</button>
@@ -777,6 +780,6 @@
   </dialog>
   <p id="competitionSetupStatus" role="status" hidden></p>
   <script src="vendor/jsqr.js?v=1"></script>
-  <script type="module" src="app.js?v=310"></script>
+  <script type="module" src="app.js?v=311"></script>
 </body>
 </html>

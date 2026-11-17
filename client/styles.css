@@ -334,6 +334,15 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .game-menu button { border: 0; background: transparent; text-align: left; }
 .danger-text { color: var(--danger); }
 dialog { width: min(calc(100% - 30px), 440px); padding: 24px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+#commanderCountDialog.next-game-setup { padding: 20px; }
+#commanderCountDialog.next-game-setup > form { display: grid; gap: 14px; }
+#commanderCountDialog.next-game-setup h2, #commanderCountDialog.next-game-setup p { margin: 0; }
+#commanderCountDialog.next-game-setup h2 { font-size: 1.65rem; }
+#commanderCountDialog.next-game-setup #commanderCountDetail { font-size: .84rem; line-height: 1.45; }
+#commanderCountDialog.next-game-setup .select-field, #commanderCountDialog.next-game-setup fieldset { margin: 0; }
+#commanderCountDialog.next-game-setup .segmented, #commanderCountDialog.next-game-setup .dialog-actions { margin-top: 0; }
+#commanderCountDialog:modal { overscroll-behavior: contain; }
+#commanderCountDialog::backdrop { overflow: hidden; overscroll-behavior: contain; }
 #victoryDialog { width: 100%; max-width: none; height: var(--app-viewport-height); max-height: none; margin: 0; padding: 0; border: 0; border-radius: 0; background: #121411; }
 .join-qr-image { display: block; width: min(100%, 320px); margin: 18px auto 10px; padding: 10px; border-radius: 5px; background: white; image-rendering: pixelated; }
 .join-qr-code { margin: 0; color: var(--brass); font-family: ui-monospace, monospace; font-weight: 800; letter-spacing: .16em; text-align: center; }.join-qr-actions { grid-template-columns: 1fr 1fr; }.join-qr-actions .text-action { grid-column: 1 / -1; min-height: 38px; }
