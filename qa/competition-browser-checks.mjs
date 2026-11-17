@@ -32,11 +32,10 @@ export async function browserFixture(chromium, { origin = 'http://127.0.0.1:8793
     }
     await page.locator('#myGamesDialog').waitFor({ state: 'hidden' });
   }
-  async function createTable(page, { name = 'Mira', count = 2, capacity = 8 } = {}) {
+  async function createTable(page, { name = 'Mira' } = {}) {
     await page.locator('#createStepOneNext').click();
-    await page.locator('#playerCountChoices label').filter({ hasText: new RegExp(`^${count}$`) }).click();
-    await page.locator('#seatCapacity').selectOption(String(capacity)); await page.locator('#createStepTwoNext').click();
-    await page.locator('#createName').fill(name); await page.locator('#createStepThreeNext').click(); await page.locator('#createStepFourSkip').click();
+    await page.locator('#createName').fill(name); await page.locator('#createStepTwoNext').click();
+    await page.locator('#createStepThreeSkip').click();
     await page.locator('#createForm button[type=submit]').click(); await page.locator('#lobbyInviteCode').waitFor();
     return (await page.locator('#lobbyInviteCode').innerText()).trim();
   }
