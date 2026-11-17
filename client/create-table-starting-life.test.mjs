@@ -80,7 +80,7 @@ test('tapping Casual again resets life without replacing the chosen player count
   assert.equal(choices.selected.playerCount, '4');
 });
 
-function createTableLife({ format = 'custom', preset = '30', override = '', badInput = false, local = false, count = '4' } = {}) {
+function createTableLife({ format = 'custom', preset = '30', override = '', badInput = false, local = false, count = '4', createRoom } = {}) {
   const fields = new Map(Object.entries({ gameFormat: format, startingLife: preset, customStartingLife: override,
     playerCount: count, seatCapacity: count, commanderCount: '1', name: '', roundLimitMinutes: '', tableSkinId: '' }));
   const elements = new Map();
@@ -89,6 +89,7 @@ function createTableLife({ format = 'custom', preset = '30', override = '', badI
     if (!elements.has(selector)) elements.set(selector, {
       hidden: true, textContent: '', attributes: {}, listeners: {}, validity: { badInput },
       addEventListener(type, listener) { this.listeners[type] = listener; },
+      click() { return this.listeners.click?.(); }, scrollIntoView() {},
       setAttribute(name, value) { this.attributes[name] = value; }, focus() { focused = selector; },
     });
     return elements.get(selector);
@@ -100,7 +101,7 @@ function createTableLife({ format = 'custom', preset = '30', override = '', badI
   }));
   const backButtons = steps.filter(step => step.content.includes('data-create-back')).map(() => ({ listeners: {}, addEventListener(type, listener) { this.listeners[type] = listener; } }));
   const commanderInputs = [{ value: 'Draft commander', dataset: { commanderColors: '["R"]' } }];
-  const created = [], demos = [];
+  const created = [], demos = [], shown = [], errors = [];
   const setupStart = app.indexOf('let createStep = 1;');
   const setupEnd = app.indexOf("$('#joinStepTwoNext').addEventListener", setupStart);
   const submitStart = app.indexOf("$('#createForm').addEventListener('submit'");
@@ -114,12 +115,12 @@ function createTableLife({ format = 'custom', preset = '30', override = '', badI
     commanderNamesFromForm: () => [''], commanderColorsFromFields: () => [[]],
     selectedCommanderCount: () => 1, confirmUnresolvedCommanderDetails: async () => ({ unresolved: [] }),
     accountTokenForSkin: async () => null,
-    transport: { async createRoom(config) { created.push(config); return { snapshot: { code: 'LOCAL' } }; } },
+    transport: { async createRoom(config) { created.push(config); return createRoom ? createRoom(config) : { snapshot: { code: 'LOCAL' } }; } },
     beginLocalGame(config) { demos.push(config); },
-    showSharedGame() {}, competitionHub: { async tableCreated() {} }, showError(error) { throw error; },
+    showSharedGame(snapshot) { shown.push(snapshot); }, competitionHub: { async tableCreated() {} }, showError(error) { errors.push(error); },
   });
   return {
-    created, demos, fields, element, steps, commanderInputs, showStep: flow.showCreateStep,
+    created, demos, shown, errors, fields, element, steps, commanderInputs, showStep: flow.showCreateStep,
     get step() { return Number(steps.find(step => !step.hidden).dataset.createStep); },
     get progress() { return steps.find(step => !step.hidden).progress.textContent; },
     get focused() { return focused; },
@@ -136,6 +137,7 @@ test('Custom creates tables with the selected 20/30/40 when its optional overrid
       const table = createTableLife({ preset, override });
       table.next();
       assert.equal(table.step, 2);
+      table.showStep(4);
       await table.submit();
       assert.equal(table.created[0]?.startingLife, Number(preset));
     }
@@ -145,6 +147,7 @@ test('Custom creates tables with the selected 20/30/40 when its optional overrid
 test('shared creation uses eight internal seats regardless of a saved or linked player count', async () => {
   for (const count of ['2', '4', '8']) {
     const table = createTableLife({ format: 'commander', count });
+    table.showStep(4);
     await table.submit();
     assert.equal(table.created[0]?.playerCount, 8);
     assert.equal(table.created[0]?.seatCapacity, 8);
@@ -194,6 +197,7 @@ test('Casual and Custom skip commanders in both directions and report three visi
 test('only local simulation uses its developer-only simulated player count', async () => {
   for (const count of ['2', '4', '8']) {
     const table = createTableLife({ format: 'commander', local: true, count });
+    table.showStep(4);
     await table.submit();
     assert.equal(table.created.length, 0);
     assert.equal(table.demos[0]?.playerCount, Number(count));
@@ -208,6 +212,7 @@ test('an entered Custom life total overrides the preset, including the supported
     const table = createTableLife({ preset: '30', override });
     table.next();
     assert.equal(table.step, 2);
+    table.showStep(4);
     await table.submit();
     assert.equal(table.created[0]?.startingLife, Number(override));
   }
@@ -254,7 +259,55 @@ test('Commander and Casual submit their presets even when a Custom draft is inva
     const table = createTableLife({ format, preset, override: '0', badInput: true });
     table.next();
     assert.equal(table.step, 2);
+    table.showStep(4);
     await table.submit();
     assert.equal(table.created[0]?.startingLife, Number(preset));
   }
+});
+
+test('early form submits advance the current Commander or Casual step without creating a table', async () => {
+  for (const format of ['commander', 'casual', 'custom']) {
+    const table = createTableLife({ format });
+    await table.submit();
+    assert.equal(table.step, 2);
+    await table.submit();
+    assert.equal(table.step, format === 'commander' ? 3 : 4);
+    if (format === 'commander') { await table.submit(); assert.equal(table.step, 4); }
+    assert.equal(table.created.length, 0);
+    await table.submit();
+    assert.equal(table.created.length, 1);
+  }
+});
+
+test('creation shows progress and blocks repeated submits until completion', async () => {
+  let finish;
+  const table = createTableLife({ createRoom: () => new Promise(resolve => { finish = resolve; }) });
+  table.showStep(4);
+  const first = table.submit();
+  await Promise.resolve();
+  const button = table.element('#createForm button[type="submit"]');
+  assert.equal(button.disabled, true);
+  assert.equal(button.textContent, 'Creating table…');
+  await table.submit();
+  assert.equal(table.created.length, 1);
+  finish({ snapshot: { code: 'LOCAL' } }); await first;
+  assert.equal(button.disabled, false);
+  assert.equal(button.textContent, 'Create table');
+  assert.equal(table.shown.length, 1);
+});
+
+test('failed creation preserves values and permits a retry; cancelled responses do not open a table', async () => {
+  let attempts = 0;
+  const table = createTableLife({ createRoom: async () => {
+    if (++attempts === 1) throw new Error('Try again');
+    return { ignored: true };
+  } });
+  table.showStep(4);
+  await table.submit();
+  assert.equal(table.errors[0].message, 'Try again');
+  assert.equal(table.element('#createForm button[type="submit"]').disabled, false);
+  assert.equal(table.fields.get('startingLife'), '30');
+  await table.submit();
+  assert.equal(attempts, 2);
+  assert.equal(table.shown.length, 0);
 });

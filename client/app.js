@@ -2669,6 +2669,13 @@ document.addEventListener('pointerdown', touchLocalDemo);
 document.addEventListener('keydown', touchLocalDemo);
 $('#createForm').addEventListener('submit', async event => {
   event.preventDefault();
+  const createButton = $('#createForm button[type="submit"]');
+  if (createButton.disabled) return;
+  if (createStep !== 4) {
+    const nextButtons = ['#createStepOneNext', '#createStepTwoNext', '#createStepThreeNext'];
+    $(nextButtons[createStep - 1]).click();
+    return;
+  }
   const form = new FormData(event.currentTarget);
   const gameFormat = String(form.get('gameFormat') || 'commander');
   const playerCount = dom.localSimulation.checked ? Number(form.get('playerCount')) : 8;
@@ -2688,13 +2695,20 @@ $('#createForm').addEventListener('submit', async event => {
   const config = { playerCount, seatCapacity, startingLife, gameFormat, ownerPlayerId, ownerName, ownerCommanderCount, ownerCommanderNames, ownerCommanderColors, roundLimitMinutes, tableSkinId };
   if (dom.localSimulation.checked) return beginLocalGame({ ...config, localSimulation: true, podCode: 'LOCAL' });
   let result;
+  createButton.disabled = true;
+  createButton.textContent = 'Creating table…';
+  createButton.scrollIntoView({ block: 'center' });
   try {
     const accountToken = await accountTokenForSkin(tableSkinId);
     result = await transport.createRoom({ accountToken, playerCount, seatCapacity, startingLife: config.startingLife, gameFormat, commanderCount: ownerCommanderCount, commanderNames: ownerCommanderNames, commanderColors: ownerCommanderColors, name: ownerName, roundLimitMinutes, tableSkinId });
   } catch (error) {
     showError(error);
     return;
+  } finally {
+    createButton.disabled = false;
+    createButton.textContent = 'Create table';
   }
+  if (result.ignored) return;
   showSharedGame(result.snapshot);
   try { await competitionHub.tableCreated(result.snapshot.code); } catch (error) { showError(error); }
 });

@@ -123,7 +123,7 @@ test('connection status does not duplicate the pod code from the waiting lobby',
 });
 
 test('a successfully created pod cannot be reported as a connection error during rendering', () => {
-  assert.match(app, /result = await transport\.createRoom\([\s\S]*?\);\s*}\s*catch \(error\) \{\s*showError\(error\);\s*return;\s*}\s*showSharedGame\(result\.snapshot\);/);
+  assert.match(app, /result = await transport\.createRoom\([\s\S]*?\);\s*}\s*catch \(error\) \{\s*showError\(error\);\s*return;\s*}\s*finally \{[\s\S]*?}\s*if \(result\.ignored\) return;\s*showSharedGame\(result\.snapshot\);/);
 });
 
 test('creating a table is distinct from starting a game', () => {
