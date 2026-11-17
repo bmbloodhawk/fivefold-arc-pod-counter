@@ -183,6 +183,9 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .lobby-screen .lobby-controls { margin: 0; }
 .intermission-screen { display: grid; align-content: start; padding-top: 28px; }
 .intermission-screen .intermission-panel { margin: 0; }
+.intermission-invite-disclosure > summary { display: list-item; list-style-position: inside; min-height: 44px; cursor: pointer; }
+.intermission-invite-disclosure[open] > summary { margin-bottom: 8px; }
+.intermission-invite-disclosure > summary:focus-visible { outline: 2px solid var(--paper); outline-offset: 3px; }
 .intermission-invite { display: grid; gap: 7px; padding: 10px; border: 1px solid rgb(216 174 97 / .28); background: rgb(0 0 0 / .16); }
 .intermission-invite > p { margin: 0; color: var(--muted); font-size: .75rem; }
 .intermission-panel { display: grid; gap: 10px; margin: 8px 0; padding: 14px; border: 1px solid var(--brass); background: linear-gradient(135deg, rgb(216 174 97 / .18), rgb(16 26 20 / .9)); text-align: center; }

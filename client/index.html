@@ -8,7 +8,7 @@
   <title>Fivefold Arc — Table Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=245">
+  <link rel="stylesheet" href="styles.css?v=246">
   <link rel="stylesheet" href="collection-visual.css?v=6">
   <link rel="stylesheet" href="competition.css?v=1">
   <link rel="stylesheet" href="dial-layout.css?v=2">
@@ -101,7 +101,7 @@
       <h1 id="createTitle">Set the table.</h1>
       <form id="createForm" class="setup-form">
         <section class="create-step" data-create-step="1">
-          <p class="eyebrow">STEP 1 OF 5</p>
+          <p class="eyebrow">STEP 1 OF 4</p>
           <fieldset class="choice-field">
             <legend>Table rules</legend>
             <div class="segmented" role="radiogroup" aria-label="Table rules">
@@ -123,30 +123,18 @@
             <small id="customStartingLifeHelp">Blank uses your selection. Or enter 1 to 999.</small>
             <small id="customStartingLifeError" class="field-help" hidden></small>
           </label>
-          <button id="createStepOneNext" class="primary-action" type="button">Next: players</button>
+          <button id="createStepOneNext" class="primary-action" type="button">Next: your name</button>
         </section>
         <section class="create-step" data-create-step="2" hidden>
-          <p class="eyebrow">STEP 2 OF 5</p>
-          <fieldset class="choice-field">
-            <legend>Players for game one</legend>
-            <div id="playerCountChoices" class="segmented dense" role="radiogroup" aria-label="Number of players"></div>
-          </fieldset>
-          <label class="select-field">Seats available in this table
-            <select id="seatCapacity" name="seatCapacity"><option value="2">Up to 2 players</option><option value="3">Up to 3 players</option><option value="4" selected>Up to 4 players</option><option value="5">Up to 5 players</option><option value="6">Up to 6 players</option><option value="7">Up to 7 players</option><option value="8">Up to 8 players</option></select>
-            <small>Extra seats can join during next-game setup.</small>
-          </label>
-          <div class="dialog-actions"><button class="secondary-action" data-create-back type="button">Back</button><button id="createStepTwoNext" class="primary-action" type="button">Next: your name</button></div>
-        </section>
-        <section class="create-step" data-create-step="3" hidden>
-          <p class="eyebrow">STEP 3 OF 5</p>
+          <p class="eyebrow">STEP 2 OF 4</p>
           <label class="select-field">What should the table call you? <small>(optional)</small>
             <input id="createName" name="name" type="text" autocomplete="name" maxlength="24" placeholder="P1">
             <small>Blank uses P1.</small>
           </label>
-          <div class="dialog-actions"><button class="secondary-action" data-create-back type="button">Back</button><button id="createStepThreeNext" class="primary-action" type="button">Next: commander</button></div>
+          <div class="dialog-actions"><button class="secondary-action" data-create-back type="button">Back</button><button id="createStepTwoNext" class="primary-action" type="button">Next: commander</button></div>
         </section>
-        <section class="create-step commander-setup-step" data-create-step="4" hidden>
-          <p class="eyebrow">STEP 4 OF 5</p>
+        <section class="create-step commander-setup-step" data-create-step="3" hidden>
+          <p class="eyebrow">STEP 3 OF 4</p>
           <label id="createDeckField" class="select-field" hidden>My deck <small>(optional)</small><select id="createDeck"><option value="">No deck selected</option></select></label>
           <fieldset class="choice-field">
             <legend>Your commander <small>(optional)</small></legend>
@@ -157,10 +145,10 @@
             <small class="field-help">Find the card to add its color identity.</small>
           </fieldset>
           <div id="createCommanderNames" class="commander-name-fields"></div>
-          <div class="dialog-actions"><button class="secondary-action" data-create-back type="button">Back</button><button id="createStepFourSkip" class="secondary-action" type="button">Skip for now</button><button id="createStepFourNext" class="primary-action" type="button">Continue</button></div>
+          <div class="dialog-actions"><button class="secondary-action" data-create-back type="button">Back</button><button id="createStepThreeSkip" class="secondary-action" type="button">Skip for now</button><button id="createStepThreeNext" class="primary-action" type="button">Continue</button></div>
         </section>
-        <section class="create-step" data-create-step="5" hidden>
-          <p class="eyebrow">STEP 5 OF 5</p>
+        <section class="create-step" data-create-step="4" hidden>
+          <p class="eyebrow">STEP 4 OF 4</p>
           <div class="setup-options">
           <label class="select-field">Table appearance <small>Shared with the table.</small>
             <select id="tableSkin" name="tableSkinId"><option value="">Standard appearance</option></select>
@@ -169,10 +157,16 @@
             <input id="roundLimitMinutes" name="roundLimitMinutes" type="number" inputmode="numeric" min="1" max="999" step="1" placeholder="No limit — game time counts up">
             <small>Organizer countdown only; it never ends a turn.</small>
           </label>
-          <label id="localSimulationField" class="toggle-field" hidden>
-            <input id="localSimulation" type="checkbox">
-            <span><strong>Local simulation</strong><small>Switch active seats on one phone for testing.</small></span>
-          </label>
+          <div id="localSimulationField" hidden>
+            <label class="toggle-field">
+              <input id="localSimulation" type="checkbox">
+              <span><strong>Local simulation</strong><small>Switch active seats on one phone for testing.</small></span>
+            </label>
+            <fieldset class="choice-field">
+              <legend>Simulated players</legend>
+              <div id="playerCountChoices" class="segmented dense" role="radiogroup" aria-label="Number of simulated players"></div>
+            </fieldset>
+          </div>
           </div>
           <div class="dialog-actions"><button class="secondary-action" data-create-back type="button">Back</button><button class="primary-action" type="submit">Create table</button></div>
         </section>
@@ -255,13 +249,16 @@
         <h2 id="intermissionTitle">Set up the next game</h2>
         <p id="intermissionDetail">Choose your deck, then mark yourself ready.</p>
         <button id="competitionIntermissionButton" class="secondary-action" type="button" hidden>Review group result</button>
-        <div id="intermissionInvite" class="intermission-invite" hidden>
-          <p>Invite another player</p>
-          <output id="intermissionInviteCode" class="lobby-invite-code" aria-label="Table code"></output>
-          <button id="copyIntermissionJoinLinkButton" class="secondary-action" type="button">Copy invite link</button>
-          <button id="showIntermissionJoinQrButton" class="secondary-action" type="button">Show join QR</button>
-        </div>
         <div id="intermissionRoster" class="intermission-roster"></div>
+        <details id="intermissionInvite" class="intermission-invite-disclosure" hidden>
+          <summary class="secondary-action">Add player</summary>
+          <div class="intermission-invite">
+            <p>Share this table with another player.</p>
+            <output id="intermissionInviteCode" class="lobby-invite-code" aria-label="Table code"></output>
+            <button id="copyIntermissionJoinLinkButton" class="secondary-action" type="button">Copy invite link</button>
+            <button id="showIntermissionJoinQrButton" class="secondary-action" type="button">Show join QR</button>
+          </div>
+        </details>
         <button id="intermissionReadyButton" class="primary-action" type="button">I’m ready</button>
         <button id="intermissionStartButton" class="primary-action" type="button" hidden>Start next game</button>
         <button id="intermissionLeaveButton" class="text-action" type="button">Leave table</button>
@@ -780,6 +777,6 @@
   </dialog>
   <p id="competitionSetupStatus" role="status" hidden></p>
   <script src="vendor/jsqr.js?v=1"></script>
-  <script type="module" src="app.js?v=309"></script>
+  <script type="module" src="app.js?v=310"></script>
 </body>
 </html>

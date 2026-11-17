@@ -4,6 +4,7 @@ import test from 'node:test';
 import { runInNewContext } from 'node:vm';
 
 const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
+const page = await readFile(new URL('./index.html', import.meta.url), 'utf8');
 const start = app.indexOf('$$(' + "'input[name=\"gameFormat\"]'");
 const end = app.indexOf('\ndom.joinQrCameraInput.', start);
 assert.ok(start >= 0 && end > start, 'load the real format-selection listeners');
@@ -24,7 +25,7 @@ function formatChoices() {
   }
   runInNewContext(app.slice(start, end), {
     $$: () => formats, $: selector => elements.get(selector),
-    selectedGameFormat: () => selected.gameFormat, updateFormatSetup() {},
+    selectedGameFormat: () => selected.gameFormat, updateFormatSetup() {}, showCreateStep() {},
   });
   return {
     selected,
@@ -79,9 +80,9 @@ test('tapping Casual again resets life without replacing the chosen player count
   assert.equal(choices.selected.playerCount, '4');
 });
 
-function createTableLife({ format = 'custom', preset = '30', override = '', badInput = false } = {}) {
+function createTableLife({ format = 'custom', preset = '30', override = '', badInput = false, local = false, count = '4' } = {}) {
   const fields = new Map(Object.entries({ gameFormat: format, startingLife: preset, customStartingLife: override,
-    playerCount: '4', seatCapacity: '4', commanderCount: '1', name: '', roundLimitMinutes: '', tableSkinId: '' }));
+    playerCount: count, seatCapacity: count, commanderCount: '1', name: '', roundLimitMinutes: '', tableSkinId: '' }));
   const elements = new Map();
   let focused;
   const element = selector => {
@@ -92,27 +93,38 @@ function createTableLife({ format = 'custom', preset = '30', override = '', badI
     });
     return elements.get(selector);
   };
-  const steps = [1, 2, 3, 4, 5].map(step => ({ dataset: { createStep: String(step) }, hidden: step !== 1 }));
-  const created = [];
+  const steps = [...page.matchAll(/data-create-step="(\d+)"[^>]*>([\s\S]*?)(?=<section class="create-step|<\/form>)/g)].map(([, step, content]) => ({
+    dataset: { createStep: step }, hidden: step !== '1', content,
+    progress: { textContent: content.match(/STEP \d OF \d/)?.[0] },
+    querySelector(selector) { return selector === '.eyebrow' ? this.progress : { focus() {} }; },
+  }));
+  const backButtons = steps.filter(step => step.content.includes('data-create-back')).map(() => ({ listeners: {}, addEventListener(type, listener) { this.listeners[type] = listener; } }));
+  const commanderInputs = [{ value: 'Draft commander', dataset: { commanderColors: '["R"]' } }];
+  const created = [], demos = [];
   const setupStart = app.indexOf('let createStep = 1;');
   const setupEnd = app.indexOf("$('#joinStepTwoNext').addEventListener", setupStart);
   const submitStart = app.indexOf("$('#createForm').addEventListener('submit'");
   const submitEnd = app.indexOf("$('#joinForm').addEventListener", submitStart);
   assert.ok(setupStart >= 0 && setupEnd > setupStart && submitStart >= 0 && submitEnd > submitStart);
   const flow = runInNewContext(app.slice(setupStart, setupEnd) + '\n' + app.slice(submitStart, submitEnd) + '\n({ showCreateStep })', {
-    $: element, $$: selector => selector === '[data-create-step]' ? steps : [],
+    $: element, $$: selector => selector === '[data-create-step]' ? steps : selector === '[data-create-back]' ? backButtons : [],
     FormData: class extends Map { constructor() { super(fields); } }, window: { scrollTo() {} },
     selectedGameFormat: () => fields.get('gameFormat'),
-    dom: { createCommanderNames: {}, seatCapacity: element('#seatCapacity'), roundLimitMinutes: element('#roundLimitMinutes'), localSimulation: { checked: false } },
+    dom: { createCommanderNames: { querySelectorAll: () => commanderInputs }, playerCountChoices: { querySelector: () => ({ focus() {} }) }, roundLimitMinutes: element('#roundLimitMinutes'), localSimulation: { checked: local } },
     commanderNamesFromForm: () => [''], commanderColorsFromFields: () => [[]],
+    selectedCommanderCount: () => 1, confirmUnresolvedCommanderDetails: async () => ({ unresolved: [] }),
     accountTokenForSkin: async () => null,
     transport: { async createRoom(config) { created.push(config); return { snapshot: { code: 'LOCAL' } }; } },
+    beginLocalGame(config) { demos.push(config); },
     showSharedGame() {}, competitionHub: { async tableCreated() {} }, showError(error) { throw error; },
   });
   return {
-    created, fields, element, showStep: flow.showCreateStep,
+    created, demos, fields, element, steps, commanderInputs, showStep: flow.showCreateStep,
     get step() { return Number(steps.find(step => !step.hidden).dataset.createStep); },
+    get progress() { return steps.find(step => !step.hidden).progress.textContent; },
     get focused() { return focused; },
+    click: id => element(id).listeners.click(),
+    back: () => backButtons[0].listeners.click(),
     next: () => element('#createStepOneNext').listeners.click(),
     submit: () => element('#createForm').listeners.submit({ preventDefault() {}, currentTarget: element('#createForm') }),
   };
@@ -128,6 +140,67 @@ test('Custom creates tables with the selected 20/30/40 when its optional overrid
       assert.equal(table.created[0]?.startingLife, Number(preset));
     }
   }
+});
+
+test('shared creation uses eight internal seats regardless of a saved or linked player count', async () => {
+  for (const count of ['2', '4', '8']) {
+    const table = createTableLife({ format: 'commander', count });
+    await table.submit();
+    assert.equal(table.created[0]?.playerCount, 8);
+    assert.equal(table.created[0]?.seatCapacity, 8);
+  }
+});
+
+test('shared creation has four steps with name immediately after rules and no capacity picker', () => {
+  const table = createTableLife({ format: 'commander' });
+  assert.deepEqual(table.steps.map(step => Number(step.dataset.createStep)), [1, 2, 3, 4]);
+  table.next();
+  assert.equal(table.step, 2);
+  assert.match(table.steps.find(step => !step.hidden).content, /id="createName"/);
+  assert.doesNotMatch(page, /id="seatCapacity"|Players for game one|Seats available in this table/);
+  assert.equal(table.progress, 'STEP 2 OF 4');
+});
+
+test('Commander next, skip and back follow the four real creation steps', async () => {
+  const table = createTableLife({ format: 'commander' });
+  table.next(); table.click('#createStepTwoNext');
+  assert.equal(table.step, 3);
+  await table.click('#createStepThreeNext');
+  assert.equal(table.step, 4);
+  assert.equal(table.progress, 'STEP 4 OF 4');
+  table.back(); assert.equal(table.step, 3);
+  table.click('#createStepThreeSkip');
+  assert.equal(table.step, 4);
+  assert.equal(table.commanderInputs[0].value, '');
+  assert.equal(table.commanderInputs[0].dataset.commanderColors, undefined);
+  table.back(); table.back(); assert.equal(table.step, 2);
+  table.back(); assert.equal(table.step, 1);
+});
+
+test('Casual and Custom skip commanders in both directions and report three visible steps', () => {
+  for (const format of ['casual', 'custom']) {
+    const table = createTableLife({ format });
+    table.next();
+    assert.equal(table.progress, 'STEP 2 OF 3');
+    table.click('#createStepTwoNext');
+    assert.equal(table.step, 4);
+    assert.equal(table.progress, 'STEP 3 OF 3');
+    table.back(); assert.equal(table.step, 2);
+    table.back(); assert.equal(table.step, 1);
+    assert.equal(table.progress, 'STEP 1 OF 3');
+  }
+});
+
+test('only local simulation uses its developer-only simulated player count', async () => {
+  for (const count of ['2', '4', '8']) {
+    const table = createTableLife({ format: 'commander', local: true, count });
+    await table.submit();
+    assert.equal(table.created.length, 0);
+    assert.equal(table.demos[0]?.playerCount, Number(count));
+  }
+  const developerFields = page.match(/id="localSimulationField"[\s\S]*?<\/div>/)?.[0] || '';
+  assert.match(developerFields, /hidden/);
+  assert.match(developerFields, /Simulated players[\s\S]*id="playerCountChoices"/);
 });
 
 test('an entered Custom life total overrides the preset, including the supported boundaries', async () => {
@@ -157,7 +230,7 @@ test('invalid Custom values stay on the rules step with a focused, visible error
 
 test('final submission also validates life and returns invalid Custom input to step one', async () => {
   const table = createTableLife({ override: '0' });
-  table.showStep(5);
+  table.showStep(4);
   await table.submit();
   assert.equal(table.step, 1);
   assert.equal(table.created.length, 0);

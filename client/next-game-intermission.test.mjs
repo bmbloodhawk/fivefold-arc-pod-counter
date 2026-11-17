@@ -46,14 +46,12 @@ test('intermission supports self-service leaving and host invitations', () => {
   assert.match(transport, /async leaveIntermission\(\)/);
 });
 
-test('pod setup separates first-game players from future seat capacity', () => {
-  assert.match(page, /Players for game one/);
-  assert.match(page, /id="seatCapacity" name="seatCapacity"/);
-  for (const capacity of [2, 3, 4, 5, 6, 7, 8]) assert.match(page, new RegExp(`<option value="${capacity}"`));
-  assert.match(app, /function syncSeatCapacityChoices\(\)/);
-  assert.match(app, /option\.disabled = Number\(option\.value\) < players/);
-  assert.match(app, /const seatCapacity = Number\(form\.get\('seatCapacity'\)\);/);
-  assert.match(transport, /async createRoom\(\{ playerCount, seatCapacity = playerCount,/);
+test('shared setup uses its actual roster without asking for a planned count or capacity', () => {
+  assert.doesNotMatch(page, /Players for game one|Seats available in this table|id="seatCapacity"/);
+  assert.match(page, /id="createStepOneNext"[^>]*>Next: your name/);
+  assert.match(page, /id="localSimulationField"[^>]*hidden>[\s\S]*Simulated players[\s\S]*id="playerCountChoices"/);
+  assert.match(app, /const playerCount = dom\.localSimulation\.checked \? Number\(form\.get\('playerCount'\)\) : 8;/);
+  assert.match(app, /const seatCapacity = 8;/);
 });
 
 for (const { name, moment, earned, title } of [

@@ -1489,6 +1489,30 @@ export class RoomService {
     return { snapshot: this.snapshot(room) };
   }
 
+  openTableSeats(code, connectionId, input = {}) {
+    const room = this.room(code), { seatId } = this.requireOwner(room, connectionId);
+    if (seatId !== room.hostSeatId) throw Object.assign(new Error('Only the host can open more table seats.'), { status: 403, code: 'HOST_ONLY' });
+    this.requireNoPendingFinish(room);
+    if (!['lobby', 'intermission'].includes(room.lifecycle?.status)) throw Object.assign(new Error('Add players before starting or during next-game setup.'), { status: 409, code: 'GAME_IN_PROGRESS', snapshot: this.snapshot(room) });
+    if (input.baseVersion !== room.version) throw Object.assign(new Error('The table changed. Review the latest state and try again.'), { status: 409, code: 'VERSION_CONFLICT', snapshot: this.snapshot(room) });
+    const maximumSeats = 8, previousCapacity = room.seats.length;
+    if (previousCapacity === maximumSeats) return { snapshot: this.snapshot(room) };
+    // Append only: existing IDs, ownership proofs, completed games and turn order stay intact.
+    for (let id = previousCapacity; id < maximumSeats; id++) room.seats.push({
+      seatId: id, name: `P${id + 1}`, claimed: false, ownerConnectionId: null, tokenHash: null,
+      recentOperationIds: new Map(), commanderCount: 1, commanderNames: [''], commanderColors: [[]],
+      counters: { life: room.config.startingLife, radiation: 0, poison: 0, energy: 0, generic: 0 },
+      counterTotals: { poison: 0 }, alternateElimination: null,
+      commanderDamageReceived: {}, commanderCastCounts: {}, matchMoment: blankMatchMoment(room.config.startingLife),
+    });
+    room.config = { ...room.config, playerCount: maximumSeats, seatCapacity: maximumSeats };
+    synchronizeCommanderState(room);
+    room.version++;
+    this.recordLedger(room, 'table_seats_opened', seatId, { previousCapacity, seatCapacity: maximumSeats });
+    this.broadcast(room);
+    return { snapshot: this.snapshot(room) };
+  }
+
   reorderNextGameSeats(code, connectionId, input = {}) {
     const room = this.room(code); this.requireNoPendingFinish(room); const { seatId } = this.requireOwner(room, connectionId);
     if (seatId !== room.hostSeatId) throw Object.assign(new Error("Only the host can arrange physical table seats"), { status: 403, code: "HOST_ONLY" });
@@ -2342,6 +2366,7 @@ export function createRealtimeServer(options = {}) {
         if (req.method === "POST" && parts[3] === "next-game-skip") return await roomJson(res, 200, service.skipNextGameSeat(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "leave-intermission") return await roomJson(res, 200, service.leaveIntermission(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "next-game-reorder") return await roomJson(res, 200, service.reorderNextGameSeats(code, connectionId, await readJson(req)));
+        if (req.method === "POST" && parts[3] === "open-seats") return await roomJson(res, 200, service.openTableSeats(code, connectionId, await readJson(req)));
         if (req.method === "POST" && parts[3] === "coin-toss") return await roomJson(res, 200, service.tossCoin(code, connectionId));
         if (req.method === "GET" && parts[3] === "playtest-notes") return json(res, 200, service.listPlaytestNotes(code, connectionId));
         if (req.method === "POST" && parts[3] === "playtest-notes") return json(res, 201, service.addPlaytestNote(code, connectionId, await readJson(req)));

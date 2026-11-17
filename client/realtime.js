@@ -234,6 +234,7 @@ export class RealtimeAdapter extends EventTarget {
   }
 
   async beginIntermission() { return this.#hostGameRequest('/begin-intermission'); }
+  async openTableSeats() { return this.#hostGameRequest('/open-seats'); }
   async setNextGameReady(ready = true) {
     if (this.localMode) return { local: true };
     if (this.status !== 'connected' || !this.snapshot) return { blocked: true };

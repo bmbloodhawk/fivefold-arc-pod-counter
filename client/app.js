@@ -1,4 +1,4 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=91';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=92';
 import { eliminationUndoPresentation } from './elimination-undo.js?v=1';
 import { captureLocalElimination, rememberLocalElimination, advanceLocalElimination, undoLocalElimination } from './local-elimination-undo.js?v=1';
 import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=73';
@@ -36,7 +36,7 @@ const dom = {
   undoEliminationButton: $('#undoEliminationButton'), eliminationUndoStatus: $('#eliminationUndoStatus'),
   views: $$('.view'), landing: $('#landingView'), create: $('#createView'), join: $('#joinView'), joinSeatView: $('#joinSeatView'), lobby: $('#lobbyView'), lobbyMount: $('#lobbyMount'), game: $('#gameView'), joinCodeForm: $('#joinCodeForm'), joinCodeStatus: $('#joinCodeStatus'), scanJoinQrButton: $('#scanJoinQrButton'), joinQrScannerDialog: $('#joinQrScannerDialog'), joinQrScannerVideo: $('#joinQrScannerVideo'), joinQrScannerStatus: $('#joinQrScannerStatus'), joinQrCameraFallback: $('#joinQrCameraFallback'), joinQrCameraInput: $('#joinQrCameraInput'), savedTables: $('#savedTables'), savedTablesList: $('#savedTablesList'), quickTestButton: $('#quickTestButton'), localSimulationField: $('#localSimulationField'),
   connectionButton: $('#connectionButton'), connectionText: $('#connectionText'), connectionDialog: $('#connectionDialog'), connectionDetail: $('#connectionDetail'), tableActionDialog: $('#tableActionDialog'), tableActionDetail: $('#tableActionDetail'), editPlayerNameButton: $('#editPlayerNameButton'), editPlayerNameDialog: $('#editPlayerNameDialog'), editPlayerNameForm: $('#editPlayerNameForm'), editPlayerName: $('#editPlayerName'), eliminatePlayerButton: $('#eliminatePlayerButton'), eliminatePlayerDialog: $('#eliminatePlayerDialog'), eliminatePlayerForm: $('#eliminatePlayerForm'), eliminatePlayerSeat: $('#eliminatePlayerSeat'), eliminatePlayerReason: $('#eliminatePlayerReason'), eliminatePlayerDetail: $('#eliminatePlayerDetail'), leaveTableButton: $('#leaveTableButton'), leaveTableDialog: $('#leaveTableDialog'), confirmLeaveTableButton: $('#confirmLeaveTableButton'),
-  playerCountChoices: $('#playerCountChoices'), seatCapacity: $('#seatCapacity'), createName: $('#createName'), joinSeat: $('#joinSeat'), joinName: $('#joinName'), joinSeatClaim: $('#joinSeatClaim'), activeSeat: $('#activeSeat'), localSimulation: $('#localSimulation'), roundLimitMinutes: $('#roundLimitMinutes'), createCommanderNames: $('#createCommanderNames'), joinCommanderNames: $('#joinCommanderNames'), gameCommanderNames: $('#gameCommanderNames'), createDeckField: $('#createDeckField'), createDeck: $('#createDeck'), joinDeckField: $('#joinDeckField'), joinDeck: $('#joinDeck'),
+  playerCountChoices: $('#playerCountChoices'), createName: $('#createName'), joinSeat: $('#joinSeat'), joinName: $('#joinName'), joinSeatClaim: $('#joinSeatClaim'), activeSeat: $('#activeSeat'), localSimulation: $('#localSimulation'), roundLimitMinutes: $('#roundLimitMinutes'), createCommanderNames: $('#createCommanderNames'), joinCommanderNames: $('#joinCommanderNames'), gameCommanderNames: $('#gameCommanderNames'), createDeckField: $('#createDeckField'), createDeck: $('#createDeck'), joinDeckField: $('#joinDeckField'), joinDeck: $('#joinDeck'),
   podStrip: $('#podStrip'), podLabel: $('#podLabel'), commanderIdentityName: $('#commanderIdentityName'), identityHeaderRail: $('#identityHeaderRail'), modeTitle: $('#modeTitle'), mainValue: $('#mainValue'), dialControls: $('#dialControls'), dialGesture: $('#dialGesture'),
   counterContext: $('#counterContext'), statusMessage: $('#statusMessage'), lethalMark: $('#lethalMark'), lethalImage: $('#lethalMark img'), eliminationOutcome: $('#eliminationOutcome'), lifeChangeIndicator: $('#lifeChangeIndicator'), sourcePanel: $('#sourcePanel'), commanderSourceDialog: $('#commanderSourceDialog'), commanderSourceTitle: $('#commanderSourceTitle'), commanderSourceDetail: $('#commanderSourceDetail'), commanderSourceList: $('#commanderSourceList'), inspectionNotice: $('#inspectionNotice'), commanderDamageDetails: $('#viewCommanderDamageButton'), sideSeats: $('#sideSeats'),
   activeSeatBar: $('#activeSeatBar'), gameMenu: $('#gameMenu'), gameMenuBackdrop: $('#gameMenuBackdrop'), moreButton: $('#moreButton'), tableSkinMenuField: $('#tableSkinMenuField'), tableSkinMenu: $('#tableSkinMenu'), deviceAppearanceField: $('#deviceAppearanceField'), deviceAppearanceChoice: $('#deviceAppearanceChoice'), viewCelebrationButton: $('#viewCelebrationButton'),
@@ -62,7 +62,7 @@ const competitionHub = createCompetitionHub({
   joinTable: code => { if (transport.roomCode === code && state) { showTableView(); render(); } else void openJoinCode(code); },
   createTable: link => {
     dom.localSimulation.checked = false;
-    if (link.playerCount) { const choice = $(`input[name="playerCount"][value="${link.playerCount}"]`); if (choice) choice.checked = true; dom.seatCapacity.value = String(link.playerCount); }
+    if (link.playerCount) { const choice = $(`input[name="playerCount"][value="${link.playerCount}"]`); if (choice) choice.checked = true; }
     dom.roundLimitMinutes.value = ''; showCreateStep(1); showView(dom.create); void loadSetupDecks();
   },
   onClose: () => { if (state) { if (transport.roomCode && !transport.localMode) showTableView(); render(); } },
@@ -1221,14 +1221,9 @@ async function copyJoinLink(button) {
     showError(new Error('Copy is not available here. Scan the QR code or use the table code shown above.'));
   }
 }
-function syncSeatCapacityChoices() {
-  const players = Number($('input[name="playerCount"]:checked')?.value || 4);
-  [...dom.seatCapacity.options].forEach(option => { option.disabled = Number(option.value) < players; });
-  if (Number(dom.seatCapacity.value) < players) dom.seatCapacity.value = [...dom.seatCapacity.options].find(option => !option.disabled)?.value || '8';
-}
-function fillSetupControls() { dom.playerCountChoices.innerHTML = Array.from({ length: 7 }, (_, index) => { const value = index + 2; return `<label><input type="radio" name="playerCount" value="${value}" ${value === 4 ? 'checked' : ''}><span>${value}</span></label>`; }).join(''); dom.playerCountChoices.querySelectorAll('input').forEach(input => input.addEventListener('change', syncSeatCapacityChoices)); syncSeatCapacityChoices(); }
+function fillSetupControls() { dom.playerCountChoices.innerHTML = Array.from({ length: 7 }, (_, index) => { const value = index + 2; return `<label><input type="radio" name="playerCount" value="${value}" ${value === 4 ? 'checked' : ''}><span>${value}</span></label>`; }).join(''); }
 function selectedGameFormat() { return $('input[name="gameFormat"]:checked')?.value || 'commander'; }
-function updateFormatSetup() { const format = selectedGameFormat(); const commander = format === 'commander'; dom.createCommanderNames.previousElementSibling.hidden = !commander; dom.createCommanderNames.hidden = !commander; dom.createDeckField.hidden = !commander || !setupDecks.length; $('#customStartingLifeField').hidden = format !== 'custom'; $('#customStartingLife').disabled = format !== 'custom'; $('#createStepThreeNext').textContent = commander ? 'Next: commander' : 'Next: table settings'; const joiningCommander = joinGameFormat === 'commander'; dom.joinCommanderNames.previousElementSibling.hidden = !joiningCommander; dom.joinCommanderNames.hidden = !joiningCommander; dom.joinDeckField.hidden = !joiningCommander || !setupDecks.length; }
+function updateFormatSetup() { const format = selectedGameFormat(); const commander = format === 'commander'; dom.createCommanderNames.previousElementSibling.hidden = !commander; dom.createCommanderNames.hidden = !commander; dom.createDeckField.hidden = !commander || !setupDecks.length; $('#customStartingLifeField').hidden = format !== 'custom'; $('#customStartingLife').disabled = format !== 'custom'; $('#createStepTwoNext').textContent = commander ? 'Next: commander' : 'Next: table settings'; const joiningCommander = joinGameFormat === 'commander'; dom.joinCommanderNames.previousElementSibling.hidden = !joiningCommander; dom.joinCommanderNames.hidden = !joiningCommander; dom.joinDeckField.hidden = !joiningCommander || !setupDecks.length; }
 function commanderNamesFromForm(form, count) { return Array.from({ length: count }, (_, slot) => String(form.get(`commanderName${slot}`) || '').trim()); }
 function commanderColorsFromFields(container, count) { return Array.from({ length: count }, (_, slot) => normaliseIdentity(String(container.querySelector(`input[name="commanderName${slot}"]`)?.dataset.commanderColors || '').split(',').filter(Boolean))); }
 async function lookupCommanderIdentity(name) {
@@ -1342,6 +1337,7 @@ function renderTurnFlow() {
   const isStarted = Boolean(state.turn.gameStarted) && !isComplete;
   dom.lobbyControls.hidden = isStarted || isIntermission || isComplete;
   dom.intermissionPanel.hidden = !isIntermission;
+  if (!isIntermission) dom.intermissionInvite.open = false;
   const renderSeatOrder = (container, rosterIds, { intermission = false } = {}) => {
     const readyIds = state.lifecycle?.readySeatIds || [];
     const isHost = state.localSimulation || transport.seatId === state.hostSeatId;
@@ -1367,8 +1363,10 @@ function renderTurnFlow() {
     const youAreReady = readyIds.includes(ownSeatId);
     dom.intermissionTitle.textContent = 'Set up the next game';
     const openSeats = state.players.filter(player => player.connectionStatus === 'waiting').length;
-    dom.intermissionDetail.textContent = `${readyIds.length}/${rosterIds.length} players ready. ${openSeats ? `A new player can join this Table now; then arrange the table to match the real seats.` : 'This Table is full; start a new Table to add another player.'}`;
-    dom.intermissionInvite.hidden = !isHost || !openSeats || !canShareJoin;
+    const canAddPlayer = openSeats > 0 || state.players.length < 8;
+    dom.intermissionDetail.textContent = `${readyIds.length}/${rosterIds.length} players ready.${canAddPlayer ? '' : ' All 8 seats are claimed. A player must leave to open a seat.'}`;
+    dom.intermissionInvite.hidden = !isHost || !canAddPlayer || !canShareJoin;
+    if (dom.intermissionInvite.hidden) dom.intermissionInvite.open = false;
     dom.intermissionInviteCode.textContent = state.podCode;
     renderSeatOrder(dom.intermissionRoster, rosterIds, { intermission: true });
     dom.intermissionReadyButton.hidden = !rosterIds.includes(ownSeatId);
@@ -2241,10 +2239,24 @@ function touchLocalDemo() {
 
 fillSetupControls(); refreshSetupCommanderNames(); updateFormatSetup(); renderDeveloperTools(); renderConnection(); renderSavedTables();
 let createStep = 1;
-function showCreateStep(step) { createStep = step; $$('[data-create-step]').forEach(section => { section.hidden = Number(section.dataset.createStep) !== step; }); window.scrollTo({ top: 0, behavior: 'instant' }); }
+function showCreateStep(step) {
+  const previousStep = createStep;
+  createStep = step;
+  const steps = selectedGameFormat() === 'commander' ? [1, 2, 3, 4] : [1, 2, 4];
+  $$('[data-create-step]').forEach(section => {
+    const sectionStep = Number(section.dataset.createStep);
+    section.hidden = sectionStep !== step;
+    section.querySelector('.eyebrow').textContent = `STEP ${steps.indexOf(sectionStep) + 1} OF ${steps.length}`;
+    if (!section.hidden && previousStep !== step) {
+      const control = section.querySelector('input[type="radio"]:checked') || section.querySelector('input:not([type="radio"]):not([disabled]), select:not([disabled]), button');
+      control?.focus();
+    }
+  });
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}
 let joinStep = 2;
 function showJoinStep(step) { joinStep = step; $$('[data-join-step]').forEach(section => { section.hidden = Number(section.dataset.joinStep) !== step; }); window.scrollTo({ top: 0, behavior: 'instant' }); }
-function skipCreateCommanders() { dom.createCommanderNames.querySelectorAll('input[name^="commanderName"]').forEach(input => { input.value = ''; delete input.dataset.commanderColors; }); showCreateStep(5); }
+function skipCreateCommanders() { dom.createCommanderNames.querySelectorAll('input[name^="commanderName"]').forEach(input => { input.value = ''; delete input.dataset.commanderColors; }); showCreateStep(4); }
 function validateCreateStartingLife(form = new FormData($('#createForm'))) {
   const input = $('#customStartingLife');
   const custom = form.get('gameFormat') === 'custom';
@@ -2265,7 +2277,11 @@ $('#customStartingLife').addEventListener('input', () => {
   $('#customStartingLife').setAttribute('aria-invalid', 'false');
   $('#customStartingLife').setAttribute('aria-describedby', 'customStartingLifeHelp');
 });
-$('#createStepOneNext').addEventListener('click', () => { if (validateCreateStartingLife() !== null) showCreateStep(2); }); $('#createStepTwoNext').addEventListener('click', () => showCreateStep(3)); $('#createStepThreeNext').addEventListener('click', () => showCreateStep(selectedGameFormat() === 'commander' ? 4 : 5)); $('#createStepFourSkip').addEventListener('click', skipCreateCommanders); $('#createStepFourNext').addEventListener('click', async () => { const { unresolved } = await confirmUnresolvedCommanderDetails(dom.createCommanderNames, selectedCommanderCount('commanderCount')); if (!unresolved.length) showCreateStep(5); }); $$('[data-create-back]').forEach(button => button.addEventListener('click', () => showCreateStep(Math.max(1, createStep - 1))));
+$('#createStepOneNext').addEventListener('click', () => { if (validateCreateStartingLife() !== null) showCreateStep(2); });
+$('#createStepTwoNext').addEventListener('click', () => showCreateStep(selectedGameFormat() === 'commander' ? 3 : 4));
+$('#createStepThreeSkip').addEventListener('click', skipCreateCommanders);
+$('#createStepThreeNext').addEventListener('click', async () => { const { unresolved } = await confirmUnresolvedCommanderDetails(dom.createCommanderNames, selectedCommanderCount('commanderCount')); if (!unresolved.length) showCreateStep(4); });
+$$('[data-create-back]').forEach(button => button.addEventListener('click', () => showCreateStep(createStep === 4 && selectedGameFormat() !== 'commander' ? 2 : Math.max(1, createStep - 1))));
 $('#joinStepTwoNext').addEventListener('click', () => { if (/^P[1-8]$/.test(dom.joinSeat.value)) showJoinStep(3); }); $('#joinStepThreeNext').addEventListener('click', () => showJoinStep(4)); $$('[data-join-back]').forEach(button => button.addEventListener('click', () => showJoinStep(Math.max(2, joinStep - 1))));
 signInButton.addEventListener('click', () => openSignIn());
 homeSignOutButton.addEventListener('click', () => void signOut());
@@ -2283,6 +2299,7 @@ $$('input[name="gameFormat"]').forEach(input => {
       if (event.type === 'change') $('input[name="playerCount"][value="2"]').checked = true;
     }
     updateFormatSetup();
+    showCreateStep(1);
   };
   input.addEventListener('change', selectFormat);
   input.addEventListener('click', selectFormat);
@@ -2325,14 +2342,14 @@ $('#createForm').addEventListener('submit', async event => {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
   const gameFormat = String(form.get('gameFormat') || 'commander');
-  const playerCount = Number(form.get('playerCount'));
-  const seatCapacity = Number(form.get('seatCapacity'));
+  const playerCount = dom.localSimulation.checked ? Number(form.get('playerCount')) : 8;
+  const seatCapacity = 8;
   const ownerCommanderCount = gameFormat === 'commander' ? Number(form.get('commanderCount')) : 1;
   const ownerCommanderNames = gameFormat === 'commander' ? commanderNamesFromForm(form, ownerCommanderCount) : [''];
   const ownerCommanderColors = gameFormat === 'commander' ? commanderColorsFromFields(dom.createCommanderNames, ownerCommanderCount) : [[]];
   const ownerPlayerId = 'P1';
   const ownerName = String(form.get('name') || '').trim() || ownerPlayerId;
-  if (!Number.isInteger(seatCapacity) || seatCapacity < playerCount || seatCapacity > 8) { dom.seatCapacity.focus(); return; }
+  if (!Number.isInteger(playerCount) || playerCount < 2 || playerCount > 8) { dom.playerCountChoices.querySelector('input:checked')?.focus(); return; }
   const startingLife = validateCreateStartingLife(form);
   if (startingLife === null) return;
   const enteredRoundLimit = String(form.get('roundLimitMinutes') || '').trim();
@@ -2358,6 +2375,29 @@ dom.showJoinQrButton.addEventListener('click', openJoinQr); dom.showJoinQrMenuBu
 dom.shareJoinLinkButton.addEventListener('click', async () => { try { if (!navigator.share) throw new Error('Sharing is not available on this phone.'); await navigator.share({ title: 'Join my Fivefold Arc table', text: `Join pod ${state.podCode}`, url: joinLink() }); } catch (error) { if (error.name !== 'AbortError') showError(error); } });
 dom.copyJoinLinkButton.addEventListener('click', () => copyJoinLink(dom.copyJoinLinkButton));
 dom.copyLobbyJoinLinkButton.addEventListener('click', () => copyJoinLink(dom.copyLobbyJoinLinkButton)); dom.copyIntermissionJoinLinkButton.addEventListener('click', () => copyJoinLink(dom.copyIntermissionJoinLinkButton));
+let openingIntermissionSeatsCode = null;
+async function openIntermissionSeats() {
+  if (!state || state.localSimulation || state.lifecycle?.status !== 'intermission' || !dom.intermissionInvite.open || (state.seatCapacity || state.playerCount) >= 8) return;
+  const code = state.podCode;
+  if (openingIntermissionSeatsCode === code) return;
+  openingIntermissionSeatsCode = code;
+  try {
+    const result = await transport.openTableSeats();
+    if (result.ignored || state?.podCode !== code || state.lifecycle?.status !== 'intermission' || !dom.intermissionInvite.open) return;
+    if ((state.seatCapacity || state.playerCount) >= 8) return;
+    if (result.blocked || result.conflict) {
+      dom.intermissionInvite.open = false;
+      showTableActionError(result.blocked ? 'Reconnect before adding a player.' : 'The table changed first. Try Add player again.');
+    }
+  } catch (error) {
+    if (state?.podCode !== code || state.lifecycle?.status !== 'intermission' || !dom.intermissionInvite.open) return;
+    dom.intermissionInvite.open = false;
+    showTableRequestError(error);
+  } finally {
+    if (openingIntermissionSeatsCode === code) openingIntermissionSeatsCode = null;
+  }
+}
+dom.intermissionInvite.addEventListener('toggle', () => { if (dom.intermissionInvite.open) void openIntermissionSeats(); });
 function dialAngle(event) { const rect = dom.dialGesture.getBoundingClientRect(); return Math.atan2(event.clientY - (rect.top + rect.height / 2), event.clientX - (rect.left + rect.width / 2)) * 180 / Math.PI; }
 function normalizeDialAngle(angle) { return angle > 180 ? angle - 360 : angle < -180 ? angle + 360 : angle; }
 function beginDialDrag(event) {
