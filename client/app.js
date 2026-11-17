@@ -2124,6 +2124,7 @@ async function updateCommanderCastCount(sourceId, delta) {
   $$('[data-commander-cast], [data-commander-undo]').forEach(button => { button.disabled = true; });
   try { const result = await transport.setCommanderCastCount(sourceId, next); if (result.conflict) showError(new Error('The table changed first. The latest cast counts are shown; please make your change again.')); }
   catch (error) { if (error.status || await reconcileTableWriteError(error)) showError(error); }
+  finally { renderCommanderTaxDialog(); }
 }
 async function resetGame() {
   pendingStartingSeatId = null;
