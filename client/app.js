@@ -349,9 +349,8 @@ function stateFromSnapshot(snapshot) {
 function sourcesForDefender(_playerId) { return state.commanderSources; }
 function ownCommanderSources(playerId) { return state.commanderSources.filter(source => source.ownerPlayerId === playerId); }
 function tablePositionLabel(player) {
-  const seatId = Number(String(player?.id || '').slice(1)) - 1;
-  const position = state?.lifecycle?.seatIds?.indexOf(seatId);
-  return Number.isInteger(position) && position >= 0 ? `P${position + 1}` : player?.id || 'Player';
+  // Claimed seat identity stays the same when its turn position moves.
+  return player?.id || 'Player';
 }
 function displayName(player) { return String(player?.name || player?.id || 'Player').trim() || player.id; }
 function displayPlayer(player) { const name = displayName(player); const position = tablePositionLabel(player); return name === position ? name : `${name} · ${position}`; }
@@ -1347,6 +1346,7 @@ function turnPlayer() { return state.players.find(player => player.id === state.
 function formatDuration(milliseconds) { const seconds = Math.max(0, Math.floor(milliseconds / 1000)); return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`; }
 function renderTurnFlow() {
   if (!state?.turn) return;
+  syncTableOrderControls();
   if (nextGameConfirmation && dom.nextGameConfirmDialog.open && !nextGameStarterPending && !nextGameStartPending && !nextGameConfirmationMatches(nextGameConfirmation)) {
     const sameTable = nextGameConfirmation.roomCode === state.podCode;
     dom.nextGameConfirmDialog.close('stale');
@@ -1378,7 +1378,7 @@ function renderTurnFlow() {
       const skip = intermission && isHost && seatId !== state.hostSeatId ? `<button type="button" class="text-action" data-skip-next-seat="${seatId}">Remove</button>` : '';
       const move = isHost ? `<span class="intermission-move"><button type="button" class="text-action" data-move-seat="${seatId}" data-direction="-1" ${position === 0 ? 'disabled' : ''} aria-label="Move ${escapeHtml(displayName(player))} earlier">↑</button><button type="button" class="text-action" data-move-seat="${seatId}" data-direction="1" ${position === rosterIds.length - 1 ? 'disabled' : ''} aria-label="Move ${escapeHtml(displayName(player))} later">↓</button></span>` : '';
       const status = intermission ? (ready ? 'Ready' : 'Waiting for ready') : 'Table order';
-      return `<div class="intermission-seat"><span><strong>P${position + 1} · ${escapeHtml(displayName(player))}</strong><small>${status}</small></span><span class="intermission-actions">${move}${skip}</span></div>`;
+      return `<div class="intermission-seat"><span><strong>P${seatId + 1} · ${escapeHtml(displayName(player))}</strong><small>${status}</small></span><span class="intermission-actions">${move}${skip}</span></div>`;
     }).join('');
     container.querySelectorAll('[data-skip-next-seat]').forEach(button => button.addEventListener('click', () => void skipNextGameSeat(Number(button.dataset.skipNextSeat))));
     container.querySelectorAll('[data-move-seat]').forEach(button => button.addEventListener('click', () => void moveNextGameSeat(Number(button.dataset.moveSeat), Number(button.dataset.direction))));
@@ -2134,7 +2134,9 @@ async function handoffTurn() {
   const actingSeatId = state?.localSimulation ? state.activePlayerId : state?.ownerPlayerId;
   if (!state || !state.turn.gameStarted || state.turn.trackingEnabled === false || state.turn.pausedAt || state.turnSeatId !== actingSeatId || !(transport.status === 'local' || transport.status === 'connected')) return;
   if (transport.status === 'local') {
-    state.players.forEach(evaluatePlayer); const fromSeatId = Number(state.turnSeatId.slice(1)) - 1; const living = state.players.filter(player => player.connectionStatus !== 'waiting' && !player.eliminated); const sequence = living.length ? living : state.players.filter(player => player.connectionStatus !== 'waiting'); const currentIndex = sequence.findIndex(player => player.id === state.turnSeatId); const toSeatId = Number(sequence[(currentIndex + 1) % sequence.length].id.slice(1)) - 1; const handedOffAt = Date.now();
+    state.players.forEach(evaluatePlayer); const fromSeatId = Number(state.turnSeatId.slice(1)) - 1;
+    const tablePlayers = (state.lifecycle?.seatIds || state.players.map(player => Number(player.id.slice(1)) - 1)).map(id => state.players.find(player => player.id === `P${id + 1}`)).filter(player => player && player.connectionStatus !== 'waiting');
+    const living = tablePlayers.filter(player => !player.eliminated); const sequence = living.length ? living : tablePlayers; const currentIndex = sequence.findIndex(player => player.id === state.turnSeatId); const toSeatId = Number(sequence[(currentIndex + 1) % sequence.length].id.slice(1)) - 1; const handedOffAt = Date.now();
     const turnLengthMs = Math.max(0, handedOffAt - state.turn.turnStartedAt); state.turn = { ...state.turn, activeSeatId: toSeatId, turnStartedAt: handedOffAt, turnNumber: (state.turn.turnNumber || 1) + (toSeatId === state.turn.startingPlayerSeatId ? 1 : 0), lastHandoff: { fromSeatId, toSeatId, handedOffAt, turnLengthMs } }; state.turnSeatId = `P${toSeatId + 1}`; state.activePlayerId = state.turnSeatId; showTurnHandoff(); render(); return;
   }
   dom.endTurnButton.disabled = true;
@@ -2266,6 +2268,83 @@ async function moveNextGameSeat(seatId, direction) {
     if (result.conflict) showTableActionError('The table changed first. Check the next-game seating order.');
   } catch (error) { showTableRequestError(error); }
 }
+const adjustTableOrderButton = $('#adjustTableOrderButton'), tableOrderDialog = $('#tableOrderDialog'), tableOrderRoster = $('#tableOrderRoster'), tableOrderStatus = $('#tableOrderStatus'), saveTableOrderButton = $('#saveTableOrderButton'), cancelTableOrderButton = $('#cancelTableOrderButton');
+dom.tableOrderDialog = tableOrderDialog;
+let tableOrderDraft = null;
+let tableOrderSaving = false;
+function canAdjustTableOrder() {
+  return Boolean(state?.turn?.gameStarted && state.lifecycle?.status === 'playing' && !state.gameResult && !state.pendingFinish && (state.localSimulation || transport.seatId === state.hostSeatId));
+}
+function syncTableOrderControls() {
+  adjustTableOrderButton.hidden = !canAdjustTableOrder();
+  adjustTableOrderButton.disabled = tableOrderSaving || (!state?.localSimulation && transport.status !== 'connected');
+  if (tableOrderDialog.open && !canAdjustTableOrder()) tableOrderDialog.close();
+}
+function renderTableOrderDraft() {
+  if (!tableOrderDraft) return;
+  if (!tableOrderRoster.children.length) tableOrderRoster.innerHTML = tableOrderDraft.seatIds.map(id => {
+    const player = state.players.find(player => player.id === `P${id + 1}`);
+    const label = escapeHtml(displayPlayer(player || { id: `P${id + 1}` }));
+    return `<li data-order-seat="${id}"><strong>${label}</strong><span><button type="button" class="secondary-action" data-order-move="-1" aria-label="Move ${label} earlier">↑</button><button type="button" class="secondary-action" data-order-move="1" aria-label="Move ${label} later">↓</button></span></li>`;
+  }).join('');
+  tableOrderDraft.seatIds.forEach((id, index) => {
+    const row = tableOrderRoster.querySelector(`[data-order-seat="${id}"]`);
+    if (tableOrderRoster.moveBefore) tableOrderRoster.moveBefore(row, null); else tableOrderRoster.append(row);
+    row.querySelector('[data-order-move="-1"]').disabled = tableOrderSaving || index === 0;
+    row.querySelector('[data-order-move="1"]').disabled = tableOrderSaving || index === tableOrderDraft.seatIds.length - 1;
+  });
+}
+function openTableOrder() {
+  if (!canAdjustTableOrder() || tableOrderSaving) return;
+  tableOrderDraft = { seatIds: [...state.lifecycle.seatIds], code: state.podCode, startedAt: state.turn.gameStartedAt };
+  tableOrderRoster.innerHTML = ''; tableOrderStatus.textContent = '';
+  closeGameMenu(); dom.moreButton.focus(); renderTableOrderDraft(); tableOrderDialog.showModal();
+}
+function moveTableOrderSeat(seatId, direction) {
+  if (!tableOrderDraft || tableOrderSaving || ![-1, 1].includes(direction)) return;
+  const order = tableOrderDraft.seatIds, index = order.indexOf(seatId), next = index + direction;
+  if (index < 0 || next < 0 || next >= order.length) return;
+  [order[index], order[next]] = [order[next], order[index]];
+  renderTableOrderDraft(); tableOrderStatus.textContent = 'Order changed. Choose Save order to apply.';
+}
+async function saveTableOrder() {
+  if (!tableOrderDraft || tableOrderSaving) return;
+  if (!canAdjustTableOrder() || tableOrderDraft.code !== state.podCode || tableOrderDraft.startedAt !== state.turn.gameStartedAt) {
+    tableOrderStatus.textContent = 'The game changed. Close this window and reopen Adjust table order.'; return;
+  }
+  tableOrderSaving = true; saveTableOrderButton.disabled = true; cancelTableOrderButton.disabled = true;
+  tableOrderDialog.closedBy = 'none';
+  saveTableOrderButton.textContent = 'Saving…'; tableOrderStatus.textContent = 'Saving table order…'; renderTableOrderDraft();
+  try {
+    if (state.localSimulation) { state.lifecycle.seatIds = [...tableOrderDraft.seatIds]; state.lifecycle.seatOrderConfirmed = true; render(); }
+    else {
+      const result = await transport.reorderNextGameSeats([...tableOrderDraft.seatIds]);
+      if (result.conflict || result.blocked || result.ignored) {
+        tableOrderStatus.textContent = 'The table changed or disconnected. Review the order and try Save again.';
+        if (!tableOrderDialog.open) showError(new Error(tableOrderStatus.textContent));
+        return;
+      }
+    }
+    tableOrderDraft = null; tableOrderDialog.close();
+  } catch (error) {
+    tableOrderStatus.textContent = error?.message || 'The order could not be saved. Try again.';
+    if (!tableOrderDialog.open) showError(error);
+  } finally {
+    tableOrderSaving = false; saveTableOrderButton.disabled = false; cancelTableOrderButton.disabled = false;
+    tableOrderDialog.closedBy = 'closerequest';
+    saveTableOrderButton.textContent = 'Save order'; renderTableOrderDraft();
+  }
+}
+adjustTableOrderButton.addEventListener('click', openTableOrder);
+saveTableOrderButton.addEventListener('click', () => void saveTableOrder());
+tableOrderRoster.addEventListener('click', event => {
+  const button = event.target.closest('[data-order-move]'); if (!button) return;
+  const row = button.closest('[data-order-seat]'); moveTableOrderSeat(Number(row.dataset.orderSeat), Number(button.dataset.orderMove));
+  (button.disabled ? row.querySelector('[data-order-move]:not(:disabled)') : button)?.focus();
+});
+tableOrderDialog.addEventListener('close', () => { if (!tableOrderSaving) tableOrderDraft = null; });
+tableOrderDialog.addEventListener('cancel', event => { if (tableOrderSaving) event.preventDefault(); });
+
 function refreshLocalNextGameStarter(overrideSeatId = state.lifecycle.nextGameStarter?.overrideSeatId ?? null) {
   const policy = nextGameStarterPolicy({ ...state.lifecycle.nextGameStarter, seatIds: state.lifecycle.seatIds, overrideSeatId });
   state.lifecycle.nextGameStarter = policy;
@@ -2286,8 +2365,8 @@ function renderNextGameConfirmation({ notice = '' } = {}) {
   const defaultSeatId = policy?.defaultSeatId ?? state.turn.startingPlayerSeatId;
   const defaultPlayer = state.players.find(player => player.id === `P${defaultSeatId + 1}`);
   dom.nextGameConfirmDetail.textContent = `${players.length} players at this table.`;
-  dom.nextGameConfirmRoster.innerHTML = players.map((player, index) => `<li>P${index + 1} · ${escapeHtml(displayName(player))}</li>`).join('');
-  dom.nextGameStarter.innerHTML = `<option value="default">Default · ${escapeHtml(displayName(defaultPlayer))}</option>${rosterIds.map((id, index) => `<option value="${id}">${escapeHtml(displayName(state.players.find(player => player.id === `P${id + 1}`)))} · P${index + 1}</option>`).join('')}`;
+  dom.nextGameConfirmRoster.innerHTML = players.map(player => `<li>${escapeHtml(tablePositionLabel(player))} · ${escapeHtml(displayName(player))}</li>`).join('');
+  dom.nextGameStarter.innerHTML = `<option value="default">Default · ${escapeHtml(displayName(defaultPlayer))}</option>${rosterIds.map(id => `<option value="${id}">${escapeHtml(displayName(state.players.find(player => player.id === `P${id + 1}`)))} · P${id + 1}</option>`).join('')}`;
   dom.nextGameStarter.value = Number.isInteger(policy?.overrideSeatId) ? String(policy.overrideSeatId) : 'default';
   const busy = nextGameStarterPending || nextGameStartPending;
   const everyoneReady = rosterIds.length >= 2 && rosterIds.every(id => state.lifecycle.readySeatIds.includes(id));

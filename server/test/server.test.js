@@ -1680,7 +1680,7 @@ test("a pod can reserve later seats without treating them as game-one players", 
     let snapshot = service.claimSeat(created.snapshot.code, second.connectionId, { seatId: 1, name: "P2" }).snapshot;
     snapshot = service.claimSeat(created.snapshot.code, fourth.connectionId, { seatId: 3, name: "P4" }).snapshot;
     snapshot = service.claimSeat(created.snapshot.code, third.connectionId, { seatId: 2, name: "P3" }).snapshot;
-    assert.deepEqual(snapshot.lifecycle.seatIds, [0, 1, 3, 2]);
+    assert.deepEqual(snapshot.lifecycle.seatIds, [0, 1, 2, 3]);
 
     snapshot = service.startGame(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
     assert.deepEqual(snapshot.lifecycle.seatIds, [0, 1, 2, 3]);

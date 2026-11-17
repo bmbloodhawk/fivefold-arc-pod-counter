@@ -1159,6 +1159,8 @@ export class RoomService {
     synchronizeCommanderState(room);
     if (!wasClaimed && ["lobby", "intermission"].includes(room.lifecycle?.status) && !room.lifecycle.seatIds.includes(seatId)) {
       room.lifecycle.seatIds.push(seatId);
+      // Match claimed seats before game one unless the host arranged the table.
+      if (room.lifecycle.status === "lobby" && !room.lifecycle.seatOrderConfirmed) room.lifecycle.seatIds.sort((a, b) => a - b);
       // Completing the join flow means this player has supplied their seat
       // details and is part of the next game. Do not let a newly claimed seat
       // be silently discarded just because it joined between games.
@@ -1546,12 +1548,13 @@ export class RoomService {
   reorderNextGameSeats(code, connectionId, input = {}) {
     const room = this.room(code); this.requireNoPendingFinish(room); const { seatId } = this.requireOwner(room, connectionId);
     if (seatId !== room.hostSeatId) throw Object.assign(new Error("Only the host can arrange physical table seats"), { status: 403, code: "HOST_ONLY" });
-    if (!["lobby", "intermission"].includes(room.lifecycle?.status)) throw Object.assign(new Error("Arrange seats before a game starts or during next-game setup"), { status: 409, code: "GAME_IN_PROGRESS", snapshot: this.snapshot(room) });
+    const activeGame = room.lifecycle?.status === "playing" && room.turn.gameStarted && !room.gameResult;
+    if (!["lobby", "intermission"].includes(room.lifecycle?.status) && !activeGame) throw Object.assign(new Error("Arrange seats during setup or an active game"), { status: 409, code: "GAME_IN_PROGRESS", snapshot: this.snapshot(room) });
     if (input.baseVersion !== room.version) throw Object.assign(new Error("State changed; apply the latest snapshot before retrying"), { status: 409, code: "VERSION_CONFLICT", snapshot: this.snapshot(room) });
     const proposed = input.seatIds;
     const expected = room.lifecycle.seatIds;
     if (!Array.isArray(proposed) || proposed.length !== expected.length || new Set(proposed).size !== proposed.length || proposed.some((id) => !Number.isInteger(id)) || proposed.some((id) => !expected.includes(id))) {
-      throw Object.assign(new Error("Send every next-game seat once when arranging the table"), { status: 400, code: "INVALID_INPUT" });
+      throw Object.assign(new Error("Send every current table seat once when arranging the table"), { status: 400, code: "INVALID_INPUT" });
     }
     room.lifecycle.seatIds = [...proposed]; room.lifecycle.seatOrderConfirmed = true;
     refreshNextGameStarter(room, { rosterChanged: true });

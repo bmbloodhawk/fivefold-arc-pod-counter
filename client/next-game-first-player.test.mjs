@@ -65,7 +65,7 @@ function harness(options = {}) {
     showTableRequestError(error) { calls.errors.push(error.message); },
     showError(error) { calls.errors.push(error.message); },
   };
-  const functions = ['renderNextGameConfirmation', 'confirmNextGameStart', 'chooseNextGameStarter', 'submitNextGameStart'];
+  const functions = ['tablePositionLabel', 'renderNextGameConfirmation', 'confirmNextGameStart', 'chooseNextGameStarter', 'submitNextGameStart'];
   const api = runInNewContext(functions.map(sourceFunction).join('\n') + '\n({renderNextGameConfirmation, confirmNextGameStart, chooseNextGameStarter, submitNextGameStart})', context);
   return { api, context, dom, calls,
     submit: (value = 'confirm') => api.submitNextGameStart({ submitter: { value }, currentTarget: dom.nextGameConfirmForm, preventDefault() {} }),
@@ -80,6 +80,9 @@ test('confirmation lists Default and current players in actual table order, excl
   assert.match(h.dom.nextGameStarter.innerHTML, /Default[^<]*Morgan/);
   assert.doesNotMatch(h.dom.nextGameStarter.innerHTML, /Removed/);
   assert.ok(h.dom.nextGameConfirmRoster.innerHTML.indexOf('Morgan') < h.dom.nextGameConfirmRoster.innerHTML.indexOf('Sam'));
+  assert.equal(h.dom.nextGameConfirmRoster.innerHTML, '<li>P1 · Alex</li><li>P3 · Morgan</li><li>P2 · Sam</li>');
+  assert.match(h.dom.nextGameStarter.innerHTML, /value="2"[^>]*>Morgan · P3<\/option>/);
+  assert.match(h.dom.nextGameStarter.innerHTML, /value="1"[^>]*>Sam · P2<\/option>/);
 });
 
 test('an authoritative host override stays selected when the confirmation is rendered again', () => {

@@ -1365,3 +1365,17 @@ dialog:not(#victoryDialog) { max-height:calc(100dvh - 24px); overflow-y:auto; ov
 .registration-status { margin: 0; padding: 10px 12px; border-left: 3px solid var(--danger); background: rgb(237 134 111 / .06); color: var(--danger); font-size: .86rem; line-height: 1.45; }
 .registration-form[aria-busy=true] .registration-status { border-color: var(--brass); background: rgb(216 174 97 / .08); color: var(--ink); }
 @media (max-width: 359px) { .registration-view { padding-top: 20px; } .registration-view h1 { font-size: 2.1rem; } .registration-intro { margin-bottom: 18px; } .registration-form { gap: 14px; } }
+
+#tableOrderDialog { box-sizing: border-box; width: min(calc(100% - 24px), 480px); padding: 16px; }
+#tableOrderDialog:modal { overscroll-behavior: contain; }
+#tableOrderDialog::backdrop { overflow: hidden; overscroll-behavior: contain; }
+#tableOrderDialog h2 { margin-top: 0; }
+#tableOrderHelp { font-size: .9rem; line-height: 1.5; }
+#tableOrderRoster { display: grid; gap: 8px; margin: 16px 0; padding: 0; list-style: none; }
+#tableOrderRoster li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 5px; }
+#tableOrderRoster strong { overflow-wrap: anywhere; font-size: .9rem; }
+#tableOrderRoster span { display: flex; gap: 4px; }
+#tableOrderRoster button { min-width: 44px; min-height: 44px; padding: 8px; }
+#tableOrderStatus { min-height: 2.8em; font-size: .85rem; line-height: 1.4; color: var(--brass); }
+#tableOrderDialog .dialog-actions { grid-template-columns: minmax(0, 1fr); }
+#tableOrderDialog .dialog-actions button { min-height: 48px; }

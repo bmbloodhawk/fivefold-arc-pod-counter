@@ -413,6 +413,7 @@
         <button id="declareWinnerButton" type="button">Declare winner</button>
         <button id="commanderSetupButton" type="button">My commander setup</button>
         <button id="pauseTurnButton" type="button" hidden>Pause timers</button>
+        <button id="adjustTableOrderButton" type="button" hidden>Adjust table order</button>
         <button id="toggleTurnTrackingButton" type="button" hidden>Turn tracking: on</button>
         <button id="toggleTurnCuesButton" type="button" hidden>Turn cue: off</button>
         <button id="toggleDeviceCuesButton" type="button">My turn cue: on</button>
@@ -426,6 +427,19 @@
       </aside>
     </section>
   </main>
+
+  <dialog id="tableOrderDialog" aria-labelledby="tableOrderTitle" aria-describedby="tableOrderHelp">
+    <form method="dialog">
+      <h2 id="tableOrderTitle" tabindex="-1" autofocus>Adjust table order</h2>
+      <p id="tableOrderHelp">Top to bottom is turn order. The current player keeps their turn. Changes apply to the next turn.</p>
+      <ol id="tableOrderRoster" aria-label="Turn order"></ol>
+      <p id="tableOrderStatus" role="status" aria-live="polite"></p>
+      <div class="dialog-actions">
+        <button id="cancelTableOrderButton" class="secondary-action" value="cancel">Cancel</button>
+        <button id="saveTableOrderButton" class="primary-action" type="button">Save order</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="resetDialog">
     <form method="dialog">
