@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { runInNewContext } from 'node:vm';
+import { tournamentTableFlow } from './tournament-table-flow.mjs';
 
 const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
 
-function intermission({ capacity = 8, claimed = 2, host = true, local = false } = {}) {
+function intermission({ capacity = 8, claimed = 2, host = true, local = false, tournament = false, access = true } = {}) {
   const nodes = new Map();
   const element = key => {
     if (!nodes.has(key)) nodes.set(key, { hidden: false, open: true, dataset: {}, querySelectorAll: () => [] });
@@ -22,6 +23,8 @@ function intermission({ capacity = 8, claimed = 2, host = true, local = false } 
   const start = app.indexOf('function renderTurnFlow()');
   const end = app.indexOf('\nfunction renderEliminationUndo()', start);
   const render = runInNewContext(app.slice(start, end) + '\nrenderTurnFlow', {
+    tournamentTableFlow, tournamentTableContext: tournament ? { linked: true, kind: 'tournament', code: 'ABC123', canAccess: access } : null,
+    tournamentRoundButton: element('tournamentRoundButton'), returnToTournamentButton: element('returnToTournamentButton'),
     dom, state, commanderSetupDraft: null, pendingNextGameSetup: false, nextGameConfirmation: null, transport: { seatId: host ? 0 : 1, status: 'connected' },
     turnPlayer: () => state.players[0], renderEliminationUndo: () => ({}),
     syncTableOrderControls() {},
@@ -33,6 +36,20 @@ function intermission({ capacity = 8, claimed = 2, host = true, local = false } 
   render();
   return { dom, state };
 }
+
+test('a finished Tournament offers the event and hides casual next-game controls', () => {
+  const { dom } = intermission({ tournament: true });
+  assert.equal(dom.intermissionTitle.textContent, 'Tournament game complete');
+  for (const name of ['intermissionReadyButton', 'intermissionSetupButton', 'intermissionStartButton', 'intermissionInvite', 'intermissionRoster']) assert.equal(dom[name].hidden, true, name);
+  assert.equal(dom.returnToTournamentButton.hidden, false);
+});
+
+test('an attested Tournament guest gets organizer guidance without private event navigation', () => {
+  const { dom } = intermission({ tournament: true, host: false, access: false });
+  assert.equal(dom.returnToTournamentButton.hidden, true);
+  assert.match(dom.intermissionDetail.textContent, /organizer/);
+  assert.equal(dom.intermissionReadyButton.hidden, true);
+});
 
 test('a host can open invitations on an old two-seat table with no empty seats', () => {
   const { dom } = intermission({ capacity: 2 });

@@ -1,4 +1,6 @@
-import { orderFromChoices, finishingChoices, localDateKey, parseCompetitionFragment, setupObservationKey, contextObservationKey } from './competition-model.mjs?v=1';
+import { orderFromChoices, finishingChoices, localDateKey, parseCompetitionFragment, setupObservationKey, contextObservationKey, tournamentAttendance, finishedTableTransition } from './competition-model.mjs?v=2';
+import { createTournamentRefresh } from './tournament-refresh.mjs?v=1';
+import { spectatorBoardHtml, spectatorClockText, spectatorFailure } from './tournament-spectator.mjs?v=1';
 import { JoinQrScanner } from './join-qr-scanner.js?v=5';
 import { podInviteFromQr } from './pod-invite-qr.mjs?v=1';
 
@@ -33,27 +35,45 @@ export function createCompetitionHub(adapter) {
   };
   let context = null, latestSnapshot = null, retrySetup = null, currentInvite = null, retryFragment = null;
   let navigationEpoch = 0, contextAttempt = null, afterClose = null;
+  let refreshDrawing = false, viewClock = null, viewClockTick = null, viewer = null, viewStamp = 0, hostViewerLink = null;
+  const refresh = createTournamentRefresh({ visible: () => dialog.open && !document.hidden });
+  const stopView = () => { refresh.stop(); clearInterval(viewClock); viewClock = null; viewClockTick = null; };
+  const startViewClock = tick => { clearInterval(viewClock); viewClockTick = tick; tick(); viewClock = !document.hidden && dialog.open && viewClockTick === tick ? setInterval(tick, 1000) : null; };
   const roomScopes = new Map(Object.entries(readLocal(roomScopesKey, sessionStorage) || {}));
   const rememberRoom = (code, scopeId) => { roomScopes.set(code, scopeId); writeLocal(roomScopesKey, Object.fromEntries(roomScopes), sessionStorage); };
   const session = () => adapter.getSession();
   const message = text => { status.textContent = text; };
   const open = () => { if (!dialog.open) dialog.showModal(); };
   const close = next => {
-    stopInviteScanner(); navigationEpoch++;
+    stopInviteScanner(); stopView(); viewer = null; navigationEpoch++;
     if (!dialog.open) { if (typeof next === 'function') next(); return; }
     afterClose = typeof next === 'function' ? next : null;
     dialog.close();
   };
   const draw = (title, html, previous = null) => {
     stopInviteScanner();
+    if (!refreshDrawing) { stopView(); viewer = null; viewStamp++; }
+    const focused = refreshDrawing && content.contains(document.activeElement) ? document.activeElement : null;
+    const focusKey = focused && { id: focused.id, dataset: { ...focused.dataset }, tagName: focused.tagName, text: focused.textContent };
+    const scrollTop = content.scrollTop;
+    const details = refreshDrawing ? [...content.querySelectorAll('details')].map(node => node.open) : [];
     currentInvite = null;
     content.removeAttribute('aria-busy');
     heading.textContent = title; content.innerHTML = html; message(''); back = previous;
-    backButton.hidden = !back; open(); heading.focus(); content.scrollTop = 0;
+    backButton.hidden = !back; open();
+    if (!refreshDrawing) { heading.focus(); content.scrollTop = 0; }
+    else {
+      content.querySelectorAll('details').forEach((node, index) => { node.open = Boolean(details[index]); });
+      const replacement = focusKey && [...content.querySelectorAll('button, input, select, textarea, summary')].find(node =>
+        focusKey.id ? node.id === focusKey.id : Object.keys(focusKey.dataset).length
+          ? Object.entries(focusKey.dataset).every(([key, value]) => node.dataset[key] === value)
+          : node.tagName === focusKey.tagName && node.textContent === focusKey.text);
+      replacement?.focus({ preventScroll: true }); content.scrollTop = scrollTop;
+    }
   };
   const run = async (action, target) => {
     if (target?.disabled) return;
-    stopInviteScanner();
+    stopInviteScanner(); stopView();
     const navigation = ++navigationEpoch;
     const initiallyClosed = !dialog.open;
     if (initiallyClosed) draw('Loading…', '<p>Opening your groups and events…</p>');
@@ -89,11 +109,11 @@ export function createCompetitionHub(adapter) {
     return data;
   }
   function signInThen(resume) { afterSignIn = resume; close(() => adapter.openSignIn()); }
-  async function needAccount(resume) {
+  async function needAccount(resume, kind = 'pod') {
     const navigation = navigationEpoch; const signedIn = await token();
     if (navigation !== navigationEpoch) return false;
     if (signedIn) return true;
-    draw('Sign in for Pods', `<p>Pods keep private memberships and ratings. Sign in, then choose whether to join.</p>${button('hubSignIn', 'Sign in', true)}`);
+    draw(kind === 'tournament' ? 'Sign in to host a tournament' : 'Sign in for Pods', `<p>${kind === 'tournament' ? 'Sign in to create and manage this tournament. Entrants can continue as guests.' : 'Pods keep private memberships and ratings. Sign in, then choose whether to join.'}</p>${button('hubSignIn', 'Sign in', true)}`);
     bind('#hubSignIn', () => signInThen(resume)); return false;
   }
   function rememberGuest(event) {
@@ -107,6 +127,21 @@ export function createCompetitionHub(adapter) {
     }
   }
   const route = (kind, id, suffix = '') => `${kind}/${encodeURIComponent(id)}${suffix ? '/' + suffix : ''}`;
+  const freshness = () => {
+    if (!content.querySelector('#eventFreshness')) content.insertAdjacentHTML('beforeend', '<p class="competition-help" id="eventFreshness" aria-live="off"></p>');
+    content.querySelector('#eventFreshness').textContent = `Updated ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })} · Refreshes every 15 seconds while visible.`;
+  };
+  function watchEvent(id, render) {
+    if (refreshDrawing) return;
+    freshness();
+    const stamp = viewStamp, navigation = navigationEpoch;
+    refresh.start(async () => {
+      const latest = await request(route('tournament', id), { scopeId: id });
+      if (stamp !== viewStamp || navigation !== navigationEpoch || !dialog.open || document.hidden) return;
+      refreshDrawing = true;
+      try { render(latest); freshness(); } finally { refreshDrawing = false; }
+    }, error => { if (stamp === viewStamp && dialog.open) message(`Automatic refresh stopped: ${error.message} Reopen this screen or use Refresh to try again.`); });
+  }
 
   async function home(kind = 'pod') {
     const navigation = navigationEpoch;
@@ -120,11 +155,11 @@ export function createCompetitionHub(adapter) {
       <div class="competition-actions">${button('hubCreate', kind === 'pod' ? 'Create a Pod' : 'Create tournament', true)}${button('hubJoin', 'Use an invite')}</div>
       ${!signedIn && kind === 'pod' ? `<p>Sign in to create or join a private Pod.</p>${button('hubAccount', 'Sign in')}` : ''}
       <div class="competition-list">${entries.map(row => `<button class="competition-row" data-open="${escape(row.id)}" type="button"><strong>${escape(row.name)}</strong><span>${escape(row.status || 'Guest access on this phone')} <b aria-hidden="true">›</b></span></button>`).join('') || '<p class="competition-empty">Nothing here yet. Use an invite or create your first one.</p>'}</div>`);
-    bind('#hubCreate', () => createForm(kind)); bind('#hubJoin', () => inviteForm()); bind('#hubAccount', () => signInThen(() => home(kind)));
+    bind('#hubCreate', () => createForm(kind)); bind('#hubJoin', () => inviteForm(kind)); bind('#hubAccount', () => signInThen(() => home(kind)));
     content.querySelectorAll('[data-open]').forEach(node => node.addEventListener('click', () => void run(() => scopeScreen(kind, node.dataset.open), node)));
   }
   async function createForm(kind) {
-    if (!await needAccount(() => createForm(kind))) return;
+    if (!await needAccount(() => createForm(kind), kind)) return;
     const requestId = crypto.randomUUID();
     draw(kind === 'pod' ? 'Create a Pod' : 'Create tournament', `<form id="hubCreateForm">
       ${field('name', kind === 'pod' ? 'Pod name' : 'Tournament name', 'required maxlength="80" autocomplete="off"')}
@@ -142,17 +177,17 @@ export function createCompetitionHub(adapter) {
       await scopeScreen(kind, result.id);
     });
   }
-  function inviteForm() {
+  function inviteForm(kind = 'pod') {
     draw('Use an invite', `${podInviteScannerEnabled ? `<div class="competition-actions">${button('podInviteScan', 'Scan Pod QR')}${button('podInvitePhotoButton', 'Choose QR photo')}</div>
       <input id="podInvitePhoto" type="file" accept="image/*" capture="environment" hidden>
       <section id="podInviteScanPanel" hidden aria-label="Pod QR scanner"><div class="join-qr-scanner-frame"><video id="podInviteScanVideo" autoplay muted playsinline aria-label="Pod QR camera preview"></video></div>${button('podInviteScanStop', 'Stop camera')}</section>
       <p id="podInviteScanStatus" class="competition-help" role="status" aria-live="polite">Scan a member’s Pod invite. Camera images stay on this device.</p>` : ''}
-      <form id="hubInviteForm"><label class="select-field">Invite link or code<textarea name="invite" required rows="3" autocomplete="off" spellcheck="false"></textarea></label><button class="primary-action" type="submit">Preview invite</button></form><p class="competition-help">Get a private link or QR from a member or event host. There is no public directory.</p>`, () => home());
+      <form id="hubInviteForm"><label class="select-field">Invite link or code<textarea name="invite" required rows="3" autocomplete="off" spellcheck="false"></textarea></label><button class="primary-action" type="submit">Preview invite</button></form><p class="competition-help">Get a private link or QR from a member or event host. There is no public directory.</p>`, () => home(kind));
     if (podInviteScannerEnabled) bindInviteScanner();
     submit('#hubInviteForm', form => {
       let value = String(form.get('invite')).trim();
       if (value.includes('#')) value = parseCompetitionFragment(value.slice(value.indexOf('#')))?.invite || '';
-      return invitePreview(value);
+      return invitePreview(value, '', kind);
     });
   }
   function bindInviteScanner() {
@@ -186,7 +221,7 @@ export function createCompetitionHub(adapter) {
       } catch {if(current(epoch))status.textContent='That photo could not be read. Try another photo or paste the invite link.';}
     });
   }
-  async function invitePreview(invite, enteredName = '') {
+  async function invitePreview(invite, enteredName = '', originKind = null) {
     stopInviteScanner();
     const navigation = navigationEpoch;
     const preview = await request('invite-preview', { body: { token: invite }, noAccount: true });
@@ -203,9 +238,14 @@ export function createCompetitionHub(adapter) {
       <form id="hubJoinForm">${field('displayName', 'Your name', `required maxlength="80" autocomplete="nickname" value="${escape(displayName)}"`)}
       ${preview.kind === 'tournament' && signedIn ? `<label class="select-field">Enter as<select name="entry"><option value="account">My signed-in account</option><option value="guest"${entry === 'guest' ? ' selected' : ''}>Guest for this event</option></select></label>` : ''}
       ${preview.kind === 'tournament' && signedIn && guests[preview.id] ? '<p class="competition-help">Your previous guest entry stays separate. An account entry starts or resumes that account’s points. The host can withdraw an unused guest entry.</p>' : ''}
-      <button class="primary-action" type="submit">${preview.kind === 'pod' && !signedIn ? 'Sign in to join' : 'Accept and join'}</button></form>
-      <p class="competition-help">${preview.kind === 'pod' ? 'You can leave later. Previous rating and game count are kept for your return.' : 'Points use the full finishing order: four players score 3, 2, 1, 0. Ties share points. If timed: finish this turn plus five total additional turns, then shared top places.'}</p>`, () => inviteForm());
+      <button class="primary-action" type="submit">${preview.kind === 'pod' && !signedIn ? 'Sign in to join' : preview.kind === 'tournament' && !signedIn ? 'Continue as guest' : 'Accept and join'}</button></form>
+      ${preview.kind === 'tournament' && !signedIn ? button('eventInviteSignIn', 'Sign in and join with my account') : ''}
+      <p class="competition-help">${preview.kind === 'pod' ? 'You can leave later. Previous rating and game count are kept for your return.' : 'Points use the full finishing order: four players score 3, 2, 1, 0. Ties share points. If timed: finish this turn plus five total additional turns, then shared top places.'}</p>`, () => inviteForm(originKind || preview.kind));
     currentInvite = invite;
+    bind('#eventInviteSignIn', () => {
+      const name = content.querySelector('#hubJoinForm [name=displayName]').value;
+      signInThen(() => invitePreview(invite, name, originKind || preview.kind));
+    });
     submit('#hubJoinForm', async form => {
       if (preview.kind === 'pod' && !await token()) { signInThen(() => invitePreview(invite, String(form.get('displayName')))); return; }
       const navigation = navigationEpoch;
@@ -457,18 +497,26 @@ export function createCompetitionHub(adapter) {
 
   async function eventScreen(id) {
     const event = await request(route('tournament', id), { scopeId: id });
+    drawEvent(event);
+  }
+  function drawEvent(event) {
+    const id = event.id;
     const round = event.rounds.at(-1); const me = event.members.find(row => row.id === event.me);
+    const attendance = tournamentAttendance(event);
     const assignment = round?.assignments.find(row => row.participantIds.includes(event.me));
     draw(event.name, `<p class="competition-eyebrow">${event.status === 'completed' ? 'Completed' : round ? `Round ${round.number} of ${event.settings.rounds} · ${round.status === 'draft' ? 'Reviewing seats' : round.status}` : 'Registration open'}</p>
+      <p>${attendance.attending} attending · ${attendance.pending} awaiting approval${attendance.withdrawn ? ` · ${attendance.withdrawn} left early / no-show` : ''}</p>
+      ${event.role === 'admin' ? `<div class="competition-actions">${button('eventInviteMain', 'Invite entrants', !round)}${button('eventManage', attendance.pending ? `Host menu · ${attendance.pending} pending` : 'Host menu', Boolean(round))}${button('eventSpectatorMain', 'Private spectator link')}</div>` : ''}
       ${me.status === 'pending' ? '<p>Entry received. The host must approve you between rounds. You start with zero points.</p>' : ''}
       ${assignment ? assignmentHtml(event, assignment) : `<p>${me.participating ? (me.status === 'left' ? 'You have left play. Your earned points still count for final placings.' : 'Your next Table will appear when the host prepares a round.') : 'You are hosting this event. You can also enter as a player.'}</p>`}
       <div class="competition-actions">${button('eventStandings', 'Standings', true)}${button('eventTables', 'All tables')}${button('eventHistory', 'History')}${button('eventRefresh', 'Refresh')}</div>
       ${!me.participating && event.status !== 'completed' ? button('eventEnter', 'Play in this tournament') : ''}
-      ${event.role === 'admin' ? `<div class="competition-host-bar">${!round || round.status === 'complete' ? (event.status !== 'completed' ? button('prepareRound', `Prepare round ${(round?.number || 0) + 1}`) : '') : round.status === 'draft' ? `${round.seatingStale ? '<p>Attendance or points changed. Review the seating again.</p>' : ''}${button('editSeating', 'Review seating')}${button('startRound', 'Start this round', true)}` : '<p>Confirm every Table result before the next round.</p>'}${button('eventManage', 'Host menu')}</div>` : ''}
-      ${me.participating && me.status === 'active' ? button('eventLeave', 'Leave play early') : ''}
+      ${event.role === 'admin' ? `<div class="competition-host-bar">${!round || round.status === 'complete' ? (event.status !== 'completed' ? button('prepareRound', `Prepare round ${(round?.number || 0) + 1}`) : '') : round.status === 'draft' ? `${round.seatingStale ? '<p>Attendance or points changed. Review the seating again.</p>' : ''}${button('editSeating', 'Review seating')}${button('startRound', 'Start this round', true)}` : '<p>Confirm every Table result before the next round.</p>'}</div>` : ''}
+      ${me.participating && me.status === 'active' && event.status !== 'completed' ? button('eventLeave', 'Leave play early') : ''}
       <details><summary>Scoring and round rules</summary><p>${escape(event.rules)}</p><p>Rounds: ${event.settings.rounds}. Preferred Table size: ${event.settings.preferredSize}. ${event.settings.minutes ? `${event.settings.minutes} minutes per round.` : 'Untimed.'} Later seating: ${event.settings.priority === 'new_opponents' ? 'New opponents first' : 'Standings first'}.</p></details>`, () => home('tournament'));
     bind('#eventStandings', () => eventStandings(event)); bind('#eventTables', () => eventTables(event)); bind('#eventHistory', () => historyScreen('tournament', id)); bind('#eventRefresh', () => eventScreen(id));
-    bind('#eventManage', () => eventMenu(event)); bind('#prepareRound', async () => { await request(route('tournament', id, 'rounds/prepare'), { scopeId: id, body: {} }); await eventScreen(id); });
+    bind('#eventManage', () => eventMenu(event)); bind('#eventInviteMain', () => inviteScreen('tournament', id)); bind('#eventSpectatorMain', () => spectatorLinks(event));
+    bind('#prepareRound', async () => { await request(route('tournament', id, 'rounds/prepare'), { scopeId: id, body: {} }); await eventScreen(id); });
     bind('#editSeating', () => seatingScreen(event)); bind('#startRound', () => confirmScreen('Start this round?', 'Players will use the reviewed assignments. A timed round’s clock starts now.', async () => {
       await request(route('tournament', id, 'rounds/start'), { scopeId: id, body: { roundId: round.id, baseVersion: event.version } }); await eventScreen(id);
     }, () => eventScreen(id)));
@@ -480,6 +528,7 @@ export function createCompetitionHub(adapter) {
       await request('join', { body: { token: invite.token, displayName: me.name } }); await eventScreen(id);
     });
     bindAssignments(event);
+    watchEvent(id, drawEvent);
   }
   function assignmentHtml(event, assignment) {
     const round = event.rounds.find(row => row.assignments.some(item => item.id === assignment.id));
@@ -496,24 +545,29 @@ export function createCompetitionHub(adapter) {
       const assignment = event.rounds.flatMap(row => row.assignments).find(row => row.id === node.dataset.createTable);
       return launchTable({ kind: 'tournament', id: event.id, name: event.name, assignmentId: assignment.id, playerCount: assignment.participantIds.length });
     }, node)));
-    content.querySelectorAll('[data-join-table]').forEach(node => node.addEventListener('click', () => { rememberRoom(node.dataset.joinTable, event.id); close(); adapter.joinTable(node.dataset.joinTable); }));
+    content.querySelectorAll('[data-join-table]').forEach(node => node.addEventListener('click', () => void run(() => joinAssignedTable(event, node.dataset.joinTable), node)));
     content.querySelectorAll('[data-result]').forEach(node => node.addEventListener('click', () => void run(() => gameScreen('tournament', event.id, node.dataset.result, () => eventScreen(event.id)), node)));
     content.querySelectorAll('[data-clock]').forEach(node => node.addEventListener('click', () => void run(() => clockScreen(event.id, node.dataset.clock), node)));
   }
   function eventStandings(event) {
     draw('Tournament standings', `<ol class="competition-ranks">${event.standings.map(row => `<li><span class="competition-rank">${row.rank}</span><span><strong>${escape(row.name)}${row.id === event.me ? ' · You' : ''}</strong><small>${row.kind === 'guest' ? 'Guest · ' : ''}${row.gamesPlayed} ${row.gamesPlayed === 1 ? 'game' : 'games'}${row.status !== 'active' ? ' · ' + escape(statusLabel(row.status)) : ''}</small></span><b>${Number(row.points.toFixed(3))}<small>points</small></b></li>`).join('') || '<p>No entrants yet.</p>'}</ol><p class="competition-help">All played rounds count. Equal point totals share a placing. Late entrants start at zero; early leavers keep earned points.</p>`, () => eventScreen(event.id));
+    watchEvent(event.id, eventStandings);
   }
   function eventTables(event) {
-    draw('Tournament tables', event.rounds.map(round => `<h3>Round ${round.number} · ${escape(round.status)}</h3>${round.assignments.map(assignment => assignmentHtml(event, assignment)).join('')}`).join('') || '<p>No round prepared yet.</p>', () => eventScreen(event.id)); bindAssignments(event);
+    draw('Tournament tables', event.rounds.map(round => `<h3>Round ${round.number} · ${escape(round.status)}</h3>${round.assignments.map(assignment => assignmentHtml(event, assignment)).join('')}`).join('') || '<p>No round prepared yet.</p>', () => eventScreen(event.id)); bindAssignments(event); watchEvent(event.id, eventTables);
   }
   function eventMenu(event) {
     const round = event.rounds.at(-1);
-    draw('Tournament host menu', `<div class="competition-actions">${button('eventInvite', 'Invite entrants')}${button('eventAddGuest', 'Add a guest')}${button('eventRules', 'View rules')}</div>
+    const attendance = tournamentAttendance(event);
+    draw('Tournament host menu', `<p>${attendance.attending} attending · ${attendance.pending} awaiting approval · ${attendance.withdrawn} left early / no-show</p><div class="competition-actions">${button('eventInvite', 'Invite entrants')}${button('eventAddGuest', 'Add a guest')}${button('eventRules', 'View rules')}${button('eventSpectators', 'Private spectator link')}${button('eventMenuRefresh', 'Refresh')}</div>
       <div class="competition-list">${event.members.filter(row => row.participating).map(row => `<section class="competition-member"><strong>${escape(row.name)}</strong><small>${row.kind === 'guest' ? 'Guest' : 'Signed in'} · ${escape(statusLabel(row.status) || 'Attending')}${row.role === 'admin' ? (row.id === event.creatorId ? ' · Host' : ' · Co-host') : ''}</small><div class="competition-actions">
-      ${row.status === 'pending' ? `<button type="button" data-approve="${escape(row.id)}" class="secondary-action">Approve at zero points</button>` : ''}
+      ${row.status === 'pending' && round?.status !== 'playing' && event.status !== 'completed' ? `<button type="button" data-approve="${escape(row.id)}" class="secondary-action">Approve at zero points</button>` : ''}
+      ${row.status === 'left' && round?.status !== 'playing' && event.status !== 'completed' ? `<button type="button" data-restore="${escape(row.id)}" class="secondary-action">Restore attendance</button>` : ''}
       ${row.kind === 'guest' ? `<button type="button" data-access="${escape(row.id)}" class="secondary-action">Give guest access</button>` : event.creatorId === event.me && row.id !== event.creatorId && (row.status === 'active' || (row.status === 'left' && row.role === 'admin')) ? `<button type="button" data-cohost="${escape(row.id)}" data-enabled="${row.role !== 'admin'}" class="secondary-action">${row.role === 'admin' ? 'Remove co-host' : 'Make co-host'}</button>` : ''}
-      ${row.status === 'active' ? `<button type="button" data-withdraw="${escape(row.id)}" class="text-action">Mark left early / no-show</button>` : ''}</div></section>`).join('')}</div>
+      ${row.status === 'active' && event.status !== 'completed' ? `<button type="button" data-withdraw="${escape(row.id)}" class="text-action">Mark left early / no-show</button>` : ''}</div></section>`).join('')}</div>
+      ${round && ['draft', 'playing'].includes(round.status) ? `<details><summary>Recover an unstarted Table</summary><p>Replace only a Table whose game never started. Its old room stays open for review but cannot start a game. No history or points are deleted.</p>${round.assignments.filter(row => row.roomCode && !row.gameId && !row.cancelled).map(row => `<button type="button" data-release-table="${escape(row.id)}" class="secondary-action">Replace unstarted Table ${round.assignments.indexOf(row) + 1}</button>`).join('') || '<p>No linked unstarted assignments to replace.</p>'}</details>` : ''}
       ${round?.status === 'playing' ? `<details><summary>Unplayed no-show Tables</summary><p>Cancel only a Table that never started. It receives no points.</p>${round.assignments.filter(row => !row.gameId && !row.cancelled).map((row, index) => `<button type="button" data-cancel-table="${escape(row.id)}" class="text-action">Cancel unplayed Table ${round.assignments.indexOf(row) + 1}</button>`).join('')}</details>` : ''}`, () => eventScreen(event.id));
+    bind('#eventSpectators', () => spectatorLinks(event)); bind('#eventMenuRefresh', async () => eventMenu(await request(route('tournament', event.id), { scopeId: event.id })));
     bind('#eventInvite', () => inviteScreen('tournament', event.id)); bind('#eventRules', () => { draw('Tournament rules', `<p>${escape(event.rules)}</p>`, () => eventMenu(event)); });
     content.querySelector('.competition-actions').insertAdjacentHTML('beforeend', button('eventInvites', 'Manage invites'));
     bind('#eventInvites', () => issuedInvitesScreen('tournament', event.id));
@@ -524,7 +578,14 @@ export function createCompetitionHub(adapter) {
     const memberAction = (selector, action, extra = () => ({})) => content.querySelectorAll(selector).forEach(node => node.addEventListener('click', () => void run(async () => {
       await request(route('tournament', event.id, 'members'), { scopeId: event.id, body: { action, targetId: Object.values(node.dataset)[0], ...extra(node) } }); await eventScreen(event.id);
     }, node)));
-    memberAction('[data-approve]', 'approve'); memberAction('[data-withdraw]', 'leave'); memberAction('[data-cohost]', 'cohost', node => ({ enabled: node.dataset.enabled === 'true' }));
+    memberAction('[data-approve]', 'approve'); memberAction('[data-withdraw]', 'leave'); memberAction('[data-restore]', 'restore'); memberAction('[data-cohost]', 'cohost', node => ({ enabled: node.dataset.enabled === 'true' }));
+    content.querySelectorAll('[data-release-table]').forEach(node => node.addEventListener('click', () => void run(() => {
+      const assignment = round.assignments.find(row => row.id === node.dataset.releaseTable);
+      const names = assignment.participantIds.map(id => event.members.find(row => row.id === id)?.name || 'Player').join(', ');
+      confirmScreen(`Replace unstarted Table ${round.assignments.indexOf(assignment) + 1}?`, `${names}. This releases room ${assignment.roomCode} from the assignment so its assigned host can create a replacement. The old room stays open for review but cannot start a game. All recorded history stays. A started game cannot be replaced.`, async () => {
+        await request(route('tournament', event.id, 'release-table'), { scopeId: event.id, body: { assignmentId: assignment.id } }); await eventScreen(event.id);
+      }, () => eventMenu(event));
+    }, node)));
     content.querySelectorAll('[data-access]').forEach(node => node.addEventListener('click', () => void run(async () => {
       const access = await request(route('tournament', event.id, 'guest-access'), { scopeId: event.id, body: { targetId: node.dataset.access } });
       const link = `${location.origin}/index.html#event=${encodeURIComponent(event.id)}&guest=${encodeURIComponent(access.guestToken)}`;
@@ -539,6 +600,65 @@ export function createCompetitionHub(adapter) {
         await request(route('tournament', event.id, 'cancel-table'), { scopeId: event.id, body: { assignmentId: assignment.id } }); await eventScreen(event.id);
       }, () => eventMenu(event));
     }, node)));
+    watchEvent(event.id, eventMenu);
+  }
+  async function spectatorLinks(event, created = null) {
+    const info = created ? { eventId: event.id, active: true, expiresAt: created.expiresAt } : await request(route('tournament', event.id, 'spectator-links'), { scopeId: event.id });
+    if (created) hostViewerLink = { eventId: event.id, expiresAt: created.expiresAt,
+      link: `${location.origin}/index.html#watch=${encodeURIComponent(event.id)}&viewer=${encodeURIComponent(created.viewerToken)}` };
+    const link = info.active && hostViewerLink?.eventId === event.id && hostViewerLink.expiresAt === info.expiresAt ? hostViewerLink.link : null;
+    draw('Private spectator link', `<p>A read-only board for people you choose. No account or tournament entry is needed. It shows round time, Table status and confirmed standings. It does not show life totals or Table join codes.</p>
+      <p>Anyone holding this link can view the board. Share it privately. Only one link is active; it expires after 24 hours.</p>
+      <p>${info.active ? `Active · expires ${escape(new Date(info.expiresAt).toLocaleString())}.` : 'No active spectator link.'}</p>
+      ${link ? `<label class="select-field" for="spectatorShareLink">Private spectator link<textarea id="spectatorShareLink" readonly rows="4">${escape(link)}</textarea></label>${button('spectatorCopy', 'Copy spectator link', true)}` : info.active ? '<p class="competition-help">The existing link cannot be recovered on this screen. Create a replacement to share a new link; the previous link will stop working.</p>' : ''}
+      <div class="competition-actions">${button('spectatorCreate', info.active ? 'Replace spectator link' : 'Create spectator link', !info.active)}${info.active ? button('spectatorRevoke', 'Revoke spectator link') : ''}</div>`, () => eventMenu(event));
+    bind('#spectatorCopy', async () => {
+      try { await navigator.clipboard.writeText(link); message('Private spectator link copied.'); }
+      catch { const input = content.querySelector('#spectatorShareLink'); input.focus(); input.select(); message('Select and copy this private spectator link.'); }
+    });
+    const create = async () => spectatorLinks(event, await request(route('tournament', event.id, 'spectator-links'), { scopeId: event.id, body: { action: 'create' } }));
+    bind('#spectatorCreate', () => info.active ? confirmScreen('Replace spectator link?', 'The previous link will stop working. The new private link will expire in 24 hours. Tournament entries, games and results stay.', create, () => spectatorLinks(event)) : create());
+    bind('#spectatorRevoke', () => confirmScreen('Revoke spectator link?', 'People using this link will lose board access on their next refresh, within 15 seconds while visible. Tournament entries, games and results stay.', async () => {
+      await request(route('tournament', event.id, 'spectator-links'), { scopeId: event.id, body: { action: 'revoke' } }); hostViewerLink = null; await spectatorLinks(event); message('Private spectator link revoked.');
+    }, () => spectatorLinks(event)));
+  }
+  async function spectatorRequest(capability) {
+    const response = await fetch(`/api/competitions/${route('tournament', capability.eventId, 'spectator')}`, {
+      cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer', headers: { 'x-event-viewer-token': capability.viewerToken },
+    });
+    const data = await response.json();
+    if (!response.ok) throw Object.assign(new Error(data.message || 'Spectator board unavailable.'), { status: response.status, code: data.code });
+    return data;
+  }
+  async function openSpectator(capability) {
+    draw('Private spectator board', '<p>Opening this private read-only board…</p>');
+    viewer = { eventId: capability.eventId, viewerToken: capability.viewerToken };
+    const current = viewer, stamp = viewStamp;
+    const failed = error => {
+      if (viewer !== current || stamp !== viewStamp || !dialog.open) return;
+      const text = spectatorFailure(error);
+      draw('Private spectator board unavailable', `<p>${escape(text)}</p>${button('spectatorRetry', 'Try again', true)}<p class="competition-help">A spectator link gives no tournament entry or host controls.</p>`);
+      bind('#spectatorRetry', () => openSpectator(current)); message(text);
+    };
+    const update = async () => {
+      const board = await spectatorRequest(current);
+      if (viewer !== current || stamp !== viewStamp || !dialog.open || document.hidden) return;
+      if (board.expiresAt <= board.serverNow) throw Object.assign(new Error('Expired'), { code: 'VIEWER_LINK_EXPIRED' });
+      refreshDrawing = true;
+      try {
+        draw(board.name, `${spectatorBoardHtml(board)}${button('spectatorRefresh', 'Refresh board')}`); freshness();
+        bind('#spectatorRefresh', () => openSpectator(current));
+      } finally { refreshDrawing = false; }
+      const offset = board.serverNow - Date.now();
+      startViewClock(() => {
+        const now = Date.now() + offset;
+        if (now >= board.expiresAt) { failed({ code: 'VIEWER_LINK_EXPIRED' }); return; }
+        const output = content.querySelector('#spectatorRoundClock');
+        if (output) output.textContent = spectatorClockText(board, now);
+      });
+    };
+    try { await update(); if (viewer === current && stamp === viewStamp && dialog.open) refresh.start(update, failed); }
+    catch (error) { failed(error); }
   }
   function seatingScreen(event) {
     const round = event.rounds.at(-1); const entrants = event.members.filter(row => row.participating && row.status === 'active');
@@ -560,20 +680,26 @@ export function createCompetitionHub(adapter) {
   }
   async function clockScreen(id, assignmentId) {
     const event = await request(route('tournament', id), { scopeId: id });
+    drawClock(event, assignmentId);
+  }
+  function drawClock(event, assignmentId) {
+    const id = event.id;
     const round = event.rounds.find(row => row.assignments.some(table => table.id === assignmentId));
+    if (!round) { drawEvent(event); return; }
     const assignment = round.assignments.find(row => row.id === assignmentId); const clock = assignment.clock; const canManage = event.role === 'admin' || assignment.hostId === event.me;
+    const active = round.status === 'playing' && !assignment.cancelled && !assignment.gameId;
     const remainingMs = Math.max(0, round.endsAt - event.serverNow); const requestId = crypto.randomUUID();
     draw('Round clock & final turns', `<p><output id="eventRoundCountdown">${remainingMs ? `${Math.ceil(remainingMs / 60_000)} minutes remaining.` : 'Round time has ended.'}</output></p>
       <p>${!clock ? 'Finish the active turn after time is called, then five additional turns total.' : clock.phase === 'current_turn' ? 'Finish the turn that was active when time was called.' : clock.phase === 'extra_turns' ? `${clock.remaining} additional turn${clock.remaining === 1 ? '' : 's'} remaining.` : 'All five additional turns have finished.'}</p>
       <p class="competition-help">Record every actual turn, including extra-turn effects. This counter is separate from normal turn tracking.</p>
-      ${!canManage ? '<p>Your Table host records these turns and confirms the finish.</p>' : !clock ? button('callRoundTime', 'Call time for this Table', true) : clock.phase !== 'done' ? button('recordFinalTurn', clock.phase === 'current_turn' ? 'Current turn finished' : `Additional turn ${6 - clock.remaining} finished`, true) : button('recordTimedDraw', 'Confirm surviving players tied', true)}
+      ${!active ? '<p>This Table is not playing. Open the tournament to review its current status.</p>' : !canManage ? '<p>Your Table host records these turns and confirms the finish.</p>' : !clock ? button('callRoundTime', 'Call time for this Table', true) : clock.phase !== 'done' ? button('recordFinalTurn', clock.phase === 'current_turn' ? 'Current turn finished' : `Additional turn ${6 - clock.remaining} finished`, true) : button('recordTimedDraw', 'Confirm surviving players tied', true)}
       ${button('refreshRoundClock', 'Refresh clock')}`, () => eventScreen(id));
     const output = content.querySelector('#eventRoundCountdown'); const offset = event.serverNow - Date.now();
-    const countdown = setInterval(() => {
-      if (!dialog.open || !output.isConnected) { clearInterval(countdown); return; }
+    startViewClock(() => {
+      if (!dialog.open || !output.isConnected) return;
       const seconds = Math.max(0, Math.ceil((round.endsAt - Date.now() - offset) / 1000));
       output.textContent = seconds ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')} remaining` : 'Round time has ended.';
-    }, 1000);
+    });
     bind('#refreshRoundClock', () => clockScreen(id, assignmentId));
     const action = async action => { await request(route('tournament', id, `clock/${assignmentId}`), { scopeId: id, body: { action, requestId } }); await clockScreen(id, assignmentId); };
     bind('#callRoundTime', () => action('time_called')); bind('#recordFinalTurn', () => action('finish_turn'));
@@ -586,11 +712,26 @@ export function createCompetitionHub(adapter) {
       const ctx = await request(`tables/context?code=${encodeURIComponent(current.code)}`, { scopeId: id, connectionId: current.connectionId });
       await gameScreen('tournament', id, ctx.gameId, () => eventScreen(id));
     });
+    watchEvent(id, latest => drawClock(latest, assignmentId));
   }
 
   function setPending(value) { pending = value; writeLocal(pendingKey, value, sessionStorage); }
+  function leaveFinishedToContinue(action, previous) {
+    draw('Continue to your next Table?', `<p>Your finished Table stays recorded. Leave its seat, then continue to your next assignment.</p>${button('leaveFinishedContinue', 'Leave finished Table and continue', true)}`, previous);
+    bind('#leaveFinishedContinue', async () => { await adapter.leaveFinishedTable(); await action(); });
+  }
+  function joinAssignedTable(event, code) {
+    const transition = finishedTableTransition(session(), code);
+    if (transition === 'confirm') return leaveFinishedToContinue(() => joinAssignedTable(event, code), () => eventScreen(event.id));
+    if (transition === 'blocked') {
+      draw('Your current Table is open', `<p>Finish or leave your current Table before joining the next assignment. Your seat stays connected.</p>${button('returnCurrentTable', 'Return to current Table', true)}`, () => eventScreen(event.id));
+      bind('#returnCurrentTable', () => close(() => adapter.returnToTable())); return;
+    }
+    rememberRoom(code, event.id); close(() => adapter.joinTable(code));
+  }
   async function launchTable(link) {
     const current = session();
+    if (finishedTableTransition(current) === 'confirm') return leaveFinishedToContinue(() => launchTable(link), () => scopeScreen(link.kind, link.id));
     if (current.code && current.snapshot?.turn?.gameStarted) {
       draw('Your current Table is open', `<p>Finish or leave that Table before creating another one. Opening Pods and tournaments keeps your seat connected.</p>${button('returnCurrentTable', 'Return to current Table', true)}`, () => scopeScreen(link.kind, link.id));
       bind('#returnCurrentTable', () => { close(); adapter.returnToTable(); }); return;
@@ -599,6 +740,11 @@ export function createCompetitionHub(adapter) {
       const linked = await request(`tables/context?code=${encodeURIComponent(current.code)}`, {
         scopeId: roomScopes.get(current.code), connectionId: current.connectionId,
       });
+      if (linked.released) {
+        adapter.onCompetitionContext?.(linked);
+        draw('Create the replacement Table?', `<p>Table ${escape(current.code)} was replaced. The old room stays open for review but cannot start a game. Leave its seat on this phone, then create the assigned replacement. Recorded history and points stay.</p>${button('leaveReleasedContinue', 'Leave replaced Table and continue', true)}`, () => scopeScreen(link.kind, link.id));
+        bind('#leaveReleasedContinue', async () => { await adapter.leaveReplacedTable(current.code); await launchTable(link); }); return;
+      }
       if (linked.linked) {
         const same = linked.canAccess && linked.kind === link.kind && linked.id === link.id
           && (!link.assignmentId || linked.assignmentId === link.assignmentId);
@@ -632,14 +778,16 @@ export function createCompetitionHub(adapter) {
         rememberRoom(current.code, pending.id); setPending(null);
       } else context = await request(`tables/context?code=${encodeURIComponent(current.code)}`, { scopeId, connectionId: current.connectionId, viewAware: false });
       if (epoch !== authEpoch || session().code !== current.code) return;
-      if (key && context.linked && context.canAccess && !context.seatLinked) context = await request('tables/claim', { scopeId: context.id, connectionId: current.connectionId, body: { code: current.code }, viewAware: false });
+      if (key && context.linked && context.canAccess && !context.released && !context.seatLinked) context = await request('tables/claim', { scopeId: context.id, connectionId: current.connectionId, body: { code: current.code }, viewAware: false });
+      if (epoch !== authEpoch || session().code !== current.code) return;
+      adapter.onCompetitionContext?.(context);
       if (context.canAccess) rememberRoom(current.code, context.id);
       contextButton.hidden = false; contextButton.textContent = context.linked ? context.canAccess ? `Return to ${context.kind === 'pod' ? 'Pod' : 'tournament'}` : 'About this private Table' : 'Pods & tournaments';
       intermissionButton.hidden = !context.linked || !context.canAccess;
       intermissionButton.textContent = context.kind === 'tournament' ? 'Review tournament result' : 'Review Pod result';
       lobbyButton.hidden = !context.linked || !context.canAccess;
       lobbyButton.textContent = context.kind === 'tournament' ? 'Open tournament' : 'Open Pod';
-      setupStatus.textContent = context.linked ? context.canAccess ? `${context.name} · Your seat is linked. Results count after host confirmation.` : 'Private group Table. Guests can play normally.' : '';
+      setupStatus.textContent = context.released ? `${context.name} · This Table was replaced. It cannot start a game. Open the tournament for the current assignment.` : context.linked ? context.canAccess ? `${context.name} · Your seat is linked. Results count after host confirmation.` : 'Private group Table. Guests can play normally.' : '';
       setupStatus.hidden = !key || !setupStatus.textContent;
       const parent = document.querySelector(current.snapshot.lifecycle.status === 'intermission' ? '#intermissionPanel' : '#lobbyControls');
       if (parent && setupStatus.parentElement !== parent) parent.prepend(setupStatus);
@@ -659,6 +807,7 @@ export function createCompetitionHub(adapter) {
     const current = session();
     if (!current.code) return home('pod');
     context = await request(`tables/context?code=${encodeURIComponent(current.code)}`, { scopeId: roomScopes.get(current.code), connectionId: current.connectionId });
+    adapter.onCompetitionContext?.(context);
     if (!context.linked) return home('pod');
     if (!context.canAccess) { draw('Private group Table', context.kind === 'tournament'
       ? '<p>You can play this Table normally. The event host can give you a guest access link to view your tournament.</p>'
@@ -666,10 +815,10 @@ export function createCompetitionHub(adapter) {
     const kind = context.kind, id = context.id;
     const linkedMembers = (context.roster || []).filter(row => row.kind === 'member').length;
     const guestSeats = (context.roster || []).length - linkedMembers;
-    draw(context.name, `<p>Your Table is linked to this ${kind === 'pod' ? 'Pod' : 'tournament'}.</p><div class="competition-list">${(context.roster || []).map(row => `<p><strong>${escape(row.name)}</strong> · ${row.kind === 'guest' ? 'Guest' : 'Linked member'}</p>`).join('')}</div>
+    draw(context.name, `${context.released ? '<p>This Table was replaced and cannot start a game. Open the tournament to find your current assignment. Recorded history stays.</p>' : `<p>Your Table is linked to this ${kind === 'pod' ? 'Pod' : 'tournament'}.</p>`}<div class="competition-list">${(context.roster || []).map(row => `<p><strong>${escape(row.name)}</strong> · ${row.kind === 'guest' ? 'Guest' : 'Linked member'}</p>`).join('')}</div>
       ${kind === 'pod' && !current.snapshot.turn.gameStarted ? `<p id="tableCreditSummary" class="competition-help">${linkedMembers} linked member${linkedMembers === 1 ? '' : 's'} · ${guestSeats} guest${guestSeats === 1 ? '' : 's'}. Guests can play. For Pod credit, sign in, join the Pod and link your seat before the game starts. Results count after host confirmation.</p>` : ''}
       <div class="competition-actions">${button('openTableScope', kind === 'pod' ? 'Open Pod' : 'Open tournament', true)}${current.snapshot.gameResult ? button('reviewTableFinish', 'Review finishing order') : ''}${button('refreshTableLink', 'Refresh linked seats')}</div>
-      ${kind === 'tournament' && context.assignedGuests?.length && !current.snapshot.turn.gameStarted && current.seatId === current.snapshot.hostSeatId ? `<details><summary>Link an event guest’s seat</summary><p>Only guest entrants can be attested here. Signed-in entrants link their own seat.</p><form id="attestEventGuest"><label class="select-field">Guest<select name="participantId">${context.assignedGuests.map(row => `<option value="${escape(row.id)}">${escape(row.name)}</option>`).join('')}</select></label><label class="select-field">Claimed Table seat<select name="seatId">${context.roster.filter(row => !row.participantId).map(row => `<option value="${row.seatId}">P${row.seatId + 1} · ${escape(row.name)}</option>`).join('')}</select></label><button class="secondary-action" type="submit">Attest guest seat</button></form></details>` : ''}`, () => home(kind));
+      ${kind === 'tournament' && !context.released && context.assignedGuests?.length && !current.snapshot.turn.gameStarted && current.seatId === current.snapshot.hostSeatId ? `<details><summary>Link an event guest’s seat</summary><p>Only guest entrants can be attested here. Signed-in entrants link their own seat.</p><form id="attestEventGuest"><label class="select-field">Guest<select name="participantId">${context.assignedGuests.map(row => `<option value="${escape(row.id)}">${escape(row.name)}</option>`).join('')}</select></label><label class="select-field">Claimed Table seat<select name="seatId">${context.roster.filter(row => !row.participantId).map(row => `<option value="${row.seatId}">P${row.seatId + 1} · ${escape(row.name)}</option>`).join('')}</select></label><button class="secondary-action" type="submit">Attest guest seat</button></form></details>` : ''}`, () => home(kind));
     bind('#openTableScope', () => scopeScreen(kind, id)); bind('#refreshTableLink', async () => { await syncSetup(true); await tableScreen(); });
     bind('#reviewTableFinish', async () => {
       await request(route(kind, id, 'reconcile'), { scopeId: id, body: {} });
@@ -686,16 +835,18 @@ export function createCompetitionHub(adapter) {
   }
 
   backButton.addEventListener('click', () => { if (back) void run(back, backButton); }); closeButton.addEventListener('click', close);
-  dialog.addEventListener('cancel', () => { stopInviteScanner(); navigationEpoch++; });
+  dialog.addEventListener('cancel', () => { stopInviteScanner(); stopView(); viewer = null; navigationEpoch++; });
   dialog.addEventListener('close', () => {
-    stopInviteScanner(); const next = afterClose; afterClose = null;
+    stopInviteScanner(); stopView(); viewer = null; const next = afterClose; afterClose = null;
     if (next) next(); else adapter.onClose();
   });
   document.addEventListener('visibilitychange', () => {
+    refresh.visibilityChanged(); clearInterval(viewClock); viewClock = null;
+    if (!document.hidden && viewClockTick && dialog.open) { viewClockTick(); if (viewClockTick) viewClock = setInterval(viewClockTick, 1000); }
     if(!document.hidden)return;
     stopInviteScanner();const panel=content.querySelector('#podInviteScanPanel');if(panel)panel.hidden=true;
   });
-  window.addEventListener('pagehide', stopInviteScanner);
+  window.addEventListener('pagehide', () => { stopInviteScanner(); stopView(); viewer = null; });
   document.querySelector('#myPodsButton').addEventListener('click', () => void run(() => home('pod')));
   document.querySelector('#tournamentsButton').addEventListener('click', () => void run(() => home('tournament')));
   contextButton.addEventListener('click', () => { adapter.closeTableMenu(); void run(tableScreen); });
@@ -704,6 +855,8 @@ export function createCompetitionHub(adapter) {
   async function init() {
     const navigation = navigationEpoch;
     const fragment = parseCompetitionFragment(location.hash) || retryFragment;
+    // Capabilities leave the address bar before any network request.
+    if (fragment) { retryFragment = fragment; history.replaceState(null, '', location.pathname + location.search); }
     try {
       const config = await request('config', { noAccount: true, viewAware: false });
       enabled = config.enabled; podDeletionEnabled = config.podDeletionEnabled === true; podInviteScannerEnabled = config.podInviteScannerEnabled === true;
@@ -712,7 +865,8 @@ export function createCompetitionHub(adapter) {
       if (!enabled) { if (fragment) draw('Invites unavailable', '<p>Pods and tournaments are not enabled on this server.</p>'); return; }
       retryFragment = fragment;
       if (fragment) history.replaceState(null, '', location.pathname + location.search);
-      if (fragment?.invite) await invitePreview(fragment.invite);
+      if (fragment?.viewerToken) await openSpectator(fragment);
+      else if (fragment?.invite) await invitePreview(fragment.invite);
       else if (fragment?.eventId) {
         const generation = beginEntry(fragment.eventId);
         const event = await request(route('tournament', fragment.eventId), { guestToken: fragment.guestToken, noAccount: true });
@@ -734,9 +888,14 @@ export function createCompetitionHub(adapter) {
     });
   });
   return {
-    init, isOpen: () => dialog.open,
+    init, isOpen: () => dialog.open, openSpectator,
+    async returnToTournament() { if (context?.linked && context.canAccess && context.kind === 'tournament') await run(() => eventScreen(context.id)); },
+    async openTournamentClock() { if (context?.linked && context.canAccess && context.kind === 'tournament' && context.assignmentId) await run(() => clockScreen(context.id, context.assignmentId)); },
     observeTable(snapshot) {
-      latestSnapshot = snapshot; if (!enabled) return;
+      const priorCode = latestSnapshot?.code;
+      latestSnapshot = snapshot;
+      if (priorCode !== snapshot?.code) { context = null; observation = null; contextAttempt = null; adapter.onCompetitionContext?.(null); }
+      if (!enabled) return;
       const current = session(), key = setupObservationKey(snapshot, current.seatId, current.connectionId, authEpoch);
       const discovery = contextObservationKey(snapshot, current.seatId, current.connectionId, authEpoch);
       if (discovery) contextButton.hidden = false;
@@ -750,7 +909,10 @@ export function createCompetitionHub(adapter) {
     authChanged(signedIn, { restored = false } = {}) {
       stopInviteScanner();
       if (!restored) authEpoch++;
+      if (!restored) hostViewerLink = null;
       observation = null; contextAttempt = null; context = null; clearTimeout(retrySetup);
+      adapter.onCompetitionContext?.(null);
+      if (viewer) { if (latestSnapshot) void syncSetup(true).catch(() => {}); return; }
       const acceptingInvite = content.querySelector('#hubJoinForm button[type=submit]')?.disabled;
       if (restored && currentInvite && dialog.open && !acceptingInvite) {
         const invite = currentInvite, enteredName = content.querySelector('#hubJoinForm [name=displayName]')?.value || '';

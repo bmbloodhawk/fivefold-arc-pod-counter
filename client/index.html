@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- Release: Pod games stay visible with inactive phones, November 17, 2026. -->
+<!-- Release: Tournament flow and private spectator board, November 18, 2026. -->
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -11,7 +11,7 @@
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css?v=248">
   <link rel="stylesheet" href="collection-visual.css?v=6">
-  <link rel="stylesheet" href="competition.css?v=2">
+  <link rel="stylesheet" href="competition.css?v=3">
   <link rel="stylesheet" href="dial-layout.css?v=2">
 </head>
 <body>
@@ -250,6 +250,7 @@
         <h2 id="intermissionTitle">Set up the next game</h2>
         <p id="intermissionDetail">Choose your deck, then mark yourself ready.</p>
         <button id="competitionIntermissionButton" class="secondary-action" type="button" hidden>Review group result</button>
+          <button id="returnToTournamentButton" class="primary-action" type="button" hidden>Return to tournament</button>
         <div id="intermissionRoster" class="intermission-roster"></div>
         <details id="intermissionInvite" class="intermission-invite-disclosure" hidden>
           <summary class="secondary-action">Add player</summary>
@@ -329,6 +330,7 @@
         <strong id="turnPlayer">P1</strong>
         <span id="turnElapsed">TURN 0:00</span>
         <span id="gameTimer">GAME TIME 0:00</span>
+          <button id="tournamentRoundButton" class="text-action" type="button" hidden>Round clock &amp; final turns</button>
         <span id="lastTurnSummary" hidden>LAST TURN · —</span>
       </section>
       <div class="counter-stage" aria-live="polite">
@@ -799,6 +801,6 @@
   </dialog>
   <p id="competitionSetupStatus" role="status" hidden></p>
   <script src="vendor/jsqr.js?v=1"></script>
-  <script type="module" src="app.js?v=315"></script>
+  <script type="module" src="app.js?v=316"></script>
 </body>
 </html>

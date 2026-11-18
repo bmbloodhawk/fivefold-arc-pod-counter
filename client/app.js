@@ -11,11 +11,12 @@ import { createAccountScreen, saveRegistrationPreferredName } from './create-acc
 import { JoinQrScanner } from './join-qr-scanner.js?v=5';
 import { GameWakeLock } from './game-wake-lock.js?v=1';
 import { applyCollectionVisual } from './collection-visual.js?v=4';
-import { createCompetitionHub } from './competition-ui.js?v=7';
-import { parseCompetitionFragment } from './competition-model.mjs?v=1';
+import { createCompetitionHub } from './competition-ui.js?v=8';
+import { parseCompetitionFragment } from './competition-model.mjs?v=2';
 import { createAppearanceCatchUp } from './appearance-catch-up.js?v=2';
 import { createDialLayout } from './dial-layout.js?v=2';
 import { nextGameStarterPolicy } from './next-game-starter.js?v=1';
+import { tournamentTableFlow } from './tournament-table-flow.mjs?v=1';
 
 const appearancePreviewMode = new URLSearchParams(location.search).get('appearance-preview') === '1';
 const appearanceParams = new URLSearchParams(location.search);
@@ -55,6 +56,9 @@ const winnerCondition = $('#winnerCondition');
 const dialLayout = createDialLayout(dom.game, dom.mainValue);
 dom.lobbyMount.append(dom.lobbyControls);
 const transport = new RealtimeAdapter({ apiBase: apiBaseFromPage() });
+let tournamentTableContext = null;
+const tournamentRoundButton = $('#tournamentRoundButton');
+const returnToTournamentButton = $('#returnToTournamentButton');
 const competitionHub = createCompetitionHub({
   getSession: () => ({ code: transport.roomCode, seatId: transport.seatId, connectionId: transport.connectionId, snapshot: transport.snapshot }),
   getAccountToken: currentAccountToken,
@@ -62,6 +66,12 @@ const competitionHub = createCompetitionHub({
   openSignIn: () => openMyProfile(),
   closeTableMenu: () => closeGameMenu(),
   returnToTable: () => { if (state) { showTableView(); render(); } },
+  onCompetitionContext: value => {
+    tournamentTableContext = value ? { ...value, code: transport.roomCode, receivedAt: Date.now() } : null;
+    if (state) renderTurnFlow();
+  },
+  leaveFinishedTable: () => leaveFinishedTournamentTable(),
+  leaveReplacedTable: code => leaveReplacedTournamentTable(code),
   joinTable: code => { if (transport.roomCode === code && state) { showTableView(); render(); } else void openJoinCode(code); },
   createTable: link => {
     dom.localSimulation.checked = false;
@@ -1369,6 +1379,7 @@ function renderTurnFlow() {
   const lifecycleStatus = state.lifecycle?.status || (state.turn.gameStarted ? 'playing' : 'lobby');
   const isIntermission = lifecycleStatus === 'intermission';
   const isComplete = lifecycleStatus === 'complete';
+  const eventFlow = tournamentTableFlow(state, tournamentTableContext, now);
   const eliminationUndo = renderEliminationUndo();
   const isStarted = Boolean(state.turn.gameStarted) && !isComplete;
   dom.lobbyControls.hidden = isStarted || isIntermission || isComplete;
@@ -1415,7 +1426,15 @@ function renderTurnFlow() {
     dom.intermissionStartButton.disabled = !everyoneReady || (!state.localSimulation && transport.status !== 'connected');
     dom.intermissionStartButton.textContent = everyoneReady ? `Start next game · ${rosterIds.length} players` : `Waiting for every player · ${readyIds.length}/${rosterIds.length} ready`;
     dom.intermissionLeaveButton.disabled = !state.localSimulation && transport.status !== 'connected';
+    if (eventFlow) {
+      dom.intermissionTitle.textContent = 'Tournament game complete';
+      dom.intermissionDetail.textContent = eventFlow.canOpenEvent
+        ? 'Review the finish, then return to your tournament for the next assignment or final standings.'
+        : 'Your Table host confirms the finish. Ask the organizer for event access or your next assignment.';
+      for (const node of [dom.intermissionReadyButton, dom.intermissionSetupButton, dom.intermissionStartButton, dom.intermissionRoster, dom.intermissionInvite]) node.hidden = true;
+    } else dom.intermissionRoster.hidden = false;
   }
+  returnToTournamentButton.hidden = !isIntermission || !eventFlow?.canOpenEvent;
   const freezeGameControls = isIntermission || isComplete || eliminationUndo.gamePending;
   $('#adjustControls').hidden = freezeGameControls;
   // `interfaceStyle` is the current saved value, not a getter. Calling it
@@ -1426,7 +1445,8 @@ function renderTurnFlow() {
   dom.showJoinQrMenuButton.hidden = !canShareJoin || !isHost;
   const trackingEnabled = state.turn.trackingEnabled !== false;
   const paused = Boolean(state.turn.pausedAt);
-  dom.turnBanner.hidden = !isStarted || (!trackingEnabled && !eliminationUndo.gamePending);
+  dom.turnBanner.hidden = !isStarted || (!trackingEnabled && !eliminationUndo.gamePending && eventFlow?.remainingMs == null);
+  tournamentRoundButton.hidden = !isStarted || !eventFlow?.canOpenEvent || eventFlow.remainingMs === null;
   dom.turnActions.hidden = !isStarted;
   dom.toggleTurnTrackingButton.hidden = !isHost;
   dom.toggleTurnTrackingButton.disabled = !isHost || !(state.localSimulation || transport.status === 'connected') || eliminationUndo.gamePending;
@@ -1483,7 +1503,9 @@ function renderTurnFlow() {
   const pendingWinner = state.players.find(player => player.id === `P${state.pendingFinish?.winnerSeatId + 1}`);
   dom.turnPlayer.textContent = eliminationUndo.gamePending && pendingWinner ? displayName(pendingWinner) : turnPlayerValue ? displayName(turnPlayerValue) : state.turnSeatId;
   dom.turnElapsed.textContent = `TURN ${formatDuration(timerNow - state.turn.turnStartedAt)}`;
-  dom.gameTimer.textContent = state.turn.roundEndsAt ? `ROUND ENDS IN ${formatDuration(state.turn.roundEndsAt - timerNow)}` : `GAME TIME ${formatDuration(timerNow - state.turn.gameStartedAt)}`;
+  dom.gameTimer.textContent = eventFlow?.remainingMs !== null && eventFlow?.remainingMs !== undefined
+    ? eventFlow.remainingMs > 0 ? `ROUND ENDS IN ${formatDuration(eventFlow.remainingMs)}` : 'ROUND TIME ENDED'
+    : !eventFlow && state.turn.roundEndsAt ? `ROUND ENDS IN ${formatDuration(state.turn.roundEndsAt - timerNow)}` : `GAME TIME ${formatDuration(timerNow - state.turn.gameStartedAt)}`;
   const recentHandoff = handoff && Number.isFinite(handoff.turnLengthMs) && now - handoff.handedOffAt <= 15_000;
   dom.lastTurnSummary.hidden = false;
   dom.lastTurnSummary.textContent = `TURN ${Math.max(1, Number(state.turn.turnNumber) || 1)}${recentHandoff ? ` · LAST TURN ${formatDuration(handoff.turnLengthMs)}` : ''}`;
@@ -2755,6 +2777,7 @@ function beginDialDrag(event) {
   dialPointer = { id: event.pointerId, angle: dialAngle(event), accumulated: 0 }; document.body.classList.add('dial-dragging'); dom.dialGesture.classList.add('dragging'); dom.dialGesture.setPointerCapture?.(event.pointerId); event.preventDefault();
 }
 function leaveTable() {
+  tournamentTableContext = null;
   if (state && !state.localSimulation) clearActiveTable({ code: state.podCode, seatId: transport.seatId });
   closeGameOverlays(); clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); clearStartingRollTimers(); clearInterval(turnTicker); lifeBatcher.clear(); optimisticLifeDelta = 0; dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); state = null; transport.clearSession(); renderSavedTables(); showView(dom.landing);
 }
@@ -2772,6 +2795,27 @@ async function leaveNextGameTable() {
     if (result.conflict) return showTableActionError('The table changed first. The latest state is shown.');
     forgetCurrentTable(); leaveTable();
   } catch (error) { showTableRequestError(error); }
+}
+async function leaveFinishedTournamentTable() {
+  if (!state || state.localSimulation) throw new Error('Open your finished tournament Table first.');
+  const code = transport.roomCode, seatId = transport.seatId, epoch = transport.sessionEpoch, profileEpoch = awardProfileEpoch;
+  const stillCurrent = () => transport.roomCode === code && transport.seatId === seatId && transport.sessionEpoch === epoch
+    && awardProfileEpoch === profileEpoch && state?.podCode === code;
+  const refreshed = await transport.refreshRoom();
+  if (refreshed?.ignored || refreshed?.blocked || !stillCurrent() || transport.status !== 'connected') throw new Error('The Table or account changed. Open the current Table and try again.');
+  if (!tournamentTableFlow(state, tournamentTableContext)?.finished) throw new Error('Finish the current game before changing Tables.');
+  if (state.lifecycle?.status === 'intermission') {
+    const result = await transport.leaveIntermission();
+    if (result.conflict || !result.left || !stillCurrent()) throw new Error('The Table changed. Review it before leaving.');
+  }
+  forgetCurrentTable(); leaveTable();
+}
+function leaveReplacedTournamentTable(code) {
+  if (!state || state.localSimulation || state.podCode !== code || transport.roomCode !== code || state.turn?.gameStarted || state.gameResult
+    || tournamentTableContext?.code !== code || tournamentTableContext.kind !== 'tournament' || !tournamentTableContext.released) {
+    throw new Error('The Table changed. Return to the released setup before continuing.');
+  }
+  forgetCurrentTable(); leaveTable();
 }
 function moveDialDrag(event) {
   if (!dialPointer || event.pointerId !== dialPointer.id) return;
@@ -2911,6 +2955,8 @@ dom.commanderCountDialog.addEventListener('close', () => { commanderSetupDraft =
 dom.intermissionSetupButton.addEventListener('click', () => void openNextGameSetup());
 dom.declareWinnerForm.addEventListener('submit', event => { if (event.submitter?.value === 'confirm') declareWinner(); });
 dom.intermissionReadyButton.addEventListener('click', () => void setNextGameReady()); dom.intermissionStartButton.addEventListener('click', () => void confirmNextGameStart()); dom.intermissionLeaveButton.addEventListener('click', () => dom.intermissionLeaveDialog.showModal()); dom.intermissionLeaveForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); dom.intermissionLeaveDialog.close('confirm'); void leaveNextGameTable(); }); dom.nextGameConfirmForm.addEventListener('submit', submitNextGameStart);
+tournamentRoundButton.addEventListener('click', () => void competitionHub.openTournamentClock().catch(showTableRequestError));
+returnToTournamentButton.addEventListener('click', () => void competitionHub.returnToTournament().catch(showTableRequestError));
 dom.nextGameStarter.addEventListener('change', () => void chooseNextGameStarter());
 dom.nextGameConfirmDialog.addEventListener('cancel', event => { if (nextGameStartPending) event.preventDefault(); });
 dom.nextGameConfirmDialog.addEventListener('close', () => { nextGameConfirmation = null; dom.nextGameConfirmDialog.removeAttribute('closedby'); });
