@@ -9,8 +9,10 @@
 .competition-content > p { line-height: 1.5; }
 .competition-content form, .competition-content .select-field { display: grid; gap: 12px; }
 .competition-content form { margin-block: 12px; }
-.competition-content input:not([type=checkbox]), .competition-content select, .competition-content textarea { min-width: 0; width: 100%; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--muted); border-radius: 8px; min-height: 46px; padding: 10px; box-sizing: border-box; }
-.competition-content button { min-height: 46px; white-space: normal; overflow-wrap: anywhere; font: inherit; }
+.competition-content input:not([type=checkbox]), .competition-content select, .competition-content textarea { min-width: 0; width: 100%; font: inherit; font-size: max(1rem, 1em); color: var(--ink); background: var(--surface); border: 1px solid var(--muted); border-radius: 8px; min-height: 48px; padding: 10px; box-sizing: border-box; }
+.competition-content button { min-height: 48px; white-space: normal; overflow-wrap: anywhere; font: inherit; }
+.competition-dialog:modal, .competition-dialog::backdrop { overscroll-behavior: contain; }
+.competition-dialog::backdrop { overflow: hidden; }
 .competition-content small { display: block; color: var(--muted); line-height: 1.4; font-size: .85rem; }
 .competition-content details { border-top: 1px solid color-mix(in srgb, var(--muted) 30%, transparent); padding-block: 16px; margin-top: 16px; }
 .competition-content summary { min-height: 44px; cursor: pointer; padding-top: 8px; }

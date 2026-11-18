@@ -11,7 +11,7 @@ import { createAccountScreen, saveRegistrationPreferredName } from './create-acc
 import { JoinQrScanner } from './join-qr-scanner.js?v=5';
 import { GameWakeLock } from './game-wake-lock.js?v=1';
 import { applyCollectionVisual } from './collection-visual.js?v=4';
-import { createCompetitionHub } from './competition-ui.js?v=5';
+import { createCompetitionHub } from './competition-ui.js?v=6';
 import { parseCompetitionFragment } from './competition-model.mjs?v=1';
 import { createAppearanceCatchUp } from './appearance-catch-up.js?v=2';
 import { createDialLayout } from './dial-layout.js?v=2';
@@ -1151,6 +1151,7 @@ function clearPastTables(event) {
   $('#savedTablesTitle').focus();
 }
 async function openJoinCode(code) {
+  competitionHub.clearPending();
   const normalizedCode = String(code || '').toUpperCase();
   if (!/^[A-Z0-9]{6}$/.test(normalizedCode)) return;
   showView(dom.join); $('#podCode').value = normalizedCode; dom.joinCodeStatus.textContent = 'Finding your table…'; await refreshJoinSeats();
@@ -1869,6 +1870,7 @@ function renderJoinSeatClaim() {
     : 'Choose an open seat to see what this phone will control.';
 }
 async function refreshJoinSeats() {
+  competitionHub.clearPending();
   const code = $('#podCode').value.trim().toUpperCase();
   if (code.length !== 6) {
     dom.joinCodeStatus.textContent = 'Enter the six-character table code.';

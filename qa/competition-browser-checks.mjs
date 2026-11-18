@@ -145,7 +145,7 @@ export async function podPhoneFlow(qa) {
   await member.locator('#hubJoinForm button[type=submit]').filter({ hasText: 'Accept and join' }).waitFor();
   qa.check('invite sign-in preserves entered name', await member.locator('#hubJoinForm [name=displayName]').inputValue() === 'Nico');
   await member.locator('#hubJoinForm button[type=submit]').click(); await member.locator('#podPlay').waitFor();
-  await host.locator('#competitionBack').click(); await host.locator('#podPlay').click();
+  await host.locator('#competitionBack').click(); await host.locator('#podPlay').click(); await host.locator('#podCreateTable').click();
   const code = await qa.createTable(host); await host.locator('#competitionSetupStatus').filter({ hasText: 'Your seat is linked' }).waitFor();
   await qa.joinTable(member, code); await member.locator('#competitionSetupStatus').filter({ hasText: 'Your seat is linked' }).waitFor();
   await host.locator('#startGameButton').click(); await member.locator('#gameView').waitFor({ state: 'visible' });
@@ -179,14 +179,14 @@ export async function podRecoveryAndFatalFlow(qa, flow) {
   await host.locator('#intermissionReadyButton').click(); await member.locator('#intermissionReadyButton').click();
   await host.locator('#intermissionStartButton').click(); await host.locator('#confirmNextGameStart').click();
   await host.locator('#gameView').waitFor({ state: 'visible' });
-  await host.reload({ waitUntil: 'domcontentloaded' }); await host.locator('#savedTablesList .saved-table-button').first().click();
+  await host.reload({ waitUntil: 'domcontentloaded' });
   await host.locator('#gameView').waitFor({ state: 'visible' }); await host.locator('#moreButton').click();
   await host.locator('#competitionContextButton').filter({ hasText: 'Return to Pod' }).waitFor();
   qa.check('reloaded playing Table retains Pod context access', await host.locator('#competitionContextButton').isVisible());
   await host.locator('#competitionContextButton').click(); await host.locator('#openTableScope').click(); await host.locator('#podPlay').waitFor();
   const before = qa.competitionCount();
   for (let i = 0; i < 40; i++) await member.getByRole('button', { name: 'Decrease counter by one', exact: true }).tap();
-  await member.locator('#victoryDialog').waitFor({ state: 'visible' });
+  await member.locator('#victoryDialog').waitFor({ state: 'visible', timeout: 22000 });
   qa.check('lethal counter completion makes no competition client request', qa.competitionCount() === before);
   qa.check('completion does not interrupt an open Pod screen', await host.locator('#competitionDialog').isVisible() && !await host.locator('#victoryDialog').isVisible());
   await host.locator('#competitionClose').click(); await host.locator('#victoryDialog').waitFor({ state: 'visible' }); await qa.dismissFinish(host);
@@ -313,8 +313,11 @@ export async function finishTimedTournament(qa, flow) {
   await qa.leaveTable(guest); await qa.leaveTable(flow.attested);
 }
 
-export async function podCorrectionFlow(qa, { host }) {
+export async function podCorrectionFlow(qa, { host, inviteLink }) {
   await host.locator('#podHistory').click(); await host.locator('[data-day]').click(); await host.locator('[data-game]').first().click();
+  await host.locator('#correctOrder').waitFor();
+  qa.check('confirmed Pod result requires an explicit correction action', await host.locator('#confirmOrderForm').count() === 0);
+  await host.locator('#correctOrder').click();
   await host.locator('#confirmOrderForm').waitFor();
   await host.getByRole('combobox', { name: 'Finishing position for Mira', exact: true }).selectOption('1');
   await host.getByRole('combobox', { name: 'Finishing position for Nico', exact: true }).selectOption('1');
@@ -332,33 +335,40 @@ export async function podCorrectionFlow(qa, { host }) {
   qa.check('correction preserves original result and explicit reason', (await host.locator('#competitionContent').innerText()).includes('tie correction'));
   await qa.shot(host, 'pod-correction-history-390');
   await host.locator('#competitionClose').click(); await host.locator('#myPodsButton').click();
-  await host.locator('[data-open]').filter({ hasText: 'Friday Night QA' }).click(); await host.locator('#podPlay').waitFor();
+  const podId = decodeURIComponent(new URL(inviteLink).hash.slice('#invite='.length)).split('.')[1];
+  await host.locator(`[data-open="${podId}"]`).click(); await host.locator('#podPlay').waitFor();
 }
 
 export async function podMembershipFlow(qa, flow) {
   const { host, member, inviteLink } = flow;
+  const podId = decodeURIComponent(new URL(inviteLink).hash.slice('#invite='.length)).split('.')[1];
   await host.locator('#podManage').click();
   const nico = () => host.locator('.competition-member').filter({ has: host.locator('strong', { hasText: /^Nico$/ }) });
-  await nico().locator('[data-admin]').click(); await host.locator('#podManage').click();
+  await nico().locator('[data-admin]').click(); await nico().locator('small').filter({ hasText: /^Admin$/ }).waitFor();
   qa.check('Pod optional admin role is visible', (await nico().innerText()).includes('Admin'));
-  await nico().locator('[data-admin]').click(); await host.locator('#podManage').click();
-  await nico().locator('[data-remove]').click(); await host.locator('#hubConfirm').click(); await host.locator('#podPlay').waitFor();
+  await nico().locator('[data-admin]').click(); await nico().locator('small').filter({ hasText: /^Member$/ }).waitFor();
+  await nico().locator('[data-remove]').click(); await host.locator('#hubConfirm').waitFor();
+  qa.check('Pod removal identifies the chosen member', (await host.locator('#competitionDialog').innerText()).includes('Nico'));
+  await host.locator('#hubConfirm').click(); await host.locator('#competitionStatus').filter({ hasText: 'Nico was removed' }).waitFor();
+  qa.check('Pod removal leaves the refreshed Members view open', await nico().count() === 0 && await host.getByRole('heading', { name: 'Members', exact: true }).isVisible());
   await member.goto(inviteLink, { waitUntil: 'domcontentloaded' }); await member.locator('#hubJoinForm').waitFor();
   await member.locator('#hubJoinForm [name=displayName]').fill('Nico');
   await member.locator('#hubJoinForm button[type=submit]').click(); await member.locator('#competitionStatus').filter({ hasText: 'admin must send' }).waitFor();
   qa.check('removed member cannot return with the old invite', true);
-  await host.locator('#podManage').click(); await host.locator('#podInvite').click(); const fresh = await host.locator('#inviteLink').inputValue();
+  await host.locator('#podInvite').click(); const fresh = await host.locator('#inviteLink').inputValue();
   await member.goto(fresh, { waitUntil: 'domcontentloaded' }); await member.locator('#hubJoinForm [name=displayName]').fill('Nico');
   await member.locator('#hubJoinForm button[type=submit]').click(); await member.locator('.competition-ranks').filter({ hasText: '2/10 rated games' }).waitFor();
   qa.check('fresh admin invitation restores the same member history', true);
-  await host.locator('#competitionBack').click(); await host.locator('#podManage').click(); await host.locator('#podLeave').click();
+  await host.locator('#competitionBack').click(); await host.locator('#podManage').click();
+  await nico().locator('[data-admin]').click(); await nico().locator('small').filter({ hasText: /^Admin$/ }).waitFor();
+  await host.locator('#podLeave').click(); await host.locator('#hubConfirm').waitFor();
+  qa.check('owner leaving names the appointed admin successor', (await host.locator('#competitionContent').innerText()).includes('Ownership will pass to Nico'));
   await host.locator('#hubConfirm').click(); await host.locator('#hubCreate').waitFor();
   await member.locator('#competitionClose').click(); await member.locator('#myPodsButton').click();
-  await member.locator('[data-open]').filter({ hasText: 'Friday Night QA' }).click(); await member.locator('#podManage').click();
-  await member.locator('#podTakeover').click(); await member.locator('#podManage').click();
-  qa.check('remaining member can take over a genuine admin vacancy', await member.locator('[data-admin]').isVisible());
+  await member.locator(`[data-open="${podId}"]`).click(); await member.locator('#podManage').click();
+  qa.check('appointed successor becomes Pod owner without a takeover action', (await member.locator('#competitionContent').innerText()).includes('Owner: Nico') && await member.locator('#podTakeover').count() === 0);
   await member.getByText('Recent membership changes', { exact: true }).click();
-  qa.check('admin takeover is visible in the membership audit', (await member.locator('#competitionContent').innerText()).includes('admin takeover'));
+  qa.check('named ownership succession is visible in the membership audit', (await member.locator('#competitionContent').innerText()).includes('ownership transferred') && (await member.locator('#competitionContent').innerText()).includes('Mira'));
   await member.locator('#podInvite').click(); const returning = await member.locator('#inviteLink').inputValue();
   await host.locator('#competitionClose').click(); await host.goto(returning, { waitUntil: 'domcontentloaded' });
   await host.locator('#hubJoinForm [name=displayName]').fill('Mira'); await host.locator('#hubJoinForm button[type=submit]').click();
@@ -422,13 +432,13 @@ export async function guestNavigationFlow(qa, host) {
 export async function crossPodTableFlow(qa, { host, member }) {
   if (await host.locator('#competitionDialog').isVisible()) await host.locator('#competitionClose').click();
   await host.locator('#myPodsButton').click(); await host.locator('[data-open]').filter({ hasText: 'Friday Night QA' }).click();
-  await host.locator('#podPlay').click(); const code = await qa.createTable(host); await host.locator('#competitionLobbyButton').click();
+  await host.locator('#podPlay').click(); await host.locator('#podCreateTable').click(); const code = await qa.createTable(host); await host.locator('#competitionLobbyButton').click();
   await host.locator('#competitionBack').click(); await host.locator('#hubCreate').click();
   await host.locator('#hubCreateForm [name=name]').fill('Independent QA'); await host.locator('#hubCreateForm [name=displayName]').fill('Mira');
   await host.locator('#hubCreateForm button[type=submit]').click(); await host.locator('.competition-ranks').filter({ hasText: '1000' }).waitFor();
   qa.check('second Pod starts with independent ratings', true); await host.locator('#podPlay').click();
-  await host.locator('#competitionTitle').filter({ hasText: 'Your Table is already linked' }).waitFor();
-  qa.check('another Pod cannot replace an existing Table link', true); await host.locator('#returnCurrentTable').click();
+  await host.locator('#competitionTitle').filter({ hasText: 'Return to your Table' }).waitFor();
+  qa.check('another Pod returns a seated player without replacing the Table link', true); await host.locator('#returnCurrentTable').click();
   await qa.joinTable(member, code); await member.locator('#competitionSetupStatus').filter({ hasText: 'Your seat is linked' }).waitFor();
   await host.locator('#startGameButton').click(); await host.locator('#gameView').waitFor({ state: 'visible' });
   qa.check('rejected cross-Pod reuse leaves the original Table playable', true);

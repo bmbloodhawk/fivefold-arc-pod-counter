@@ -32,13 +32,18 @@ export function createCompetitionHub(adapter) {
     if (panel && !panel.hidden) { panel.hidden = true; content.querySelector('#podInviteScanStatus').textContent = 'Camera stopped. Scan again, choose a QR photo, or paste the invite link.'; }
   };
   let context = null, latestSnapshot = null, retrySetup = null, currentInvite = null, retryFragment = null;
-  let navigationEpoch = 0, contextAttempt = null;
+  let navigationEpoch = 0, contextAttempt = null, afterClose = null;
   const roomScopes = new Map(Object.entries(readLocal(roomScopesKey, sessionStorage) || {}));
   const rememberRoom = (code, scopeId) => { roomScopes.set(code, scopeId); writeLocal(roomScopesKey, Object.fromEntries(roomScopes), sessionStorage); };
   const session = () => adapter.getSession();
   const message = text => { status.textContent = text; };
   const open = () => { if (!dialog.open) dialog.showModal(); };
-  const close = () => { stopInviteScanner(); navigationEpoch++; dialog.close(); };
+  const close = next => {
+    stopInviteScanner(); navigationEpoch++;
+    if (!dialog.open) { if (typeof next === 'function') next(); return; }
+    afterClose = typeof next === 'function' ? next : null;
+    dialog.close();
+  };
   const draw = (title, html, previous = null) => {
     stopInviteScanner();
     currentInvite = null;
@@ -83,7 +88,7 @@ export function createCompetitionHub(adapter) {
     if (!response.ok) throw Object.assign(new Error(data.message || data.error?.message || data.error || 'That request did not finish.'), { status: response.status, code: data.code });
     return data;
   }
-  function signInThen(resume) { afterSignIn = resume; close(); adapter.openSignIn(); }
+  function signInThen(resume) { afterSignIn = resume; close(() => adapter.openSignIn()); }
   async function needAccount(resume) {
     const navigation = navigationEpoch; const signedIn = await token();
     if (navigation !== navigationEpoch) return false;
@@ -218,11 +223,51 @@ export function createCompetitionHub(adapter) {
     const pod = await request(route('pod', id));
     const ranked = pod.members.filter(row => row.status === 'active');
     draw(pod.name, `<div class="competition-actions">${button('podPlay', 'Play', true)}${button('podHistory', 'History')}${button('podManage', 'Pod menu')}</div>
+      <div class="competition-actions">${button('podInviteMember', 'Invite members')}${button('podActivity', 'Tables now')}</div>
+      ${ranked.length === 1 ? '<p class="competition-help">Invite your group, then create a Table or join your host’s Table by code. Guests can also play.</p>' : ''}
       <ol class="competition-ranks">${ranked.map((row, i) => `<li><span class="competition-rank">${i + 1}</span><span><strong>${escape(row.name)}${row.id === pod.me ? ' · You' : ''}</strong><small>${row.provisional ? `Provisional · ${row.ratedGames}/10 rated games` : `${row.gamesPlayed} games · ${row.wins} wins`}</small></span><b>${Math.round(row.rating)}</b></li>`).join('')}</ol>
       ${pod.pendingGames ? `<button type="button" id="podPending" class="text-action">${pod.pendingGames} result${pod.pendingGames === 1 ? '' : 's'} awaiting confirmation</button>` : ''}
       <p class="competition-help">Ratings change with results and opponent strength. Missing a night does not change your rating.</p>`, () => home('pod'));
-    bind('#podPlay', () => launchTable({ kind: 'pod', id, name: pod.name }));
-    bind('#podHistory', () => historyScreen('pod', id)); bind('#podPending', () => historyScreen('pod', id)); bind('#podManage', () => podMenu(pod));
+    bind('#podPlay', () => podPlayScreen(pod)); bind('#podInviteMember', () => inviteScreen('pod', id));
+    bind('#podActivity', () => activityScreen(pod));
+    bind('#podHistory', () => historyScreen('pod', id)); bind('#podPending', () => pendingScreen('pod', id)); bind('#podManage', () => podMenu(pod));
+  }
+  async function activityScreen(pod) {
+    const activity = await request(route('pod', pod.id, 'activity'));
+    const stateLabel = { lobby: 'Setting up', playing: 'Playing', intermission: 'Between games', complete: 'Game complete' };
+    draw('Tables now', `<p>Private to this Pod. Recent app connections do not confirm that someone is at a store.</p>
+      <p class="competition-help">Checked ${escape(new Date(activity.asOf).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}. Connections within the last ${Math.round(activity.presenceWindowMs / 1000)} seconds are shown as recent. Tables without recent connections are omitted.</p>
+      ${button('refreshPodActivity', 'Refresh')}
+      <div class="competition-list">${activity.tables.map(table => `<section class="competition-table-card"><h3>${escape(stateLabel[table.lifecycle] || 'Table')} · ${escape(table.code)}</h3>
+        <p>${table.claimedSeats}/${table.capacity} seats claimed · ${table.availableSeats ? `${table.availableSeats} open to join` : ['playing', 'complete'].includes(table.lifecycle) ? 'New players can join between games' : 'Table full'}</p>
+        <p>${table.members.map(member => `${escape(member.name)} · ${member.recentlyConnected ? 'recent connection' : 'no recent connection'}`).join('<br>')}</p>
+        ${table.availableSeats ? `<button type="button" class="secondary-action" data-join-active="${escape(table.code)}">Join this Table</button>` : ''}</section>`).join('') || '<p>No Tables with recent app connections are available here. This does not mean nobody is at a store.</p>'}</div>`, () => podScreen(pod.id));
+    bind('#refreshPodActivity', () => activityScreen(pod));
+    content.querySelectorAll('[data-join-active]').forEach(node => node.addEventListener('click', () => void run(() => {
+      if (session().code && Number.isInteger(session().seatId)) return podPlayScreen(pod);
+      setPending(null); close(() => adapter.joinTable(node.dataset.joinActive));
+    }, node)));
+  }
+  async function podPlayScreen(pod) {
+    const current = session();
+    if (current.code && Number.isInteger(current.seatId) && current.snapshot) {
+      const link = current.seatId === current.snapshot.hostSeatId && !current.snapshot.turn.gameStarted
+        ? await request(`tables/context?code=${encodeURIComponent(current.code)}`, { scopeId: roomScopes.get(current.code), connectionId: current.connectionId }) : null;
+      draw('Return to your Table', `<p>You already have a seat at Table <strong>${escape(current.code)}</strong>. Return to it to play or leave before creating or joining another Table.</p>${button('returnCurrentTable', 'Return to Table', true)}
+        ${link && !link.linked ? `<p>You host this unlinked Table. You can also use it for ${escape(pod.name)}.</p>${button('podUseCurrentTable', 'Use this Table for the Pod')}` : ''}`, () => podScreen(pod.id));
+      bind('#returnCurrentTable', () => { setPending(null); close(() => adapter.returnToTable()); });
+      bind('#podUseCurrentTable', () => launchTable({ kind: 'pod', id: pod.id, name: pod.name })); return;
+    }
+    draw(`Play with ${pod.name}`, `<p>Create a Table to host, or use your host’s Table code to join. A Pod invite adds membership; a Table code joins a game.</p>
+      <div class="competition-actions">${button('podCreateTable', 'Create Table', true)}${button('podJoinTable', 'Join Table by code')}</div>`, () => podScreen(pod.id));
+    bind('#podCreateTable', () => launchTable({ kind: 'pod', id: pod.id, name: pod.name }));
+    bind('#podJoinTable', () => {
+      setPending(null);
+      draw('Join a Table', `<p>The host chooses the Table’s Pod. Joining keeps its existing group; check the linked Pod after taking your seat.</p>
+        <form id="podJoinTableForm">${field('code', 'Table code', 'required minlength="6" maxlength="6" pattern="[A-Za-z0-9]{6}" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go"')}
+        <button type="submit" class="primary-action">Find Table</button></form>`, () => podPlayScreen(pod));
+      submit('#podJoinTableForm', form => { setPending(null); close(() => adapter.joinTable(String(form.get('code')).trim().toUpperCase())); });
+    });
   }
   function podMenu(pod) {
     const ownerRules = Object.hasOwn(pod, 'ownerId');
@@ -232,7 +277,7 @@ export function createCompetitionHub(adapter) {
     draw('Pod menu', `${ownerRules ? `<p>${owner ? `Owner: <strong>${escape(owner.name)}</strong>. Only the owner can appoint admins or delete this Pod.` : 'Pod ownership needs review before admin changes or deletion. Your games and results remain available.'}</p>` : ''}
       <div class="competition-actions">${button('podInvite', 'Invite someone')}${button('podLeave', 'Leave Pod')}${noAdmins ? button('podTakeover', 'Become an admin') : ''}</div>
       ${pod.role === 'admin' ? `<h3>Members</h3><div class="competition-list">${pod.members.filter(row => row.status === 'active').map(row => `<div class="competition-member"><strong>${escape(row.name)}</strong><small>${row.id === pod.ownerId ? 'Owner' : row.role === 'admin' ? 'Admin' : 'Member'}</small><div class="competition-actions">${canManageAdmins && row.id !== pod.ownerId ? `<button type="button" data-admin="${escape(row.id)}" data-enabled="${row.role !== 'admin'}" class="secondary-action">${row.role === 'admin' ? 'Remove admin role' : 'Make admin'}</button>` : ''}${row.id !== pod.me && (!ownerRules || canManageAdmins || row.role !== 'admin') ? `<button type="button" data-remove="${escape(row.id)}" class="text-action">Remove member</button>` : ""}</div></div>`).join('')}</div>` : ''}
-      <details><summary>Recent membership changes</summary>${pod.audit.map(item => `<p>${escape(item.actor)} · ${escape(item.action.replaceAll('_', ' '))} · ${dateLabel(item.at)}</p>`).join('') || '<p>No membership changes.</p>'}</details>`, () => podScreen(pod.id));
+      <details><summary>Recent membership changes</summary>${pod.audit.map(item => `<p>${escape(item.actor)} · ${escape(item.action.replaceAll('_', ' '))}${item.targetId ? ` · ${escape(pod.members.find(row => row.id === item.targetId)?.name || 'Deleted member')}` : ''} · ${dateLabel(item.at)}</p>`).join('') || '<p>No membership changes.</p>'}</details>`, () => podScreen(pod.id));
     if (pod.role === 'admin') {
       content.querySelector('.competition-actions').insertAdjacentHTML('beforeend', button('podRename', 'Rename Pod'));
       bind('#podRename', () => {
@@ -257,11 +302,15 @@ export function createCompetitionHub(adapter) {
       }, () => podMenu(pod));
     });
     bind('#podTakeover', async () => { await request(route('pod', pod.id, 'members'), { body: { action: 'takeover' } }); await podScreen(pod.id); });
+    const memberName = id => pod.members.find(row => row.id === id)?.name || 'Member';
+    const refreshMembers = async text => { podMenu(await request(route('pod', pod.id))); message(text); };
     content.querySelectorAll('[data-admin]').forEach(node => node.addEventListener('click', () => void run(async () => {
-      await request(route('pod', pod.id, 'members'), { body: { action: 'admin', targetId: node.dataset.admin, enabled: node.dataset.enabled === 'true' } }); await podScreen(pod.id);
+      await request(route('pod', pod.id, 'members'), { body: { action: 'admin', targetId: node.dataset.admin, enabled: node.dataset.enabled === 'true' } });
+      await refreshMembers(`${memberName(node.dataset.admin)} ${node.dataset.enabled === 'true' ? 'is now an admin' : 'is now a member'}.`);
     }, node)));
-    content.querySelectorAll('[data-remove]').forEach(node => node.addEventListener('click', () => void run(() => confirmScreen('Remove member?', 'They will lose Pod access and need a new admin invite to return. Recorded results stay.', async () => {
-      await request(route('pod', pod.id, 'members'), { body: { action: 'remove', targetId: node.dataset.remove } }); await podScreen(pod.id);
+    content.querySelectorAll('[data-admin], [data-remove]').forEach(node => node.setAttribute('aria-label', `${node.textContent} · ${memberName(node.dataset.admin || node.dataset.remove)}`));
+    content.querySelectorAll('[data-remove]').forEach(node => node.addEventListener('click', () => void run(() => confirmScreen(`Remove ${memberName(node.dataset.remove)}?`, `${memberName(node.dataset.remove)} will lose Pod access and need a new admin invite to return. Recorded results stay.`, async () => {
+      await request(route('pod', pod.id, 'members'), { body: { action: 'remove', targetId: node.dataset.remove } }); await refreshMembers(`${memberName(node.dataset.remove)} was removed. Recorded results are kept.`);
     }, () => podMenu(pod)), node)));
   }
   function deletePodForm(pod) {
@@ -286,10 +335,25 @@ export function createCompetitionHub(adapter) {
   async function inviteScreen(kind, id) {
     const invite = await request(route(kind, id, 'invites'), { body: {}, scopeId: id });
     const qr = await request('invite-qr', { body: { token: invite.token }, noAccount: true });
-    draw('Private invite', `<p>Share this with the people you want to invite. It expires in seven days.</p><img class="competition-qr" src="${escape(qr.data)}" alt="QR code for this private invitation">
+    draw('Private invite', `<p>Share this with the people you want to invite. It expires in seven days.${kind === 'pod' ? ' This adds Pod membership; joining requires sign-in. Use the host’s Table code to join a game.' : ''}</p><img class="competition-qr" src="${escape(qr.data)}" alt="QR code for this private invitation">
       <label class="select-field">Invite link<input id="inviteLink" readonly value="${escape(qr.link)}"></label><div class="competition-actions">${button('inviteCopy', 'Copy link')}${button('inviteShare', 'Share link')}${button('inviteRevoke', 'Revoke this invite')}</div>`, () => scopeScreen(kind, id));
-    bind('#inviteCopy', async () => { await navigator.clipboard.writeText(qr.link); message('Invite link copied.'); });
-    bind('#inviteShare', async () => { if (navigator.share) await navigator.share({ title: 'Fivefold Arc invite', url: qr.link }); else { content.querySelector('#inviteLink').select(); message('Copy this link to share it.'); } });
+    const input = content.querySelector('#inviteLink');
+    const selectLink = text => { input.focus(); input.select(); message(text); };
+    bind('#inviteCopy', async () => {
+      const navigation = navigationEpoch;
+      try { await navigator.clipboard.writeText(qr.link); if (navigation === navigationEpoch && dialog.open) message('Invite link copied.'); }
+      catch { if (navigation === navigationEpoch && dialog.open) selectLink('Select and copy this invite link to share it.'); }
+    });
+    bind('#inviteShare', async () => {
+      const navigation = navigationEpoch;
+      if (!navigator.share) { selectLink('Select and copy this invite link to share it.'); return; }
+      try { await navigator.share({ title: 'Fivefold Arc invite', url: qr.link }); if (navigation === navigationEpoch && dialog.open) message('Share finished. You can share the invite again.'); }
+      catch (error) {
+        if (navigation !== navigationEpoch || !dialog.open) return;
+        if (error.name === 'AbortError') message('Sharing cancelled. Your invite is still available.');
+        else selectLink('Sharing did not finish. Select and copy this invite link instead.');
+      }
+    });
     bind('#inviteRevoke', async () => { await request(route(kind, id, `invites/${invite.id}/revoke`), { body: {}, scopeId: id }); await scopeScreen(kind, id); message('Invite revoked.'); });
     content.querySelector('.competition-actions').insertAdjacentHTML('beforeend', button('inviteManage', 'Manage existing invites'));
     bind('#inviteManage', () => issuedInvitesScreen(kind, id));
@@ -305,25 +369,55 @@ export function createCompetitionHub(adapter) {
   }
   async function historyScreen(kind, id, rows = [], cursor = null) {
     await request(route(kind, id, 'reconcile'), { body: {}, scopeId: id });
-    const page = await request(route(kind, id, `history${cursor ? '?cursor=' + encodeURIComponent(cursor) : ''}`), { scopeId: id });
+    let page;
+    try { page = await request(route(kind, id, `history${cursor ? '?cursor=' + encodeURIComponent(cursor) : ''}`), { scopeId: id }); }
+    catch (error) {
+      if (!cursor || error.status !== 409) throw error;
+      draw('History changed', `<p>These results changed while you were browsing. Open the latest history to continue.</p>${button('historyRestart', 'Open latest history', true)}`, () => scopeScreen(kind, id));
+      bind('#historyRestart', () => historyScreen(kind, id)); return;
+    }
     const games = [...rows, ...page.games];
+    drawHistory(kind, id, games, page.nextCursor);
+  }
+  function drawHistory(kind, id, games, nextCursor) {
     const days = [...new Set(games.map(game => localDateKey(game.completedAt)))];
     draw('Game history', `<p>Choose a date, then a game.</p><div class="competition-list">${days.map(day => {
       const onDay = games.filter(game => localDateKey(game.completedAt) === day);
       return `<button type="button" class="competition-row" data-day="${day}"><strong>${escape(dateLabel(onDay[0].completedAt))}</strong><span>${onDay.length} game${onDay.length === 1 ? '' : 's'} ›</span></button>`;
-    }).join('') || '<p class="competition-empty">No completed games yet. A real completed Table appears here before the host confirms its order.</p>'}</div>${page.nextCursor ? button('historyMore', 'Load older dates') : ''}`, () => scopeScreen(kind, id));
-    content.querySelectorAll('[data-day]').forEach(node => node.addEventListener('click', () => void run(() => gamesOnDate(kind, id, node.dataset.day, games, () => historyScreen(kind, id)), node)));
-    bind('#historyMore', () => historyScreen(kind, id, games, page.nextCursor));
+    }).join('') || '<p class="competition-empty">No completed games yet. A real completed Table appears here before the host confirms its order.</p>'}</div>${nextCursor ? button('historyMore', 'Load older dates') : ''}`, () => scopeScreen(kind, id));
+    content.querySelectorAll('[data-day]').forEach(node => node.addEventListener('click', () => void run(() => gamesOnDate(kind, id, node.dataset.day, games, () => drawHistory(kind, id, games, nextCursor)), node)));
+    bind('#historyMore', () => historyScreen(kind, id, games, nextCursor));
+  }
+  async function pendingScreen(kind, id, rows = [], cursor = null) {
+    await request(route(kind, id, 'reconcile'), { body: {}, scopeId: id });
+    const query = new URLSearchParams({ status: 'pending', ...(cursor ? { cursor } : {}) });
+    let page;
+    try { page = await request(route(kind, id, `history?${query}`), { scopeId: id }); }
+    catch (error) {
+      if (!cursor || error.status !== 409) throw error;
+      draw('Pending results changed', `<p>A result was updated while you were browsing.</p>${button('pendingRestart', 'Refresh pending results', true)}`, () => scopeScreen(kind, id));
+      bind('#pendingRestart', () => pendingScreen(kind, id)); return;
+    }
+    const games = [...rows, ...page.games];
+    draw('Awaiting confirmation', `<p>The original Table host or an admin must check and confirm each finishing order before standings update.</p>
+      <div class="competition-list">${games.map(game => `<button type="button" class="competition-row" data-game="${escape(game.gameId)}"><strong>${escape(dateLabel(game.completedAt))} · ${escape(new Date(game.completedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}</strong><span>${game.playerCount} players · Needs confirmation ›</span></button>`).join('') || '<p>No results are awaiting confirmation.</p>'}</div>${page.nextCursor ? button('pendingMore', 'Load older pending results') : ''}`, () => scopeScreen(kind, id));
+    content.querySelectorAll('[data-game]').forEach(node => node.addEventListener('click', () => void run(() => gameScreen(kind, id, node.dataset.game, () => pendingScreen(kind, id)), node)));
+    bind('#pendingMore', () => pendingScreen(kind, id, games, page.nextCursor));
   }
   function gamesOnDate(kind, id, day, games, previous) {
     const selected = games.filter(game => localDateKey(game.completedAt) === day);
     draw(dateLabel(selected[0].completedAt), `<div class="competition-list">${selected.map(game => `<button type="button" class="competition-row" data-game="${escape(game.gameId)}"><strong>${new Date(game.completedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · ${game.playerCount} players</strong><span>${game.status === 'pending' ? 'Needs host confirmation' : `Confirmed · revision ${game.revision}`} ›</span></button>`).join('')}</div>`, previous);
-    content.querySelectorAll('[data-game]').forEach(node => node.addEventListener('click', () => void run(() => gameScreen(kind, id, node.dataset.game, () => gamesOnDate(kind, id, day, games, previous)), node)));
+    content.querySelectorAll('[data-game]').forEach(node => node.addEventListener('click', () => void run(() => gameScreen(kind, id, node.dataset.game, async () => {
+      const latest = await request(route(kind, id, `games/${node.dataset.game}`), { scopeId: id });
+      Object.assign(games.find(row => row.gameId === node.dataset.game), { status: latest.status, revision: latest.revisions.length });
+      gamesOnDate(kind, id, day, games, previous);
+    }), node)));
   }
-  async function gameScreen(kind, id, gameId, previous = () => historyScreen(kind, id)) {
+  async function gameScreen(kind, id, gameId, previous = () => historyScreen(kind, id), editing = false) {
     const [game, scope] = await Promise.all([request(route(kind, id, `games/${gameId}`), { scopeId: id }), request(route(kind, id), { scopeId: id })]);
     const order = game.revisions.at(-1)?.order || game.original.inferredOrder || (game.original.winnerId ? [[game.original.winnerId]] : []);
     const choices = finishingChoices(order); const canEdit = scope.role === 'admin' || scope.me === game.hostId;
+    const showEditor = canEdit && (game.status === 'pending' || editing);
     const player = playerId => game.players.find(row => row.id === playerId);
     const orderHtml = groups => { let place = 1; return groups.map(group => {
       const label = `${group.length > 1 ? 'Tied ' : ''}${place}`; place += group.length;
@@ -332,16 +426,18 @@ export function createCompetitionHub(adapter) {
     draw(game.status === 'pending' ? 'Review finishing order' : 'Game result', `<p>${escape(dateLabel(game.completedAt))} · ${game.players.length} players</p><p class="competition-help">${escape(game.provenance)}</p>
       <ol id="resultOrder" class="competition-order">${orderHtml(order)}</ol>
       ${!order.length || order.flat().length !== game.players.length ? '<p>The app knows only part of this finish. Choose every player’s position.</p>' : ''}
-      ${canEdit ? `<form id="confirmOrderForm"><p>Check every position. Choose the same number to record a tie.</p>${game.original.kind === 'timed_draw' ? '<p>Timed draw: the recorded surviving players must remain tied at the top.</p>' : ''}
+      ${game.status !== 'pending' ? '<p class="competition-eyebrow">Saved · Finishing order confirmed</p>' : ''}
+      ${showEditor ? `<form id="confirmOrderForm"><p>Check every position. Choose the same number to record a tie.</p>${game.original.kind === 'timed_draw' ? '<p>Timed draw: the recorded surviving players must remain tied at the top.</p>' : ''}
         ${game.players.map(row => `<label class="competition-place"><span><strong>${escape(row.name)}</strong><small>${row.kind === 'guest' ? (row.provenance === 'self_named_guest' ? 'Guest · self-entered name' : 'Organizer-attested guest') : (kind === 'tournament' ? 'Signed-in player' : 'Verified Pod member')}</small></span><select name="${escape(row.id)}" aria-label="Finishing position for ${escape(row.name)}" required><option value="">Choose</option>${Array.from({ length: game.players.length }, (_, i) => `<option value="${i + 1}" ${choices[row.id] === i + 1 ? 'selected' : ''}>${i + 1}</option>`).join('')}</select></label>`).join('')}
         ${game.revisions.length ? '<label class="select-field">Correction reason<select name="reasonCode" required><option value="order_error">Finishing order was wrong</option><option value="tie_correction">Tie was recorded incorrectly</option><option value="recording_error">Recording mistake</option></select></label>' : ''}
-        <p id="orderPreview" class="competition-help" aria-live="polite"></p><button class="primary-action" type="submit">${game.revisions.length ? 'Save corrected order' : 'Confirm finishing order'}</button></form>` : '<p>Only this game’s original host or an admin can change the confirmed order.</p>'}
-      ${game.ratingChanges.length ? `<details><summary>Rating changes</summary>${game.ratingChanges.map(row => `<p>${escape(player(row.id)?.name)}: ${Math.round(row.before)} → ${Math.round(row.after)} (${row.delta >= 0 ? '+' : ''}${row.delta.toFixed(1)})</p>`).join('')}</details>` : ''}
+        <p id="orderPreview" class="competition-help" aria-live="polite"></p><button class="primary-action" type="submit">${game.revisions.length ? 'Save corrected order' : 'Confirm finishing order'}</button></form>` : canEdit ? button('correctOrder', 'Correct order') : '<p>Only this game’s original host or an admin can confirm or correct this order.</p>'}
+      ${game.ratingChanges.length ? `<details open><summary>Rating changes</summary>${game.ratingChanges.map(row => `<p>${escape(player(row.id)?.name)}: ${Math.round(row.before)} → ${Math.round(row.after)} (${row.delta >= 0 ? '+' : ''}${row.delta.toFixed(1)})</p>`).join('')}</details>` : ''}
       <details><summary>Original app order and revisions</summary>
         <p>Original finish: ${game.original.kind === 'timed_draw' ? 'timed draw' : game.original.reason === 'declared_winner' ? 'winner declared at the Table' : 'last player standing'}${game.original.winnerId ? ` · ${escape(player(game.original.winnerId)?.name || 'Player')}` : ''}.</p>
         <ol class="competition-order">${orderHtml(game.original.inferredOrder || [])}</ol>
         ${game.revisions.map(row => `<h4>Revision ${row.revision} · ${escape(row.actor)}</h4><p>${escape(row.reasonCode.replaceAll('_', ' '))} · ${escape(dateLabel(row.at))}</p><ol class="competition-order">${orderHtml(row.order)}</ol>`).join('') || '<p>No confirmed order yet.</p>'}
       </details>`, previous);
+    bind('#correctOrder', () => gameScreen(kind, id, gameId, previous, true));
     const form = content.querySelector('#confirmOrderForm'); const requestId = crypto.randomUUID();
     form?.addEventListener('change', () => {
       try {
@@ -510,10 +606,12 @@ export function createCompetitionHub(adapter) {
         bind('#returnCurrentTable', () => { close(); adapter.returnToTable(); }); return;
       }
       confirmScreen('Use your current Table?', `This Table will belong to ${link.name} for its successive games. Its completed results require host confirmation.`, async () => {
-        setPending({ ...link, forRoomCode: current.code }); await syncSetup(true); close(); adapter.returnToTable();
+        const navigation = navigationEpoch;
+        setPending({ ...link, forRoomCode: current.code }); await syncSetup(true);
+        if (navigation === navigationEpoch) close(() => adapter.returnToTable());
       }, () => scopeScreen(link.kind, link.id)); return;
     }
-    setPending({ ...link, forRoomCode: null }); close(); adapter.createTable(link);
+    setPending({ ...link, forRoomCode: null }); close(() => adapter.createTable(link));
   }
   async function syncSetup(force = false) {
     if (!enabled) return;
@@ -565,7 +663,10 @@ export function createCompetitionHub(adapter) {
       ? '<p>You can play this Table normally. The event host can give you a guest access link to view your tournament.</p>'
       : '<p>You can play this Table normally as a guest. A private Pod invite is required to join its membership and ratings.</p>'); return; }
     const kind = context.kind, id = context.id;
+    const linkedMembers = (context.roster || []).filter(row => row.kind === 'member').length;
+    const guestSeats = (context.roster || []).length - linkedMembers;
     draw(context.name, `<p>Your Table is linked to this ${kind === 'pod' ? 'Pod' : 'tournament'}.</p><div class="competition-list">${(context.roster || []).map(row => `<p><strong>${escape(row.name)}</strong> · ${row.kind === 'guest' ? 'Guest' : 'Linked member'}</p>`).join('')}</div>
+      ${kind === 'pod' && !current.snapshot.turn.gameStarted ? `<p id="tableCreditSummary" class="competition-help">${linkedMembers} linked member${linkedMembers === 1 ? '' : 's'} · ${guestSeats} guest${guestSeats === 1 ? '' : 's'}. Guests can play. For Pod credit, sign in, join the Pod and link your seat before the game starts. Results count after host confirmation.</p>` : ''}
       <div class="competition-actions">${button('openTableScope', kind === 'pod' ? 'Open Pod' : 'Open tournament', true)}${current.snapshot.gameResult ? button('reviewTableFinish', 'Review finishing order') : ''}${button('refreshTableLink', 'Refresh linked seats')}</div>
       ${kind === 'tournament' && context.assignedGuests?.length && !current.snapshot.turn.gameStarted && current.seatId === current.snapshot.hostSeatId ? `<details><summary>Link an event guest’s seat</summary><p>Only guest entrants can be attested here. Signed-in entrants link their own seat.</p><form id="attestEventGuest"><label class="select-field">Guest<select name="participantId">${context.assignedGuests.map(row => `<option value="${escape(row.id)}">${escape(row.name)}</option>`).join('')}</select></label><label class="select-field">Claimed Table seat<select name="seatId">${context.roster.filter(row => !row.participantId).map(row => `<option value="${row.seatId}">P${row.seatId + 1} · ${escape(row.name)}</option>`).join('')}</select></label><button class="secondary-action" type="submit">Attest guest seat</button></form></details>` : ''}`, () => home(kind));
     bind('#openTableScope', () => scopeScreen(kind, id)); bind('#refreshTableLink', async () => { await syncSetup(true); await tableScreen(); });
@@ -585,7 +686,10 @@ export function createCompetitionHub(adapter) {
 
   backButton.addEventListener('click', () => { if (back) void run(back, backButton); }); closeButton.addEventListener('click', close);
   dialog.addEventListener('cancel', () => { stopInviteScanner(); navigationEpoch++; });
-  dialog.addEventListener('close', () => { stopInviteScanner(); adapter.onClose(); });
+  dialog.addEventListener('close', () => {
+    stopInviteScanner(); const next = afterClose; afterClose = null;
+    if (next) next(); else adapter.onClose();
+  });
   document.addEventListener('visibilitychange', () => {
     if(!document.hidden)return;
     stopInviteScanner();const panel=content.querySelector('#podInviteScanPanel');if(panel)panel.hidden=true;
@@ -616,7 +720,10 @@ export function createCompetitionHub(adapter) {
       }
       if (latestSnapshot) void syncSetup(true).catch(() => {});
       retryFragment = null;
-    } catch (error) { if (fragment && navigation === navigationEpoch) { draw('Invite unavailable', `<p>${escape(error.message)}</p>${button('retryInvite', 'Try again')}`); bind('#retryInvite', init); } }
+    } catch (error) { if (fragment && navigation === navigationEpoch) {
+      draw('Invite unavailable', `<p>${escape(error.message)}</p><p>Ask a member for a fresh invite if this link has expired or been revoked.</p><div class="competition-actions">${button('useAnotherInvite', 'Use another invite', true)}${button('retryInvite', 'Try again')}</div>`);
+      bind('#retryInvite', init); bind('#useAnotherInvite', () => { retryFragment = null; currentInvite = null; inviteForm(); });
+    } }
   }
   window.addEventListener('hashchange', () => {
     stopInviteScanner();
