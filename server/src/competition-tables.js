@@ -12,6 +12,13 @@ const live = (member, directory) => member?.status === 'active'
   && (member.kind === 'guest' || Boolean(directory.identities[member.identityId]));
 const gameParticipants = game => [...new Set([...(game?.starterIds || []), ...(game?.revisions || []).map(row => row.by)])];
 const TIMED_DRAW_TABLE_PROTOCOL = 2;
+const releasedTable = () => competitionError('This Table was released. Use the replacement Table from your event.', 409, 'EVENT_TABLE_RELEASED');
+function tournamentContext(scope, table, now) {
+  if (scope.kind !== 'tournament') return {};
+  const round = scope.rounds.find(row => row.assignments.some(assignment => assignment.id === table?.assignmentId));
+  return { eventStatus: scope.status, tournamentRound: round
+    ? { number: round.number, status: round.status, endsAt: round.endsAt || null, serverNow: now } : null };
+}
 
 // All methods here are setup, explicit administration or completion operations.
 // RoomService never calls this coordinator during a counter mutation or broadcast.
@@ -91,6 +98,7 @@ export class CompetitionTables {
     const me = this.actor(scope, auth, directory);
     if (kind === 'tournament' && scope.settings.minutes) this.requireDrawSupport(room);
     const key = tableKey(room);
+    if (scope.tables[key]?.releasedAt) throw releasedTable();
     const existing = await this.binding(room, directory);
     if (existing && (existing.kind !== kind || existing.id !== id)) throw competitionError('This Table already belongs to another competition.', 409, 'TABLE_ALREADY_LINKED');
     if (room.turn.gameStarted && !existing) throw competitionError('Link this Table before starting the game.', 409, 'LINK_BEFORE_START');
@@ -102,6 +110,7 @@ export class CompetitionTables {
       guard();
       const actor = this.actor(state, auth, directory);
       const table = state.tables[key] ??= { key, roomCode: room.code, seats: {}, captures: {} };
+      if (table.releasedAt) throw releasedTable();
       if (kind === 'tournament') {
         this.tournaments.checkTableBinding(state, actor.id, assignmentId);
         const assignment = this.tournaments.assignment(state, assignmentId);
@@ -140,6 +149,7 @@ export class CompetitionTables {
       const me = this.actor(scope, auth, directory);
       const table = scope.tables[tableKey(room)];
       if (!table) throw competitionError('The host must finish linking this Table.', 409);
+      if (table.releasedAt) throw releasedTable();
       if (binding.kind === 'tournament' && !this.tournaments.assignment(scope, table.assignmentId).participantIds.includes(me.id)) {
         throw competitionError('You are assigned to a different Table.', 403);
       }
@@ -188,13 +198,15 @@ export class CompetitionTables {
     const binding = await this.binding(room);
     if (!binding) return { linked: false };
     const scope = await this.domain.readScope(binding.kind, binding.id);
+    const table = scope.tables[tableKey(room)];
+    const eventContext = tournamentContext(scope, table, this.domain.now());
     const directory = await this.domain.directory(scope, auth, { participantIds: Object.values(scope.tables[tableKey(room)]?.seats || {}).map(row => row.participantId) });
     let me;
     try { me = this.actor(scope, auth, directory); }
-    catch (error) { if (error.status === 403) return { linked: true, kind: binding.kind, canAccess: false }; throw error; }
-    const table = scope.tables[tableKey(room)];
+    catch (error) { if (error.status === 403) return { linked: true, kind: binding.kind, canAccess: false, ...eventContext }; throw error; }
     const capture = Object.values(table?.captures || {}).find(item => item.gameId === room.gameId);
     return { linked: true, canAccess: true, kind: binding.kind, id: binding.id, name: scope.name,
+      ...eventContext, ...(table?.releasedAt ? { released: true } : {}),
       me: me.id, host: table?.hostId === me.id,
       seatLinked: table?.seats[seatId]?.participantId === me.id && table.seats[seatId].ownerHash === proof(seat),
       gameId: capture?.gameId || null, captureStatus: capture?.status || null,
@@ -207,6 +219,43 @@ export class CompetitionTables {
           name: live(member, directory) ? this.domain.name(directory, scope.id, member) : seat.name };
       }),
     };
+  }
+
+  async releaseTournamentAssignment(auth, id, assignmentId) {
+    const before = await this.domain.readScope('tournament', id), directory = await this.domain.directory(before, auth);
+    this.actor(before, auth, directory, { admin: true });
+    const linked = Object.values(before.tables).find(table => table.assignmentId === assignmentId);
+    const saved = linked && !this.service.rooms.has(linked.roomCode) ? await this.ledger.readRecovery(linked.roomCode) : null;
+    await this.domain.changeScope('tournament', id, scope => {
+      const me = this.actor(scope, auth, directory, { admin: true });
+      const assignment = this.tournaments.assignment(scope, assignmentId), round = scope.rounds.at(-1);
+      if (!round?.assignments.includes(assignment) || !['draft', 'playing'].includes(round.status) || assignment.cancelled) {
+        throw competitionError('Only a current unplayed Table assignment can be released.', 409);
+      }
+      const table = Object.values(scope.tables).find(row => row.assignmentId === assignmentId);
+      const hasStart = assignment.gameId || Object.values(scope.games).some(game => game.assignmentId === assignmentId)
+        || Object.values(scope.tables).some(row => Object.values(row.captures).some(command => command.assignmentId === assignmentId
+          && ['accepted', 'captured', 'abandoned'].includes(command.status)));
+      if (hasStart) throw competitionError('A started Table must finish and confirm its result.', 409, 'EVENT_TABLE_STARTED');
+      if (!table) return false;
+      const liveRoom = this.service.rooms.get(table.roomCode);
+      const room = liveRoom || (linked?.key === table.key && saved?.schemaVersion === 1 && saved.room?.code === table.roomCode ? saved.room : null);
+      const identity = liveRoom ? roomIdentity(liveRoom)
+        : saved?.hostRecoveryKeyHash ? Buffer.from(saved.hostRecoveryKeyHash, 'base64url').toString('base64') : null;
+      if (!room || !identity || digest(identity) !== table.key || !room.turn || !Array.isArray(room.completedGames)) {
+        throw competitionError('Recover this Table before replacing it so its unplayed state can be verified.', 409, 'ROOM_RECOVERY_REQUIRED');
+      }
+      if (room.turn.gameStarted || room.turn.gameStartedAt || room.gameResult || room.completedGames.length
+        || ['playing', 'complete', 'intermission'].includes(room.lifecycle?.status)) {
+        throw competitionError('A started Table must finish and confirm its result.', 409, 'EVENT_TABLE_STARTED');
+      }
+      // Keep the competition claim and a tombstone. The old Room cannot become
+      // a casual game or be rebound while the replacement takes this assignment.
+      table.releasedAt = this.domain.now(); table.releasedBy = me.id; table.releasedAssignmentId = assignmentId;
+      delete table.assignmentId; table.seats = {};
+      this.domain.audit(scope, 'release_table', me.id, assignmentId);
+    }, { auth });
+    return this.tournaments.get(auth, id);
   }
 
   async attestGuest(auth, { code, connectionId, seatId, participantId } = {}) {
@@ -268,6 +317,7 @@ export class CompetitionTables {
     }
     const table = before.tables[key];
     if (!table) throw competitionError('Finish linking this Table before starting.', 409);
+    if (table.releasedAt) throw releasedTable();
     const hostId = table.seats[room.hostSeatId]?.ownerHash === proof(room.seats[room.hostSeatId])
       ? table.seats[room.hostSeatId].participantId : null;
     if (!live(before.members[hostId], directory)) throw competitionError('The current Table host must link an active membership.', 403);
@@ -305,6 +355,7 @@ export class CompetitionTables {
       this.domain.assertDirectory(scope, directory);
       this.own(code, connectionId, true);
       const linkedTable = scope.tables[key]; const host = scope.members[hostId];
+      if (linkedTable.releasedAt) throw releasedTable();
       linkedTable.hostId = hostId;
       if (!live(host, directory) || linkedTable.seats[room.hostSeatId]?.ownerHash !== proof(room.seats[room.hostSeatId])) {
         throw competitionError('An active participating host must link this seat.', 403);
