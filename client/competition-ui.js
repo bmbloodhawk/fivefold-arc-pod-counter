@@ -236,12 +236,13 @@ export function createCompetitionHub(adapter) {
     const activity = await request(route('pod', pod.id, 'activity'));
     const stateLabel = { lobby: 'Setting up', playing: 'Playing', intermission: 'Between games', complete: 'Game complete' };
     draw('Tables now', `<p>Private to this Pod. Recent app connections do not confirm that someone is at a store.</p>
-      <p class="competition-help">Checked ${escape(new Date(activity.asOf).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}. Connections within the last ${Math.round(activity.presenceWindowMs / 1000)} seconds are shown as recent. Tables without recent connections are omitted.</p>
+      <p class="competition-help">Checked ${escape(new Date(activity.asOf).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}. Connection labels show app contact within the last ${Math.round(activity.presenceWindowMs / 1000)} seconds. Games in progress stay listed when phones are inactive; other Tables need a recent connection.</p>
       ${button('refreshPodActivity', 'Refresh')}
       <div class="competition-list">${activity.tables.map(table => `<section class="competition-table-card"><h3>${escape(stateLabel[table.lifecycle] || 'Table')} · ${escape(table.code)}</h3>
         <p>${table.claimedSeats}/${table.capacity} seats claimed · ${table.availableSeats ? `${table.availableSeats} open to join` : ['playing', 'complete'].includes(table.lifecycle) ? 'New players can join between games' : 'Table full'}</p>
+        ${table.lifecycle === 'playing' && !table.recentlyConnectedSeats ? '<p class="competition-help">Game in progress · No recent phone connections.</p>' : ''}
         <p>${table.members.map(member => `${escape(member.name)} · ${member.recentlyConnected ? 'recent connection' : 'no recent connection'}`).join('<br>')}</p>
-        ${table.availableSeats ? `<button type="button" class="secondary-action" data-join-active="${escape(table.code)}">Join this Table</button>` : ''}</section>`).join('') || '<p>No Tables with recent app connections are available here. This does not mean nobody is at a store.</p>'}</div>`, () => podScreen(pod.id));
+        ${table.availableSeats ? `<button type="button" class="secondary-action" data-join-active="${escape(table.code)}">Join this Table</button>` : ''}</section>`).join('') || '<p>No games in progress or Tables with recent app connections are available here. This does not mean nobody is at a store.</p>'}</div>`, () => podScreen(pod.id));
     bind('#refreshPodActivity', () => activityScreen(pod));
     content.querySelectorAll('[data-join-active]').forEach(node => node.addEventListener('click', () => void run(() => {
       if (session().code && Number.isInteger(session().seatId)) return podPlayScreen(pod);

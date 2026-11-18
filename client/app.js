@@ -11,7 +11,7 @@ import { createAccountScreen, saveRegistrationPreferredName } from './create-acc
 import { JoinQrScanner } from './join-qr-scanner.js?v=5';
 import { GameWakeLock } from './game-wake-lock.js?v=1';
 import { applyCollectionVisual } from './collection-visual.js?v=4';
-import { createCompetitionHub } from './competition-ui.js?v=6';
+import { createCompetitionHub } from './competition-ui.js?v=7';
 import { parseCompetitionFragment } from './competition-model.mjs?v=1';
 import { createAppearanceCatchUp } from './appearance-catch-up.js?v=2';
 import { createDialLayout } from './dial-layout.js?v=2';

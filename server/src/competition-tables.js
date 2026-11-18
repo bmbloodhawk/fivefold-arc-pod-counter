@@ -173,8 +173,9 @@ export class CompetitionTables {
         return { name: live(member, directory) && member.kind === 'member' ? this.domain.name(directory, id, member) : 'Guest', recentlyConnected };
       });
       const recentlyConnectedSeats = members.filter(member => member.recentlyConnected).length;
-      if (!recentlyConnectedSeats) continue;
-      const lifecycle = room.lifecycle?.status || (room.turn.gameStarted ? 'playing' : 'lobby');
+      const lifecycle = room.lifecycle?.status || (room.gameResult ? 'complete' : room.turn.gameStarted ? 'playing' : 'lobby');
+      const inProgress = lifecycle === 'playing' && room.turn.gameStarted && !room.gameResult;
+      if (!recentlyConnectedSeats && !inProgress) continue;
       tables.push({ code: room.code, lifecycle, claimedSeats: claimed.length, capacity: room.seats.length,
         availableSeats: ['lobby', 'intermission'].includes(lifecycle) ? room.seats.length - claimed.length : 0,
         recentlyConnectedSeats, members });
