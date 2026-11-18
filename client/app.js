@@ -11,7 +11,7 @@ import { createAccountScreen, saveRegistrationPreferredName } from './create-acc
 import { JoinQrScanner } from './join-qr-scanner.js?v=5';
 import { GameWakeLock } from './game-wake-lock.js?v=1';
 import { applyCollectionVisual } from './collection-visual.js?v=4';
-import { createCompetitionHub } from './competition-ui.js?v=8';
+import { createCompetitionHub } from './competition-ui.js?v=9';
 import { parseCompetitionFragment } from './competition-model.mjs?v=2';
 import { createAppearanceCatchUp } from './appearance-catch-up.js?v=2';
 import { createDialLayout } from './dial-layout.js?v=2';
@@ -2991,13 +2991,15 @@ dom.startingRollCanvas?.addEventListener('webglcontextlost', () => recordClientD
 transport.addEventListener('protocolerror', () => recordClientDiagnostic('protocol_error'));
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js').catch(() => {});
 const deepJoinCode = new URLSearchParams(location.search).get('join');
+const deepCompetitionFragment = parseCompetitionFragment(location.hash);
 if (!appearancePreviewMode) {
   if (/^[A-Z0-9]{6}$/i.test(deepJoinCode || '')) void openJoinCode(deepJoinCode);
-  else if (parseCompetitionFragment(location.hash)) clearActiveTable();
+  else if (deepCompetitionFragment) { if (!deepCompetitionFragment.viewerToken) clearActiveTable(); }
   else void recoverActiveTable();
   window.addEventListener('online', recoverActiveTable);
   window.addEventListener('hashchange', () => {
-    if (parseCompetitionFragment(location.hash)) { clearActiveTable(); cancelActiveTableRecovery(); }
+    const fragment = parseCompetitionFragment(location.hash);
+    if (fragment) { if (!fragment.viewerToken) clearActiveTable(); cancelActiveTableRecovery(); }
   });
 }
 if (!appearancePreviewMode) {

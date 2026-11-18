@@ -17,6 +17,40 @@ test('visible event polling waits fifteen seconds, never overlaps, and stops on 
   refresh.stop(); finish(); await pending; assert.equal(timer.tasks.size, 0);
 });
 
+test('requesting a faster event interval keeps the default fifteen-second minimum', () => {
+  const timer = clock();
+  const refresh = createTournamentRefresh({ timer, visible: () => true, interval: 2000 });
+  refresh.start(async () => {});
+  assert.equal(timer.tasks.values().next().value.ms, 15000);
+  refresh.stop();
+});
+
+test('selected-table polling opts into two seconds and never overlaps while visibility changes', async () => {
+  const timer = clock(); let visible = true, calls = 0, finish;
+  const refresh = createTournamentRefresh({ timer, visible: () => visible, interval: 2000, minimumInterval: 2000 });
+  refresh.start(async () => { calls++; await new Promise(resolve => { finish = resolve; }); });
+  assert.equal(timer.tasks.values().next().value.ms, 2000);
+  const pending = timer.tick();
+  assert.equal(calls, 1); assert.equal(timer.tasks.size, 0);
+  visible = false; refresh.visibilityChanged();
+  visible = true; refresh.visibilityChanged();
+  assert.equal(timer.tasks.size, 0);
+  finish(); await pending;
+  assert.equal(timer.tasks.size, 1);
+  assert.equal(timer.tasks.values().next().value.ms, 2000);
+  visible = false; refresh.visibilityChanged();
+  assert.equal(timer.tasks.size, 0);
+  refresh.stop();
+});
+
+test('explicit faster polling cannot run below two seconds', () => {
+  const timer = clock();
+  const refresh = createTournamentRefresh({ timer, visible: () => true, interval: 1, minimumInterval: 1 });
+  refresh.start(async () => {});
+  assert.equal(timer.tasks.values().next().value.ms, 2000);
+  refresh.stop();
+});
+
 test('hidden screens pause and resume polling without catch-up bursts', async () => {
   const timer = clock(); let visible = false, calls = 0;
   const refresh = createTournamentRefresh({ timer, visible: () => visible });
@@ -28,7 +62,7 @@ test('hidden screens pause and resume polling without catch-up bursts', async ()
 
 test('errors stop polling until an explicit new refresh view is started', async () => {
   const timer = clock(); let errors = 0;
-  const refresh = createTournamentRefresh({ timer, visible: () => true });
+  const refresh = createTournamentRefresh({ timer, visible: () => true, interval: 2000, minimumInterval: 2000 });
   refresh.start(async () => { throw new Error('revoked'); }, () => { errors++; });
   await timer.tick(); assert.equal(errors, 1); assert.equal(timer.tasks.size, 0);
   refresh.visibilityChanged(); assert.equal(timer.tasks.size, 0);
@@ -43,4 +77,31 @@ test('opening a new event while an old refresh finishes starts the new view sche
   finish(); await old;
   assert.equal(timer.tasks.size, 1);
   await timer.tick(); assert.equal(calls, 1);
+});
+
+test('a late failed request from a closed view cannot stop or report an error in the new view', async () => {
+  const timer = clock(); let rejectOld, oldErrors = 0, newErrors = 0, calls = 0;
+  const refresh = createTournamentRefresh({ timer, visible: () => true, interval: 2000, minimumInterval: 2000 });
+  refresh.start(() => new Promise((resolve, reject) => { rejectOld = reject; }), () => { oldErrors++; });
+  const old = timer.tick();
+  refresh.stop(); refresh.start(async () => { calls++; }, () => { newErrors++; });
+  rejectOld(new Error('old viewer revoked')); await old;
+  assert.equal(oldErrors, 0); assert.equal(newErrors, 0);
+  assert.equal(timer.tasks.size, 1);
+  assert.equal(timer.tasks.values().next().value.ms, 2000);
+  await timer.tick(); assert.equal(calls, 1);
+  refresh.stop();
+});
+
+test('a cancelled callback from a closed view cannot refresh its replacement', async () => {
+  const timer = clock(); let oldCalls = 0, newCalls = 0;
+  const refresh = createTournamentRefresh({ timer, visible: () => true, interval: 2000, minimumInterval: 2000 });
+  refresh.start(async () => { oldCalls++; });
+  const staleCallback = timer.tasks.values().next().value.fn;
+  refresh.stop(); refresh.start(async () => { newCalls++; });
+  await staleCallback();
+  assert.equal(oldCalls, 0); assert.equal(newCalls, 0);
+  assert.equal(timer.tasks.size, 1);
+  await timer.tick(); assert.equal(newCalls, 1);
+  refresh.stop();
 });

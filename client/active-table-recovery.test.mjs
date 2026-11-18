@@ -185,6 +185,22 @@ test('a new competition invite cancels an in-flight automatic return', async () 
   assert.deepEqual(page.shown, []);
 });
 
+test('opening a private viewing link preserves the saved player seat without reclaiming it', async () => {
+  const page = startPage({ hash: '#watch=event_test&viewer=private_viewer_token' });
+  await setImmediate();
+  assert.deepEqual(JSON.parse(page.stored.get(activeKey)), target);
+  assert.deepEqual(page.calls, []);
+});
+
+test('a viewing link cancels delayed automatic recovery without erasing the player return marker', async () => {
+  const { promise, resolve } = Promise.withResolvers();
+  const page = startPage({ claim: () => promise });
+  page.context.location.hash = '#watch=event_test&viewer=private_viewer_token';
+  page.listeners.get('hashchange')?.(); resolve(confirmed); await setImmediate();
+  assert.deepEqual(JSON.parse(page.stored.get(activeKey)), target);
+  assert.deepEqual(page.shown, []);
+});
+
 test('saving the current shared seat records a separate active marker', async () => {
   const page = startPage({ active: null, history: [] });
   page.context.state = { localSimulation: false, podCode: 'OWN333', ownerPlayerId: 'P2', hostSeatId: 0, players: [{ id: 'P2', name: 'Player Two' }] };

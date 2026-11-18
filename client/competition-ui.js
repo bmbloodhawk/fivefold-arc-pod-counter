@@ -1,6 +1,6 @@
 import { orderFromChoices, finishingChoices, localDateKey, parseCompetitionFragment, setupObservationKey, contextObservationKey, tournamentAttendance, finishedTableTransition } from './competition-model.mjs?v=2';
-import { createTournamentRefresh } from './tournament-refresh.mjs?v=1';
-import { spectatorBoardHtml, spectatorClockText, spectatorFailure } from './tournament-spectator.mjs?v=1';
+import { createTournamentRefresh } from './tournament-refresh.mjs?v=2';
+import { spectatorBoardHtml, spectatorClockText, spectatorFailure, spectatorTableHtml, spectatorTableClockText } from './tournament-spectator.mjs?v=2';
 import { JoinQrScanner } from './join-qr-scanner.js?v=5';
 import { podInviteFromQr } from './pod-invite-qr.mjs?v=1';
 
@@ -36,8 +36,10 @@ export function createCompetitionHub(adapter) {
   let context = null, latestSnapshot = null, retrySetup = null, currentInvite = null, retryFragment = null;
   let navigationEpoch = 0, contextAttempt = null, afterClose = null;
   let refreshDrawing = false, viewClock = null, viewClockTick = null, viewer = null, viewStamp = 0, hostViewerLink = null;
+  let viewerRequestController = null;
   const refresh = createTournamentRefresh({ visible: () => dialog.open && !document.hidden });
-  const stopView = () => { refresh.stop(); clearInterval(viewClock); viewClock = null; viewClockTick = null; };
+  const tableRefresh = createTournamentRefresh({ visible: () => dialog.open && !document.hidden, interval: 2000, minimumInterval: 2000 });
+  const stopView = () => { refresh.stop(); tableRefresh.stop(); viewerRequestController?.abort(); viewerRequestController = null; clearInterval(viewClock); viewClock = null; viewClockTick = null; };
   const startViewClock = tick => { clearInterval(viewClock); viewClockTick = tick; tick(); viewClock = !document.hidden && dialog.open && viewClockTick === tick ? setInterval(tick, 1000) : null; };
   const roomScopes = new Map(Object.entries(readLocal(roomScopesKey, sessionStorage) || {}));
   const rememberRoom = (code, scopeId) => { roomScopes.set(code, scopeId); writeLocal(roomScopesKey, Object.fromEntries(roomScopes), sessionStorage); };
@@ -127,9 +129,10 @@ export function createCompetitionHub(adapter) {
     }
   }
   const route = (kind, id, suffix = '') => `${kind}/${encodeURIComponent(id)}${suffix ? '/' + suffix : ''}`;
-  const freshness = () => {
+  const freshness = (interval = 15000, receivedAt = Date.now()) => {
     if (!content.querySelector('#eventFreshness')) content.insertAdjacentHTML('beforeend', '<p class="competition-help" id="eventFreshness" aria-live="off"></p>');
-    content.querySelector('#eventFreshness').textContent = `Updated ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })} · Refreshes every 15 seconds while visible.`;
+    const age = Math.max(0, Math.floor((Date.now() - receivedAt) / 1000));
+    content.querySelector('#eventFreshness').textContent = `${age > interval / 1000 * 3 ? 'Stale · ' : ''}Updated ${age ? `${age} seconds ago` : 'just now'} · Refreshes every ${interval / 1000} seconds while visible.`;
   };
   function watchEvent(id, render) {
     if (refreshDrawing) return;
@@ -607,8 +610,8 @@ export function createCompetitionHub(adapter) {
     if (created) hostViewerLink = { eventId: event.id, expiresAt: created.expiresAt,
       link: `${location.origin}/index.html#watch=${encodeURIComponent(event.id)}&viewer=${encodeURIComponent(created.viewerToken)}` };
     const link = info.active && hostViewerLink?.eventId === event.id && hostViewerLink.expiresAt === info.expiresAt ? hostViewerLink.link : null;
-    draw('Private spectator link', `<p>A read-only board for people you choose. No account or tournament entry is needed. It shows round time, Table status and confirmed standings. It does not show life totals or Table join codes.</p>
-      <p>Anyone holding this link can view the board. Share it privately. Only one link is active; it expires after 24 hours.</p>
+    draw('Private event viewing link', `<p>Share the event board and live Tables with people you choose. No account or tournament entry is needed. Viewers can read life totals, counters, commanders, turns and results without taking a seat.</p>
+      <p>Anyone holding this link can view the board and live Tables. Share it privately. Only one link is active; it expires after 24 hours.</p>
       <p>${info.active ? `Active · expires ${escape(new Date(info.expiresAt).toLocaleString())}.` : 'No active spectator link.'}</p>
       ${link ? `<label class="select-field" for="spectatorShareLink">Private spectator link<textarea id="spectatorShareLink" readonly rows="4">${escape(link)}</textarea></label>${button('spectatorCopy', 'Copy spectator link', true)}` : info.active ? '<p class="competition-help">The existing link cannot be recovered on this screen. Create a replacement to share a new link; the previous link will stop working.</p>' : ''}
       <div class="competition-actions">${button('spectatorCreate', info.active ? 'Replace spectator link' : 'Create spectator link', !info.active)}${info.active ? button('spectatorRevoke', 'Revoke spectator link') : ''}</div>`, () => eventMenu(event));
@@ -618,46 +621,63 @@ export function createCompetitionHub(adapter) {
     });
     const create = async () => spectatorLinks(event, await request(route('tournament', event.id, 'spectator-links'), { scopeId: event.id, body: { action: 'create' } }));
     bind('#spectatorCreate', () => info.active ? confirmScreen('Replace spectator link?', 'The previous link will stop working. The new private link will expire in 24 hours. Tournament entries, games and results stay.', create, () => spectatorLinks(event)) : create());
-    bind('#spectatorRevoke', () => confirmScreen('Revoke spectator link?', 'People using this link will lose board access on their next refresh, within 15 seconds while visible. Tournament entries, games and results stay.', async () => {
+    bind('#spectatorRevoke', () => confirmScreen('Revoke spectator link?', 'People using this link will lose access on their next refresh. Live Tables check about every 2 seconds; the event board checks every 15 seconds while visible. A slow connection can delay this check. Tournament entries, games and results stay.', async () => {
       await request(route('tournament', event.id, 'spectator-links'), { scopeId: event.id, body: { action: 'revoke' } }); hostViewerLink = null; await spectatorLinks(event); message('Private spectator link revoked.');
     }, () => spectatorLinks(event)));
   }
-  async function spectatorRequest(capability) {
-    const response = await fetch(`/api/competitions/${route('tournament', capability.eventId, 'spectator')}`, {
+  async function spectatorRequest(capability, selection = null, signal = null) {
+    const suffix = selection ? `spectator/table?round=${encodeURIComponent(selection.round)}&table=${encodeURIComponent(selection.table)}` : 'spectator';
+    const response = await fetch(`/api/competitions/${route('tournament', capability.eventId, suffix)}`, {
       cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer', headers: { 'x-event-viewer-token': capability.viewerToken },
+      ...(signal ? { signal } : {}),
     });
     const data = await response.json();
     if (!response.ok) throw Object.assign(new Error(data.message || 'Spectator board unavailable.'), { status: response.status, code: data.code });
     return data;
   }
-  async function openSpectator(capability) {
-    draw('Private spectator board', '<p>Opening this private read-only board…</p>');
+  async function openSpectator(capability, selection = null) {
+    draw(selection ? `Watch Table ${selection.table}` : 'Private event board', '<p>Opening this private read-only view…</p>');
     viewer = { eventId: capability.eventId, viewerToken: capability.viewerToken };
-    const current = viewer, stamp = viewStamp;
+    const current = viewer, stamp = viewStamp, navigation = navigationEpoch;
     const failed = error => {
-      if (viewer !== current || stamp !== viewStamp || !dialog.open) return;
+      if (viewer !== current || stamp !== viewStamp || navigation !== navigationEpoch || !dialog.open) return;
       const text = spectatorFailure(error);
-      draw('Private spectator board unavailable', `<p>${escape(text)}</p>${button('spectatorRetry', 'Try again', true)}<p class="competition-help">A spectator link gives no tournament entry or host controls.</p>`);
-      bind('#spectatorRetry', () => openSpectator(current)); message(text);
+      draw('Private viewing unavailable', `${button('spectatorRetry', 'Try again', true)}<p class="competition-help">A spectator link gives no tournament entry or host controls.</p>`);
+      bind('#spectatorRetry', () => openSpectator(current, selection)); message(text);
     };
     const update = async () => {
-      const board = await spectatorRequest(current);
-      if (viewer !== current || stamp !== viewStamp || !dialog.open || document.hidden) return;
+      const controller = new AbortController(); viewerRequestController = controller;
+      let board;
+      try { board = await spectatorRequest(current, selection, controller.signal); }
+      catch (error) { if (error.name === 'AbortError' && document.hidden) return; throw error; }
+      finally { if (viewerRequestController === controller) viewerRequestController = null; }
+      if (viewer !== current || stamp !== viewStamp || navigation !== navigationEpoch || !dialog.open || document.hidden) return;
       if (board.expiresAt <= board.serverNow) throw Object.assign(new Error('Expired'), { code: 'VIEWER_LINK_EXPIRED' });
+      const receivedAt = Date.now(), interval = selection ? 2000 : 15000;
       refreshDrawing = true;
       try {
-        draw(board.name, `${spectatorBoardHtml(board)}${button('spectatorRefresh', 'Refresh board')}`); freshness();
+        draw(board.name, selection
+          ? `${button('spectatorBackBoard', 'Back to event board')}${spectatorTableHtml(board)}${button('spectatorTableRefresh', 'Refresh Table')}`
+          : `${spectatorBoardHtml(board)}${button('spectatorRefresh', 'Refresh board')}`, selection ? () => openSpectator(current) : null);
+        freshness(interval, receivedAt);
         bind('#spectatorRefresh', () => openSpectator(current));
+        bind('#spectatorBackBoard', () => openSpectator(current));
+        bind('#spectatorTableRefresh', () => openSpectator(current, selection));
+        content.querySelectorAll('[data-watch-round]').forEach(node => node.addEventListener('click', () => void run(() => openSpectator(current,
+          { round: Number(node.dataset.watchRound), table: Number(node.dataset.watchTable) }), node)));
       } finally { refreshDrawing = false; }
       const offset = board.serverNow - Date.now();
       startViewClock(() => {
         const now = Date.now() + offset;
         if (now >= board.expiresAt) { failed({ code: 'VIEWER_LINK_EXPIRED' }); return; }
         const output = content.querySelector('#spectatorRoundClock');
-        if (output) output.textContent = spectatorClockText(board, now);
+        if (output) output.textContent = `${selection ? 'Official round · ' : ''}${spectatorClockText(selection && board.status === 'complete' ? { ...board, status: 'playing' } : board, now)}`;
+        const gameClock = content.querySelector('#spectatorTableTurn');
+        if (selection && gameClock) gameClock.textContent = spectatorTableClockText(board, now);
+        if (selection) freshness(interval, receivedAt);
       });
     };
-    try { await update(); if (viewer === current && stamp === viewStamp && dialog.open) refresh.start(update, failed); }
+    try { await update(); if (viewer === current && stamp === viewStamp && navigation === navigationEpoch && dialog.open) (selection ? tableRefresh : refresh).start(update, failed); }
     catch (error) { failed(error); }
   }
   function seatingScreen(event) {
@@ -841,9 +861,10 @@ export function createCompetitionHub(adapter) {
     if (next) next(); else adapter.onClose();
   });
   document.addEventListener('visibilitychange', () => {
-    refresh.visibilityChanged(); clearInterval(viewClock); viewClock = null;
+    refresh.visibilityChanged(); tableRefresh.visibilityChanged(); clearInterval(viewClock); viewClock = null;
     if (!document.hidden && viewClockTick && dialog.open) { viewClockTick(); if (viewClockTick) viewClock = setInterval(viewClockTick, 1000); }
     if(!document.hidden)return;
+    viewerRequestController?.abort(); viewerRequestController = null;
     stopInviteScanner();const panel=content.querySelector('#podInviteScanPanel');if(panel)panel.hidden=true;
   });
   window.addEventListener('pagehide', () => { stopInviteScanner(); stopView(); viewer = null; });
@@ -857,6 +878,7 @@ export function createCompetitionHub(adapter) {
     const fragment = parseCompetitionFragment(location.hash) || retryFragment;
     // Capabilities leave the address bar before any network request.
     if (fragment) { retryFragment = fragment; history.replaceState(null, '', location.pathname + location.search); }
+    if (fragment?.viewerToken) draw('Private event board', '<p>Opening this private read-only view…</p>');
     try {
       const config = await request('config', { noAccount: true, viewAware: false });
       enabled = config.enabled; podDeletionEnabled = config.podDeletionEnabled === true; podInviteScannerEnabled = config.podInviteScannerEnabled === true;

@@ -1,5 +1,7 @@
 # Tournament flow and private spectator board
 
+Historical release record. The follow-up [private live Watch Table release](TOURNAMENT_LIVE_WATCH_STAGING_2026-11-18.md) adds actual gameplay totals to the private spectator experience described here.
+
 Authorized release target: staging only, from `151b2d7`. Production must remain at `52017e8a2f4419915d5544663c58f269e241f1ed`.
 
 ## Changes
