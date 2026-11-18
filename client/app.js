@@ -2803,7 +2803,8 @@ async function leaveFinishedTournamentTable() {
     && awardProfileEpoch === profileEpoch && state?.podCode === code;
   const refreshed = await transport.refreshRoom();
   if (refreshed?.ignored || refreshed?.blocked || !stillCurrent() || transport.status !== 'connected') throw new Error('The Table or account changed. Open the current Table and try again.');
-  if (!tournamentTableFlow(state, tournamentTableContext)?.finished) throw new Error('Finish the current game before changing Tables.');
+  const finished = Boolean(state.gameResult) || ['complete', 'intermission'].includes(state.lifecycle?.status);
+  if (!finished) throw new Error('Finish the current game before changing Tables.');
   if (state.lifecycle?.status === 'intermission') {
     const result = await transport.leaveIntermission();
     if (result.conflict || !result.left || !stillCurrent()) throw new Error('The Table changed. Review it before leaving.');

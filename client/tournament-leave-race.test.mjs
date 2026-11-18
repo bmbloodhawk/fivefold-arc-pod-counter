@@ -50,3 +50,16 @@ test('the normal server stream closure after a successful leave does not prevent
   const f = harness({ intermission: true, disconnectOnLeave: true }); const pending = f.leave(); f.release(); await pending;
   assert.deepEqual(f.calls, ['serverLeave', 'forgot:OLD111', 'left:OLD111']);
 });
+for (const kind of ['casual', 'pod']) {
+  test(`a finished ${kind} Table can continue to a competition assignment after confirmation`, async () => {
+    const f = harness({ intermission: true });
+    f.scope.tournamentTableContext = kind === 'casual' ? null : { linked: true, kind: 'pod', code: 'OLD111' };
+    const pending = f.leave(); f.release(); await pending;
+    assert.deepEqual(f.calls, ['serverLeave', 'forgot:OLD111', 'left:OLD111']);
+  });
+}
+test('an unfinished casual game remains protected from the assignment departure shortcut', async () => {
+  const f = harness(); delete f.scope.state.gameResult; f.scope.state.lifecycle.status = 'playing';
+  f.scope.tournamentTableContext = null; const pending = f.leave(); f.release();
+  await assert.rejects(pending, /Finish the current game/); assert.deepEqual(f.calls, []);
+});

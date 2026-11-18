@@ -9,7 +9,7 @@ Authorized release target: staging only, from `151b2d7`. Production must remain 
 - Withdrawn entrants can return before/between rounds, preserving their identity and points. A return after play has begun needs approval. Finished events do not offer or accept an early withdrawal.
 - Registration surfaces invitations, attendance and pending approvals. Guest entry is explicit; signing in retains the entered name. Back remains in Tournaments.
 - The play screen displays the authoritative event countdown, including on an attested guest's phone. Pausing the Table's turn timer does not pause the event deadline. The final-turn procedure remains manual.
-- Tournament postgame offers result review and return to the event. The next assignment has an explicit leave-finished-seat-and-continue action. Released setup replacement has its own confirmed departure. Both paths preserve records and reject stale sessions.
+- Tournament postgame offers result review and return to the event. The next assignment has an explicit leave-finished-seat-and-continue action. Released setup replacement has its own confirmed departure. Both paths preserve records and reject stale sessions. Finished casual and Pod Tables can also use the explicit continuation when changing to a competition assignment; active games remain protected.
 - Event/standings/viewer screens refresh at a bounded 15-second interval while visible. Forms, ordinary counter changes and hidden/closed views do not drive this polling. Errors and stale updates cannot revive an old view.
 - The whole-app review found delayed deck reads could restore private deck details after sign-out. Profile-epoch guards now protect the deck library, setup picker and save-game picker, including late failures.
 
@@ -26,7 +26,7 @@ Organizers who stop playing retain their organizer access. Removing an issuing c
 ## Verification
 
 - Assembled full suite: **716 server tests passed**, zero failed/skipped. Two additional native spectator-storage compatibility cases passed after that run.
-- Final client suite: **452 tests passed**, including the final released-setup guard and replacement UI.
+- Final client suite: **455 tests passed**, including the final released-setup guard and replacement UI.
 - Local black-box Table protocol: **64 passed**, zero failed/skipped.
 - Independent privacy checks: **110 passed**; account race tests reproduced the old failures, then passed after the fixes.
 - A mutation of the Table-context identity guard was caught by its behavioral regressions and restored before further work.
@@ -50,7 +50,7 @@ This evidence uses isolated local auth/storage and phone-sized Chrome. It does n
 
 ## Release and rollback
 
-App 316, competition UI 8, competition model 2, competition CSS 3 and worker cache 381 identify this candidate. New local modules are pinned in the offline graph. Table protocol is unchanged. No dependencies were added.
+App 317, competition UI 8, competition model 2, competition CSS 3 and worker cache 382 identify this candidate. New local modules are pinned in the offline graph. Table protocol is unchanged. No dependencies were added.
 
 Before pushing, require a clean diff check, passing final checks and independent review. After the authorized staging fast-forward, verify served-file hashes, `/health`, private viewer denial without a capability and all 64 deployed protocol checks. Record exact final commit and results in the handoff/evidence. Code rollback target is `151b2d7` after staging games finish safely; do not delete records or reverse historical results.
 
