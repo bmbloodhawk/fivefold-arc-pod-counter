@@ -154,7 +154,7 @@ export class CompetitionTables {
     return this.context(auth, code, connectionId);
   }
   async context(auth, code, connectionId) {
-    const { room, seatId } = this.own(code, connectionId);
+    const { room, seat, seatId } = this.own(code, connectionId);
     const binding = await this.binding(room);
     if (!binding) return { linked: false };
     const scope = await this.domain.readScope(binding.kind, binding.id);
@@ -165,7 +165,8 @@ export class CompetitionTables {
     const table = scope.tables[tableKey(room)];
     const capture = Object.values(table?.captures || {}).find(item => item.gameId === room.gameId);
     return { linked: true, canAccess: true, kind: binding.kind, id: binding.id, name: scope.name,
-      me: me.id, host: table?.hostId === me.id, seatLinked: table?.seats[seatId]?.participantId === me.id,
+      me: me.id, host: table?.hostId === me.id,
+      seatLinked: table?.seats[seatId]?.participantId === me.id && table.seats[seatId].ownerHash === proof(seat),
       gameId: capture?.gameId || null, captureStatus: capture?.status || null,
       assignmentId: table?.assignmentId || null,
       assignedGuests: binding.kind === 'tournament' && table?.assignmentId ? this.tournaments.assignment(scope, table.assignmentId).participantIds
