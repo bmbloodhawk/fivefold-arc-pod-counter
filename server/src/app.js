@@ -2206,7 +2206,7 @@ export function createRealtimeServer(options = {}) {
     const cors = {
       "access-control-allow-origin": allowedOrigin,
       "access-control-allow-methods": "GET,POST,PATCH,DELETE,OPTIONS",
-      "access-control-allow-headers": "content-type,x-connection-id,x-feedback-portal-key,authorization,x-event-token",
+      "access-control-allow-headers": "content-type,x-connection-id,x-feedback-portal-key,authorization,x-event-token,x-event-viewer-token",
     };
     // Keep the event build embeddable only by itself and avoid browser defaults
     // that can expose structured API responses in an unexpected context. CSP is
@@ -2229,6 +2229,9 @@ export function createRealtimeServer(options = {}) {
       const url = new URL(req.url, "http://localhost");
       parts = url.pathname.split("/").filter(Boolean);
       const connectionId = req.headers["x-connection-id"];
+      if (req.headers['x-event-viewer-token'] !== undefined && !url.pathname.startsWith('/api/competitions/')) {
+        throw Object.assign(new Error('Spectator access is read-only and limited to its event board.'), { status: 403, code: 'SPECTATOR_READ_ONLY' });
+      }
       if (url.pathname.startsWith('/api/competitions/')) {
         const response = await competitionRoute({ req, url, readBody: () => readJson(req), account, domain: competitions, tables: competitionTables, tournaments, connectionId, appEnv });
         return await roomJson(res, response.status, response.data);

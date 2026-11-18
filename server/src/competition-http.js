@@ -1,5 +1,6 @@
 import QRCode from 'qrcode';
 import { competitionError } from './competitions.js';
+import { TournamentSpectators } from './tournament-spectators.js';
 
 // Bearer account tokens or event-scoped guest capabilities; never ambient cookies.
 // Invite secrets use POST bodies and browser fragments, not logged URL queries.
@@ -7,6 +8,8 @@ export async function competitionRoute({ req, url, readBody, account, domain, ta
   if (!url.pathname.startsWith('/api/competitions/')) return null;
   const path = url.pathname.slice('/api/competitions/'.length).split('/');
   const method = req.method;
+  const spectatorRead = path.length === 3 && path[0] === 'tournament' && path[2] === 'spectator' && method === 'GET';
+  if (req.headers?.['x-event-viewer-token'] !== undefined && !spectatorRead) throw competitionError('Event viewing links only open the read-only event board.', 403, 'EVENT_VIEWER_ACCESS');
   const podDeletionEnabled = Boolean(domain) && appEnv === 'staging' && !domain.identityStore && !domain.scopeStore;
   if (method === 'GET' && path[0] === 'config') return { status: 200, data: { enabled: Boolean(domain), podDeletionEnabled,
     podInviteScannerEnabled: Boolean(domain) && appEnv === 'staging' } };
@@ -42,6 +45,17 @@ export async function competitionRoute({ req, url, readBody, account, domain, ta
   }
   const [kind, id, action, detail, subaction] = path;
   if (!['pod', 'tournament'].includes(kind) || !id) throw competitionError('Unknown competition route.', 404);
+  if (kind === 'tournament' && path.length === 3) {
+    const spectators = new TournamentSpectators({ domain, tournaments });
+    if (action === 'spectator' && method === 'GET') return ok(await spectators.board(id, req.headers['x-event-viewer-token']));
+    if (action === 'spectator-links' && method === 'GET') return ok(await spectators.metadata(await auth(), id));
+    if (action === 'spectator-links' && method === 'POST') return ok(await spectators.change(await auth(), id, await readBody()));
+    if (action === 'release-table' && method === 'POST') {
+      const input = await readBody();
+      if (!input || typeof input !== 'object' || Array.isArray(input) || typeof input.assignmentId !== 'string') throw competitionError('Choose an unstarted Table assignment.');
+      return ok(await tables.releaseTournamentAssignment(await auth(), id, input.assignmentId));
+    }
+  }
   if (kind === 'pod' && path.length === 2 && method === 'DELETE' && podDeletionEnabled) {
     return ok(await domain.deletePod(await signed(), id, await readBody()));
   }
