@@ -46,6 +46,7 @@ export async function competitionRoute({ req, url, readBody, account, domain, ta
     return ok(await domain.deletePod(await signed(), id, await readBody()));
   }
   if (!action && method === 'GET') return ok(kind === 'pod' ? await domain.getPod(await signed(), id) : await tournaments.get(await auth(), id));
+  if (kind === 'pod' && action === 'activity' && path.length === 3 && method === 'GET') return ok(await tables.activity(await signed(), id));
   if (action === 'invites' && method === 'GET') return ok(await domain.listInvites(await signed(), kind, id));
   if (action === 'invites' && method === 'POST') return ok(detail && subaction === 'revoke'
     ? await domain.revokeInvite(await signed(), kind, id, detail) : await domain.invite(await signed(), kind, id));

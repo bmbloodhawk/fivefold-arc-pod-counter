@@ -153,6 +153,35 @@ export class CompetitionTables {
     this.unresolvedClaims.delete(`${code}:${seatId}`);
     return this.context(auth, code, connectionId);
   }
+  async activity(accountId, id) {
+    if (typeof accountId !== 'string' || !accountId) throw competitionError('Sign in to view Pod activity.', 401, 'SIGN_IN_REQUIRED');
+    const scope = await this.domain.readScope('pod', id), directory = await this.domain.directory(scope, accountId);
+    this.actor(scope, accountId, directory);
+    const asOf = this.service.now(), presenceWindowMs = this.service.connectionTtlMs, tables = [];
+    // Observe only this server's already loaded Tables. Reads must not extend a
+    // room's lifetime or revive old recovery records into apparent attendance.
+    for (const room of this.service.rooms.values()) {
+      const table = scope.tables[tableKey(room)];
+      if (!table || table.roomCode !== room.code || asOf - room.lastActiveAt > this.service.roomTtlMs) continue;
+      const claimed = room.seats.filter(seat => seat.claimed);
+      const members = claimed.map(seat => {
+        const connection = this.service.connections.get(seat.ownerConnectionId);
+        const recentlyConnected = Boolean(connection && connection.seatKey === `${room.code}:${seat.seatId}`
+          && asOf - connection.lastSeen <= presenceWindowMs);
+        const linked = table.seats[seat.seatId];
+        const member = linked?.ownerHash === proof(seat) && scope.members[linked.participantId];
+        return { name: live(member, directory) && member.kind === 'member' ? this.domain.name(directory, id, member) : 'Guest', recentlyConnected };
+      });
+      const recentlyConnectedSeats = members.filter(member => member.recentlyConnected).length;
+      if (!recentlyConnectedSeats) continue;
+      const lifecycle = room.lifecycle?.status || (room.turn.gameStarted ? 'playing' : 'lobby');
+      tables.push({ code: room.code, lifecycle, claimedSeats: claimed.length, capacity: room.seats.length,
+        availableSeats: ['lobby', 'intermission'].includes(lifecycle) ? room.seats.length - claimed.length : 0,
+        recentlyConnectedSeats, members });
+    }
+    tables.sort((left, right) => left.code.localeCompare(right.code));
+    return { asOf, presenceWindowMs, tables };
+  }
   async context(auth, code, connectionId) {
     const { room, seat, seatId } = this.own(code, connectionId);
     const binding = await this.binding(room);
@@ -472,11 +501,13 @@ export class CompetitionTables {
     if (!scope.games[gameId]) throw competitionError('That game is unavailable.', 404);
     return this.detailDto(scope, scope.games[gameId], directory);
   }
-  async history(auth, kind, id, { cursor, limit = 20, from = 0, to = Infinity } = {}) {
+  async history(auth, kind, id, { cursor, limit = 20, from = 0, to = Infinity, status } = {}) {
     const scope = await this.domain.readScope(kind, id); const directory = await this.domain.participantDirectory(scope, auth, []);
     this.actor(scope, auth, directory);
+    if (status !== undefined && status !== 'pending') throw competitionError('Use pending or omit the history status filter.');
     const pageSize = Math.min(50, Math.max(1, Number(limit) || 20));
-    const rows = Object.values(scope.games).filter(game => game.completedAt >= Number(from) && game.completedAt < Number(to))
+    const rows = Object.values(scope.games).filter(game => (status !== 'pending' || !game.revisions.length)
+      && game.completedAt >= Number(from) && game.completedAt < Number(to))
       .sort((a, b) => b.completedAt - a.completedAt || b.gameId.localeCompare(a.gameId));
     const offset = cursor ? rows.findIndex(row => `${row.completedAt}:${row.gameId}` === cursor) + 1 : 0;
     if (cursor && offset === 0) throw competitionError('That history page has changed. Start again.', 409);
