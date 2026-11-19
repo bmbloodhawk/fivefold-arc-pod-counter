@@ -67,8 +67,8 @@ test('descenders, negative values and wider totals retain the same intended cent
   }
 });
 
-function withDialLayout(run, { warningHeight = 0 } = {}) {
-  const savedGlobals = new Map(['document', 'getComputedStyle', 'requestAnimationFrame', 'ResizeObserver']
+function withDialLayout(run, { warningHeight = 0, visualViewport } = {}) {
+  const savedGlobals = new Map(['document', 'getComputedStyle', 'requestAnimationFrame', 'ResizeObserver', 'visualViewport']
     .map(name => [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
   const style = () => {
     const properties = new Map();
@@ -97,8 +97,11 @@ function withDialLayout(run, { warningHeight = 0 } = {}) {
   }));
   const control = { getClientRects() { return [this.getBoundingClientRect()]; },
     getBoundingClientRect: () => rect(0, stage.getBoundingClientRect().bottom, 300, 44) };
+  const minus = { style: style() }, plus = { style: style() };
+  const controls = { getBoundingClientRect: () => assembly.getBoundingClientRect() };
   const game = { hidden: false, dataset: { interfaceStyle: 'dial' },
-    querySelector: selector => ({ '.counter-stage': stage, '.dial-assembly': assembly, '.counter-readout': readout })[selector],
+    querySelector: selector => ({ '.counter-stage': stage, '.dial-assembly': assembly, '.counter-readout': readout,
+      '#dialControls': controls, '.dial-step-minus': minus, '.dial-step-plus': plus })[selector],
     querySelectorAll: selector => selector === '#lifeChangeIndicator, #statusMessage' ? feedback
       : selector === '#turnActions, #sourcePanel, .commander-tax-quick' && warningHeight ? [control] : [] };
   let frame;
@@ -113,7 +116,7 @@ function withDialLayout(run, { warningHeight = 0 } = {}) {
     return rect(0, value.getBoundingClientRect().top + 52 / factor, 0, 0);
   } };
   try {
-    globalThis.document = { createElement: tag => tag === 'canvas' ? { getContext: () => canvas } : probe,
+    globalThis.document = { documentElement: { clientWidth: 320 }, createElement: tag => tag === 'canvas' ? { getContext: () => canvas } : probe,
       body: { classList: { toggle() {} } }, fonts: { ready: { then() {} }, addEventListener() {} } };
     globalThis.getComputedStyle = node => node === value
       ? { fontStyle: 'normal', fontWeight: '400', fontSize: `${100 / (Number(value.style.getPropertyValue('--dial-digit-factor')) || 1)}px`,
@@ -123,8 +126,9 @@ function withDialLayout(run, { warningHeight = 0 } = {}) {
         top: `${context.getBoundingClientRect().bottom + 2 - assembly.getBoundingClientRect().top}px` };
     globalThis.requestAnimationFrame = callback => { frame = callback; return 1; };
     globalThis.ResizeObserver = class { observe() {} };
+    globalThis.visualViewport = visualViewport;
     const layout = createDialLayout(game, value);
-    run({ value, readout, assembly, stage, feedback, control, update() { layout.update(); frame(); } });
+    run({ value, readout, assembly, stage, feedback, control, minus, plus, update() { layout.update(); frame(); } });
   } finally {
     for (const [name, descriptor] of savedGlobals) {
       if (descriptor) Object.defineProperty(globalThis, name, descriptor); else delete globalThis[name];
@@ -159,4 +163,27 @@ test('a tall warning stays clear of the following action and keeps its space aft
     feedback[0].hidden = true; update();
     assert.equal(stage.getBoundingClientRect().height, reservedHeight, 'Expiring feedback does not move the counter back.');
   }, { warningHeight: 120 });
+});
+
+test('layout measures curved tap zones again after viewport changes without sizing the dial', () => {
+  withDialLayout(({ assembly, minus, plus, update }) => {
+    const original = assembly.getBoundingClientRect();
+    update();
+    assert.equal(minus.style.width, '150px');
+    assert.equal(plus.style.width, '170px');
+    assert.equal(minus.style.height, '300px');
+    assert.match(minus.style.clipPath, /^path\("M /);
+    document.documentElement.clientWidth = 390; update();
+    assert.equal(plus.style.width, '240px');
+    assert.deepEqual(assembly.getBoundingClientRect(), original);
+  });
+});
+
+test('a stale wider visual viewport never extends side zones beyond the layout viewport', () => {
+  withDialLayout(({ minus, plus, update }) => {
+    update();
+    assert.equal(minus.style.left, '0px');
+    assert.equal(plus.style.left, '150px');
+    assert.equal(plus.style.width, '170px');
+  }, { visualViewport: { width: 390, offsetLeft: 0, addEventListener() {} } });
 });

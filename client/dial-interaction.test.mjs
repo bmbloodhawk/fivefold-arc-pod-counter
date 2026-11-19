@@ -12,7 +12,7 @@ test('dial taps and dragging keep separate accessible input routes', () => {
   assert.match(index, /id="dialGesture"[^>]*role="slider"[^>]*tabindex="0"/);
   assert.match(app, /#gameView \.dial-gesture\{position:absolute;z-index:1;overflow:visible;transform-origin:50% 50%\}/);
   assert.match(app, /event\.target\.closest\('\[data-delta\]'\)/);
-  assert.match(app, /dom\.dialControls\.addEventListener\('pointerup',[\s\S]*?\.dial-step\[data-delta\][\s\S]*?void adjust\(Number\(button\.dataset\.delta\)\)/);
+  assert.match(app, /bindDialSideTaps\(dom\.dialControls, delta => \{ void adjust\(delta\); \}\)/);
   assert.match(app, /dom\.dialGesture\.addEventListener\('keydown'/);
 });
 
@@ -32,7 +32,7 @@ test('rendering a Dial simulation reads the saved interface style without invoki
 test('Dial uses one shared assembly and no screen-size or turn-specific positioning rules', () => {
   const assembly = index.slice(index.indexOf('<div class="dial-assembly">'), index.indexOf('<section id="sourcePanel"'));
   for (const part of ['counter-sigil', 'counter-readout', 'dialControls', 'lifeChangeIndicator', 'statusMessage', 'lethalMark']) assert.ok(assembly.includes(part), part);
-  assert.match(index, /href="dial-layout\.css\?v=5"/);
+  assert.match(index, /href="dial-layout\.css\?v=6"/);
   assert.match(app, /dialLayout\.update\(\)/);
   assert.doesNotMatch(dialStyles, /@media[^\{]*(?:width|height)|data-your-turn/);
   assert.doesNotMatch(styles, /--dial-center-y|--dial-tax-height|--dial-side-seat-stack|--dial-source-height/);

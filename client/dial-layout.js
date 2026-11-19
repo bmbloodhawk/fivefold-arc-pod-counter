@@ -1,3 +1,5 @@
+import { dialSideZones } from './dial-side-zones.js?v=1';
+
 // Canvas measures visible ink, rather than the font's advance/line box.
 // This keeps Georgia's descending numerals centered without per-digit nudges.
 export function glyphCenterCorrection(metrics, baseline, height) {
@@ -56,6 +58,8 @@ export function createDialLayout(game, value) {
   const stage = game.querySelector('.counter-stage');
   const assembly = game.querySelector('.dial-assembly');
   const readout = game.querySelector('.counter-readout');
+  const controls = game.querySelector('#dialControls');
+  const sideButtons = [game.querySelector('.dial-step-minus'), game.querySelector('.dial-step-plus')];
   const feedback = [...game.querySelectorAll('#lifeChangeIndicator, #statusMessage')];
   const visibleRects = selector => [...game.querySelectorAll(selector)]
     .filter(node => node.getClientRects().length && getComputedStyle(node).visibility !== 'hidden')
@@ -153,6 +157,25 @@ export function createDialLayout(game, value) {
         '--counter-context-height', '--counter-info-height', '--counter-mode-top', '--counter-mode-left']) assembly.style.removeProperty(name);
     } else {
       const assemblyBox = assembly.getBoundingClientRect();
+      const controlBox = controls.getBoundingClientRect();
+      const controlStyle = getComputedStyle(controls);
+      const viewport = globalThis.visualViewport;
+      // Resize can report the previous visual width for a frame. Never let a
+      // side region widen the document and feed back into mobile viewport size.
+      const layoutWidth = document.documentElement.clientWidth;
+      const viewportLeft = Math.max(0, Math.min(layoutWidth, viewport?.offsetLeft || 0));
+      const viewportRight = Math.min(layoutWidth, viewportLeft + (viewport?.width || layoutWidth));
+      const zones = dialSideZones(assemblyBox, {
+        left: viewportLeft + (parseFloat(controlStyle.getPropertyValue?.('--dial-safe-left')) || 0),
+        right: viewportRight - (parseFloat(controlStyle.getPropertyValue?.('--dial-safe-right')) || 0),
+      });
+      for (const [index, zone] of Object.values(zones).entries()) {
+        const buttonStyle = sideButtons[index].style;
+        Object.assign(buttonStyle, { left: `${zone.left - controlBox.left}px`, top: `${zone.top - controlBox.top}px`,
+          width: `${zone.width}px`, height: `${zone.height}px`, clipPath: `path("${zone.path}")`, visibility: 'visible' });
+        buttonStyle.setProperty('--dial-side-label-x', `${zone.labelX}px`);
+        buttonStyle.setProperty('--dial-side-label-y', `${zone.labelY}px`);
+      }
       const readoutBox = readout.getBoundingClientRect();
       const readoutScaleY = readoutBox.height / parseFloat(getComputedStyle(readout).height) || 1;
       // Reserve one fixed two-digit band around the uncorrected number center.
@@ -211,6 +234,8 @@ export function createDialLayout(game, value) {
   // Observe the number's untransformed box as well; optical translations do
   // not resize it, so applying the correction cannot create an observer loop.
   resizeObserver.observe(value);
+  globalThis.visualViewport?.addEventListener('resize', update);
+  globalThis.visualViewport?.addEventListener('scroll', update);
   document.fonts.ready.then(update);
   document.fonts.addEventListener('loadingdone', update);
   return { update };

@@ -14,7 +14,8 @@ import { applyCollectionVisual } from './collection-visual.js?v=4';
 import { createCompetitionHub } from './competition-ui.js?v=10';
 import { parseCompetitionFragment } from './competition-model.mjs?v=2';
 import { createAppearanceCatchUp } from './appearance-catch-up.js?v=2';
-import { createDialLayout } from './dial-layout.js?v=4';
+import { createDialLayout } from './dial-layout.js?v=5';
+import { bindDialSideTaps } from './dial-side-zones.js?v=1';
 import { nextGameStarterPolicy } from './next-game-starter.js?v=1';
 import { tournamentTableFlow } from './tournament-table-flow.mjs?v=1';
 
@@ -3184,14 +3185,7 @@ dom.activeSeat.addEventListener('change', () => { state.activePlayerId = dom.act
   state.mode = nextMode;
   render();
 })); $$('.adjust-controls [data-delta]').forEach(button => button.addEventListener('click', () => adjust(Number(button.dataset.delta))));
-// Side zones are part of the Dial's touch surface. Handle pointer release
-// directly instead of depending on every mobile browser to synthesize a click.
-dom.dialControls.addEventListener('pointerup', event => {
-  const button = event.target.closest('.dial-step[data-delta]');
-  if (!button || button.disabled) return;
-  event.preventDefault();
-  void adjust(Number(button.dataset.delta));
-});
+bindDialSideTaps(dom.dialControls, delta => { void adjust(delta); });
 dom.dialGesture.addEventListener('pointerdown', beginDialDrag); dom.dialGesture.addEventListener('pointermove', moveDialDrag); dom.dialGesture.addEventListener('pointerup', endDialDrag); dom.dialGesture.addEventListener('pointercancel', endDialDrag); dom.dialGesture.addEventListener('keydown', event => { if (event.key === 'ArrowUp' || event.key === 'ArrowRight') { event.preventDefault(); void adjust(1); } if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') { event.preventDefault(); void adjust(-1); } });
 accountInterfaceStyle.addEventListener('change', () => setInterfaceStyle(accountInterfaceStyle.value, { persistAccount: true }));
 dom.customLifeButton.addEventListener('click', () => { dom.customLifeAmount.value = ''; dom.customLifeDialog.showModal(); dom.customLifeAmount.focus(); }); dom.cancelCustomLifeButton.addEventListener('click', () => dom.customLifeDialog.close('cancel'));
