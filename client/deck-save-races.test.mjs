@@ -60,6 +60,7 @@ function fixture({ delayedToken = false, delayedLookup = false, delayedSave = fa
     deckLibraryView: element(''), deckEditor: element(''), deckSearch: element(''), addDeckButton: element(''),
     cancelDeckEditorButton: element(''), myDecksTitle: element(''), closeMyDecksButton: element(''),
     myDecksDialog: { open: true, addEventListener() {}, showModal() { this.open = true; } },
+    deckCommanderMatches: [0, 1].map(() => ({ hidden: true, replaceChildren() {} })),
     escapeHtml: value => String(value), renderHomeAccount() {}, googleAccountToken: async () => 'token_A',
     appearanceCatchUp: { reset() {} }, savedGameKey: null, savingGameKey: null, savedGameMoment: null,
     unlockedAchievementsByGame: new Map(),

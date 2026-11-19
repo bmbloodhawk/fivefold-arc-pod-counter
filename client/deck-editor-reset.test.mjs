@@ -46,6 +46,7 @@ function fixture({ failSignOut = false, pendingLookup = false, pendingWrite = fa
     myDecksContent: { ...element(), innerHTML: '<ul><li>PRIVATE_A_NOTES</li></ul>' }, myDecksSignInButton: element(),
     deckLibraryView: element(), deckEditor: element(), deckSearch: element(), addDeckButton: element(),
     cancelDeckEditorButton: element(), myDecksTitle: element(), closeMyDecksButton: element(),
+    deckCommanderMatches: [0, 1].map(() => ({ hidden: true, replaceChildren() {} })),
     myGamesStatus: element(), myGamesDialog: dialog(), myDecksDialog: dialog(),
     myGamesContent: element(), exportAccountButton: element(), deleteAccountButton: element(),
     signOutButton: element(), homeSignOutButton: element(), homeAccountMessage: element(),

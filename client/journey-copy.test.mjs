@@ -592,8 +592,11 @@ test('My decks opens the saved library before its separate editor and confirms c
   assert.ok(html.indexOf('id="savedDeckList"') < html.indexOf('id="deckEditor"'));
   assert.match(html, /id="findDeckColorsButton"/);
   assert.match(html, /id="deckCommanderStatus"/);
+  assert.match(html, /id="deckCommanderMatches"[^>]*role="group"[^>]*aria-label="Suggested cards for Commander 1"[^>]*hidden/);
+  assert.match(html, /id="deckCommanderMatchesTwo"[^>]*role="group"[^>]*aria-label="Suggested cards for Commander 2"[^>]*hidden/);
   assert.match(app, /async function confirmDeckCommanderColors\(\)/);
-  assert.match(app, /const cards = await Promise\.all\(names\.map\(lookupCommanderIdentity\)\)/);
+  assert.match(app, /const results = await Promise\.allSettled\(names\.map\(lookupCommanderIdentity\)\)/);
+  assert.match(app, /const cards = results\.map\(result => result\.value\)/);
   assert.match(app, /deckCommanderColors = cards\.map\(card => normaliseIdentity\(card\.colors\)\)/);
   // Submitted payloads and color fallback are exercised against actual save code in deck-save-races.test.mjs.
   assert.match(app, /setDeckColors\(colors\);/);

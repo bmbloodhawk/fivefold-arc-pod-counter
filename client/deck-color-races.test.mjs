@@ -3,11 +3,14 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { createContext, runInContext } from 'node:vm';
 const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
-const source = app.slice(app.indexOf('async function confirmDeckCommanderColors('), app.indexOf('function savedDeckCommanderColors('));
+const choicesStart = app.indexOf('function clearDeckCommanderMatches(');
+const choicesSource = choicesStart < 0 ? '' : app.slice(choicesStart, app.indexOf('let deckColorLookupAttempt', choicesStart));
+const source = choicesSource + app.slice(app.indexOf('async function confirmDeckCommanderColors('), app.indexOf('function savedDeckCommanderColors('));
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
 function fixture() {
   const lookups = [], count = { value: '2' };
-  const context = createContext({ awardProfileEpoch: 0, deckColorLookupAttempt: 0,
+  const context = createContext({ awardProfileEpoch: 0, deckColorLookupAttempt: 0, deckSaveAttempt: 0, deckEditorOpen: true,
+    myDecksDialog: { open: true }, deckCommanderMatches: [0, 1].map(() => ({ hidden: true, replaceChildren() {} })),
     deckCommanderName: { value: 'First' }, deckCommanderNameTwo: { value: 'Partner' },
     deckCommanderStatus: { textContent: '' }, findDeckColorsButton: { disabled: false },
     deckCommanderColors: [], colors: [], $: () => count, normaliseIdentity: values => [...new Set(values)],

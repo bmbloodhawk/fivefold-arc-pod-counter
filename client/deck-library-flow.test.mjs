@@ -102,6 +102,7 @@ function fixture({ waitForToken = false, waitForWrite = false, failWrite = false
     node('deckFavorite').checked = false; colors.forEach(input => { input.checked = false; }); count = '1';
   };
   context = createContext({ ...Object.fromEntries(fieldNames.map(name => [name, node(name)])), myDecksDialog: dialog,
+    deckCommanderMatches: [0, 1].map(() => ({ hidden: true, replaceChildren() {} })),
     awardProfileEpoch: 0, deckEditorOpen: false, deckLibraryRequest: 0,
     editingDeckId: null, deckCommanderColors: [], selectedDeckId: '',
     savedDecks: copy(decks), serverDecks: copy(decks), setupDecks: [], commanderDecks: [], homeAccountSignedIn: true,

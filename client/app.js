@@ -150,6 +150,7 @@ const signInButton = $('#signInButton'); const myGamesButton = $('#myGamesButton
 myGamesStatus.setAttribute('role', 'status');
 const baseSealMarkup = $('.counter-sigil')?.innerHTML || ''; const baseModeNavMarkup = new Map($$('[data-mode]').map(button => [button.dataset.mode, button.innerHTML]));
 const deckLibraryView = $('#deckLibraryView'), deckEditor = $('#deckEditor'), deckSearch = $('#deckSearch');
+const deckCommanderMatches = [$('#deckCommanderMatches'), $('#deckCommanderMatchesTwo')];
 const addDeckButton = $('#addDeckButton'), cancelDeckEditorButton = $('#cancelDeckEditorButton');
 const myDecksTitle = $('#myDecksTitle'), closeMyDecksButton = $('#closeMyDecksButton');
 const accountSignedInStatus = $('#accountSignedInStatus');
@@ -941,7 +942,7 @@ function openDeckEditor() {
   if (myDecksDialog.open) deckCommanderName.focus();
 }
 function resetDeckEditorDraft() {
-  deckSaveAttempt++; deckColorLookupAttempt++;
+  deckSaveAttempt++; invalidateDeckCommanderMatches();
   editingDeckId = null; deckCommanderColors = [];
   deckCommanderName.value = ''; deckCommanderNameTwo.value = ''; deckName.value = ''; deckNotes.value = '';
   deckFavorite.checked = false; deckCommanderNameTwoField.hidden = true;
@@ -993,9 +994,50 @@ async function showMyDecks(signIn = false, currentRequest = () => true) {
   } finally { if (profileEpoch === awardProfileEpoch && request === deckLibraryRequest) deckSearch.disabled = false; }
 }
 function setDeckColors(colors) { const confirmed = normaliseIdentity(colors); $$('input[name="deckColors"]').forEach(input => { input.checked = confirmed.includes(input.value); }); }
+function clearDeckCommanderMatches() {
+  deckCommanderMatches.forEach(panel => { panel.replaceChildren(); panel.hidden = true; });
+}
+function invalidateDeckCommanderMatches() {
+  deckColorLookupAttempt++;
+  clearDeckCommanderMatches();
+  findDeckColorsButton.disabled = false;
+}
+function offerDeckCommanderMatches(results, isCurrent) {
+  if (!isCurrent() || !deckEditorOpen) return false;
+  clearDeckCommanderMatches();
+  const profileEpoch = awardProfileEpoch, attempt = deckColorLookupAttempt;
+  let offered = false;
+  results.forEach((result, slot) => {
+    if (result.status !== 'rejected' || !result.reason?.matches?.length) return;
+    const panel = deckCommanderMatches[slot], input = [deckCommanderName, deckCommanderNameTwo][slot];
+    const heading = document.createElement('small');
+    heading.textContent = 'Choose the card you meant:';
+    panel.append(heading);
+    result.reason.matches.slice(0, 5).forEach(card => {
+      const button = document.createElement('button');
+      button.type = 'button'; button.className = 'secondary-action';
+      button.textContent = `${card.name} · ${card.colors.join('') || 'Colorless'}`;
+      button.addEventListener('click', () => {
+        if (profileEpoch !== awardProfileEpoch || attempt !== deckColorLookupAttempt || !isCurrent()
+          || !myDecksDialog.open || !deckEditorOpen || !panel.contains(button)) return;
+        input.focus(); input.value = card.name;
+        invalidateDeckCommanderMatches(); deckCommanderColors = [];
+        void confirmDeckCommanderColors();
+      });
+      panel.append(button);
+    });
+    panel.hidden = false; offered = true;
+  });
+  if (offered) {
+    deckCommanderStatus.textContent = 'Choose the card you meant, then save your deck. Your current deck colors were kept.';
+    if (myDecksDialog.open) deckCommanderMatches.find(panel => !panel.hidden).scrollIntoView({ block: 'nearest' });
+  }
+  return offered;
+}
 let deckColorLookupAttempt = 0;
 async function confirmDeckCommanderColors() {
-  const profileEpoch = awardProfileEpoch, attempt = ++deckColorLookupAttempt;
+  invalidateDeckCommanderMatches();
+  const profileEpoch = awardProfileEpoch, attempt = deckColorLookupAttempt;
   const count = Number($('input[name="deckCommanderCount"]:checked')?.value || 1);
   const inputs = [deckCommanderName, deckCommanderNameTwo].slice(0, count);
   const names = inputs.map(input => input.value.trim());
@@ -1006,8 +1048,12 @@ async function confirmDeckCommanderColors() {
   findDeckColorsButton.disabled = true;
   deckCommanderStatus.textContent = 'Finding commander colors…';
   try {
-    const cards = await Promise.all(names.map(lookupCommanderIdentity));
+    const results = await Promise.allSettled(names.map(lookupCommanderIdentity));
     if (!unchangedDraft()) return false;
+    if (offerDeckCommanderMatches(results, unchangedDraft)) return false;
+    const failed = results.find(result => result.status === 'rejected');
+    if (failed) throw failed.reason;
+    const cards = results.map(result => result.value);
     cards.forEach((card, index) => { inputs[index].value = card.name; });
     deckCommanderColors = cards.map(card => normaliseIdentity(card.colors));
     const colors = normaliseIdentity(deckCommanderColors.flat());
@@ -1024,7 +1070,7 @@ function savedDeckCommanderColors(deck, count) { if (Array.isArray(deck?.command
 function beginDeckEdit(deckId) { const deck = savedDecks.find(item => item.deckId === deckId); if (!deck) return; resetDeckEditorDraft(); editingDeckId = deckId; const names = deck.commanderNames || [deck.commanderName]; deckCommanderColors = savedDeckCommanderColors(deck, names.length); $(`input[name="deckCommanderCount"][value="${names.length}"]`).checked = true; deckCommanderName.value = names[0] || ''; deckCommanderNameTwo.value = names[1] || ''; deckCommanderNameTwoField.hidden = names.length !== 2; deckName.value = deck.name || ''; deckNotes.value = deck.notes || ''; deckFavorite.checked = deck.favorite === true; setDeckColors(deck.colors || []); deckCommanderStatus.textContent = 'Check the commander colors after editing a commander name.'; createDeckButton.textContent = 'Update deck'; myDecksStatus.textContent = `Editing ${deck.commanderName}. Make your correction, then choose Update deck.`; openDeckEditor(); }
 let deckSaveAttempt = 0;
 function clearPrivateDeckState({ signedIn = false } = {}) {
-  deckSaveAttempt++; deckColorLookupAttempt++; deckLibraryRequest++;
+  deckSaveAttempt++; invalidateDeckCommanderMatches(); deckLibraryRequest++;
   deckEditorOpen = false; deckEditor.hidden = true; deckLibraryView.hidden = false;
   deckSearch.value = ''; deckSearch.disabled = true; addDeckButton.disabled = true; myDecksTitle.textContent = 'My decks';
   editingDeckId = null; deckCommanderColors = []; selectedDeckId = '';
@@ -1053,6 +1099,8 @@ function captureDeckSaveDraft() {
     name: deckName.value, notes: deckNotes.value, favorite: deckFavorite.checked };
 }
 async function createDeck() {
+  clearDeckCommanderMatches();
+  const lookupAttempt = deckColorLookupAttempt;
   const profileEpoch = awardProfileEpoch, draft = captureDeckSaveDraft();
   const commanderNames = draft.names.map(name => name.trim()).filter(Boolean);
   if (!commanderNames.length || commanderNames.length !== draft.count) return;
@@ -1071,16 +1119,25 @@ async function createDeck() {
     let names = commanderNames, colors = draft.colors;
     let commanderColors = draft.commanderColors.length === names.length ? draft.commanderColors
       : names.length === 1 ? [colors] : names.map(() => []);
-    try {
-      // Resolve only the submitted names. A save must never read or normalize a later editor draft.
-      const cards = await Promise.all(commanderNames.map(lookupCommanderIdentity));
-      if (!currentSave()) return;
+    // Resolve only the submitted names. A save must never read or normalize a later editor draft.
+    const results = await Promise.allSettled(commanderNames.map(lookupCommanderIdentity));
+    if (!currentSave()) return;
+    if (results.some(result => result.status === 'rejected' && result.reason?.matches?.length)) {
+      // An offered choice only verifies commanders; later notes edits need their own explicit Save.
+      if (unchangedDraft()) offerDeckCommanderMatches(results, () => currentSave() && lookupAttempt === deckColorLookupAttempt
+        && editingDeckId === draft.deckId && draft.count === Number($('input[name="deckCommanderCount"]:checked')?.value || 1)
+        && [deckCommanderName, deckCommanderNameTwo].every((input, slot) => input.value === draft.names[slot]));
+      return;
+    }
+    // Keep submitted manual colors only for genuine lookup failures, never rendering errors.
+    if (results.every(result => result.status === 'fulfilled')) {
+      const cards = results.map(result => result.value);
       names = cards.map(card => card.name);
       commanderColors = cards.map(card => normaliseIdentity(card.colors));
       colors = normaliseIdentity(commanderColors.flat());
       // A separate blur lookup may have normalized this same submitted draft.
       confirmedSignature = JSON.stringify({ ...draft, names: [...names, ''].slice(0, 2), commanderColors, colors });
-    } catch { if (!currentSave()) return; /* Keep the submitted manual colors if lookup is unavailable. */ }
+    }
     if (!currentSave()) return;
     const body = { commanderNames: names, commanderColors, name: draft.name, colors, notes: draft.notes, favorite: draft.favorite };
     const response = await fetch(draft.deckId ? `/api/account/decks/${encodeURIComponent(draft.deckId)}` : '/api/account/decks', {
@@ -1089,6 +1146,7 @@ async function createDeck() {
     if (!currentSave()) return;
     if (!response.ok) throw new Error('This deck could not be saved yet.');
     if (unchangedDraft()) {
+      invalidateDeckCommanderMatches();
       editingDeckId = null; deckCommanderColors = []; createDeckButton.textContent = 'Save deck';
       deckCommanderName.value = ''; deckCommanderNameTwo.value = ''; deckName.value = ''; deckNotes.value = ''; deckFavorite.checked = false;
       setDeckColors([]); deckCommanderStatus.textContent = 'We’ll also check the commander colors when you save.';
@@ -2962,7 +3020,7 @@ function selectSetupDeck(event) { selectedDeckId = event.currentTarget.value || 
 dom.createDeck.addEventListener('change', selectSetupDeck); dom.joinDeck.addEventListener('change', selectSetupDeck);
 dom.commanderDeck.addEventListener('change', selectCommanderDeck);
 dom.gameCommanderNames.addEventListener('input', markCommanderSetupManual);
-$$('input[name="deckCommanderCount"]').forEach(input => input.addEventListener('change', () => { const paired = Number(input.value) === 2; deckCommanderNameTwoField.hidden = !paired; if (!paired) deckCommanderNameTwo.value = ''; deckCommanderColors = []; deckCommanderStatus.textContent = 'Commander count changed. Find colors again to update the deck identity.'; }));
+$$('input[name="deckCommanderCount"]').forEach(input => input.addEventListener('change', () => { invalidateDeckCommanderMatches(); const paired = Number(input.value) === 2; deckCommanderNameTwoField.hidden = !paired; if (!paired) deckCommanderNameTwo.value = ''; deckCommanderColors = []; deckCommanderStatus.textContent = 'Commander count changed. Find colors again to update the deck identity.'; }));
 document.addEventListener('pointerdown', touchLocalDemo);
 document.addEventListener('keydown', touchLocalDemo);
 $('#createForm').addEventListener('submit', async event => {
@@ -3208,7 +3266,12 @@ dom.tableSkinMenu.addEventListener('change', async () => {
   } catch (error) { showError(error); render(); }
 });
 dom.deviceAppearanceChoice.addEventListener('change', () => { setDeviceAppearanceChoice(dom.deviceAppearanceChoice.value); activeGameSkinId = ''; void applySelectedAppearance(); });
-deckEditor.addEventListener('submit', event => { event.preventDefault(); void createDeck(); }); findDeckColorsButton.addEventListener('click', () => void confirmDeckCommanderColors()); [deckCommanderName, deckCommanderNameTwo].forEach(input => input.addEventListener('change', () => { deckCommanderColors = []; void confirmDeckCommanderColors(); })); signOutButton.addEventListener('click', () => void signOut());
+deckEditor.addEventListener('submit', event => { event.preventDefault(); void createDeck(); }); findDeckColorsButton.addEventListener('click', () => void confirmDeckCommanderColors());
+[deckCommanderName, deckCommanderNameTwo].forEach(input => {
+  input.addEventListener('input', () => { invalidateDeckCommanderMatches(); deckCommanderColors = []; });
+  input.addEventListener('change', () => { deckCommanderColors = []; void confirmDeckCommanderColors(); });
+});
+signOutButton.addEventListener('click', () => void signOut());
 myGamesContent.addEventListener('click', event => { const id = event.target.closest('[data-remove-game]')?.dataset.removeGame; if (id) void removeAccountItem('games', id); }); myDecksContent.addEventListener('click', event => { const editId = event.target.closest('[data-edit-deck]')?.dataset.editDeck; const removeId = event.target.closest('[data-remove-deck]')?.dataset.removeDeck; const favoriteId = event.target.closest('[data-toggle-favorite]')?.dataset.toggleFavorite; const archiveId = event.target.closest('[data-toggle-archive]')?.dataset.toggleArchive; const exportId = event.target.closest('[data-export-deck]')?.dataset.exportDeck; if (editId) beginDeckEdit(editId); else if (removeId) void removeAccountItem('decks', removeId); else if (favoriteId) { const label = event.target.textContent === 'Favorite'; void updateSavedDeck(favoriteId, { favorite: label }).catch(error => { myDecksStatus.textContent = error.message; }); } else if (archiveId) { const label = event.target.textContent === 'Archive'; void updateSavedDeck(archiveId, { archived: label }).catch(error => { myDecksStatus.textContent = error.message; }); } else if (exportId) void exportDeckSummary(exportId).catch(error => { myDecksStatus.textContent = error.message; }); });
 exportAccountButton.addEventListener('click', () => { void exportAccountData().catch(error => { myGamesStatus.textContent = error.message; }); });
 deleteAccountButton.addEventListener('click', () => { void deleteAccountData().catch(error => { myGamesStatus.textContent = error.message; }); });
