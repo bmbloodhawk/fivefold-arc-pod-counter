@@ -330,7 +330,7 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .active-seat-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 14px 0; padding: 8px 10px; border: 1px dashed var(--line); }
 .active-seat-bar label { color: var(--muted); font-size: .72rem; }
 .active-seat-bar select { width: auto; min-width: 92px; }
-.game-menu { position: absolute; z-index: 9; top: 60px; right: 14px; display: grid; width: 190px; padding: 7px; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; -webkit-overflow-scrolling: touch; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow); }
+.game-menu { position: absolute; z-index: 9; top: 60px; right: 14px; display: grid; width: 190px; padding: 7px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; overscroll-behavior-x: none; touch-action: pan-y; -webkit-overflow-scrolling: touch; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow); }
 .game-menu button { border: 0; background: transparent; text-align: left; }
 .danger-text { color: var(--danger); }
 dialog { width: min(calc(100% - 30px), 440px); padding: 24px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
