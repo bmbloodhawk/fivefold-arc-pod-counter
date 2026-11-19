@@ -28,3 +28,11 @@ The same flow exposed an existing selected-tab marker defect: toggling aria-curr
 - accessibility: I focus the existing profile heading outside the tab order once, without moving focus when data finishes: “Manage focus correctly to and from updated content.” The static-heading pattern is supported by the W3C dialog guidance.
 
 Staging rollback base:143ff30f567e909d0d97e5c6c109b2280741c9a5. Preserve records and unrelated original-workspace changes.
+
+## Requested heading-outline follow-up
+
+The user confirmed the flashing is gone on iPhone Safari, then requested removal of the blue outline around My profile. Only the static focused heading is styled: #myGamesTitle[tabindex="-1"]:focus uses outline:none. Heading focus, request ownership and loading JavaScript are unchanged. Interactive controls retain their existing keyboard focus indicators. Asset pins advance to stylesheet249/cache387; app stays321. Rollback base for this follow-up is f9791f4d1476d5b346a55f3ea917a55da2153013.
+
+Full client suite:631 pass. Local WebKit reproduced the prior native outline and verifies outline-style:none after the change, with heading focus preserved. Chrome/WebKit browser evidence and deployment hashes are recorded under profile-heading-outline-20261118; a physical iPhone retest remains pending.
+
+Accessibility guidance cautions: “Don't disable browser native focus indicators without providing a replacement custom focus indicator.” This user-requested rule is limited to the noninteractive heading outside the Tab order. Keyboard-operable controls keep their visible focus rings, including their existing box-shadow treatment.
