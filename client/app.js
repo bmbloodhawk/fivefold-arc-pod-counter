@@ -149,6 +149,9 @@ function recordClientDiagnostic(kind, extra = {}) {
 const signInButton = $('#signInButton'); const myGamesButton = $('#myGamesButton'); const myGamesDialog = $('#myGamesDialog'); const myGamesStatus = $('#myGamesStatus'); const myGamesContent = $('#myGamesContent'); const myGamesSignInButton = $('#myGamesSignInButton'); const emailSignInFields = $('#emailSignInFields'); const emailSignInButton = $('#emailSignInButton'); const forgotPasswordButton = $('#forgotPasswordButton'); const createAccountButton = $('#createAccountButton'); const exportAccountButton = $('#exportAccountButton'); const deleteAccountButton = $('#deleteAccountButton'); const signOutButton = $('#signOutButton'); const accountEmail = $('#accountEmail'); const accountPassword = $('#accountPassword'); const accountPreferredNameField = $('#accountPreferredNameField'); const accountPreferredName = $('#accountPreferredName'); const accountDefaultPlayerCountField = $('#accountDefaultPlayerCountField'); const accountDefaultPlayerCount = $('#accountDefaultPlayerCount'); const accountDefaultRoundLimitField = $('#accountDefaultRoundLimitField'); const accountDefaultRoundLimit = $('#accountDefaultRoundLimit'); const saveAccountPreferencesButton = $('#saveAccountPreferencesButton'); const myDecksButton = $('#myDecksButton'); const myDecksDialog = $('#myDecksDialog'); const myDecksStatus = $('#myDecksStatus'); const myDecksContent = $('#myDecksContent'); const myDecksSignInButton = $('#myDecksSignInButton'); const createDeckButton = $('#createDeckButton'); const findDeckColorsButton = $('#findDeckColorsButton'); const deckCommanderStatus = $('#deckCommanderStatus'); const deckCommanderName = $('#deckCommanderName'); const deckCommanderNameTwo = $('#deckCommanderNameTwo'); const deckCommanderNameTwoField = $('#deckCommanderNameTwoField'); const deckName = $('#deckName'); const deckNotes = $('#deckNotes'); const deckFavorite = $('#deckFavorite');
 myGamesStatus.setAttribute('role', 'status');
 const baseSealMarkup = $('.counter-sigil')?.innerHTML || ''; const baseModeNavMarkup = new Map($$('[data-mode]').map(button => [button.dataset.mode, button.innerHTML]));
+const deckLibraryView = $('#deckLibraryView'), deckEditor = $('#deckEditor'), deckSearch = $('#deckSearch');
+const addDeckButton = $('#addDeckButton'), cancelDeckEditorButton = $('#cancelDeckEditorButton');
+const myDecksTitle = $('#myDecksTitle'), closeMyDecksButton = $('#closeMyDecksButton');
 const accountSignedInStatus = $('#accountSignedInStatus');
 const homeSignOutButton = $('#homeSignOutButton');
 const homeAccountMessage = $('#homeAccountMessage');
@@ -909,11 +912,62 @@ async function showMyGames() {
     $('#gameHistorySearch')?.addEventListener('input', event => { const query = event.currentTarget.value.trim().toLowerCase(); $$('#gameHistoryList [data-history-game]').forEach(item => { item.hidden = Boolean(query) && !item.textContent.toLowerCase().includes(query); }); });
   } catch (error) { if (currentProfile()) myGamesStatus.textContent = error?.message || 'Your games are not available yet.'; }
 }
+let deckEditorOpen = false;
+let deckLibraryRequest = 0;
+function deckMatchesSearch(deck, query) {
+  const terms = String(query || '').normalize('NFKC').trim().toLowerCase().split(/\s+/u).filter(Boolean);
+  const names = [deck.name || '', deck.commanderName || '', ...(deck.commanderNames || [])]
+    .join(' ').normalize('NFKC').toLowerCase();
+  return terms.every(term => names.includes(term));
+}
+function renderDeckLibrary() {
+  const query = deckSearch.value.trim();
+  const decks = savedDecks.filter(deck => deckMatchesSearch(deck, query));
+  myDecksContent.innerHTML = decks.length ? `<ul>${decks.map(deck => `<li><strong>${deck.favorite ? '★ ' : ''}${escapeHtml(deck.commanderName)}</strong>${deck.archived ? ' <small>Archived</small>' : ''}${deck.name ? `<br><small>${escapeHtml(deck.name)}</small>` : ''}${deck.colors?.length ? `<br><small>${escapeHtml(deck.colors.join(' '))}</small>` : ''}${deck.notes ? `<br><small>${escapeHtml(deck.notes)}</small>` : ''}<br><button type="button" class="text-action" data-edit-deck="${escapeHtml(deck.deckId)}">Edit</button> <button type="button" class="text-action" data-toggle-favorite="${escapeHtml(deck.deckId)}">${deck.favorite ? 'Unfavorite' : 'Favorite'}</button> <button type="button" class="text-action" data-toggle-archive="${escapeHtml(deck.deckId)}">${deck.archived ? 'Restore' : 'Archive'}</button> <button type="button" class="text-action" data-export-deck="${escapeHtml(deck.deckId)}">Export deck</button> <button type="button" class="text-action" data-remove-deck="${escapeHtml(deck.deckId)}">Remove</button></li>`).join('')}</ul>` : '';
+  myDecksContent.hidden = !decks.length;
+  if (!deckEditorOpen) myDecksStatus.textContent = !savedDecks.length ? 'No saved decks yet. Choose Add deck to save your first deck.'
+    : !decks.length ? `No decks match “${query}”. Try a deck or commander name.`
+      : query ? `${decks.length} of ${savedDecks.length} saved decks` : `${decks.length} saved deck${decks.length === 1 ? '' : 's'}`;
+}
+function showDeckLibrary({ focus = true } = {}) {
+  deckEditorOpen = false; deckEditor.hidden = true; deckLibraryView.hidden = false;
+  myDecksTitle.textContent = 'My decks';
+  renderDeckLibrary();
+  if (focus && myDecksDialog.open) closeMyDecksButton.focus();
+}
+function openDeckEditor() {
+  deckEditorOpen = true; deckEditor.hidden = false; deckLibraryView.hidden = true;
+  myDecksTitle.textContent = editingDeckId ? 'Edit deck' : 'Add deck';
+  if (myDecksDialog.open) deckCommanderName.focus();
+}
+function resetDeckEditorDraft() {
+  deckSaveAttempt++; deckColorLookupAttempt++;
+  editingDeckId = null; deckCommanderColors = [];
+  deckCommanderName.value = ''; deckCommanderNameTwo.value = ''; deckName.value = ''; deckNotes.value = '';
+  deckFavorite.checked = false; deckCommanderNameTwoField.hidden = true;
+  $$('input[name="deckCommanderCount"]').forEach(input => { input.checked = input.value === '1'; });
+  setDeckColors([]);
+  deckCommanderStatus.textContent = 'We’ll also check the commander colors when you save.';
+  createDeckButton.textContent = 'Save deck'; createDeckButton.disabled = false; findDeckColorsButton.disabled = false;
+}
+function beginNewDeck() {
+  resetDeckEditorDraft();
+  myDecksStatus.textContent = 'Add your commander and any private notes, then save your deck.';
+  openDeckEditor();
+}
+function cancelDeckEditor() { resetDeckEditorDraft(); showDeckLibrary(); void showMyDecks(); }
+function openMyDecks() {
+  if (!deckEditorOpen) showDeckLibrary({ focus: false });
+  void showMyDecks();
+  myDecksDialog.showModal();
+  if (deckEditorOpen) deckCommanderName.focus();
+}
 async function showMyDecks(signIn = false, currentRequest = () => true) {
-  let profileEpoch = awardProfileEpoch;
-  const currentProfile = () => profileEpoch === awardProfileEpoch && currentRequest();
+  let profileEpoch = awardProfileEpoch, request = ++deckLibraryRequest;
+  const currentProfile = () => profileEpoch === awardProfileEpoch && request === deckLibraryRequest && currentRequest();
   if (!currentProfile()) return;
-  myDecksContent.hidden = true; myDecksStatus.textContent = signIn ? 'Signing in…' : 'Loading your decks…';
+  myDecksContent.hidden = true; addDeckButton.disabled = true; deckSearch.disabled = true; myDecksSignInButton.hidden = true;
+  if (!deckEditorOpen) myDecksStatus.textContent = signIn ? 'Signing in…' : 'Loading your decks…';
   try {
     const token = signIn ? await googleAccountToken() : await currentAccountToken();
     if (!currentProfile()) return;
@@ -922,10 +976,21 @@ async function showMyDecks(signIn = false, currentRequest = () => true) {
       resetAwardProfile();
       clearPrivateDeckState({ signedIn: true });
       profileEpoch = awardProfileEpoch;
+      request = ++deckLibraryRequest;
     }
-    const response = await fetch('/api/account/decks?archived=all', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) throw new Error('Your decks are not available yet.');
-    const decks = (await response.json()).decks; if (!currentProfile()) return; savedDecks = decks; renderHomeAccount(true); myDecksStatus.textContent = decks.length ? `${decks.length} saved deck${decks.length === 1 ? '' : 's'}` : 'No saved decks yet.'; myDecksContent.innerHTML = decks.length ? `<ul>${decks.map(deck => `<li><strong>${deck.favorite ? '★ ' : ''}${escapeHtml(deck.commanderName)}</strong>${deck.archived ? ' <small>Archived</small>' : ''}${deck.name ? `<br><small>${escapeHtml(deck.name)}</small>` : ''}${deck.colors?.length ? `<br><small>${escapeHtml(deck.colors.join(' '))}</small>` : ''}${deck.notes ? `<br><small>${escapeHtml(deck.notes)}</small>` : ''}<br><button type="button" class="text-action" data-edit-deck="${escapeHtml(deck.deckId)}">Edit</button> <button type="button" class="text-action" data-toggle-favorite="${escapeHtml(deck.deckId)}">${deck.favorite ? 'Unfavorite' : 'Favorite'}</button> <button type="button" class="text-action" data-toggle-archive="${escapeHtml(deck.deckId)}">${deck.archived ? 'Restore' : 'Archive'}</button> <button type="button" class="text-action" data-export-deck="${escapeHtml(deck.deckId)}">Export deck</button> <button type="button" class="text-action" data-remove-deck="${escapeHtml(deck.deckId)}">Remove</button></li>`).join('')}</ul>` : ''; myDecksContent.hidden = !decks.length; myDecksSignInButton.hidden = true; createDeckButton.disabled = false;
-  } catch (error) { if (!currentProfile()) return; myDecksStatus.textContent = error?.message || 'Your decks are not available yet.'; myDecksSignInButton.hidden = false; createDeckButton.disabled = true; }
+    const response = await fetch('/api/account/decks?archived=all', { headers: { authorization: 'Bearer ' + token } });
+    if (!currentProfile()) return;
+    if (!response.ok) throw new Error('Your decks are not available yet.');
+    const decks = (await response.json()).decks;
+    if (!currentProfile()) return;
+    savedDecks = decks; renderHomeAccount(true); renderDeckLibrary();
+    myDecksSignInButton.hidden = true; addDeckButton.disabled = false;
+    if (!deckEditorOpen) createDeckButton.disabled = false;
+  } catch (error) {
+    if (!currentProfile()) return;
+    if (!deckEditorOpen || signIn) myDecksStatus.textContent = error?.message || 'Your decks are not available yet.';
+    if (!deckEditorOpen) { myDecksSignInButton.hidden = false; createDeckButton.disabled = true; }
+  } finally { if (profileEpoch === awardProfileEpoch && request === deckLibraryRequest) deckSearch.disabled = false; }
 }
 function setDeckColors(colors) { const confirmed = normaliseIdentity(colors); $$('input[name="deckColors"]').forEach(input => { input.checked = confirmed.includes(input.value); }); }
 let deckColorLookupAttempt = 0;
@@ -956,10 +1021,12 @@ async function confirmDeckCommanderColors() {
   } finally { if (currentLookup()) findDeckColorsButton.disabled = false; }
 }
 function savedDeckCommanderColors(deck, count) { if (Array.isArray(deck?.commanderColors) && deck.commanderColors.length === count) return deck.commanderColors.map(normaliseIdentity); return count === 1 ? [normaliseIdentity(deck?.colors || [])] : []; }
-function beginDeckEdit(deckId) { const deck = savedDecks.find(item => item.deckId === deckId); if (!deck) return; editingDeckId = deckId; const names = deck.commanderNames || [deck.commanderName]; deckCommanderColors = savedDeckCommanderColors(deck, names.length); $(`input[name="deckCommanderCount"][value="${names.length}"]`).checked = true; deckCommanderName.value = names[0] || ''; deckCommanderNameTwo.value = names[1] || ''; deckCommanderNameTwoField.hidden = names.length !== 2; deckName.value = deck.name || ''; deckNotes.value = deck.notes || ''; deckFavorite.checked = deck.favorite === true; setDeckColors(deck.colors || []); deckCommanderStatus.textContent = 'Check the commander colors after editing a commander name.'; createDeckButton.textContent = 'Update deck'; myDecksStatus.textContent = `Editing ${deck.commanderName}. Make your correction, then choose Update deck.`; }
+function beginDeckEdit(deckId) { const deck = savedDecks.find(item => item.deckId === deckId); if (!deck) return; resetDeckEditorDraft(); editingDeckId = deckId; const names = deck.commanderNames || [deck.commanderName]; deckCommanderColors = savedDeckCommanderColors(deck, names.length); $(`input[name="deckCommanderCount"][value="${names.length}"]`).checked = true; deckCommanderName.value = names[0] || ''; deckCommanderNameTwo.value = names[1] || ''; deckCommanderNameTwoField.hidden = names.length !== 2; deckName.value = deck.name || ''; deckNotes.value = deck.notes || ''; deckFavorite.checked = deck.favorite === true; setDeckColors(deck.colors || []); deckCommanderStatus.textContent = 'Check the commander colors after editing a commander name.'; createDeckButton.textContent = 'Update deck'; myDecksStatus.textContent = `Editing ${deck.commanderName}. Make your correction, then choose Update deck.`; openDeckEditor(); }
 let deckSaveAttempt = 0;
 function clearPrivateDeckState({ signedIn = false } = {}) {
-  deckSaveAttempt++;
+  deckSaveAttempt++; deckColorLookupAttempt++; deckLibraryRequest++;
+  deckEditorOpen = false; deckEditor.hidden = true; deckLibraryView.hidden = false;
+  deckSearch.value = ''; deckSearch.disabled = true; addDeckButton.disabled = true; myDecksTitle.textContent = 'My decks';
   editingDeckId = null; deckCommanderColors = []; selectedDeckId = '';
   savedDecks = []; setupDecks = []; commanderDecks = [];
   deckCommanderName.value = ''; deckCommanderNameTwo.value = ''; deckName.value = ''; deckNotes.value = '';
@@ -1026,6 +1093,7 @@ async function createDeck() {
       deckCommanderName.value = ''; deckCommanderNameTwo.value = ''; deckName.value = ''; deckNotes.value = ''; deckFavorite.checked = false;
       setDeckColors([]); deckCommanderStatus.textContent = 'We’ll also check the commander colors when you save.';
       const clearedSignature = JSON.stringify(captureDeckSaveDraft());
+      showDeckLibrary();
       await showMyDecks(false, () => currentSave() && JSON.stringify(captureDeckSaveDraft()) === clearedSignature);
     }
     if (currentSave()) void loadSetupDecks();
@@ -3109,7 +3177,12 @@ createAccountButton.addEventListener('click', () => {
   myGamesDialog.close(); accountPassword.value = '';
   showView(registrationView); registration.open(accountEmail.value);
 });
-myDecksButton.addEventListener('click', () => { myDecksDialog.showModal(); showMyDecks(); });
+myDecksButton.addEventListener('click', openMyDecks);
+addDeckButton.addEventListener('click', beginNewDeck);
+cancelDeckEditorButton.addEventListener('click', cancelDeckEditor);
+closeMyDecksButton.addEventListener('click', () => myDecksDialog.close());
+deckSearch.addEventListener('input', renderDeckLibrary);
+deckSearch.addEventListener('search', renderDeckLibrary);
 myDecksSignInButton.addEventListener('click', () => showMyDecks(true)); saveAccountPreferencesButton.addEventListener('click', () => void saveAccountPreferences());
 async function accountTokenForSkin(id) {
   if (!unlockedSkinChoices().some(skin => skin.id === id)) return null;
@@ -3135,7 +3208,7 @@ dom.tableSkinMenu.addEventListener('change', async () => {
   } catch (error) { showError(error); render(); }
 });
 dom.deviceAppearanceChoice.addEventListener('change', () => { setDeviceAppearanceChoice(dom.deviceAppearanceChoice.value); activeGameSkinId = ''; void applySelectedAppearance(); });
-createDeckButton.addEventListener('click', createDeck); findDeckColorsButton.addEventListener('click', () => void confirmDeckCommanderColors()); [deckCommanderName, deckCommanderNameTwo].forEach(input => input.addEventListener('change', () => { deckCommanderColors = []; void confirmDeckCommanderColors(); })); signOutButton.addEventListener('click', () => void signOut());
+deckEditor.addEventListener('submit', event => { event.preventDefault(); void createDeck(); }); findDeckColorsButton.addEventListener('click', () => void confirmDeckCommanderColors()); [deckCommanderName, deckCommanderNameTwo].forEach(input => input.addEventListener('change', () => { deckCommanderColors = []; void confirmDeckCommanderColors(); })); signOutButton.addEventListener('click', () => void signOut());
 myGamesContent.addEventListener('click', event => { const id = event.target.closest('[data-remove-game]')?.dataset.removeGame; if (id) void removeAccountItem('games', id); }); myDecksContent.addEventListener('click', event => { const editId = event.target.closest('[data-edit-deck]')?.dataset.editDeck; const removeId = event.target.closest('[data-remove-deck]')?.dataset.removeDeck; const favoriteId = event.target.closest('[data-toggle-favorite]')?.dataset.toggleFavorite; const archiveId = event.target.closest('[data-toggle-archive]')?.dataset.toggleArchive; const exportId = event.target.closest('[data-export-deck]')?.dataset.exportDeck; if (editId) beginDeckEdit(editId); else if (removeId) void removeAccountItem('decks', removeId); else if (favoriteId) { const label = event.target.textContent === 'Favorite'; void updateSavedDeck(favoriteId, { favorite: label }).catch(error => { myDecksStatus.textContent = error.message; }); } else if (archiveId) { const label = event.target.textContent === 'Archive'; void updateSavedDeck(archiveId, { archived: label }).catch(error => { myDecksStatus.textContent = error.message; }); } else if (exportId) void exportDeckSummary(exportId).catch(error => { myDecksStatus.textContent = error.message; }); });
 exportAccountButton.addEventListener('click', () => { void exportAccountData().catch(error => { myGamesStatus.textContent = error.message; }); });
 deleteAccountButton.addEventListener('click', () => { void deleteAccountData().catch(error => { myGamesStatus.textContent = error.message; }); });

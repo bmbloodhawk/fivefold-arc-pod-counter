@@ -588,8 +588,8 @@ test('signed-in accounts keep private deck details and personal history tools', 
   assert.match(app, /myGamesStatus\.setAttribute\('role', 'status'\)/);
 });
 
-test('My decks keeps the editor above saved decks and confirms commander colors', () => {
-  assert.ok(html.indexOf('id="deckEditor"') < html.indexOf('id="savedDeckList"'));
+test('My decks opens the saved library before its separate editor and confirms commander colors', () => {
+  assert.ok(html.indexOf('id="savedDeckList"') < html.indexOf('id="deckEditor"'));
   assert.match(html, /id="findDeckColorsButton"/);
   assert.match(html, /id="deckCommanderStatus"/);
   assert.match(app, /async function confirmDeckCommanderColors\(\)/);

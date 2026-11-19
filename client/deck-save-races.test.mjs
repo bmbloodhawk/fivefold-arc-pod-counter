@@ -8,6 +8,8 @@ const start = app.indexOf('function setDeckColors(');
 const end = app.indexOf('async function saveAccountPreferences(', start);
 assert.ok(start >= 0 && end > start, 'Load the actual deck editor/save implementation.');
 const source = app.slice(start, end);
+const navigationStart = app.indexOf('let deckEditorOpen');
+const navigationSource = navigationStart < 0 ? '' : app.slice(navigationStart, app.indexOf('async function showMyDecks(', navigationStart));
 const librarySource = app.slice(app.indexOf('async function showMyDecks('), start);
 const resetStart = app.indexOf('function resetAwardProfile()');
 const resetSource = app.slice(resetStart, app.indexOf('async function saveGameToHistory(', resetStart));
@@ -21,7 +23,7 @@ const copy = value => JSON.parse(JSON.stringify(value));
 function fixture({ delayedToken = false, delayedLookup = false, delayedSave = false, lookupFails = false, editId = null, saveResponses = [], actualLibrary = false } = {}) {
   const token = deferred(), lookup = deferred(), response = deferred(), lookupEntered = deferred(), saveEntered = deferred();
   const libraryResponse = deferred(), libraryEntered = deferred();
-  const element = value => ({ value, checked: false, disabled: false, hidden: false, textContent: '', setAttribute() {}, removeAttribute() {} });
+  const element = value => ({ value, checked: false, disabled: false, hidden: false, textContent: '', setAttribute() {}, removeAttribute() {}, focus() {}, reset() {} });
   const count = element('1'), colorInputs = ['W', 'U', 'B', 'R', 'G'].map(element);
   colorInputs.find(input => input.value === 'R').checked = true;
   const context = createContext({
@@ -55,13 +57,22 @@ function fixture({ delayedToken = false, delayedLookup = false, delayedSave = fa
     },
     requests: [], libraryRequests: [], listRefreshes: 0, setupRefreshes: 0,
     myDecksContent: element(''), myDecksSignInButton: element(''), savedDecks: [],
+    deckLibraryView: element(''), deckEditor: element(''), deckSearch: element(''), addDeckButton: element(''),
+    cancelDeckEditorButton: element(''), myDecksTitle: element(''), closeMyDecksButton: element(''),
+    myDecksDialog: { open: true, addEventListener() {}, showModal() { this.open = true; } },
     escapeHtml: value => String(value), renderHomeAccount() {}, googleAccountToken: async () => 'token_A',
     appearanceCatchUp: { reset() {} }, savedGameKey: null, savingGameKey: null, savedGameMoment: null,
     unlockedAchievementsByGame: new Map(),
     async showMyDecks() { context.listRefreshes++; context.myDecksStatus.textContent = 'Library refreshed'; context.createDeckButton.disabled = false; },
     async loadSetupDecks() { context.setupRefreshes++; },
   });
-  runInContext((actualLibrary ? librarySource : '') + source + '\n' + resetSource, context);
+  runInContext(navigationSource + (actualLibrary ? librarySource : '') + source + '\n' + resetSource, context);
+  const activateEditor = () => { if (navigationSource) runInContext('deckEditorOpen = true; deckEditor.hidden = false; deckLibraryView.hidden = true;', context); };
+  activateEditor();
+  context.deckEditor.reset = () => {
+    context.deckCommanderName.value = ''; context.deckCommanderNameTwo.value = ''; context.deckName.value = ''; context.deckNotes.value = '';
+    context.deckFavorite.checked = false; count.value = '1'; colorInputs.forEach(input => { input.checked = false; });
+  };
   const draft = () => ({
     commanderNames: [context.deckCommanderName.value, context.deckCommanderNameTwo.value], count: count.value,
     name: context.deckName.value, notes: context.deckNotes.value, favorite: context.deckFavorite.checked,
@@ -71,6 +82,7 @@ function fixture({ delayedToken = false, delayedLookup = false, delayedSave = fa
     commanderStatus: context.deckCommanderStatus.textContent, buttonLabel: context.createDeckButton.textContent,
     buttonDisabled: context.createDeckButton.disabled, lookupDisabled: context.findDeckColorsButton.disabled });
   const changeDraft = ({ otherProfile = false, disabled = false } = {}) => {
+    activateEditor();
     if (otherProfile) context.awardProfileEpoch++;
     context.editingDeckId = 'deck_B'; count.value = '1';
     context.deckCommanderName.value = 'Commander B'; context.deckCommanderNameTwo.value = '';

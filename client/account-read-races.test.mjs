@@ -5,18 +5,22 @@ import { createContext, runInContext } from 'node:vm';
 
 const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
 const extract = (start, next) => app.slice(app.indexOf(start), app.indexOf(next, app.indexOf(start)));
+const navigationStart = app.indexOf('let deckEditorOpen');
+const navigationSource = navigationStart < 0 ? '' : app.slice(navigationStart, app.indexOf('async function showMyDecks(', navigationStart));
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
 const privateDeck = { deckId: 'private_deck', commanderName: 'Private Commander', notes: 'PRIVATE_NOTES_SENTINEL' };
 
 function fixture({ waitForToken = false } = {}) {
   const token = deferred(), response = deferred(), fetched = deferred();
-  const element = () => ({ hidden: false, disabled: false, textContent: '', innerHTML: '', value: '', open: false });
+  const element = () => ({ hidden: false, disabled: false, textContent: '', innerHTML: '', value: '', open: false, focus() {}, reset() {} });
   const button = element();
   const context = createContext({
     currentAccountToken: () => waitForToken ? token.promise : Promise.resolve('account_token'),
     googleAccountToken: () => waitForToken ? token.promise : Promise.resolve('account_token'),
     fetchCalls: 0, fetch() { context.fetchCalls++; fetched.resolve(); return response.promise; },
     myDecksContent: element(), myDecksStatus: element(), myDecksSignInButton: element(), createDeckButton: element(),
+    deckLibraryView: element(), deckEditor: element(), deckSearch: element(), addDeckButton: element(),
+    cancelDeckEditorButton: element(), myDecksTitle: element(), closeMyDecksButton: element(),
     myGamesStatus: element(), signOutButton: element(), homeSignOutButton: element(), homeAccountMessage: element(),
     myGamesDialog: element(), myDecksDialog: element(), savedDecks: [], setupDecks: [], selectedDeckId: 'deck_before',
     dom: { createDeck: element(), joinDeck: element(), saveGameDeck: element() }, $: () => button,
@@ -26,7 +30,7 @@ function fixture({ waitForToken = false } = {}) {
     renderHomeAccount(signedIn) { context.homeAccountSignedIn = signedIn; },
     escapeHtml: value => String(value), sortSetupDecks: decks => decks, updateFormatSetup() {},
   });
-  runInContext(extract('async function showMyDecks(', 'function setDeckColors(')
+  runInContext(navigationSource + extract('async function showMyDecks(', 'function setDeckColors(')
     + '\n' + extract('async function loadSetupDecks(', 'function renderVictory(')
     + '\n' + extract('async function loadSaveGameDecks(', 'async function loadCommanderDecks(')
     + '\n' + extract('async function signOut() {', 'function renderHomeAccount('), context);

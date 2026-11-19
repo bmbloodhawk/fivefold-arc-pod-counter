@@ -5,7 +5,9 @@ import { createContext, runInContext } from 'node:vm';
 
 const app = (await readFile(new URL('./app.js', import.meta.url), 'utf8')).replace(/\r\n/g, '\n');
 const extract = (from, to) => app.slice(app.indexOf(from), app.indexOf(to, app.indexOf(from)));
-const source = extract('async function showMyDecks(', 'async function saveAccountPreferences(')
+const navigationStart = app.indexOf('let deckEditorOpen');
+const navigationSource = navigationStart < 0 ? '' : app.slice(navigationStart, app.indexOf('async function showMyDecks(', navigationStart));
+const source = navigationSource + extract('async function showMyDecks(', 'async function saveAccountPreferences(')
   + extract('async function finishAccountSignIn(', 'async function restoreSavedAccountSession(')
   + extract('async function signOut()', 'function openSignIn(')
   + extract('async function deleteAccountData()', 'function clearAccountAppearance(')
@@ -27,7 +29,7 @@ function fixture({ failSignOut = false, pendingLookup = false, pendingWrite = fa
   const lookupEntered = deferred(), writeEntered = deferred(), preferencesEntered = deferred();
   const signOutResponse = deferred(), deleteResponse = deferred(), deleteEntered = deferred(), tokenResponse = deferred();
   const element = value => ({ value: value ?? '', checked: false, disabled: false, hidden: false,
-    textContent: '', innerHTML: '', setAttribute() {}, removeAttribute() {} });
+    textContent: '', innerHTML: '', setAttribute() {}, removeAttribute() {}, focus() {}, reset() {} });
   const radio = ['1', '2'].map(element), colors = ['W', 'U', 'B', 'R', 'G'].map(element);
   radio[1].checked = true;
   colors.forEach(input => { input.checked = ['R', 'G'].includes(input.value); });
@@ -42,6 +44,8 @@ function fixture({ failSignOut = false, pendingLookup = false, pendingWrite = fa
     createDeckButton: { ...element(), textContent: 'Update deck' }, findDeckColorsButton: element(),
     myDecksStatus: { ...element(), textContent: 'Editing Private Commander A' },
     myDecksContent: { ...element(), innerHTML: '<ul><li>PRIVATE_A_NOTES</li></ul>' }, myDecksSignInButton: element(),
+    deckLibraryView: element(), deckEditor: element(), deckSearch: element(), addDeckButton: element(),
+    cancelDeckEditorButton: element(), myDecksTitle: element(), closeMyDecksButton: element(),
     myGamesStatus: element(), myGamesDialog: dialog(), myDecksDialog: dialog(),
     myGamesContent: element(), exportAccountButton: element(), deleteAccountButton: element(),
     signOutButton: element(), homeSignOutButton: element(), homeAccountMessage: element(),
@@ -106,6 +110,13 @@ function fixture({ failSignOut = false, pendingLookup = false, pendingWrite = fa
     showView() {}, showJoinStep() {},
   });
   runInContext(source, context);
+  const activateEditor = () => { if (navigationSource) runInContext('deckEditorOpen = true; deckEditor.hidden = false; deckLibraryView.hidden = true;', context); };
+  activateEditor();
+  context.deckEditor.reset = () => {
+    context.deckCommanderName.value = ''; context.deckCommanderNameTwo.value = ''; context.deckName.value = ''; context.deckNotes.value = '';
+    context.deckFavorite.checked = false; radio.forEach(input => { input.checked = input.value === '1'; });
+    colors.forEach(input => { input.checked = false; });
+  };
   const draft = () => ({ commanderNames: [context.deckCommanderName.value, context.deckCommanderNameTwo.value],
     count: radio.find(input => input.checked)?.value, name: context.deckName.value, notes: context.deckNotes.value,
     favorite: context.deckFavorite.checked, colors: colors.filter(input => input.checked).map(input => input.value),
@@ -127,6 +138,7 @@ function fixture({ failSignOut = false, pendingLookup = false, pendingWrite = fa
     assert.ok(context.removedStorage.includes('fivefold-arc:confirmed-commander-deck'));
   };
   const fillB = () => {
+    activateEditor();
     context.editingDeckId = null;
     radio[0].checked = true; radio[1].checked = false;
     context.deckCommanderName.value = 'Commander B'; context.deckCommanderNameTwo.value = '';
