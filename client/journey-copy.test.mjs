@@ -655,12 +655,13 @@ test('a completed account sign-in goes directly to the pod choice without loadin
 test('sign-in is a single-purpose gate rather than a detour through the profile', () => {
   assert.match(html, /<h2 id="myGamesTitle">Sign in<\/h2>/);
   assert.match(app, /function openSignIn\(\{ returnToJoin = false \} = \{\}\) \{[\s\S]*Guest play is always available[\s\S]*myGamesDialog\.showModal\(\); \}/);
-  assert.match(app, /function openMyProfile\(\) \{ myGamesDialog\.showModal\(\); void showMyGames\(\); \}/);
+  assert.match(app, /function openMyProfile\(\) \{\s*prepareProfileLoading\(\);[\s\S]*?myGamesDialog\.showModal\(\);[\s\S]*?void showMyGames\(\);/);
   assert.doesNotMatch(app, /function openSignIn\(\) \{ myGamesDialog\.showModal\(\); showMyGames\(\); \}/);
 });
 
 test('signed-in profile hides sign-in controls and clears the password field', () => {
-  assert.match(app, /myGamesSignInButton\.hidden = true; emailSignInButton\.hidden = true; emailSignInFields\.hidden = true; accountPassword\.value = ''; forgotPasswordButton\.hidden = true; createAccountButton\.hidden = true;/);
+  // Actual visibility at each asynchronous boundary is covered in profile-opening.test.mjs.
+  assert.match(app, /function prepareProfileLoading\(\) \{[\s\S]*?\[myGamesSignInButton, emailSignInButton, emailSignInFields, forgotPasswordButton, createAccountButton,[\s\S]*?\.forEach\(control => \{ control\.hidden = true; \}\);\s*accountPassword\.value = '';/);
 });
 
 test('signing in for a saved deck returns a QR joiner to the join step', () => {

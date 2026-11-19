@@ -106,7 +106,7 @@ test('reopening Sign in hides profile settings while preserving either saved int
       'createAccountButton', 'saveAccountPreferencesButton', 'exportAccountButton', 'deleteAccountButton', 'signOutButton']
       .map(name => [name, { hidden: false, value: '', classList: { replace() {} } }]));
     const context = createContext({
-      ...elements, pendingSignInReturn: null, registration: { pending },
+      ...elements, pendingSignInReturn: null, profileLoadAttempt: 0, registration: { pending },
       accountInterfaceStyle: { value: style }, interfaceStyle: style,
       accountPreferences: { interfaceStyle: style },
       localStorage: { setItem() { throw new Error('Opening Sign in must not write preferences'); } },
