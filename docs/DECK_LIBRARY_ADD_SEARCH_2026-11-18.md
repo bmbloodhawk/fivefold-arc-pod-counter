@@ -6,7 +6,7 @@ Requested during the guided iPhone Safari test. Base:5d1f93ab957eff50916605f282b
 
 - My decks starts with the saved list, Add deck and Search decks. The editor is hidden in initial HTML.
 - Add deck opens a clean one-commander editor. Edit opens the selected saved deck. The header Close action remains available.
-- Cancel clears the current draft and returns to the same filtered library. Native Close/Escape preserves an unfinished editor and draft; reopening resumes it. Drafts are not newly persisted across page reloads.
+- Cancel or Close from Add/Edit clears the current unsaved draft and returns to the same filtered library inside My decks. Close from the library dismisses My decks; reopening starts at the library. Escape follows the same navigation. See the DECK-CLOSE-01 follow-up below.
 - An owned successful save returns to the library and refreshes the results. Failed saves remain editable. A newer or changed draft is never closed/cleared by an older response.
 - Search filters locally by saved deck name or commander, including either partner. It ignores case/outer whitespace, supports multiple terms, and excludes private notes as search criteria. Clearing restores all decks, including archived entries. Existing favorite/archive/restore/remove/export actions remain available on matching cards.
 - Search lives outside the editor form. Search/Enter cannot implicitly close the dialog or save a deck. The dedicated editor form submits through the existing save handler. Search typing disables autocorrection/capitalization.
@@ -28,3 +28,7 @@ Actual Chrome/WebKit phone-size checks passed82 unique assertions, covering Add/
 I retained native modal behavior and used a dedicated AJAX editor form: “DO use dialog.showModal() when opening from script”; “DON'T nest <form> elements inside other <form> elements”; “DO prevent default navigation on form submit for AJAX (e.preventDefault()).” Search uses a visible label and native search region without sharing the editor's submit/close path.
 
 Staging rollback base:5d1f93ab957eff50916605f282b1d1ccfed85e26, preserving records and unrelated original-workspace changes.
+
+## November 18 follow-up — DECK-CLOSE-01
+
+After successful physical iPhone Safari saving, the user requested editor Close return to the My decks opening list. This supersedes the original native Close/Escape draft-retention behavior tested in App322/App323. The scoped follow-up retires abandoned drafts and pending contexts, retains saved records/search, and makes reopening library-first. Earlier verification counts describe the original release. Current evidence and rollback are in `DECK_EDITOR_CLOSE_2026-11-18.md`.

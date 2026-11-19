@@ -26,7 +26,9 @@ const from = app.indexOf('let deckEditorOpen');
 const source = app.slice(from, app.indexOf('async function saveAccountPreferences(', from))
   + '\n' + ['escapeHtml', 'normaliseIdentity', 'lookupCommanderIdentity'].map(sourceFunction).join('\n')
   + '\n' + sourceStatement('[deckCommanderName, deckCommanderNameTwo].forEach(')
-  + '\n' + sourceStatement("$$('input[name=\"deckCommanderCount\"]').forEach(", true);
+  + '\n' + sourceStatement("$$('input[name=\"deckCommanderCount\"]').forEach(", true)
+  + '\n' + ["closeMyDecksButton.addEventListener('click'", "myDecksDialog.addEventListener('cancel'", "myDecksDialog.addEventListener('close'"]
+    .filter(prefix => app.includes(prefix)).map(prefix => sourceStatement(prefix)).join('\n');
 const settle = () => new Promise(resolve => setImmediate(resolve));
 const deferred = () => { let resolve; const promise = new Promise(yes => { resolve = yes; }); return { promise, resolve }; };
 const exact = (name, colors) => ({ kind: 'exact', card: { name, colors } });
@@ -69,10 +71,12 @@ function fixture({ count = '1', names = ['kranko mob boss', ''], replies = {} } 
     'kranko mob boss': selection(krenko), 'krenko mob boss': exact(krenko.name, krenko.colors),
     [krenko.name]: exact(krenko.name, krenko.colors), [tinStreet.name]: exact(tinStreet.name, tinStreet.colors), ...replies,
   }));
+  const dialog = Object.assign(element('DIALOG'), { open: true,
+    showModal() { this.open = true; }, close() { this.open = false; this.dispatch('close'); } });
   context = createContext({ ...Object.fromEntries(fields.map(name => [name, node(name)])),
     deckCommanderMatches: [node('deckCommanderMatches'), node('deckCommanderMatchesTwo')],
     awardProfileEpoch: 0, editingDeckId: null, deckCommanderColors: [], selectedDeckId: '', savedDecks: [deck], setupDecks: [], commanderDecks: [],
-    myDecksDialog: { open: true, showModal() { this.open = true; }, close() { this.open = false; } },
+    myDecksDialog: dialog,
     document: { activeElement: null, createElement: tag => element(tag, false) }, window: { scrollTo() {} },
     IDENTITY_ORDER: ['W', 'U', 'B', 'R', 'G'], sessionStorage: { removeItem() {} },
     apiBaseFromPage: () => '', currentAccountToken: async () => 'fixture-account', googleAccountToken: async () => 'fixture-account',
@@ -223,13 +227,16 @@ test('each commander offers at most five candidate choices', async () => {
     assert.equal(f.buttons(slot).some(button => button.textContent.includes('Candidate 6')), false);
   }
 });
-test('a queued candidate click while the native dialog is closed cannot alter its retained draft', async () => {
+test('native dismissal clears choices and an old candidate cannot alter a later editor', async () => {
   const f = fixture(); await f.find(); const old = f.buttons(0)[0];
   f.context.myDecksDialog.close(); const before = f.context.lookups.length;
   await f.click(old);
-  assert.equal(f.node('deckCommanderName').value, 'kranko mob boss');
+  assert.equal(f.node('deckCommanderName').value, ''); assert.equal(f.buttons(0).length, 0);
   assert.equal(f.context.lookups.length, before); assert.equal(f.context.writes.length, 0);
-  f.context.myDecksDialog.showModal(); await f.find(); await f.click(f.buttons(0)[0]);
+  f.context.openMyDecks(); assert.equal(f.node('deckEditor').hidden, true);
+  f.context.beginNewDeck(); f.edit(0, 'kranko mob boss'); await f.click(old);
+  assert.equal(f.node('deckCommanderName').value, 'kranko mob boss'); assert.equal(f.context.lookups.length, before);
+  await f.find(); await f.click(f.buttons(0)[0]);
   assert.equal(f.node('deckCommanderName').value, krenko.name);
 });
 test('successful Save clears existing suggestions and leaves an old candidate inert', async () => {
@@ -274,21 +281,26 @@ test('a delayed Save selection after editing notes does not publish choices for 
   assert.equal(f.node('deckCommanderName').value, 'kranko mob boss'); assert.equal(f.node('deckNotes').value, 'Newer private notes');
   assert.equal(f.buttons(0).length + f.buttons(1).length, 0);
 });
-for (const mode of ['find', 'save']) test(`a delayed ${mode} selection survives native Close and can be chosen after reopening the retained editor`, async () => {
+for (const mode of ['find', 'save']) test(`header Close retires a delayed ${mode} selection before a same-valued replacement editor`, async () => {
   const gate = deferred(), f = fixture({ replies: { 'kranko mob boss': () => gate.promise } });
-  const pending = f[mode](); await settle(); f.context.myDecksDialog.close();
+  const pending = f[mode](); await settle(); f.node('closeMyDecksButton').dispatch('click');
+  assert.equal(f.context.myDecksDialog.open, true); assert.equal(f.node('deckEditor').hidden, true);
+  assert.equal(f.node('deckCommanderName').value, '');
+  f.context.beginNewDeck(); f.edit(0, 'kranko mob boss');
   gate.resolve(selection(krenko)); await pending;
-  assert.equal(f.buttons(0).length, 1, 'The unchanged retained editor keeps its completed lookup choices.');
-  const candidate = f.buttons(0)[0], before = f.context.lookups.length;
-  await f.click(candidate);
+  assert.equal(f.buttons(0).length + f.buttons(1).length, 0, 'The canceled editor cannot offer choices in its same-valued replacement.');
   assert.equal(f.node('deckCommanderName').value, 'kranko mob boss');
-  assert.equal(f.context.lookups.length, before); assert.equal(f.context.writes.length, 0);
-  f.context.myDecksDialog.showModal(); await f.click(candidate);
-  assert.equal(f.node('deckCommanderName').value, krenko.name);
-  assert.deepEqual(f.colors.filter(input => input.checked).map(input => input.value), ['R']);
-  assert.equal(f.context.writes.length, 0, 'Reopening and choosing a completed lookup never resumes Save.');
-  await f.save(); assert.equal(f.context.writes.length, 1);
-  assert.deepEqual([...f.context.writes[0].body.commanderNames], [krenko.name]);
+  assert.equal(f.node('deckEditor').hidden, false); assert.equal(f.context.writes.length, 0);
+});
+test('header Close clears offered choices and keeps their old candidate inert in a replacement editor', async () => {
+  const f = fixture(); await f.find(); const old = f.buttons(0)[0];
+  f.node('closeMyDecksButton').dispatch('click');
+  assert.equal(f.context.myDecksDialog.open, true); assert.equal(f.node('deckEditor').hidden, true);
+  assert.equal(f.buttons(0).length + f.buttons(1).length, 0);
+  f.context.beginNewDeck(); f.edit(0, 'kranko mob boss'); const before = f.context.lookups.length;
+  await f.click(old);
+  assert.equal(f.node('deckCommanderName').value, 'kranko mob boss'); assert.equal(f.context.lookups.length, before);
+  assert.equal(f.context.writes.length, 0);
 });
 test('a failed suggestion render cannot let Save fall back to writing the unresolved typo', async () => {
   const f = fixture();

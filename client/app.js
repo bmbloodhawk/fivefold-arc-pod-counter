@@ -957,11 +957,15 @@ function beginNewDeck() {
   openDeckEditor();
 }
 function cancelDeckEditor() { resetDeckEditorDraft(); showDeckLibrary(); void showMyDecks(); }
+function closeMyDecks() {
+  if (deckEditorOpen) cancelDeckEditor();
+  else myDecksDialog.close();
+}
 function openMyDecks() {
-  if (!deckEditorOpen) showDeckLibrary({ focus: false });
+  if (deckEditorOpen) resetDeckEditorDraft();
+  showDeckLibrary({ focus: false });
   void showMyDecks();
   myDecksDialog.showModal();
-  if (deckEditorOpen) deckCommanderName.focus();
 }
 async function showMyDecks(signIn = false, currentRequest = () => true) {
   let profileEpoch = awardProfileEpoch, request = ++deckLibraryRequest;
@@ -3238,7 +3242,13 @@ createAccountButton.addEventListener('click', () => {
 myDecksButton.addEventListener('click', openMyDecks);
 addDeckButton.addEventListener('click', beginNewDeck);
 cancelDeckEditorButton.addEventListener('click', cancelDeckEditor);
-closeMyDecksButton.addEventListener('click', () => myDecksDialog.close());
+closeMyDecksButton.addEventListener('click', closeMyDecks);
+myDecksDialog.addEventListener('cancel', event => {
+  if (deckEditorOpen) { event.preventDefault(); cancelDeckEditor(); }
+});
+myDecksDialog.addEventListener('close', () => {
+  if (!myDecksDialog.open && deckEditorOpen) { resetDeckEditorDraft(); showDeckLibrary({ focus: false }); }
+});
 deckSearch.addEventListener('input', renderDeckLibrary);
 deckSearch.addEventListener('search', renderDeckLibrary);
 myDecksSignInButton.addEventListener('click', () => showMyDecks(true)); saveAccountPreferencesButton.addEventListener('click', () => void saveAccountPreferences());

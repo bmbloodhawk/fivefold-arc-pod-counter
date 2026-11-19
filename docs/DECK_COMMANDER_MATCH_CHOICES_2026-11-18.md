@@ -11,7 +11,7 @@ Staging-only release, based on `858083086ab1e33f1266c4b81b1e5411cbef9d55`. Pins:
 - Choosing a suggestion changes only its field and reruns exact verification. It sends no deck write. A later explicit Save is required. Genuine lookup/network failures without suggestions retain manual-color fallback.
 - Choices own their account epoch, lookup attempt, draft predicate, open editor/dialog and button containment. Input/count changes, new lookups/saves, Add/Edit/Cancel, successful saves and account cleanup remove or retire old buttons. Queued detached clicks cannot change a later same-valued editor.
 - The immutable submitted Save payload and completion signature remain intact. A Save response can offer choices only for its original unchanged draft. Once offered, a commander choice remains usable after editing notes, deck name, favorite or manual colors; those changes require their own explicit Save.
-- Native Close/Escape retains the current draft and its choices, including choices arriving while closed. Closed-dialog clicks remain inert. Suggestions revealed from footer Save are scrolled into view without moving focus. Selecting a choice focuses its commander field before removing the button.
+- Suggestions revealed from footer Save are scrolled into view without moving focus. Selecting a choice focuses its commander field before removing the button. Editor Close/Escape now cancels the unsaved draft and returns to the library; the follow-up below supersedes this release's original draft-retention behavior.
 
 ## Verification
 
@@ -38,3 +38,7 @@ Independent review identified the metadata activation and closed-response resume
 The handoff carries the user's existing approval for routine fixes and staging deployment. Commit only this fix and its tests/docs, push the working branch, and non-force update staging. Verify health/config and all 12 served asset hashes against that commit, then compare production index/app/styles/worker with unchanged main. Deployment evidence lives outside the repository so it can record the exact release commit.
 
 If the release needs rollback, revert this scoped commit on staging and deploy the revert, retaining records. Production and unrelated original-workspace changes remain outside the release. Physical test continuation: refresh staging in iPhone Safari, My decks → Add deck → `kranko mob boss` → Find commander colors → choose `Krenko, Mob Boss` and verify Red before saving `Phone Test Deck` with notes `Safari test`.
+
+## November 18 physical follow-up
+
+The user reported Krenko selection/Red and the successful saved entry/name/notes passing on iPhone Safari. They then requested Close return from Add/Edit to the saved list, superseding the original native Close/reopen draft-retention requirement. `DECK_EDITOR_CLOSE_2026-11-18.md` records that follow-up. Earlier closed-response tests were updated to require cancellation and stale-response protection; other commander-match assertions remain.

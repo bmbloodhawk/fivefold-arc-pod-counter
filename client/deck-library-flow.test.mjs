@@ -14,6 +14,15 @@ function sourceFunction(name) {
   }
   assert.fail(`Complete app function ${name} was not found.`);
 }
+function sourceStatement(prefix) {
+  const start = app.indexOf(prefix);
+  if (start < 0) return '';
+  for (let end = app.indexOf(';', start); end >= 0; end = app.indexOf(';', end + 1)) {
+    const source = app.slice(start, end + 1);
+    try { new Script(source); return source; } catch { /* Find the complete event binding. */ }
+  }
+  assert.fail(`Complete event binding ${prefix} was not found.`);
+}
 const matches = (deck, query) => runInContext(`(${sourceFunction('deckMatchesSearch')})(deck, query)`, createContext({ deck, query }));
 const single = Object.freeze({ deckId: 'single', name: 'Phone Test Deck', commanderName: 'Krenko, Mob Boss',
   commanderNames: Object.freeze(['Krenko, Mob Boss']), notes: 'PRIVATE_NOTES_SENTINEL', colors: Object.freeze(['R']) });
@@ -71,8 +80,8 @@ test('search is outside the editor form and cannot implicitly submit a dialog-cl
 
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
 const copy = value => JSON.parse(JSON.stringify(value));
-function fixture({ waitForToken = false, waitForWrite = false, failWrite = false, failRead = false, decks = [single, partners] } = {}) {
-  const token = deferred(), write = deferred(), writeEntered = deferred();
+function fixture({ waitForToken = false, waitForWrite = false, waitForLookup = false, failWrite = false, failRead = false, decks = [single, partners] } = {}) {
+  const token = deferred(), write = deferred(), writeEntered = deferred(), lookup = deferred(), lookupEntered = deferred();
   const nodes = new Map(); let context, count = '1', load;
   function element(value = '') {
     const listeners = new Map(), attributes = new Map();
@@ -81,7 +90,11 @@ function fixture({ waitForToken = false, waitForWrite = false, failWrite = false
       setAttribute(name, value) { attributes.set(name, String(value)); }, removeAttribute(name) { attributes.delete(name); },
       getAttribute(name) { return attributes.get(name) ?? null; },
       addEventListener(type, callback) { if (!listeners.has(type)) listeners.set(type, []); listeners.get(type).push(callback); },
-      dispatch(type) { for (const callback of listeners.get(type) || []) callback({ preventDefault() {}, currentTarget: this }); },
+      dispatch(type) {
+        const event = { defaultPrevented: false, currentTarget: this, target: this, preventDefault() { this.defaultPrevented = true; } };
+        for (const callback of listeners.get(type) || []) callback(event);
+        return event;
+      },
       scrollIntoView() {}, reset() {},
     };
   }
@@ -91,6 +104,7 @@ function fixture({ waitForToken = false, waitForWrite = false, failWrite = false
   const dialog = { ...element(), open: false, frames: [],
     showModal() { this.open = true; this.frames.push({ editorHidden: node('deckEditor').hidden, libraryHidden: node('deckLibraryView').hidden }); },
     close() { this.open = false; this.dispatch('close'); },
+    escape() { const event = this.dispatch('cancel'); if (!event.defaultPrevented) this.close(); return event; },
     querySelector: selector => node(selector.replace(/^#/, '')),
   };
   node('deckEditor').hidden = true;
@@ -116,7 +130,7 @@ function fixture({ waitForToken = false, waitForWrite = false, failWrite = false
     IDENTITY_ORDER: ['W', 'U', 'B', 'R', 'G'], sessionStorage: { removeItem() {} },
     currentAccountToken: () => waitForToken ? token.promise : Promise.resolve('fixture-token'), googleAccountToken: async () => 'fixture-token',
     resetAwardProfile() { context.awardProfileEpoch++; }, renderHomeAccount(value) { context.homeAccountSignedIn = value; },
-    lookupCommanderIdentity: async name => ({ name, colors: ['R'] }), requests: [], reads: 0, setupReads: 0,
+    lookupCommanderIdentity(name) { lookupEntered.resolve(); return waitForLookup ? lookup.promise : Promise.resolve({ name, colors: ['R'] }); }, requests: [], reads: 0, setupReads: 0,
     async loadSetupDecks() { context.setupReads++; },
     async fetch(url, options = {}) {
       if (!options.body) { context.reads++; return { ok: !failRead, json: async () => ({ decks: copy(context.serverDecks) }) }; }
@@ -132,13 +146,14 @@ function fixture({ waitForToken = false, waitForWrite = false, failWrite = false
   });
   const profile = sourceFunction('showMyGames'), from = app.indexOf(profile) + profile.length;
   const feature = app.slice(from, app.indexOf('async function saveAccountPreferences(', from));
-  runInContext(sourceFunction('escapeHtml') + '\n' + sourceFunction('normaliseIdentity') + '\n' + feature, context);
+  const bindings = ["closeMyDecksButton.addEventListener('click'", "myDecksDialog.addEventListener('cancel'", "myDecksDialog.addEventListener('close'"].map(sourceStatement).join('\n');
+  runInContext(sourceFunction('escapeHtml') + '\n' + sourceFunction('normaliseIdentity') + '\n' + feature + '\n' + bindings, context);
   const actualReader = context.showMyDecks;
   context.showMyDecks = (...args) => { load = actualReader(...args); return load; };
   const fill = (name = 'Phone Test Deck') => {
     node('deckCommanderName').value = 'Krenko, Mob Boss'; node('deckName').value = name; node('deckNotes').value = 'Safari test';
   };
-  return { context, node, dialog, token, write, writeEntered, fill,
+  return { context, node, dialog, token, write, writeEntered, lookup, lookupEntered, fill,
     async open() { context.openMyDecks(); if (load) await load; },
     get draft() { return { id: context.editingDeckId, name: node('deckName').value, commander: node('deckCommanderName').value, partner: node('deckCommanderNameTwo').value, notes: node('deckNotes').value, count, favorite: node('deckFavorite').checked }; },
   };
@@ -167,10 +182,38 @@ test('editing a paired saved deck opens its populated editor and Cancel returns 
   assert.equal(f.node('deckSearch').value, 'Thrasios'); assert.equal(f.context.requests.length, 0);
   assert.equal(f.context.savedDecks.find(deck => deck.deckId === 'partners').name, 'Connected Engines');
 });
-test('native Close and reopening preserve an unfinished editor draft', async () => {
-  const f = fixture(); await f.open(); f.context.beginNewDeck(); f.fill(); const draft = f.draft;
+for (const editor of ['Add', 'Edit']) test(`header Close from ${editor} returns to the filtered library and cancels only its unsaved draft`, async () => {
+  const f = fixture(); await f.open(); f.node('deckSearch').value = 'Thrasios'; f.context.renderDeckLibrary();
+  const saved = copy(f.context.serverDecks);
+  if (editor === 'Edit') f.context.beginDeckEdit('partners'); else f.context.beginNewDeck();
+  f.fill('Unsaved editor change'); f.node('closeMyDecksButton').dispatch('click');
+  assert.equal(f.dialog.open, true); assert.equal(f.node('deckEditor').hidden, true); assert.equal(f.node('deckLibraryView').hidden, false);
+  assert.equal(f.node('myDecksTitle').textContent, 'My decks'); assert.equal(f.node('deckSearch').value, 'Thrasios');
+  assert.deepEqual(f.draft, { id: null, name: '', commander: '', partner: '', notes: '', count: '1', favorite: false });
+  assert.equal(f.context.requests.length, 0); assert.deepEqual(copy(f.context.serverDecks), saved);
+  f.context.beginNewDeck(); assert.equal(f.draft.name, ''); assert.equal(f.draft.commander, '');
+});
+test('header Close from the saved library dismisses My decks and reopening starts at the library', async () => {
+  const f = fixture(); await f.open(); f.node('deckSearch').value = 'Krenko';
+  f.node('closeMyDecksButton').dispatch('click'); assert.equal(f.dialog.open, false);
+  await f.open(); assert.equal(f.dialog.open, true); assert.equal(f.node('deckEditor').hidden, true);
+  assert.equal(f.node('deckLibraryView').hidden, false); assert.equal(f.node('deckSearch').value, 'Krenko'); assert.equal(f.context.requests.length, 0);
+});
+for (const editor of ['Add', 'Edit']) test(`Escape from ${editor} returns to the library before a second Escape dismisses the dialog`, async () => {
+  const f = fixture(); await f.open(); f.node('deckSearch').value = 'Thrasios';
+  if (editor === 'Edit') f.context.beginDeckEdit('partners'); else f.context.beginNewDeck();
+  f.fill(); const back = f.dialog.escape();
+  assert.equal(back.defaultPrevented, true); assert.equal(f.dialog.open, true);
+  assert.equal(f.node('deckEditor').hidden, true); assert.equal(f.node('deckLibraryView').hidden, false);
+  assert.equal(f.draft.commander, ''); assert.equal(f.draft.notes, ''); assert.equal(f.node('deckSearch').value, 'Thrasios');
+  const dismiss = f.dialog.escape(); assert.equal(dismiss.defaultPrevented, false); assert.equal(f.dialog.open, false);
+  assert.equal(f.context.requests.length, 0);
+});
+test('native dialog dismissal cancels an unfinished editor and reopening shows the saved library', async () => {
+  const f = fixture(); await f.open(); f.context.beginNewDeck(); f.fill();
   f.dialog.close(); await f.open();
-  assert.equal(f.node('deckEditor').hidden, false); assert.deepEqual(f.draft, draft);
+  assert.equal(f.node('deckEditor').hidden, true); assert.equal(f.node('deckLibraryView').hidden, false);
+  assert.equal(f.draft.commander, ''); assert.equal(f.draft.notes, ''); assert.equal(f.context.requests.length, 0);
 });
 test('search filters the existing saved collection without extra network requests and keeps its actions', async () => {
   const f = fixture(); await f.open(); const beforeReads = f.context.reads;
@@ -223,6 +266,41 @@ for (const sameFields of [false, true]) test(`an old save cannot close a replace
   f.context.cancelDeckEditor(); f.context.beginNewDeck(); f.fill(sameFields ? 'Phone Test Deck' : 'Newer draft'); const draft = f.draft;
   f.write.resolve({ ok: true }); await pending;
   assert.equal(f.node('deckEditor').hidden, false); assert.deepEqual(f.draft, draft);
+});
+for (const mode of ['find', 'save']) test(`header Close retires a pending ${mode} lookup before a same-valued replacement editor opens`, async () => {
+  const f = fixture({ waitForLookup: true }); await f.open(); f.context.beginNewDeck(); f.fill();
+  const pending = mode === 'find' ? f.context.confirmDeckCommanderColors() : f.context.createDeck();
+  await f.lookupEntered.promise; f.node('closeMyDecksButton').dispatch('click');
+  assert.equal(f.dialog.open, true); assert.equal(f.node('deckEditor').hidden, true);
+  f.context.beginNewDeck(); f.fill(); const draft = f.draft;
+  f.node('deckCommanderStatus').textContent = 'New editor status';
+  f.lookup.resolve({ name: 'Canonical old lookup', colors: ['R'] }); await pending;
+  assert.deepEqual(f.draft, draft); assert.equal(f.node('deckCommanderStatus').textContent, 'New editor status');
+  assert.equal(f.node('deckEditor').hidden, false); assert.equal(f.context.requests.length, 0);
+});
+test('header Close cancels a Save waiting for its token before it can write or alter a replacement editor', async () => {
+  const f = fixture(); await f.open(); f.context.beginNewDeck(); f.fill();
+  f.context.currentAccountToken = () => f.token.promise;
+  const pending = f.context.createDeck(); f.node('closeMyDecksButton').dispatch('click');
+  f.context.beginNewDeck(); f.fill('Replacement deck'); const draft = f.draft;
+  f.token.resolve('fixture-token'); await pending;
+  assert.deepEqual(f.draft, draft); assert.equal(f.node('deckEditor').hidden, false); assert.equal(f.context.requests.length, 0);
+});
+for (const ok of [true, false]) test(`a previously sent Save ${ok ? 'success' : 'failure'} cannot affect a replacement editor after header Close`, async () => {
+  const f = fixture({ waitForWrite: true }); await f.open(); f.context.beginNewDeck(); f.fill();
+  const pending = f.context.createDeck(); await f.writeEntered.promise;
+  assert.equal(f.context.requests.length, 1, 'The explicit Save started before Close.');
+  f.node('closeMyDecksButton').dispatch('click'); f.context.beginNewDeck(); f.fill('Replacement deck'); const draft = f.draft;
+  f.write.resolve({ ok }); await pending;
+  assert.equal(f.dialog.open, true); assert.equal(f.node('deckEditor').hidden, false); assert.deepEqual(f.draft, draft);
+  assert.equal(f.context.requests.length, 1, 'Close starts no additional write.');
+});
+test('a queued native close event after reopening cannot cancel the new editor', async () => {
+  const f = fixture(); await f.open(); f.context.beginNewDeck(); f.fill();
+  f.dialog.close(); await f.open(); f.context.beginNewDeck(); f.fill('Replacement deck'); const draft = f.draft;
+  f.dialog.dispatch('close');
+  assert.equal(f.dialog.open, true); assert.equal(f.node('deckEditor').hidden, false); assert.deepEqual(f.draft, draft);
+  assert.equal(f.context.requests.length, 0);
 });
 test('private account cleanup removes the search and closes the previous private editor', async () => {
   const f = fixture(); await f.open(); f.node('deckSearch').value = 'Private query'; f.context.beginDeckEdit('single');

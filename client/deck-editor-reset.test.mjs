@@ -214,12 +214,14 @@ test('a cancelled Google sign-in from My Decks preserves the current authenticat
   assert.match(f.context.myDecksStatus.textContent, /Popup cancelled/);
 });
 
-test('ordinary close and reopen in the same profile preserves the current unsaved draft', async () => {
+test('reopening My decks in the same profile starts at its library and cancels the dismissed editor draft', async () => {
   const f = fixture();
-  const before = f.draft();
-  f.context.myDecksDialog.close(); f.context.myDecksDialog.showModal();
+  f.context.myDecksDialog.close(); f.context.openMyDecks();
   await f.context.showMyDecks();
-  assert.deepEqual(f.draft(), before);
+  assert.equal(f.context.deckEditor.hidden, true); assert.equal(f.context.deckLibraryView.hidden, false);
+  assert.deepEqual(f.draft(), { commanderNames: ['', ''], count: '1', name: '', notes: '', favorite: false,
+    colors: [], commanderColors: [], editingDeckId: null });
+  assert.equal(f.context.savedDecks[0].notes, privateDeck.notes); assert.equal(f.context.requests.length, 0);
 });
 
 test('failed sign-out preserves the authenticated account draft and enables retry', async () => {
