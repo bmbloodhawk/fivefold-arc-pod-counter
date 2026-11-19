@@ -32,7 +32,7 @@ test('rendering a Dial simulation reads the saved interface style without invoki
 test('Dial uses one shared assembly and no screen-size or turn-specific positioning rules', () => {
   const assembly = index.slice(index.indexOf('<div class="dial-assembly">'), index.indexOf('<section id="sourcePanel"'));
   for (const part of ['counter-sigil', 'counter-readout', 'dialControls', 'lifeChangeIndicator', 'statusMessage', 'lethalMark']) assert.ok(assembly.includes(part), part);
-  assert.match(index, /href="dial-layout\.css\?v=4"/);
+  assert.match(index, /href="dial-layout\.css\?v=5"/);
   assert.match(app, /dialLayout\.update\(\)/);
   assert.doesNotMatch(dialStyles, /@media[^\{]*(?:width|height)|data-your-turn/);
   assert.doesNotMatch(styles, /--dial-center-y|--dial-tax-height|--dial-side-seat-stack|--dial-source-height/);

@@ -51,6 +51,8 @@ export function createDialLayout(game, value) {
   probe.setAttribute('aria-hidden', 'true');
   probe.style.cssText = 'display:inline-block;width:0;height:0;line-height:0;vertical-align:baseline';
   let frame = null;
+  let captionLayoutKey = null;
+  let captionMinHeight = 0;
   const stage = game.querySelector('.counter-stage');
   const assembly = game.querySelector('.dial-assembly');
   const readout = game.querySelector('.counter-readout');
@@ -58,16 +60,22 @@ export function createDialLayout(game, value) {
   const visibleRects = selector => [...game.querySelectorAll(selector)]
     .filter(node => node.getClientRects().length && getComputedStyle(node).visibility !== 'hidden')
     .map(node => node.getBoundingClientRect());
-  const measure = style => {
-    canvas.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+  const measure = (style, text = value.value, fontSize = style.fontSize) => {
+    canvas.font = `${style.fontStyle} ${style.fontWeight} ${fontSize} ${style.fontFamily}`;
     canvas.fontKerning = style.fontKerning;
     canvas.letterSpacing = style.letterSpacing === 'normal' ? '0px' : style.letterSpacing;
-    return canvas.measureText(value.value);
+    return canvas.measureText(text);
   };
   const alignInk = () => {
     frame = null;
     if (game.hidden || !canvas) return;
     const button = game.dataset.interfaceStyle === 'button';
+    const layoutKey = `${game.dataset.interfaceStyle}:${game.dataset.counterMode}:${globalThis.innerWidth || 0}:${globalThis.innerHeight || 0}`;
+    if (layoutKey !== captionLayoutKey) {
+      captionLayoutKey = layoutKey;
+      captionMinHeight = 0;
+      stage.style.removeProperty('--counter-caption-min-height');
+    }
     if (button) {
       const stageBox = stage.getBoundingClientRect();
       const cards = visibleRects('#sideSeats .pod-seat');
@@ -144,25 +152,44 @@ export function createDialLayout(game, value) {
       for (const name of ['--counter-label-top', '--counter-label-left', '--counter-label-width',
         '--counter-context-height', '--counter-info-height', '--counter-mode-top', '--counter-mode-left']) assembly.style.removeProperty(name);
     } else {
-      const numberBox = value.getBoundingClientRect();
       const assemblyBox = assembly.getBoundingClientRect();
       const readoutBox = readout.getBoundingClientRect();
       const readoutScaleY = readoutBox.height / parseFloat(getComputedStyle(readout).height) || 1;
+      // Reserve one fixed two-digit band around the uncorrected number center.
+      // The caption must not follow changing glyph shapes or three-digit sizing.
+      const digitFactor = parseFloat(value.style.getPropertyValue('--dial-digit-factor')) || 1;
+      const reference = measure(style, '88', `${parseFloat(style.fontSize) * digitFactor}px`);
+      const referenceBottom = (box.top + box.bottom) / 2
+        + (reference.actualBoundingBoxAscent + reference.actualBoundingBoxDescent) * scaleY / 2;
       const outcome = readout.querySelector('.elimination-outcome');
-      const outcomeBottom = outcome && !outcome.hidden ? outcome.getBoundingClientRect().bottom : numberBox.bottom;
+      const outcomeBottom = outcome && !outcome.hidden ? outcome.getBoundingClientRect().bottom : referenceBottom;
       // The name is inside the authored readout transform; feedback and fades
       // are assembly siblings and need the final physical coordinates instead.
-      readout.style.setProperty('--counter-context-top', `${(Math.max(numberBox.bottom, outcomeBottom) + 12 - readoutBox.top) / readoutScaleY}px`);
+      readout.style.setProperty('--counter-context-top', `${(Math.max(referenceBottom, outcomeBottom) + 12 - readoutBox.top) / readoutScaleY}px`);
       const contextBox = readout.querySelector('.counter-context').getBoundingClientRect();
       assembly.style.setProperty('--counter-label-top', `${contextBox.top - assemblyBox.top}px`);
       assembly.style.setProperty('--counter-label-left', `${(contextBox.left + contextBox.right) / 2 - assemblyBox.left}px`);
       assembly.style.setProperty('--counter-label-width', `${contextBox.width}px`);
       assembly.style.setProperty('--counter-context-height', `${contextBox.height}px`);
       const message = feedback.find(node => !node.hidden);
-      assembly.style.setProperty('--counter-info-height', `${Math.max(18, message?.getBoundingClientRect().height || 0)}px`);
+      const infoStyle = getComputedStyle(feedback[0]);
+      const infoHeight = Math.max(parseFloat(infoStyle.minHeight) || 18, message?.getBoundingClientRect().height || 0);
+      assembly.style.setProperty('--counter-info-height', `${infoHeight}px`);
       const modeBox = readout.querySelector('.counter-mode').getBoundingClientRect();
       assembly.style.setProperty('--counter-mode-top', `${(modeBox.top + modeBox.bottom) / 2 - assemblyBox.top}px`);
       assembly.style.setProperty('--counter-mode-left', `${(modeBox.left + modeBox.right) / 2 - assemblyBox.left}px`);
+      // Keep long warnings above the following controls. Retain any extra
+      // space until the mode/viewport changes, including after feedback expires.
+      const infoTop = parseFloat(infoStyle.top);
+      const infoBottom = message ? message.getBoundingClientRect().bottom
+        : (Number.isFinite(infoTop) ? assemblyBox.top + infoTop : contextBox.bottom + 2) + infoHeight;
+      const controlTop = Math.min(...visibleRects('#turnActions, #sourcePanel, .commander-tax-quick')
+        .filter(rect => rect.top > (box.top + box.bottom) / 2).map(rect => rect.top));
+      const deficit = infoBottom + 8 - controlTop;
+      if (deficit > .25) {
+        captionMinHeight = Math.max(captionMinHeight, Math.ceil(stage.getBoundingClientRect().height + deficit * 2.5));
+        stage.style.setProperty('--counter-caption-min-height', `${captionMinHeight}px`);
+      }
     }
   };
   const update = () => {

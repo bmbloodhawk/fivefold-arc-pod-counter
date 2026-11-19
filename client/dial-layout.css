@@ -29,7 +29,7 @@ body.dial-layout .connection-pill { flex: none; min-height: 34px; padding: 5px 8
 #gameView[data-interface-style="dial"] .turn-banner p { font-size: .625rem; }
 #gameView[data-interface-style="dial"] .turn-banner strong { font-size: .75rem; }
 #gameView[data-interface-style="dial"] .turn-banner span { font-size: .625rem; }
-#gameView[data-interface-style="dial"] .counter-stage { position: relative; flex: 1 1 0%; min-height: 13.75rem; margin: 0; padding: 0; container-type: size; }
+#gameView[data-interface-style="dial"] .counter-stage { position: relative; flex: 1 1 0%; min-height: max(13.75rem, var(--counter-caption-min-height, 0px)); margin: 0; padding: 0; container-type: size; }
 #gameView[data-interface-style="dial"] .counter-stage::before,
 #gameView[data-interface-style="dial"] .counter-stage::after { content: none; }
 .dial-assembly, .dial-face { display: contents; }

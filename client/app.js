@@ -14,7 +14,7 @@ import { applyCollectionVisual } from './collection-visual.js?v=4';
 import { createCompetitionHub } from './competition-ui.js?v=10';
 import { parseCompetitionFragment } from './competition-model.mjs?v=2';
 import { createAppearanceCatchUp } from './appearance-catch-up.js?v=2';
-import { createDialLayout } from './dial-layout.js?v=3';
+import { createDialLayout } from './dial-layout.js?v=4';
 import { nextGameStarterPolicy } from './next-game-starter.js?v=1';
 import { tournamentTableFlow } from './tournament-table-flow.mjs?v=1';
 
