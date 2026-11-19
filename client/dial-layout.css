@@ -10,13 +10,13 @@ body.dial-layout .brand small { display: none; }
 body.dial-layout .connection-pill { flex: none; min-height: 34px; padding: 5px 8px; font-size: .625rem; }
 #gameView[data-interface-style="dial"] { --counter-seal-anchor-y: -50%; --appearance-life-number-transform-scale: 1; display: flex; flex: 1; flex-direction: column; gap: clamp(3px, .7dvh, 8px); max-width: 720px; min-height: 0; margin-inline: auto; padding: 0 12px; }
 #gameView[data-interface-style="dial"] > * { flex-shrink: 0; }
-#gameView[data-interface-style="dial"] .game-topline { display: flex; align-items: center; justify-content: space-between; min-height: 44px; margin: 0; padding: 0; }
-#gameView[data-interface-style="dial"] .game-identity { min-width: 0; padding: 0; }
+#gameView[data-interface-style="dial"] .game-topline { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; min-height: 44px; margin: 0; padding: 0; }
+#gameView[data-interface-style="dial"] .game-identity { grid-column: 2; grid-row: 1; justify-self: stretch; min-width: 0; padding: 0; }
 #gameView[data-interface-style="dial"] .pod-label { font-size: .75rem; }
-#gameView[data-interface-style="dial"] .commander-identity-name { font-size: clamp(.6875rem, 2.4vw, .875rem); line-height: 1.1; }
-#gameView[data-interface-style="dial"] .identity-header-rail { display: block; width: min(100%, 210px); height: 4px; }
+#gameView[data-interface-style="dial"] .pod-label::before { left: 0; }
+#gameView[data-interface-style="dial"] .pod-label::after { right: 0; }
 #gameView[data-interface-style="dial"] .inspection-notice { margin: 0; padding: 6px 8px; font-size: .6875rem; }
-#gameView[data-interface-style="dial"] #moreButton { position: static; inset: auto; width: 44px; min-height: 44px; margin: 0; transform: none; flex: none; }
+#gameView[data-interface-style="dial"] #moreButton { grid-column: 3; grid-row: 1; justify-self: end; position: static; inset: auto; width: 44px; min-height: 44px; margin: 0; transform: none; }
 #gameView[data-interface-style="dial"] :is(.pod-strip, .side-seats) { position: static; inset: auto; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; gap: 6px; margin: 0; padding: 0; pointer-events: auto; }
 #gameView[data-interface-style="dial"] .pod-strip[data-player-count="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 #gameView[data-interface-style="dial"] .pod-strip[data-player-count="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
