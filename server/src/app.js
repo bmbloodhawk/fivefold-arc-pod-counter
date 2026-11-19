@@ -1989,6 +1989,8 @@ export class RoomService {
       throw Object.assign(new Error("The saved recovery record is invalid"), { status: 422, code: "INVALID_RECOVERY_RECORD" });
     }
     room.protocolVersion = roomProtocolVersion(room.protocolVersion);
+    // Firebase omits empty arrays from persisted recovery records.
+    room.playtestNotes = Array.isArray(room.playtestNotes) ? room.playtestNotes : [];
     room.hostRecoveryKeyHash = decodedHash(record.hostRecoveryKeyHash);
     // Recovery records can outlive optional Commander display fields added in a
     // later release. Normalize those legacy seats before deriving sources.
