@@ -869,19 +869,22 @@ async function showMyGames() {
     $('#gameHistorySearch')?.addEventListener('input', event => { const query = event.currentTarget.value.trim().toLowerCase(); $$('#gameHistoryList [data-history-game]').forEach(item => { item.hidden = Boolean(query) && !item.textContent.toLowerCase().includes(query); }); });
   } catch (error) { myGamesStatus.textContent = error?.message || 'Your games are not available yet.'; myGamesSignInButton.hidden = false; }
 }
-async function showMyDecks(signIn = false) {
+async function showMyDecks(signIn = false, currentRequest = () => true) {
   const profileEpoch = awardProfileEpoch;
+  const currentProfile = () => profileEpoch === awardProfileEpoch && currentRequest();
+  if (!currentProfile()) return;
   myDecksContent.hidden = true; myDecksStatus.textContent = signIn ? 'Signing in…' : 'Loading your decks…';
   try {
     const token = signIn ? await googleAccountToken() : await currentAccountToken();
-    if (profileEpoch !== awardProfileEpoch) return;
+    if (!currentProfile()) return;
     if (!token) { myDecksStatus.textContent = 'Sign in to keep private deck notes.'; myDecksSignInButton.hidden = false; createDeckButton.disabled = true; return; }
     const response = await fetch('/api/account/decks?archived=all', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) throw new Error('Your decks are not available yet.');
-    const decks = (await response.json()).decks; if (profileEpoch !== awardProfileEpoch) return; savedDecks = decks; renderHomeAccount(true); myDecksStatus.textContent = decks.length ? `${decks.length} saved deck${decks.length === 1 ? '' : 's'}` : 'No saved decks yet.'; myDecksContent.innerHTML = decks.length ? `<ul>${decks.map(deck => `<li><strong>${deck.favorite ? '★ ' : ''}${escapeHtml(deck.commanderName)}</strong>${deck.archived ? ' <small>Archived</small>' : ''}${deck.name ? `<br><small>${escapeHtml(deck.name)}</small>` : ''}${deck.colors?.length ? `<br><small>${escapeHtml(deck.colors.join(' '))}</small>` : ''}${deck.notes ? `<br><small>${escapeHtml(deck.notes)}</small>` : ''}<br><button type="button" class="text-action" data-edit-deck="${escapeHtml(deck.deckId)}">Edit</button> <button type="button" class="text-action" data-toggle-favorite="${escapeHtml(deck.deckId)}">${deck.favorite ? 'Unfavorite' : 'Favorite'}</button> <button type="button" class="text-action" data-toggle-archive="${escapeHtml(deck.deckId)}">${deck.archived ? 'Restore' : 'Archive'}</button> <button type="button" class="text-action" data-export-deck="${escapeHtml(deck.deckId)}">Export deck</button> <button type="button" class="text-action" data-remove-deck="${escapeHtml(deck.deckId)}">Remove</button></li>`).join('')}</ul>` : ''; myDecksContent.hidden = !decks.length; myDecksSignInButton.hidden = true; createDeckButton.disabled = false;
-  } catch (error) { if (profileEpoch !== awardProfileEpoch) return; myDecksStatus.textContent = error?.message || 'Your decks are not available yet.'; myDecksSignInButton.hidden = false; createDeckButton.disabled = true; }
+    const decks = (await response.json()).decks; if (!currentProfile()) return; savedDecks = decks; renderHomeAccount(true); myDecksStatus.textContent = decks.length ? `${decks.length} saved deck${decks.length === 1 ? '' : 's'}` : 'No saved decks yet.'; myDecksContent.innerHTML = decks.length ? `<ul>${decks.map(deck => `<li><strong>${deck.favorite ? '★ ' : ''}${escapeHtml(deck.commanderName)}</strong>${deck.archived ? ' <small>Archived</small>' : ''}${deck.name ? `<br><small>${escapeHtml(deck.name)}</small>` : ''}${deck.colors?.length ? `<br><small>${escapeHtml(deck.colors.join(' '))}</small>` : ''}${deck.notes ? `<br><small>${escapeHtml(deck.notes)}</small>` : ''}<br><button type="button" class="text-action" data-edit-deck="${escapeHtml(deck.deckId)}">Edit</button> <button type="button" class="text-action" data-toggle-favorite="${escapeHtml(deck.deckId)}">${deck.favorite ? 'Unfavorite' : 'Favorite'}</button> <button type="button" class="text-action" data-toggle-archive="${escapeHtml(deck.deckId)}">${deck.archived ? 'Restore' : 'Archive'}</button> <button type="button" class="text-action" data-export-deck="${escapeHtml(deck.deckId)}">Export deck</button> <button type="button" class="text-action" data-remove-deck="${escapeHtml(deck.deckId)}">Remove</button></li>`).join('')}</ul>` : ''; myDecksContent.hidden = !decks.length; myDecksSignInButton.hidden = true; createDeckButton.disabled = false;
+  } catch (error) { if (!currentProfile()) return; myDecksStatus.textContent = error?.message || 'Your decks are not available yet.'; myDecksSignInButton.hidden = false; createDeckButton.disabled = true; }
 }
 function setDeckColors(colors) { const confirmed = normaliseIdentity(colors); $$('input[name="deckColors"]').forEach(input => { input.checked = confirmed.includes(input.value); }); }
 async function confirmDeckCommanderColors() {
+  const profileEpoch = awardProfileEpoch;
   const count = Number($('input[name="deckCommanderCount"]:checked')?.value || 1);
   const inputs = [deckCommanderName, deckCommanderNameTwo].slice(0, count);
   const names = inputs.map(input => input.value.trim());
@@ -890,6 +893,7 @@ async function confirmDeckCommanderColors() {
   deckCommanderStatus.textContent = 'Finding commander colors…';
   try {
     const cards = await Promise.all(names.map(lookupCommanderIdentity));
+    if (profileEpoch !== awardProfileEpoch) return false;
     cards.forEach((card, index) => { inputs[index].value = card.name; });
     deckCommanderColors = cards.map(card => normaliseIdentity(card.colors));
     const colors = normaliseIdentity(deckCommanderColors.flat());
@@ -897,16 +901,68 @@ async function confirmDeckCommanderColors() {
     deckCommanderStatus.textContent = `✓ Confirmed: ${colors.join('') || 'Colorless'}`;
     return true;
   } catch (error) {
+    if (profileEpoch !== awardProfileEpoch) return false;
     deckCommanderStatus.textContent = `${error?.message || 'Commander colors could not be confirmed.'} Your current deck colors were kept.`;
     return false;
-  } finally { findDeckColorsButton.disabled = false; }
+  } finally { if (profileEpoch === awardProfileEpoch) findDeckColorsButton.disabled = false; }
 }
 function savedDeckCommanderColors(deck, count) { if (Array.isArray(deck?.commanderColors) && deck.commanderColors.length === count) return deck.commanderColors.map(normaliseIdentity); return count === 1 ? [normaliseIdentity(deck?.colors || [])] : []; }
 function beginDeckEdit(deckId) { const deck = savedDecks.find(item => item.deckId === deckId); if (!deck) return; editingDeckId = deckId; const names = deck.commanderNames || [deck.commanderName]; deckCommanderColors = savedDeckCommanderColors(deck, names.length); $(`input[name="deckCommanderCount"][value="${names.length}"]`).checked = true; deckCommanderName.value = names[0] || ''; deckCommanderNameTwo.value = names[1] || ''; deckCommanderNameTwoField.hidden = names.length !== 2; deckName.value = deck.name || ''; deckNotes.value = deck.notes || ''; deckFavorite.checked = deck.favorite === true; setDeckColors(deck.colors || []); deckCommanderStatus.textContent = 'Check the commander colors after editing a commander name.'; createDeckButton.textContent = 'Update deck'; myDecksStatus.textContent = `Editing ${deck.commanderName}. Make your correction, then choose Update deck.`; }
+let deckSaveAttempt = 0;
+function captureDeckSaveDraft() {
+  return { deckId: editingDeckId, count: Number($('input[name="deckCommanderCount"]:checked')?.value || 1),
+    names: [deckCommanderName.value, deckCommanderNameTwo.value],
+    commanderColors: deckCommanderColors.map(colors => [...colors]),
+    colors: $$('input[name="deckColors"]:checked').map(input => input.value),
+    name: deckName.value, notes: deckNotes.value, favorite: deckFavorite.checked };
+}
 async function createDeck() {
-  const token = await currentAccountToken(); const commanderNames = [deckCommanderName.value, deckCommanderNameTwo.value].map(name => name.trim()).filter(Boolean); if (!token || !commanderNames.length || commanderNames.length !== Number($('input[name="deckCommanderCount"]:checked')?.value || 1)) return;
+  const profileEpoch = awardProfileEpoch, draft = captureDeckSaveDraft();
+  const commanderNames = draft.names.map(name => name.trim()).filter(Boolean);
+  if (!commanderNames.length || commanderNames.length !== draft.count) return;
+  const attempt = ++deckSaveAttempt, signature = JSON.stringify(draft);
+  const currentSave = () => profileEpoch === awardProfileEpoch && attempt === deckSaveAttempt;
+  let confirmedSignature = signature;
+  const unchangedDraft = () => {
+    if (!currentSave()) return false;
+    const current = JSON.stringify(captureDeckSaveDraft());
+    return current === signature || current === confirmedSignature;
+  };
   createDeckButton.disabled = true;
-  try { await confirmDeckCommanderColors(); const verifiedCommanderNames = [deckCommanderName.value, deckCommanderNameTwo.value].map(name => name.trim()).filter(Boolean); const colors = $$('input[name="deckColors"]:checked').map(input => input.value); const commanderColors = deckCommanderColors.length === verifiedCommanderNames.length ? deckCommanderColors : verifiedCommanderNames.length === 1 ? [colors] : Array.from({ length: verifiedCommanderNames.length }, () => []); const body = { commanderNames: verifiedCommanderNames, commanderColors, name: deckName.value, colors, notes: deckNotes.value, favorite: deckFavorite.checked }; const response = await fetch(editingDeckId ? `/api/account/decks/${encodeURIComponent(editingDeckId)}` : '/api/account/decks', { method: editingDeckId ? 'PATCH' : 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(body) }); if (!response.ok) throw new Error('This deck could not be saved yet.'); editingDeckId = null; deckCommanderColors = []; createDeckButton.textContent = 'Save deck'; deckCommanderName.value = ''; deckCommanderNameTwo.value = ''; deckName.value = ''; deckNotes.value = ''; deckFavorite.checked = false; setDeckColors([]); deckCommanderStatus.textContent = 'We’ll also check the commander colors when you save.'; await showMyDecks(); void loadSetupDecks(); } catch (error) { myDecksStatus.textContent = error?.message || 'This deck could not be saved yet.'; createDeckButton.disabled = false; }
+  try {
+    const token = await currentAccountToken();
+    if (!currentSave() || !token) return;
+    let names = commanderNames, colors = draft.colors;
+    let commanderColors = draft.commanderColors.length === names.length ? draft.commanderColors
+      : names.length === 1 ? [colors] : names.map(() => []);
+    try {
+      // Resolve only the submitted names. A save must never read or normalize a later editor draft.
+      const cards = await Promise.all(commanderNames.map(lookupCommanderIdentity));
+      if (!currentSave()) return;
+      names = cards.map(card => card.name);
+      commanderColors = cards.map(card => normaliseIdentity(card.colors));
+      colors = normaliseIdentity(commanderColors.flat());
+      // A separate blur lookup may have normalized this same submitted draft.
+      confirmedSignature = JSON.stringify({ ...draft, names: [...names, ''].slice(0, 2), commanderColors, colors });
+    } catch { if (!currentSave()) return; /* Keep the submitted manual colors if lookup is unavailable. */ }
+    if (!currentSave()) return;
+    const body = { commanderNames: names, commanderColors, name: draft.name, colors, notes: draft.notes, favorite: draft.favorite };
+    const response = await fetch(draft.deckId ? `/api/account/decks/${encodeURIComponent(draft.deckId)}` : '/api/account/decks', {
+      method: draft.deckId ? 'PATCH' : 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(body),
+    });
+    if (!currentSave()) return;
+    if (!response.ok) throw new Error('This deck could not be saved yet.');
+    if (unchangedDraft()) {
+      editingDeckId = null; deckCommanderColors = []; createDeckButton.textContent = 'Save deck';
+      deckCommanderName.value = ''; deckCommanderNameTwo.value = ''; deckName.value = ''; deckNotes.value = ''; deckFavorite.checked = false;
+      setDeckColors([]); deckCommanderStatus.textContent = 'We’ll also check the commander colors when you save.';
+      const clearedSignature = JSON.stringify(captureDeckSaveDraft());
+      await showMyDecks(false, () => currentSave() && JSON.stringify(captureDeckSaveDraft()) === clearedSignature);
+    }
+    if (currentSave()) void loadSetupDecks();
+  } catch (error) {
+    if (unchangedDraft()) myDecksStatus.textContent = error?.message || 'This deck could not be saved yet.';
+  } finally { if (currentSave()) createDeckButton.disabled = false; }
 }
 async function saveAccountPreferences() { const token = await currentAccountToken(); if (!token) return; const response = await fetch('/api/account/preferences', { method: 'PUT', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ preferredName: accountPreferredName.value, defaultPlayerCount: Number(accountDefaultPlayerCount.value), defaultRoundLimitMinutes: accountDefaultRoundLimit.value || null, interfaceStyle, personalSkinId: accountPersonalSkin.value || null, usePersonalSkin: accountUsePersonalSkin.checked }) }); if (!response.ok) { myGamesStatus.textContent = 'Your preferences could not be saved yet.'; return; } accountPreferences = (await response.json()).preferences; void applySelectedAppearance(); const preferredName = accountPreferences.preferredName || ''; dom.createName.value ||= preferredName; dom.joinName.value ||= preferredName; myGamesStatus.textContent = preferredName ? `Saved. ${preferredName} will prefill your name when you create or join a pod.` : 'Preferences saved. Set a preferred name whenever you want new pods to prefill it.'; }
 async function removeAccountItem(kind, id) {
@@ -1065,6 +1121,7 @@ function latestRecoverableHostTable() {
 }
 function resetAwardProfile() {
   awardProfileEpoch += 1;
+  findDeckColorsButton.disabled = false;
   appearanceCatchUp.reset();
   savedGameKey = null;
   savingGameKey = null;

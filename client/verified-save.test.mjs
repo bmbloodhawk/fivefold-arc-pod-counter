@@ -26,6 +26,7 @@ function browserFixture({ accountToken = async () => 'test-profile' } = {}) {
     currentAccountToken: accountToken,
     googleAccountToken: async () => 'test-profile',
     savedGameKey: null, savingGameKey: null, savedGameMoment: null, awardProfileEpoch: 0,
+    findDeckColorsButton: { disabled: false },
     unlockedAchievementsByGame: unlocked, dismissedVictoryKeys: new Set(),
     appearanceCatchUp: { reset() { context.catchUpReset = true; } },
     async fetch(path, options) {

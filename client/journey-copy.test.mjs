@@ -595,9 +595,8 @@ test('My decks keeps the editor above saved decks and confirms commander colors'
   assert.match(app, /async function confirmDeckCommanderColors\(\)/);
   assert.match(app, /const cards = await Promise\.all\(names\.map\(lookupCommanderIdentity\)\)/);
   assert.match(app, /deckCommanderColors = cards\.map\(card => normaliseIdentity\(card\.colors\)\)/);
-  assert.match(app, /commanderColors, name: deckName\.value/);
+  // Submitted payloads and color fallback are exercised against actual save code in deck-save-races.test.mjs.
   assert.match(app, /setDeckColors\(colors\);/);
-  assert.match(app, /await confirmDeckCommanderColors\(\);/);
 });
 
 test('completed signed-in games save automatically without a final player action', () => {
