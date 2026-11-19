@@ -63,6 +63,7 @@ function startPage({ active = target, activeRaw, legacy, legacyRaw, history = [p
   const context = createContext({
     URLSearchParams, parseCompetitionFragment, location: { search, hash }, transport, state: null,
     activeTableRecoveryEpoch: null, awaitingConfirmedResync: false, appearancePreviewMode: false,
+    pendingTableCreation: null, backgroundTableEpoch: null,
     dom: { landing, create, join, game, views: [landing, create, join, game, registrationView], gameMenu: {}, moreButton: { setAttribute() {} } }, registrationView,
     localStorage: { getItem: key => stored.get(key) ?? null, setItem: (key, value) => stored.set(key, value), removeItem: key => stored.delete(key) },
     window: { addEventListener: (type, listener) => listeners.set(type, listener), scrollTo() {} },

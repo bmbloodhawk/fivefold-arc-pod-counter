@@ -623,7 +623,12 @@ export class RoomService {
 
   createRoom(connectionId, input = {}, { earnedTableSkinName } = {}) {
     const connection = this.getConnection(connectionId);
-    if (connection.seatKey) throw Object.assign(new Error("One connection may own only one seat"), { status: 409, code: "CONNECTION_HAS_SEAT" });
+    const operationId = input.operationId;
+    if (operationId !== undefined && (typeof operationId !== "string" || !/^[A-Za-z0-9_-]{16,128}$/.test(operationId))) {
+      throw Object.assign(new Error("operationId must be a client-generated opaque identifier"), { status: 400, code: "INVALID_INPUT" });
+    }
+    const previous = connection.createdRoom;
+    if (connection.seatKey && (!operationId || previous?.operationId !== operationId)) throw Object.assign(new Error("One connection may own only one seat"), { status: 409, code: "CONNECTION_HAS_SEAT" });
     this.requireCompatibleTableProtocol(connection, CURRENT_TABLE_PROTOCOL_VERSION);
     const gameFormat = normalizeGameFormat(input.gameFormat);
     const playerCount = asInteger(input.playerCount, "playerCount", 2, 8);
@@ -634,13 +639,25 @@ export class RoomService {
     const commanderNames = normalizeCommanderNames(input.commanderNames, commanderCount);
     const commanderColors = normalizeCommanderColors(input.commanderColors, commanderCount);
     const roundLimitMinutes = normalizeRoundLimitMinutes(input.roundLimitMinutes);
+    const name = normalizeName(input.name, "P1");
+    const tableSkinId = /^[A-Za-z0-9_-]{1,80}$/.test(String(input.tableSkinId || '')) ? String(input.tableSkinId) : null;
+    const fingerprint = operationId ? createHash("sha256").update(JSON.stringify({ playerCount, seatCapacity, startingLife, gameFormat,
+      commanderCount, commanderNames, commanderColors: commanderColors.map(colors => colors.toSorted()), roundLimitMinutes, name, tableSkinId })).digest("hex") : null;
+    if (operationId && previous?.operationId === operationId) {
+      if (previous.fingerprint !== fingerprint) throw Object.assign(new Error("Use a new creation identifier after changing the table setup"), { status: 409, code: "ROOM_CREATE_RETRY_CONFLICT" });
+      const room = this.rooms.get(previous.code), seat = room?.seats[0];
+      if (!room || connection.seatKey !== `${previous.code}:0` || !seat?.claimed || seat.ownerConnectionId !== connectionId || !tokenMatches(previous.reclaimToken, seat.tokenHash)) {
+        throw Object.assign(new Error("That creation can no longer be recovered on this connection"), { status: 409, code: "ROOM_CREATE_RETRY_UNAVAILABLE" });
+      }
+      return { snapshot: this.snapshot(room), seatId: 0, reclaimToken: previous.reclaimToken, hostRecoveryKey: previous.hostRecoveryKey };
+    }
     const startedAt = this.now();
     const code = this.makeJoinCode();
     const reclaimToken = opaque(32);
     const hostRecoveryKey = opaque(32);
     const seats = Array.from({ length: seatCapacity }, (_, seatId) => ({
       seatId,
-      name: seatId === 0 ? normalizeName(input.name, "P1") : `P${seatId + 1}`,
+      name: seatId === 0 ? name : `P${seatId + 1}`,
       claimed: seatId === 0,
       ownerConnectionId: seatId === 0 ? connectionId : null,
       tokenHash: seatId === 0 ? tokenHash(reclaimToken) : null,
@@ -662,7 +679,7 @@ export class RoomService {
       hostSeatId: 0,
       // playerCount remains the seat capacity for older clients. The planned
       // first-game count is informational; gameplay always uses the roster.
-      config: { playerCount: seatCapacity, expectedPlayerCount: playerCount, seatCapacity, startingLife, gameFormat, roundLimitMinutes, tableSkinId: /^[A-Za-z0-9_-]{1,80}$/.test(String(input.tableSkinId || '')) ? String(input.tableSkinId) : null,
+      config: { playerCount: seatCapacity, expectedPlayerCount: playerCount, seatCapacity, startingLife, gameFormat, roundLimitMinutes, tableSkinId,
         ...(earnedTableSkinName ? { earnedTableSkinName } : {}) },
       lastCoinToss: null,
       gameResult: null,
@@ -703,6 +720,9 @@ export class RoomService {
     this.productMeasurement.record({ event: "pod_creation_succeeded" });
     this.tableDeviceActivity.record(connection.tableDeviceId);
     connection.seatKey = `${code}:0`;
+    // One bounded, expiring connection owns these retry credentials. They are
+    // intentionally absent from room snapshots, recovery storage, and logs.
+    if (operationId) connection.createdRoom = { operationId, fingerprint, code, reclaimToken, hostRecoveryKey };
     return { snapshot: this.snapshot(room), seatId: 0, reclaimToken, hostRecoveryKey };
   }
 

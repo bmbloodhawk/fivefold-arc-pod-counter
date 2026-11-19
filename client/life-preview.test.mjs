@@ -14,7 +14,7 @@ function previewHarness() {
   let nextTimer = 0;
   let functions;
   const context = {
-    state: { mode: 'life', ownerPlayerId: 'P1', localSimulation: false, lifecycle: { status: 'playing' } },
+    state: { mode: 'life', ownerPlayerId: 'P1', players: [player], localSimulation: false, lifecycle: { status: 'playing' } },
     dom: { lifeChangeIndicator: indicator }, lifeChange: null, lifeChangeTimer: null, optimisticLifeDelta: 0,
     transport: { status: 'connected' }, lifeBatcher: { add: delta => sends.push(delta) },
     activePlayer: () => player, currentValue: () => player.life + context.optimisticLifeDelta,
@@ -26,7 +26,8 @@ function previewHarness() {
     section('function renderLifeChange(', 'function countersLocked('),
     section('function showLifeChange(', 'function coinTossLabel('),
     section('async function adjust(', 'function remapLocalDamage('),
-    '({ showLifeChange, renderLifeChange, adjust })',
+    section('function confirmLifeChange(', 'async function openPlaytestNotes('),
+    '({ showLifeChange, renderLifeChange, adjust, confirmLifeChange })',
   ].join('\n'), context);
   return { player, context, indicator, sends, functions, expire() {
     assert.equal(timers.size, 1);
@@ -106,4 +107,24 @@ test('leaving the displayed seat ends its preview window', () => {
   h.functions.showLifeChange('P1', 1, 27, 28);
   assert.equal(h.context.lifeChange.delta, 1);
   assert.equal(h.context.lifeChange.from, 27);
+});
+test('a finish lock drops the unsent remainder from confirmed life feedback', () => {
+  const h = previewHarness(); h.player.life = 20;
+  h.functions.showLifeChange('P1', -1000, 20, -980);
+  h.player.life = -979; h.context.optimisticLifeDelta = 0; // first -999 accepted; finish lock cancels -1
+  h.functions.confirmLifeChange('P1');
+  assert.equal(h.context.lifeChange.delta, -999); assert.equal(h.context.lifeChange.to, -979);
+  assert.equal(h.indicator.textContent, '−999 LIFE · 20 → -979');
+});
+test('healthy chunk feedback includes the unsent preview until its final confirmation', () => {
+  const h = previewHarness(); h.functions.showLifeChange('P1', 1000, -999, 1);
+  h.player.life = 0; h.context.optimisticLifeDelta = 1; h.functions.confirmLifeChange('P1');
+  assert.equal(h.context.lifeChange.to, 1); assert.equal(h.context.lifeChange.confirmed, false);
+  h.player.life = 1; h.context.optimisticLifeDelta = 0; h.functions.confirmLifeChange('P1');
+  assert.equal(h.context.lifeChange.to, 1); assert.equal(h.context.lifeChange.confirmed, true);
+});
+test('confirmed feedback respects the authoritative total when a life bound clamps input', () => {
+  const h = previewHarness(); h.functions.showLifeChange('P1', 10, 995, 1005);
+  h.player.life = 999; h.functions.confirmLifeChange('P1');
+  assert.equal(h.context.lifeChange.delta, 4); assert.equal(h.context.lifeChange.to, 999);
 });

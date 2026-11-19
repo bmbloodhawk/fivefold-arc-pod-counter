@@ -13,9 +13,9 @@ function accountFixture(signOutAccount = async () => {}) {
     accountSignedInStatus: element(), homeSignOutButton: element(), homeAccountMessage: element(),
     signInButton: element(), myGamesButton: element(), myDecksButton: element(), signOutButton: element(),
     myGamesStatus: element(), myGamesDialog: { open: false }, myDecksDialog: { open: false },
-    homeAccountSignedIn: false, signOutInFlight: false,
+    homeAccountSignedIn: false, signOutInFlight: false, awardProfileEpoch: 0,
     selectedDeckId: 'saved-deck', setupDecks: ['saved-deck'], savedDecks: ['saved-deck'],
-    resetAwardProfile() {}, clearAccountAppearance() {}, competitionHub: { authChanged() {} },
+    resetAwardProfile() { context.awardProfileEpoch++; }, clearAccountAppearance() {}, clearPrivateDeckState() {}, competitionHub: { authChanged() {} },
     signOutAccount,
   });
   runInContext(source, context);

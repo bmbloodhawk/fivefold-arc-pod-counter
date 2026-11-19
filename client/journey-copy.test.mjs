@@ -36,7 +36,7 @@ test('shared life sends one net adjustment for a rapid correction burst', () => 
   assert.match(app, /lifeBatcher\.add\(delta\)/);
   assert.match(app, /document\.addEventListener\('visibilitychange',[\s\S]*?lifeBatcher\.flush\(\)/);
   assert.match(app, /optimisticLifeDelta -= delta;\s*try \{\s*const result = await transport\.adjust\(\{ counter: 'life', delta, operationId \}\)/);
-  assert.match(app, /if \(result\.ignored \|\| result\.local \|\| result\.locked\) return;/);
+  assert.match(app, /if \(result\.ignored \|\| result\.local \|\| result\.locked\) \{ discardPending\(\); if \(result\.locked\) confirmLifeChange\(ownerPlayerId\); return result; \}/);
 });
 
 test('turn status shows the shared table turn in its existing compact status row', () => {
@@ -123,7 +123,7 @@ test('connection status does not duplicate the pod code from the waiting lobby',
 });
 
 test('a successfully created pod cannot be reported as a connection error during rendering', () => {
-  assert.match(app, /result = await transport\.createRoom\([\s\S]*?\);\s*}\s*catch \(error\) \{\s*showError\(error\);\s*return;\s*}\s*finally \{[\s\S]*?}\s*if \(result\.ignored\) return;\s*showSharedGame\(result\.snapshot\);/);
+  assert.match(app, /result = await transport\.createRoom\([\s\S]*?\);\s*}\s*catch \(error\) \{\s*if \(creation\.foreground\) showError\(error\);\s*return;\s*}\s*finally \{[\s\S]*?}\s*if \(result\.ignored\) return;\s*if \(creation\.foreground\) showSharedGame\(result\.snapshot\);/);
 });
 
 test('creating a table is distinct from starting a game', () => {
@@ -155,7 +155,7 @@ test('creating a table is distinct from starting a game', () => {
 
 test('the lobby explains its two-player start threshold and what happens to empty seats', () => {
   assert.match(html, /Start with 2 or more players\./);
-  assert.match(app, /dom\.startGameButton\.disabled = !isHost \|\| claimedPlayers\.length < 2;/);
+  assert.match(app, /dom\.startGameButton\.disabled = starting \|\| !isHost \|\| claimedPlayers\.length < 2;/);
 });
 
 test('turn cues offer explicit sound and vibration modes with an iPhone support note', () => {
@@ -673,7 +673,8 @@ test('signing in for a saved deck returns a QR joiner to the join step', () => {
 test('signing out returns the device to guest play without deleting account data', () => {
   assert.match(app, /async function signOut\(\) \{/);
   assert.match(app, /await signOutAccount\(\);/);
-  assert.match(app, /selectedDeckId = ''; setupDecks = \[\]; savedDecks = \[\];/);
+  assert.match(app, /clearPrivateDeckState\(\);/);
+  assert.match(app, /savedDecks = \[\]; setupDecks = \[\]; commanderDecks = \[\];/);
   assert.match(app, /renderHomeAccount\(false\);/);
   assert.match(app, /signOutButton\.addEventListener\('click', \(\) => void signOut\(\)\)/);
 });

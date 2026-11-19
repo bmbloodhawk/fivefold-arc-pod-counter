@@ -1,7 +1,7 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=94';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=95';
 import { eliminationUndoPresentation } from './elimination-undo.js?v=1';
 import { captureLocalElimination, rememberLocalElimination, advanceLocalElimination, undoLocalElimination } from './local-elimination-undo.js?v=1';
-import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=73';
+import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=74';
 import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=114';
 import { connectionPresentation } from './connection-state.js?v=1';
 import { createInteractionAdvice } from './card-interaction-advice.js?v=1';
@@ -11,7 +11,7 @@ import { createAccountScreen, saveRegistrationPreferredName } from './create-acc
 import { JoinQrScanner } from './join-qr-scanner.js?v=5';
 import { GameWakeLock } from './game-wake-lock.js?v=1';
 import { applyCollectionVisual } from './collection-visual.js?v=4';
-import { createCompetitionHub } from './competition-ui.js?v=9';
+import { createCompetitionHub } from './competition-ui.js?v=10';
 import { parseCompetitionFragment } from './competition-model.mjs?v=2';
 import { createAppearanceCatchUp } from './appearance-catch-up.js?v=2';
 import { createDialLayout } from './dial-layout.js?v=2';
@@ -68,7 +68,10 @@ const competitionHub = createCompetitionHub({
   returnToTable: () => { if (state) { showTableView(); render(); } },
   onCompetitionContext: value => {
     tournamentTableContext = value ? { ...value, code: transport.roomCode, receivedAt: Date.now() } : null;
-    if (state) renderTurnFlow();
+    if (state) {
+      if ([dom.game, dom.lobby, dom.intermission].some(view => !view.hidden)) showTableView();
+      renderTurnFlow();
+    }
   },
   leaveFinishedTable: () => leaveFinishedTournamentTable(),
   leaveReplacedTable: code => leaveReplacedTournamentTable(code),
@@ -233,6 +236,9 @@ let resolvedRadiationTurnKey = null;
 let selectedDeckId = ''; let setupDecks = []; let commanderDecks = []; let joinGameFormat = 'commander'; let savedDecks = []; let editingDeckId = null; let deckCommanderColors = [];
 let commanderSetupDraft = null; let pendingNextGameSetup = false;
 let nextGameConfirmation = null; let nextGameStarterPending = false; let nextGameStartPending = false;
+let gameStartRequest = null;
+let pendingTableCreation = null;
+let backgroundTableEpoch = null;
 let optimisticLifeDelta = 0;
 let awaitingConfirmedResync = false;
 let syncBannerTimer = null;
@@ -263,20 +269,28 @@ async function reconcileTableWriteError(error) {
   }
 }
 const lifeBatcher = new LifeAdjustmentBatcher({ delayMs: 300, send: async ({ delta, operationId }) => {
+  const epoch = transport.sessionEpoch, roomCode = transport.roomCode, ownerPlayerId = state?.ownerPlayerId;
+  const currentTable = () => epoch === transport.sessionEpoch && roomCode === transport.roomCode && ownerPlayerId === state?.ownerPlayerId;
+  const discardPending = () => { lifeBatcher.clear(); optimisticLifeDelta = 0; };
   // The transport applies its snapshot before resolving. Remove this just-sent
   // amount first so the authoritative response cannot be visually double-counted.
   optimisticLifeDelta -= delta;
   try {
     const result = await transport.adjust({ counter: 'life', delta, operationId });
-    if (result.ignored || result.local || result.locked) return;
+    if (!currentTable()) return { ignored: true };
+    if (result.ignored || result.local || result.locked) { discardPending(); if (result.locked) confirmLifeChange(ownerPlayerId); return result; }
     if (result.blocked) throw new Error('Reconnect before changing life. The pending adjustment was not saved.');
-    confirmLifeChange(state?.ownerPlayerId);
+    confirmLifeChange(ownerPlayerId);
+    return result;
   }
   catch (error) {
+    if (!currentTable()) return { ignored: true };
+    discardPending();
     if (!lifeChange?.confirmed) { clearTimeout(lifeChangeTimer); lifeChange = null; }
     await reconcileTableWriteError(error);
+    return { failed: true };
   }
-  finally { if (state) render(); }
+  finally { if (state && currentTable()) render(); }
 } });
 
 function sourceForSeat(player, slot) {
@@ -802,6 +816,7 @@ async function finishAccountSignIn(token) {
   // A valid Firebase session enables account actions even if profile preferences are unavailable.
   resetAwardProfile();
   const profileEpoch = awardProfileEpoch;
+  clearPrivateDeckState({ signedIn: true });
   clearAccountAppearance();
   renderHomeAccount(true);
   try {
@@ -870,30 +885,39 @@ async function showMyGames() {
   } catch (error) { myGamesStatus.textContent = error?.message || 'Your games are not available yet.'; myGamesSignInButton.hidden = false; }
 }
 async function showMyDecks(signIn = false, currentRequest = () => true) {
-  const profileEpoch = awardProfileEpoch;
+  let profileEpoch = awardProfileEpoch;
   const currentProfile = () => profileEpoch === awardProfileEpoch && currentRequest();
   if (!currentProfile()) return;
   myDecksContent.hidden = true; myDecksStatus.textContent = signIn ? 'Signing in…' : 'Loading your decks…';
   try {
     const token = signIn ? await googleAccountToken() : await currentAccountToken();
     if (!currentProfile()) return;
-    if (!token) { myDecksStatus.textContent = 'Sign in to keep private deck notes.'; myDecksSignInButton.hidden = false; createDeckButton.disabled = true; return; }
+    if (!token) { resetAwardProfile(); clearPrivateDeckState(); return; }
+    if (signIn) {
+      resetAwardProfile();
+      clearPrivateDeckState({ signedIn: true });
+      profileEpoch = awardProfileEpoch;
+    }
     const response = await fetch('/api/account/decks?archived=all', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) throw new Error('Your decks are not available yet.');
     const decks = (await response.json()).decks; if (!currentProfile()) return; savedDecks = decks; renderHomeAccount(true); myDecksStatus.textContent = decks.length ? `${decks.length} saved deck${decks.length === 1 ? '' : 's'}` : 'No saved decks yet.'; myDecksContent.innerHTML = decks.length ? `<ul>${decks.map(deck => `<li><strong>${deck.favorite ? '★ ' : ''}${escapeHtml(deck.commanderName)}</strong>${deck.archived ? ' <small>Archived</small>' : ''}${deck.name ? `<br><small>${escapeHtml(deck.name)}</small>` : ''}${deck.colors?.length ? `<br><small>${escapeHtml(deck.colors.join(' '))}</small>` : ''}${deck.notes ? `<br><small>${escapeHtml(deck.notes)}</small>` : ''}<br><button type="button" class="text-action" data-edit-deck="${escapeHtml(deck.deckId)}">Edit</button> <button type="button" class="text-action" data-toggle-favorite="${escapeHtml(deck.deckId)}">${deck.favorite ? 'Unfavorite' : 'Favorite'}</button> <button type="button" class="text-action" data-toggle-archive="${escapeHtml(deck.deckId)}">${deck.archived ? 'Restore' : 'Archive'}</button> <button type="button" class="text-action" data-export-deck="${escapeHtml(deck.deckId)}">Export deck</button> <button type="button" class="text-action" data-remove-deck="${escapeHtml(deck.deckId)}">Remove</button></li>`).join('')}</ul>` : ''; myDecksContent.hidden = !decks.length; myDecksSignInButton.hidden = true; createDeckButton.disabled = false;
   } catch (error) { if (!currentProfile()) return; myDecksStatus.textContent = error?.message || 'Your decks are not available yet.'; myDecksSignInButton.hidden = false; createDeckButton.disabled = true; }
 }
 function setDeckColors(colors) { const confirmed = normaliseIdentity(colors); $$('input[name="deckColors"]').forEach(input => { input.checked = confirmed.includes(input.value); }); }
+let deckColorLookupAttempt = 0;
 async function confirmDeckCommanderColors() {
-  const profileEpoch = awardProfileEpoch;
+  const profileEpoch = awardProfileEpoch, attempt = ++deckColorLookupAttempt;
   const count = Number($('input[name="deckCommanderCount"]:checked')?.value || 1);
   const inputs = [deckCommanderName, deckCommanderNameTwo].slice(0, count);
   const names = inputs.map(input => input.value.trim());
+  const currentLookup = () => profileEpoch === awardProfileEpoch && attempt === deckColorLookupAttempt;
+  const unchangedDraft = () => currentLookup() && count === Number($('input[name="deckCommanderCount"]:checked')?.value || 1)
+    && inputs.every((input, index) => input.value.trim() === names[index]);
   if (names.some(name => !name)) { deckCommanderStatus.textContent = count === 2 ? 'Enter both commanders to find the combined color identity.' : 'Enter a commander name to find its color identity.'; return false; }
   findDeckColorsButton.disabled = true;
   deckCommanderStatus.textContent = 'Finding commander colors…';
   try {
     const cards = await Promise.all(names.map(lookupCommanderIdentity));
-    if (profileEpoch !== awardProfileEpoch) return false;
+    if (!unchangedDraft()) return false;
     cards.forEach((card, index) => { inputs[index].value = card.name; });
     deckCommanderColors = cards.map(card => normaliseIdentity(card.colors));
     const colors = normaliseIdentity(deckCommanderColors.flat());
@@ -901,14 +925,34 @@ async function confirmDeckCommanderColors() {
     deckCommanderStatus.textContent = `✓ Confirmed: ${colors.join('') || 'Colorless'}`;
     return true;
   } catch (error) {
-    if (profileEpoch !== awardProfileEpoch) return false;
+    if (!unchangedDraft()) return false;
     deckCommanderStatus.textContent = `${error?.message || 'Commander colors could not be confirmed.'} Your current deck colors were kept.`;
     return false;
-  } finally { if (profileEpoch === awardProfileEpoch) findDeckColorsButton.disabled = false; }
+  } finally { if (currentLookup()) findDeckColorsButton.disabled = false; }
 }
 function savedDeckCommanderColors(deck, count) { if (Array.isArray(deck?.commanderColors) && deck.commanderColors.length === count) return deck.commanderColors.map(normaliseIdentity); return count === 1 ? [normaliseIdentity(deck?.colors || [])] : []; }
 function beginDeckEdit(deckId) { const deck = savedDecks.find(item => item.deckId === deckId); if (!deck) return; editingDeckId = deckId; const names = deck.commanderNames || [deck.commanderName]; deckCommanderColors = savedDeckCommanderColors(deck, names.length); $(`input[name="deckCommanderCount"][value="${names.length}"]`).checked = true; deckCommanderName.value = names[0] || ''; deckCommanderNameTwo.value = names[1] || ''; deckCommanderNameTwoField.hidden = names.length !== 2; deckName.value = deck.name || ''; deckNotes.value = deck.notes || ''; deckFavorite.checked = deck.favorite === true; setDeckColors(deck.colors || []); deckCommanderStatus.textContent = 'Check the commander colors after editing a commander name.'; createDeckButton.textContent = 'Update deck'; myDecksStatus.textContent = `Editing ${deck.commanderName}. Make your correction, then choose Update deck.`; }
 let deckSaveAttempt = 0;
+function clearPrivateDeckState({ signedIn = false } = {}) {
+  deckSaveAttempt++;
+  editingDeckId = null; deckCommanderColors = []; selectedDeckId = '';
+  savedDecks = []; setupDecks = []; commanderDecks = [];
+  deckCommanderName.value = ''; deckCommanderNameTwo.value = ''; deckName.value = ''; deckNotes.value = '';
+  deckFavorite.checked = false; deckCommanderNameTwoField.hidden = true;
+  $$('input[name="deckCommanderCount"]').forEach(input => { input.checked = input.value === '1'; });
+  setDeckColors([]);
+  deckCommanderStatus.textContent = 'We’ll also check the commander colors when you save.';
+  createDeckButton.textContent = 'Save deck'; createDeckButton.disabled = !signedIn;
+  findDeckColorsButton.disabled = false; myDecksSignInButton.hidden = signedIn;
+  myDecksStatus.textContent = signedIn ? '' : 'Sign in to keep private deck notes.';
+  myDecksContent.innerHTML = ''; myDecksContent.hidden = true;
+  [dom.createDeck, dom.joinDeck, dom.saveGameDeck].forEach(select => {
+    select.innerHTML = '<option value="">No deck selected</option>'; select.value = '';
+  });
+  dom.commanderDeck.innerHTML = '<option value="">Enter commanders manually</option>'; dom.commanderDeck.value = '';
+  dom.createDeckField.hidden = true; dom.joinDeckField.hidden = true; dom.commanderDeckField.hidden = true;
+  try { sessionStorage.removeItem('fivefold-arc:confirmed-commander-deck'); } catch { /* Browser storage is optional. */ }
+}
 function captureDeckSaveDraft() {
   return { deckId: editingDeckId, count: Number($('input[name="deckCommanderCount"]:checked')?.value || 1),
     names: [deckCommanderName.value, deckCommanderNameTwo.value],
@@ -964,7 +1008,24 @@ async function createDeck() {
     if (unchangedDraft()) myDecksStatus.textContent = error?.message || 'This deck could not be saved yet.';
   } finally { if (currentSave()) createDeckButton.disabled = false; }
 }
-async function saveAccountPreferences() { const token = await currentAccountToken(); if (!token) return; const response = await fetch('/api/account/preferences', { method: 'PUT', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ preferredName: accountPreferredName.value, defaultPlayerCount: Number(accountDefaultPlayerCount.value), defaultRoundLimitMinutes: accountDefaultRoundLimit.value || null, interfaceStyle, personalSkinId: accountPersonalSkin.value || null, usePersonalSkin: accountUsePersonalSkin.checked }) }); if (!response.ok) { myGamesStatus.textContent = 'Your preferences could not be saved yet.'; return; } accountPreferences = (await response.json()).preferences; void applySelectedAppearance(); const preferredName = accountPreferences.preferredName || ''; dom.createName.value ||= preferredName; dom.joinName.value ||= preferredName; myGamesStatus.textContent = preferredName ? `Saved. ${preferredName} will prefill your name when you create or join a pod.` : 'Preferences saved. Set a preferred name whenever you want new pods to prefill it.'; }
+async function saveAccountPreferences() {
+  const profileEpoch = awardProfileEpoch;
+  const preferences = { preferredName: accountPreferredName.value, defaultPlayerCount: Number(accountDefaultPlayerCount.value), defaultRoundLimitMinutes: accountDefaultRoundLimit.value || null, interfaceStyle, personalSkinId: accountPersonalSkin.value || null, usePersonalSkin: accountUsePersonalSkin.checked };
+  try {
+    const token = await currentAccountToken();
+    if (!token || profileEpoch !== awardProfileEpoch) return;
+    const response = await fetch('/api/account/preferences', { method: 'PUT', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(preferences) });
+    if (profileEpoch !== awardProfileEpoch) return;
+    if (!response.ok) throw new Error('Your preferences could not be saved yet.');
+    const saved = (await response.json()).preferences;
+    if (profileEpoch !== awardProfileEpoch) return;
+    accountPreferences = saved;
+    void applySelectedAppearance();
+    const preferredName = saved.preferredName || '';
+    dom.createName.value ||= preferredName; dom.joinName.value ||= preferredName;
+    myGamesStatus.textContent = preferredName ? `Saved. ${preferredName} will prefill your name when you create or join a pod.` : 'Preferences saved. Set a preferred name whenever you want new pods to prefill it.';
+  } catch (error) { if (profileEpoch === awardProfileEpoch) myGamesStatus.textContent = error?.message || 'Your preferences could not be saved yet.'; }
+}
 async function removeAccountItem(kind, id) {
   const token = await currentAccountToken(); if (!token) return;
   const response = await fetch(`/api/account/${kind}/${encodeURIComponent(id)}`, { method: 'DELETE', headers: { authorization: `Bearer ${token}` } }); if (!response.ok) throw new Error('That item could not be removed.');
@@ -981,11 +1042,20 @@ async function exportAccountData() {
 async function deleteAccountData() {
   if (!window.confirm('Permanently delete your saved games, decks, and account data? Shared Pod/tournament results keep their numbers as Deleted member, with your name and account link removed. This cannot be undone.')) return;
   resetAwardProfile();
-  const token = await currentAccountToken(); if (!token) throw new Error('Sign in to delete your account data.');
-  const response = await fetch('/api/account', { method: 'DELETE', headers: { authorization: `Bearer ${token}` } });
-  if (!response.ok) throw new Error('Your account data could not be deleted.');
-  exportAccountButton.hidden = true; deleteAccountButton.hidden = true; myGamesContent.hidden = true; myGamesStatus.textContent = 'Your saved account data has been deleted.';
-  competitionHub.authChanged(false);
+  const profileEpoch = awardProfileEpoch;
+  try {
+    const token = await currentAccountToken();
+    if (profileEpoch !== awardProfileEpoch) return;
+    if (!token) throw new Error('Sign in to delete your account data.');
+    const response = await fetch('/api/account', { method: 'DELETE', headers: { authorization: `Bearer ${token}` } });
+    if (profileEpoch !== awardProfileEpoch) return;
+    if (!response.ok) throw new Error('Your account data could not be deleted.');
+    // Retire work started while the provider request was pending as well.
+    resetAwardProfile();
+    clearPrivateDeckState();
+    exportAccountButton.hidden = true; deleteAccountButton.hidden = true; myGamesContent.hidden = true; myGamesStatus.textContent = 'Your saved account data has been deleted.';
+    competitionHub.authChanged(false);
+  } catch (error) { if (profileEpoch === awardProfileEpoch) throw error; }
 }
 function clearAccountAppearance() {
   accountPreferences = null;
@@ -1003,15 +1073,18 @@ async function signOut() {
   homeAccountMessage.hidden = true;
   homeAccountMessage.textContent = '';
   resetAwardProfile();
+  const profileEpoch = awardProfileEpoch;
   try {
     await signOutAccount();
-    selectedDeckId = ''; setupDecks = []; savedDecks = [];
-    try { sessionStorage.removeItem('fivefold-arc:confirmed-commander-deck'); } catch { /* Optional browser storage. */ }
+    if (profileEpoch !== awardProfileEpoch) return;
+    resetAwardProfile();
+    clearPrivateDeckState();
     clearAccountAppearance();
     renderHomeAccount(false);
     competitionHub.authChanged(false);
     if (myGamesDialog.open) myGamesDialog.close(); if (myDecksDialog.open) myDecksDialog.close();
   } catch (error) {
+    if (profileEpoch !== awardProfileEpoch) return;
     myGamesStatus.textContent = error?.message || 'Sign-out did not finish. Please try again.';
     homeAccountMessage.textContent = myGamesStatus.textContent;
     homeAccountMessage.hidden = false;
@@ -1043,7 +1116,7 @@ async function signInWithEmailPassword() {
   finally { emailSignInInFlight = false; }
 }
 function openMyProfile() { myGamesDialog.showModal(); void showMyGames(); }
-function tableViewForState() { if (state?.lifecycle?.status === 'intermission') return dom.intermission; return state?.turn?.gameStarted ? dom.game : dom.lobby; }
+function tableViewForState() { if (state?.lifecycle?.status === 'intermission' || (state?.lifecycle?.status === 'complete' && tournamentTableFlow(state, tournamentTableContext)?.finished)) return dom.intermission; return state?.turn?.gameStarted ? dom.game : dom.lobby; }
 function syncGameWakeLock() {
   const active = Boolean(!appearancePreviewMode && !dom.game.hidden && state?.turn?.gameStarted && !state.gameResult && (state.lifecycle?.status ?? 'playing') === 'playing');
   const supported = gameWakeLock.supported;
@@ -1055,6 +1128,8 @@ function syncGameWakeLock() {
   void gameWakeLock.sync({ active, enabled: keepScreenAwake });
 }
 function showView(view) {
+  if (pendingTableCreation) pendingTableCreation.foreground = false;
+  if ([dom.game, dom.lobby, dom.intermission].includes(view)) backgroundTableEpoch = null;
   if (view === dom.create || view === dom.join
       || (activeTableRecoveryEpoch === transport.sessionEpoch && ![dom.game, dom.lobby, dom.intermission].includes(view))) {
     clearActiveTable();
@@ -1314,7 +1389,7 @@ async function copyJoinLink(button) {
 }
 function fillSetupControls() { dom.playerCountChoices.innerHTML = Array.from({ length: 7 }, (_, index) => { const value = index + 2; return `<label><input type="radio" name="playerCount" value="${value}" ${value === 4 ? 'checked' : ''}><span>${value}</span></label>`; }).join(''); }
 function selectedGameFormat() { return $('input[name="gameFormat"]:checked')?.value || 'commander'; }
-function updateFormatSetup() { const format = selectedGameFormat(); const commander = format === 'commander'; dom.createCommanderNames.previousElementSibling.hidden = !commander; dom.createCommanderNames.hidden = !commander; dom.createDeckField.hidden = !commander || !setupDecks.length; $('#customStartingLifeField').hidden = format !== 'custom'; $('#customStartingLife').disabled = format !== 'custom'; $('#createStepTwoNext').textContent = commander ? 'Next: commander' : 'Next: table settings'; const joiningCommander = joinGameFormat === 'commander'; dom.joinCommanderNames.previousElementSibling.hidden = !joiningCommander; dom.joinCommanderNames.hidden = !joiningCommander; dom.joinDeckField.hidden = !joiningCommander || !setupDecks.length; }
+function updateFormatSetup() { const format = selectedGameFormat(); const commander = format === 'commander'; dom.createCommanderNames.previousElementSibling.hidden = !commander; dom.createCommanderNames.hidden = !commander; dom.createDeckField.hidden = !commander || !setupDecks.length; $('#customStartingLifeField').hidden = format !== 'custom'; $('#customStartingLife').disabled = format !== 'custom'; $('#createStepTwoNext').textContent = commander ? 'Next: commander' : 'Next: table settings'; const joiningCommander = joinGameFormat === 'commander'; dom.joinCommanderNames.previousElementSibling.hidden = !joiningCommander; dom.joinCommanderNames.hidden = !joiningCommander; dom.joinDeckField.hidden = !joiningCommander || !setupDecks.length; $('#joinStepThreeNext').textContent = joiningCommander ? 'Next: commander' : 'Claim this seat'; }
 function commanderNamesFromForm(form, count) { return Array.from({ length: count }, (_, slot) => String(form.get(`commanderName${slot}`) || '').trim()); }
 function commanderColorsFromFields(container, count) { return Array.from({ length: count }, (_, slot) => normaliseIdentity(String(container.querySelector(`input[name="commanderName${slot}"]`)?.dataset.commanderColors || '').split(',').filter(Boolean))); }
 async function lookupCommanderIdentity(name) {
@@ -1437,11 +1512,12 @@ function renderTurnFlow() {
   const isIntermission = lifecycleStatus === 'intermission';
   const isComplete = lifecycleStatus === 'complete';
   const eventFlow = tournamentTableFlow(state, tournamentTableContext, now);
+  const showPostgame = isIntermission || (isComplete && Boolean(eventFlow));
   const eliminationUndo = renderEliminationUndo();
   const isStarted = Boolean(state.turn.gameStarted) && !isComplete;
   dom.lobbyControls.hidden = isStarted || isIntermission || isComplete;
-  dom.intermissionPanel.hidden = !isIntermission;
-  if (!isIntermission) dom.intermissionInvite.open = false;
+  dom.intermissionPanel.hidden = !showPostgame;
+  if (!showPostgame) dom.intermissionInvite.open = false;
   const renderSeatOrder = (container, rosterIds, { intermission = false } = {}) => {
     const readyIds = state.lifecycle?.readySeatIds || [];
     const isHost = state.localSimulation || transport.seatId === state.hostSeatId;
@@ -1459,7 +1535,7 @@ function renderTurnFlow() {
   const lobbyRosterIds = state.lifecycle?.seatIds || [];
   dom.lobbyRoster.hidden = lobbyRosterIds.length < 2 || isIntermission || isComplete;
   if (!dom.lobbyRoster.hidden) renderSeatOrder(dom.lobbyRoster, lobbyRosterIds);
-  if (isIntermission) {
+  if (showPostgame) {
     const rosterIds = state.lifecycle?.seatIds || [];
     const readyIds = state.lifecycle?.readySeatIds || [];
     const isHost = state.localSimulation || transport.seatId === state.hostSeatId;
@@ -1491,7 +1567,7 @@ function renderTurnFlow() {
       for (const node of [dom.intermissionReadyButton, dom.intermissionSetupButton, dom.intermissionStartButton, dom.intermissionRoster, dom.intermissionInvite]) node.hidden = true;
     } else dom.intermissionRoster.hidden = false;
   }
-  returnToTournamentButton.hidden = !isIntermission || !eventFlow?.canOpenEvent;
+  returnToTournamentButton.hidden = !showPostgame || !eventFlow?.canOpenEvent;
   const freezeGameControls = isIntermission || isComplete || eliminationUndo.gamePending;
   $('#adjustControls').hidden = freezeGameControls;
   // `interfaceStyle` is the current saved value, not a getter. Calling it
@@ -1547,8 +1623,9 @@ function renderTurnFlow() {
     const pendingPlayer = Number.isInteger(pendingStartingSeatId) ? claimedPlayers.find(player => player.id === `P${pendingStartingSeatId + 1}`) : null;
     dom.chooseFirstButton.textContent = pendingPlayer ? `Use ${displayName(pendingPlayer)} as first player` : 'Use selected first player';
     dom.randomFirstButton.disabled = !isHost || claimedPlayers.length < 2;
-    dom.startGameButton.disabled = !isHost || claimedPlayers.length < 2;
-    dom.startGameButton.textContent = `Start game · ${displayName(firstPlayer)} goes first`;
+    const starting = gameStartRequest?.roomCode === state.podCode && gameStartRequest.epoch === transport.sessionEpoch;
+    dom.startGameButton.disabled = starting || !isHost || claimedPlayers.length < 2;
+    dom.startGameButton.textContent = starting ? 'Starting game…' : `Start game · ${displayName(firstPlayer)} goes first`;
     clearInterval(turnTicker); turnTicker = null;
     return;
   }
@@ -1809,7 +1886,7 @@ function showStartingPlayerRoll(roll, { dialog = true } = {}) {
   dom.rollMyD20Button.hidden = false;
   if (localStartingRollKey === key) { dom.rollMyD20Button.disabled = true; dom.startingRollStatus.textContent = 'YOUR D20 IS ROLLING…'; return; }
   pendingStartingRoll = { key, player: state?.players.find(candidate => candidate.id === state.ownerPlayerId) || {} };
-  dom.startingRollStatus.textContent = contenderSeatIds.length < (state?.players.length || 0) ? 'TIE — ROLL AGAIN' : 'ROLL WHEN YOU ARE READY';
+  dom.startingRollStatus.textContent = roll.rounds.length > 1 ? 'TIE — ROLL AGAIN' : 'ROLL WHEN YOU ARE READY';
 }
 async function rollMyStartingD20() {
   const pending = pendingStartingRoll; if (!pending || localStartingRollKey === pending.key) return;
@@ -1940,7 +2017,16 @@ function renderCommanderTaxQuick(player, inspectingSharedSeat) {
   dom.commanderTaxQuickButton.innerHTML = `<span class="commander-tax-quick-title">${escapeHtml(title)}</span><span class="commander-tax-quick-name">${escapeHtml(names)}</span><span class="commander-tax-quick-values">${values}</span>`;
   dom.commanderTaxQuickButton.setAttribute('aria-label', `${displayPlayer(player)} ${accessibleValues}${inspectingSharedSeat ? ', read only' : ''}. Open commander tax.`);
 }
-function confirmLifeChange(playerId) { if (lifeChange?.playerId === playerId) { lifeChange.confirmed = true; render(); } }
+function confirmLifeChange(playerId) {
+  if (lifeChange?.playerId !== playerId) return;
+  const player = state?.players.find(item => item.id === playerId);
+  if (player && !state.localSimulation) {
+    lifeChange.to = player.life + optimisticLifeDelta;
+    lifeChange.delta = lifeChange.to - lifeChange.from;
+  }
+  lifeChange.confirmed = optimisticLifeDelta === 0;
+  render();
+}
 async function openPlaytestNotes() { try { const { notes } = await transport.listPlaytestNotes(); dom.playtestNotesList.innerHTML = notes.length ? notes.map(note => `<li><strong>${note.authorSeatId === transport.seatId ? 'You' : escapeHtml(displayName(state.players[note.authorSeatId]))}</strong><p>${escapeHtml(note.text)}</p></li>`).join('') : '<li>No notes yet. Add something while it is fresh.</li>'; dom.gameMenu.hidden = true; dom.playtestNotesDialog.showModal(); } catch (error) { showError(error); } }
 async function openPlaytestRecap() { try { const { recap } = await transport.getPlaytestRecap(); const winner = recap.winner ? displayName(state.players[recap.winner.seatId]) : 'Not recorded yet'; const players = recap.players.map(player => `${escapeHtml(player.name)}${player.commanders.length ? ` · ${player.commanders.map(escapeHtml).join(' / ')}` : ''}`).join('<br>'); dom.playtestRecapContent.innerHTML = `<p><strong>Duration:</strong> ${Math.round(recap.durationMs / 60000)} min</p><p><strong>Winner:</strong> ${escapeHtml(winner)}</p><p><strong>Players:</strong><br>${players || 'No claimed players'}</p><p><strong>Notes:</strong> ${recap.notes.length}</p>`; dom.gameMenu.hidden = true; dom.playtestRecapDialog.showModal(); } catch (error) { showError(error); } }
 async function openSavedPlaytests() { try { const { playtests } = await transport.getSavedPlaytests(); dom.savedPlaytestsContent.innerHTML = playtests.length ? playtests.map(item => { const players = item.players.map(player => `${escapeHtml(player.name)}${player.commanders.length ? ` · ${player.commanders.map(escapeHtml).join(' / ')}` : ''}`).join('<br>'); const winner = item.winner ? escapeHtml(item.players.find(player => player.seatId === item.winner.seatId)?.name || 'Recorded winner') : 'Interrupted'; return `<section class="playtest-notes-list"><p><strong>${winner}</strong> · ${Math.round(item.durationMs / 60000)} min</p><p>${players}</p><p>${item.notes?.length || 0} note(s)</p></section>`; }).join('') : '<p>No completed or interrupted playtests are saved for this table yet.</p>'; dom.gameMenu.hidden = true; dom.savedPlaytestsDialog.showModal(); } catch (error) { showError(error); } }
@@ -2249,17 +2335,27 @@ async function startGame({ baseVersion } = {}) {
   }
   const startingNextGame = state.lifecycle?.status === 'intermission';
   const requestRoom = state.podCode, requestEpoch = transport.sessionEpoch;
+  if (gameStartRequest?.roomCode === requestRoom && gameStartRequest.epoch === requestEpoch) return;
+  const request = { roomCode: requestRoom, epoch: requestEpoch };
+  gameStartRequest = request;
+  const currentTable = () => state?.podCode === requestRoom && transport.sessionEpoch === requestEpoch;
+  renderTurnFlow();
   try {
     await competitionHub.beforeStart();
-    if (startingNextGame && (state?.podCode !== requestRoom || transport.sessionEpoch !== requestEpoch || state.lifecycle?.status !== 'intermission')) return;
+    if (!currentTable() || state.turn.gameStarted || (startingNextGame && state.lifecycle?.status !== 'intermission')) return;
     const result = await transport.startGame({ baseVersion });
+    if (!currentTable()) return;
     if (result.conflict) {
       if (startingNextGame) showTableActionError('The table changed first. Check the next-game roster.');
       else showError(new Error('The table changed first. The latest lobby is shown.'));
     }
   } catch (error) {
+    if (!currentTable()) return;
     if (startingNextGame) showTableRequestError(error);
     else showError(error);
+  } finally {
+    if (gameStartRequest === request) gameStartRequest = null;
+    if (currentTable()) renderTurnFlow();
   }
 }
 async function undoTurnHandoff() {
@@ -2601,7 +2697,9 @@ async function tossCoin({ dialog = true } = {}) {
 }
 function closeGameOverlays() { [dom.radiationDialog, dom.editPlayerNameDialog, dom.resetDialog, dom.connectionDialog, dom.tableActionDialog, dom.leaveTableDialog, dom.coinTossDialog, dom.startingRollDialog, dom.turnCueDialog, dom.turnSoundDialog, dom.customLifeDialog, dom.commanderSourceDialog, dom.commanderCountDialog, dom.commanderTaxDialog, dom.victoryDialog, dom.achievementDialog, dom.declareWinnerDialog, dom.eliminatePlayerDialog, dom.playtestNotesDialog, dom.playtestRecapDialog, dom.savedPlaytestsDialog, dom.cardCameraDialog, dom.joinQrScannerDialog].forEach(dialog => { if (dialog?.open) dialog.close(); }); }
 
+let cardLookupGeneration = 0;
 async function openCardCamera() {
+  cardLookupGeneration++;
   dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false');
   dom.cardLookupStatus.textContent = ''; dom.cardLookupResult.hidden = true; dom.cardLookupResult.replaceChildren(); dom.cardCameraDialog.showModal(); dom.firstCardTitle.focus();
 }
@@ -2619,10 +2717,24 @@ function renderCommunityCombos(result) {
 }
 async function lookupCardTitles() {
   const firstName = dom.firstCardTitle.value.trim(); const secondName = dom.secondCardTitle.value.trim(); const situation = dom.interactionSituation.value.trim();
+  const generation = ++cardLookupGeneration;
+  const currentLookup = () => generation === cardLookupGeneration && dom.cardCameraDialog.open
+    && firstName === dom.firstCardTitle.value.trim() && secondName === dom.secondCardTitle.value.trim()
+    && situation === dom.interactionSituation.value.trim();
+  dom.cardLookupResult.hidden = true; dom.cardLookupResult.replaceChildren();
   if (!firstName) { dom.firstCardTitle.focus(); return; }
   dom.cardLookupStatus.textContent = 'Loading current Oracle text…';
-  try { const [first, second] = await Promise.all([lookupCard(firstName), secondName ? lookupCard(secondName) : null]); const comboResult = second ? await lookupCardInteraction(first.name, second.name).catch(() => ({ unavailable: true, combos: [], retrievedAt: new Date().toISOString() })) : null; const noEstablishedInteraction = second && !comboResult.unavailable && !comboResult.combos?.length; dom.firstCardTitle.value = first.name; if (second) dom.secondCardTitle.value = second.name; dom.cardLookupResult.innerHTML = `${renderCardLookup(first)}${second ? renderCardLookup(second) + renderCommunityCombos(comboResult) + (noEstablishedInteraction ? renderInteractionAdvice(createInteractionAdvice(first, second, situation), first, second) : '') : ''}`; dom.cardLookupResult.hidden = false; dom.cardLookupStatus.textContent = second ? (noEstablishedInteraction ? 'Current Oracle text and rulings are shown. No established database interaction was found, so a best-effort explanation is included.' : 'Current Oracle text, published rulings, and established interaction results are shown.') : 'Current Oracle text and published rulings are shown.'; }
-  catch (error) { dom.cardLookupStatus.textContent = error.message; }
+  try {
+    const [first, second] = await Promise.all([lookupCard(firstName), secondName ? lookupCard(secondName) : null]);
+    if (!currentLookup()) return;
+    const comboResult = second ? await lookupCardInteraction(first.name, second.name).catch(() => ({ unavailable: true, combos: [], retrievedAt: new Date().toISOString() })) : null;
+    if (!currentLookup()) return;
+    const noEstablishedInteraction = second && !comboResult.unavailable && !comboResult.combos?.length;
+    dom.firstCardTitle.value = first.name; if (second) dom.secondCardTitle.value = second.name;
+    dom.cardLookupResult.innerHTML = `${renderCardLookup(first)}${second ? renderCardLookup(second) + renderCommunityCombos(comboResult) + (noEstablishedInteraction ? renderInteractionAdvice(createInteractionAdvice(first, second, situation), first, second) : '') : ''}`;
+    dom.cardLookupResult.hidden = false;
+    dom.cardLookupStatus.textContent = second ? (noEstablishedInteraction ? 'Current Oracle text and rulings are shown. No established database interaction was found, so a best-effort explanation is included.' : 'Current Oracle text, published rulings, and established interaction results are shown.') : 'Current Oracle text and published rulings are shown.';
+  } catch (error) { if (currentLookup()) dom.cardLookupStatus.textContent = error.message; }
 }
 function returnToSetup() {
   if (!canReturnToSetup()) return;
@@ -2679,7 +2791,7 @@ function showCreateStep(step) {
   window.scrollTo({ top: 0, behavior: 'instant' });
 }
 let joinStep = 2;
-function showJoinStep(step) { joinStep = step; $$('[data-join-step]').forEach(section => { section.hidden = Number(section.dataset.joinStep) !== step; }); window.scrollTo({ top: 0, behavior: 'instant' }); }
+function showJoinStep(step) { joinStep = step; const total = joinGameFormat === 'commander' ? 4 : 3; $$('[data-join-step]').forEach(section => { const sectionStep = Number(section.dataset.joinStep); section.hidden = sectionStep !== step; section.querySelector('.eyebrow').textContent = `STEP ${sectionStep} OF ${total}`; }); window.scrollTo({ top: 0, behavior: 'instant' }); }
 function skipCreateCommanders() { dom.createCommanderNames.querySelectorAll('input[name^="commanderName"]').forEach(input => { input.value = ''; delete input.dataset.commanderColors; }); showCreateStep(4); }
 function validateCreateStartingLife(form = new FormData($('#createForm'))) {
   const input = $('#customStartingLife');
@@ -2706,7 +2818,7 @@ $('#createStepTwoNext').addEventListener('click', () => showCreateStep(selectedG
 $('#createStepThreeSkip').addEventListener('click', skipCreateCommanders);
 $('#createStepThreeNext').addEventListener('click', async () => { const { unresolved } = await confirmUnresolvedCommanderDetails(dom.createCommanderNames, selectedCommanderCount('commanderCount')); if (!unresolved.length) showCreateStep(4); });
 $$('[data-create-back]').forEach(button => button.addEventListener('click', () => showCreateStep(createStep === 4 && selectedGameFormat() !== 'commander' ? 2 : Math.max(1, createStep - 1))));
-$('#joinStepTwoNext').addEventListener('click', () => { if (/^P[1-8]$/.test(dom.joinSeat.value)) showJoinStep(3); }); $('#joinStepThreeNext').addEventListener('click', () => showJoinStep(4)); $$('[data-join-back]').forEach(button => button.addEventListener('click', () => showJoinStep(Math.max(2, joinStep - 1))));
+$('#joinStepTwoNext').addEventListener('click', () => { if (/^P[1-8]$/.test(dom.joinSeat.value)) showJoinStep(3); }); $('#joinStepThreeNext').addEventListener('click', () => { if (joinGameFormat === 'commander') showJoinStep(4); else $('#joinForm').requestSubmit(); }); $$('[data-join-back]').forEach(button => button.addEventListener('click', () => showJoinStep(Math.max(2, joinStep - 1))));
 signInButton.addEventListener('click', () => openSignIn());
 homeSignOutButton.addEventListener('click', () => void signOut());
 clearPastTablesButton.addEventListener('click', () => {
@@ -2781,24 +2893,29 @@ $('#createForm').addEventListener('submit', async event => {
   const config = { playerCount, seatCapacity, startingLife, gameFormat, ownerPlayerId, ownerName, ownerCommanderCount, ownerCommanderNames, ownerCommanderColors, roundLimitMinutes, tableSkinId };
   if (dom.localSimulation.checked) return beginLocalGame({ ...config, localSimulation: true, podCode: 'LOCAL' });
   let result;
+  const creation = { foreground: true };
+  pendingTableCreation = creation;
   createButton.disabled = true;
   createButton.textContent = 'Creating table…';
   createButton.scrollIntoView({ block: 'center' });
   try {
     const accountToken = await accountTokenForSkin(tableSkinId);
+    if (!creation.foreground) return;
     result = await transport.createRoom({ accountToken, playerCount, seatCapacity, startingLife: config.startingLife, gameFormat, commanderCount: ownerCommanderCount, commanderNames: ownerCommanderNames, commanderColors: ownerCommanderColors, name: ownerName, roundLimitMinutes, tableSkinId });
   } catch (error) {
-    showError(error);
+    if (creation.foreground) showError(error);
     return;
   } finally {
+    if (pendingTableCreation === creation) pendingTableCreation = null;
     createButton.disabled = false;
     createButton.textContent = 'Create table';
   }
   if (result.ignored) return;
-  showSharedGame(result.snapshot);
-  try { await competitionHub.tableCreated(result.snapshot.code); } catch (error) { showError(error); }
+  if (creation.foreground) showSharedGame(result.snapshot);
+  else { backgroundTableEpoch = transport.sessionEpoch; state = stateFromSnapshot(result.snapshot); saveTable(); clearActiveTable({ code: state.podCode, seatId: transport.seatId }); renderSavedTables(); render(); }
+  try { await competitionHub.tableCreated(result.snapshot.code); } catch (error) { if (creation.foreground) showError(error); }
 });
-$('#joinForm').addEventListener('submit', async event => { event.preventDefault(); const form = new FormData(event.currentTarget); const code = $('#podCode').value.trim().toUpperCase(); const ownerPlayerId = $('#joinSeat').value; if (!/^P[1-8]$/.test(ownerPlayerId)) return showError(new Error('Wait for this table’s open seats to load, then choose one.')); const seatId = Number(ownerPlayerId.slice(1)) - 1; const commanderCount = Number(form.get('joinCommanderCount')); const commanderNames = commanderNamesFromForm(form, commanderCount); const commanderColors = commanderColorsFromFields(dom.joinCommanderNames, commanderCount); const ownerName = String(form.get('name') || '').trim() || ownerPlayerId; try { const room = await transport.inspectRoom(code); if (!room.snapshot.seats[seatId] || (room.snapshot.seats[seatId].claimed && !transport.hasStoredReclaimToken(code, seatId))) throw new Error('That seat is no longer open. Choose one of the available seats.'); const accountToken = await currentAccountToken().catch(() => null); const result = await transport.claimRoom({ code, seatId, name: ownerName, commanderCount, commanderNames, commanderColors, accountToken }); showSharedGame(result.snapshot); if (result.competitionWarning) showError(new Error(result.competitionWarning)); } catch (error) { showError(error); } });
+$('#joinForm').addEventListener('submit', async event => { event.preventDefault(); const form = new FormData(event.currentTarget); const code = $('#podCode').value.trim().toUpperCase(); const ownerPlayerId = $('#joinSeat').value; if (!/^P[1-8]$/.test(ownerPlayerId)) return showError(new Error('Wait for this table’s open seats to load, then choose one.')); const seatId = Number(ownerPlayerId.slice(1)) - 1; const commanderCount = joinGameFormat === 'commander' ? Number(form.get('joinCommanderCount')) : 1; const commanderNames = joinGameFormat === 'commander' ? commanderNamesFromForm(form, commanderCount) : ['']; const commanderColors = joinGameFormat === 'commander' ? commanderColorsFromFields(dom.joinCommanderNames, commanderCount) : [[]]; const ownerName = String(form.get('name') || '').trim() || ownerPlayerId; try { const room = await transport.inspectRoom(code); if (!room.snapshot.seats[seatId] || (room.snapshot.seats[seatId].claimed && !transport.hasStoredReclaimToken(code, seatId))) throw new Error('That seat is no longer open. Choose one of the available seats.'); const accountToken = await currentAccountToken().catch(() => null); const result = await transport.claimRoom({ code, seatId, name: ownerName, commanderCount, commanderNames, commanderColors, accountToken }); showSharedGame(result.snapshot); if (result.competitionWarning) showError(new Error(result.competitionWarning)); } catch (error) { showError(error); } });
 $('#recoverPodButton').addEventListener('click', async () => { const code = latestRecoverableHostTable()?.code; if (!code) return showError(new Error('This phone does not have a saved host table to recover.')); try { const { snapshot } = await transport.restoreRoom(code); const host = snapshot.seats[snapshot.hostSeatId]; const result = await transport.claimRoom({ code, seatId: snapshot.hostSeatId, name: host.name, commanderCount: host.commanderCount, commanderNames: host.commanderNames, commanderColors: host.commanderColors }); showSharedGame(result.snapshot); } catch (error) { showError(error); } });
 dom.showJoinQrButton.addEventListener('click', openJoinQr); dom.showJoinQrMenuButton.addEventListener('click', () => { dom.gameMenu.hidden = true; openJoinQr(); }); dom.showIntermissionJoinQrButton.addEventListener('click', openJoinQr);
 dom.shareJoinLinkButton.addEventListener('click', async () => { try { if (!navigator.share) throw new Error('Sharing is not available on this phone.'); await navigator.share({ title: 'Join my Fivefold Arc table', text: `Join pod ${state.podCode}`, url: joinLink() }); } catch (error) { if (error.name !== 'AbortError') showError(error); } });
@@ -2991,6 +3108,10 @@ myGamesContent.addEventListener('click', event => { const id = event.target.clos
 exportAccountButton.addEventListener('click', () => { void exportAccountData().catch(error => { myGamesStatus.textContent = error.message; }); });
 deleteAccountButton.addEventListener('click', () => { void deleteAccountData().catch(error => { myGamesStatus.textContent = error.message; }); });
 dom.cardCameraButton.addEventListener('click', openCardCamera); dom.cardAdvisorForm.addEventListener('submit', event => { if (event.submitter?.value === 'close') return; event.preventDefault(); lookupCardTitles(); });
+dom.cardCameraDialog.addEventListener('close', () => { cardLookupGeneration++; });
+[dom.firstCardTitle, dom.secondCardTitle, dom.interactionSituation].forEach(input => input.addEventListener('input', () => {
+  cardLookupGeneration++; dom.cardLookupStatus.textContent = ''; dom.cardLookupResult.hidden = true; dom.cardLookupResult.replaceChildren();
+}));
 dom.playtestNotesButton.addEventListener('click', openPlaytestNotes); dom.playtestRecapButton.addEventListener('click', openPlaytestRecap); dom.fieldTestButton.addEventListener('click', () => { dom.gameMenu.hidden = true; dom.fieldTestStatus.textContent = ''; dom.fieldTestDialog.showModal(); }); dom.fieldTestForm.addEventListener('submit', async event => { if (event.submitter?.id !== 'saveFieldTestButton') return; event.preventDefault(); const form = new FormData(dom.fieldTestForm); const issues = form.getAll('issues'); if (issues.length > 3) { dom.fieldTestStatus.textContent = 'Choose no more than three friction areas.'; return; } try { dom.fieldTestStatus.textContent = 'Saving…'; await transport.recordFieldTest({ realTable: form.get('realTable') === 'on', deviceMix: form.get('deviceMix'), repeatUse: form.get('repeatUse'), dispute: form.get('dispute'), issues, note: form.get('note') }); dom.fieldTestStatus.textContent = 'Field test saved.'; setTimeout(() => dom.fieldTestDialog.close(), 650); } catch (error) { dom.fieldTestStatus.textContent = `Not saved: ${error.message}`; } }); dom.savedPlaytestsButton.addEventListener('click', openSavedPlaytests); dom.refreshTableButton.addEventListener('click', async () => { try { const { snapshot, ignored } = await transport.refreshRoom(); if (ignored) return; if (snapshot) showSharedGame(snapshot); dom.gameMenu.hidden = true; } catch (error) { showError(error); } }); dom.playtestNotesForm.addEventListener('submit', async event => { if (event.submitter?.id !== 'savePlaytestNoteButton') return; event.preventDefault(); const text = dom.playtestNoteText.value; try { dom.playtestNoteStatus.textContent = 'Saving…'; await transport.addPlaytestNote(text); dom.playtestNoteText.value = ''; dom.playtestNoteStatus.textContent = 'Saved.'; await openPlaytestNotes(); } catch (error) { dom.playtestNoteStatus.textContent = `Not saved: ${error.message}`; } });
 dom.markDevelopmentButton.addEventListener('click', async () => { try { await transport.setSessionKind(state.sessionKind === 'development' ? 'standard' : 'development'); } catch (error) { showError(error); } });
 dom.startingRollDialog.addEventListener('close', () => { startingRollSequence += 1; clearStartingRollTimers(); });
@@ -3037,7 +3158,7 @@ transport.addEventListener('state', event => {
   lifeBatcher.clear();
   optimisticLifeDelta = 0;
 });
-transport.addEventListener('state', event => { if (event.detail?.seats?.length) { const previousTossKey = coinTossKey(state?.lastCoinToss); const previousRollKey = startingPlayerRollKey(state?.turn?.startingPlayerRoll); const previousTurnKey = state?.turn?.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; state = stateFromSnapshot(event.detail); if (awaitingConfirmedResync && transport.status === 'connected') { awaitingConfirmedResync = false; const presentation = connectionPresentation({ status: 'connected', resynced: true }); dom.syncBanner.textContent = presentation.syncMessage; dom.syncBanner.hidden = false; clearTimeout(syncBannerTimer); syncBannerTimer = setTimeout(() => { dom.syncBanner.hidden = true; }, 5000); } const nextRollKey = startingPlayerRollKey(state.turn.startingPlayerRoll); const nextTurnKey = state.turn.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; const expectedTableView = tableViewForState(); if (expectedTableView.hidden) showView(expectedTableView); if (nextTurnKey && nextTurnKey !== previousTurnKey && nextTurnKey !== lastTurnHandoffKey) { lastTurnHandoffKey = nextTurnKey; showTurnHandoff(); } if (nextRollKey && nextRollKey !== previousRollKey && nextRollKey !== lastStartingRollKey) { lastStartingRollKey = nextRollKey; showStartingPlayerRoll(state.turn.startingPlayerRoll); } else if (coinTossKey(state.lastCoinToss) && coinTossKey(state.lastCoinToss) !== previousTossKey) { const dialog = coinTossDialogRequested; coinTossDialogRequested = false; showCoinToss(state.lastCoinToss, { dialog }); } else render(); } });
+transport.addEventListener('state', event => { if (event.detail?.seats?.length) { const previousTossKey = coinTossKey(state?.lastCoinToss); const previousRollKey = startingPlayerRollKey(state?.turn?.startingPlayerRoll); const previousTurnKey = state?.turn?.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; state = stateFromSnapshot(event.detail); if (awaitingConfirmedResync && transport.status === 'connected') { awaitingConfirmedResync = false; const presentation = connectionPresentation({ status: 'connected', resynced: true }); dom.syncBanner.textContent = presentation.syncMessage; dom.syncBanner.hidden = false; clearTimeout(syncBannerTimer); syncBannerTimer = setTimeout(() => { dom.syncBanner.hidden = true; }, 5000); } const nextRollKey = startingPlayerRollKey(state.turn.startingPlayerRoll); const nextTurnKey = state.turn.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; const expectedTableView = tableViewForState(); if (expectedTableView.hidden && !pendingTableCreation && backgroundTableEpoch !== transport.sessionEpoch) showView(expectedTableView); if (nextTurnKey && nextTurnKey !== previousTurnKey && nextTurnKey !== lastTurnHandoffKey) { lastTurnHandoffKey = nextTurnKey; showTurnHandoff(); } if (nextRollKey && nextRollKey !== previousRollKey && nextRollKey !== lastStartingRollKey) { lastStartingRollKey = nextRollKey; showStartingPlayerRoll(state.turn.startingPlayerRoll); } else if (coinTossKey(state.lastCoinToss) && coinTossKey(state.lastCoinToss) !== previousTossKey) { const dialog = coinTossDialogRequested; coinTossDialogRequested = false; showCoinToss(state.lastCoinToss, { dialog }); } else render(); } });
 transport.addEventListener('state', event => { const roomCode = event.detail?.code; if (!roomCode || reportedDiagnostics.has(roomCode)) return; reportedDiagnostics.add(roomCode); setTimeout(() => recordClientDiagnostic('session_started'), 0); });
 transport.addEventListener('state', event => { if (event.detail?.seats?.length) void applySelectedAppearance(); });
 transport.addEventListener('state', event => competitionHub.observeTable(event.detail));

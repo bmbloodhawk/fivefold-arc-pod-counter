@@ -715,15 +715,25 @@ export function createCompetitionHub(adapter) {
       ${!active ? '<p>This Table is not playing. Open the tournament to review its current status.</p>' : !canManage ? '<p>Your Table host records these turns and confirms the finish.</p>' : !clock ? button('callRoundTime', 'Call time for this Table', true) : clock.phase !== 'done' ? button('recordFinalTurn', clock.phase === 'current_turn' ? 'Current turn finished' : `Additional turn ${6 - clock.remaining} finished`, true) : button('recordTimedDraw', 'Confirm surviving players tied', true)}
       ${button('refreshRoundClock', 'Refresh clock')}`, () => eventScreen(id));
     const output = content.querySelector('#eventRoundCountdown'); const offset = event.serverNow - Date.now();
-    startViewClock(() => {
+    const tick = () => {
       if (!dialog.open || !output.isConnected) return;
       const seconds = Math.max(0, Math.ceil((round.endsAt - Date.now() - offset) / 1000));
       output.textContent = seconds ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')} remaining` : 'Round time has ended.';
-    });
-    bind('#refreshRoundClock', () => clockScreen(id, assignmentId));
+    };
+    const resumeClock = () => { startViewClock(tick); watchEvent(id, latest => drawClock(latest, assignmentId)); };
+    const clockAction = work => async () => {
+      const stamp = viewStamp, navigation = navigationEpoch;
+      try { await work(); }
+      catch (error) {
+        // run pauses this view before an action. A rejection must not freeze its official clock.
+        if (stamp === viewStamp && navigation === navigationEpoch && dialog.open && output.isConnected) resumeClock();
+        throw error;
+      }
+    };
+    bind('#refreshRoundClock', clockAction(() => clockScreen(id, assignmentId)));
     const action = async action => { await request(route('tournament', id, `clock/${assignmentId}`), { scopeId: id, body: { action, requestId } }); await clockScreen(id, assignmentId); };
-    bind('#callRoundTime', () => action('time_called')); bind('#recordFinalTurn', () => action('finish_turn'));
-    bind('#recordTimedDraw', async () => {
+    bind('#callRoundTime', clockAction(() => action('time_called'))); bind('#recordFinalTurn', clockAction(() => action('finish_turn')));
+    bind('#recordTimedDraw', clockAction(async () => {
       const current = session();
       if (current.code !== assignment.roomCode) throw new Error('Open the assigned Table on its host phone to confirm the surviving players.');
       await request('tables/timed-draw', { scopeId: id, connectionId: current.connectionId,
@@ -731,8 +741,8 @@ export function createCompetitionHub(adapter) {
       await request(route('tournament', id, 'reconcile'), { scopeId: id, body: {} });
       const ctx = await request(`tables/context?code=${encodeURIComponent(current.code)}`, { scopeId: id, connectionId: current.connectionId });
       await gameScreen('tournament', id, ctx.gameId, () => eventScreen(id));
-    });
-    watchEvent(id, latest => drawClock(latest, assignmentId));
+    }));
+    resumeClock();
   }
 
   function setPending(value) { pending = value; writeLocal(pendingKey, value, sessionStorage); }

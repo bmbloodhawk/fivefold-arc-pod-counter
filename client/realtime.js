@@ -4,6 +4,8 @@ import { getTableDeviceId } from './table-device-id.js?v=1';
 const SNAPSHOT_SAFETY_REFRESH_MS = 30_000;
 const CONNECTION_INCIDENT_REPORT_INTERVAL_MS = 30_000;
 const SUPPORTED_TABLE_PROTOCOLS = [1, 2];
+const creationOperationId = () => typeof crypto.randomUUID === 'function' ? crypto.randomUUID()
+  : [...crypto.getRandomValues(new Uint8Array(16))].map(byte => byte.toString(16).padStart(2, '0')).join('');
 
 export class RealtimeAdapter extends EventTarget {
   constructor({ apiBase = location.origin } = {}) {
@@ -14,19 +16,62 @@ export class RealtimeAdapter extends EventTarget {
     this.heartbeatTimer = null; this.reconnectTimer = null; this.snapshotRefreshTimer = null;
     this.sseRecoveryInFlight = false; this.resumePromise = null;
     this.connectionIncident = null; this.connectionRecoveryTimer = null;
+    this.creationAttempt = null;
     this.status = 'local'; this.localMode = true; this.stopped = false; this.sessionEpoch = 0;
   }
 
   async createRoom({ playerCount, seatCapacity = playerCount, startingLife, gameFormat = 'commander', commanderCount = 1, commanderNames = Array.from({ length: commanderCount }, () => ''), commanderColors = Array.from({ length: commanderCount }, () => []), name = 'P1', roundLimitMinutes = null, tableSkinId = null, accountToken = null }) {
-    const epoch = this.#beginSession();
+    const body = structuredClone({ playerCount, seatCapacity, startingLife, gameFormat, commanderCount, commanderNames, commanderColors, name, ...(roundLimitMinutes ? { roundLimitMinutes } : {}), ...(tableSkinId ? { tableSkinId } : {}) });
+    const fingerprint = JSON.stringify(body);
+    let attempt = this.creationAttempt;
+    if (!attempt || attempt.fingerprint !== fingerprint || attempt.accountToken !== accountToken
+      || !this.#isCurrentSession(attempt.epoch) || (attempt.connectionId && attempt.connectionId !== this.connectionId)) {
+      const epoch = this.#beginSession();
+      attempt = { epoch, fingerprint, accountToken, body: { ...body, operationId: creationOperationId() }, connectionId: null, pending: null };
+      this.creationAttempt = attempt;
+    }
+    if (attempt.pending) return attempt.pending;
+    const pending = this.#createRoomAttempt(attempt);
+    attempt.pending = pending;
+    try { return await pending; }
+    finally { if (attempt.pending === pending) attempt.pending = null; }
+  }
+
+  async #createRoomAttempt(attempt) {
+    const { epoch, body, accountToken } = attempt;
     try {
-      if (!await this.#startConnection(epoch)) return { ignored: true };
-      const result = await this.#request('/api/rooms', { method: 'POST', authenticated: true, accountToken, body: { playerCount, seatCapacity, startingLife, gameFormat, commanderCount, commanderNames, commanderColors, name, ...(roundLimitMinutes ? { roundLimitMinutes } : {}), ...(tableSkinId ? { tableSkinId } : {}) } });
+      if (!attempt.connectionId) {
+        if (!await this.#startConnection(epoch)) return { ignored: true };
+        attempt.connectionId = this.connectionId;
+      }
+      const requestCreation = async () => {
+        const result = await this.#request('/api/rooms', { method: 'POST', authenticated: true, accountToken, body });
+        if (!result.snapshot?.code || !Number.isInteger(result.seatId) || !result.reclaimToken) {
+          throw new Error('The table creation response was interrupted. Try again.');
+        }
+        return result;
+      };
+      let result;
+      try { result = await requestCreation(); }
+      catch (error) {
+        if (!this.#isCurrentSession(epoch)) return { ignored: true };
+        // A dropped response may hide an accepted creation. Retry that same
+        // connection and operation once; never allocate another table here.
+        if (error.status) throw error;
+        result = await requestCreation();
+      }
       if (!this.#isCurrentSession(epoch)) return { ignored: true };
+      this.creationAttempt = null;
       this.#adoptSeat(result.snapshot.code, result.seatId, result.reclaimToken, result.snapshot, epoch);
       if (result.hostRecoveryKey) { try { localStorage.setItem(this.#recoveryKey(result.snapshot.code), result.hostRecoveryKey); } catch { /* storage optional */ } }
       return result;
-    } catch (error) { if (!this.#isCurrentSession(epoch)) return { ignored: true }; throw error; }
+    } catch (error) {
+      if (!this.#isCurrentSession(epoch)) return { ignored: true };
+      // A failed recovery save also leaves an allocated table behind. Keep
+      // that intent for an explicit retry without retrying the HTTP failure.
+      if ((error.status && error.code !== 'RECOVERY_SAVE_FAILED') || !attempt.connectionId) this.creationAttempt = null;
+      throw error;
+    }
   }
 
   inspectRoom(code) { return this.#request(`/api/rooms/${encodeURIComponent(code)}`); }
@@ -299,6 +344,7 @@ export class RealtimeAdapter extends EventTarget {
   }
 
   disconnect() {
+    this.creationAttempt = null;
     this.stopped = true; this.events?.close(); this.events = null;
     clearInterval(this.heartbeatTimer); clearTimeout(this.reconnectTimer); clearInterval(this.snapshotRefreshTimer); clearTimeout(this.connectionRecoveryTimer);
     this.heartbeatTimer = null; this.reconnectTimer = null; this.snapshotRefreshTimer = null; this.connectionRecoveryTimer = null; this.connectionId = null;
@@ -467,6 +513,7 @@ export class RealtimeAdapter extends EventTarget {
   }
 
   #beginSession() {
+    this.creationAttempt = null;
     this.sessionEpoch += 1;
     this.events?.close(); this.events = null;
     clearInterval(this.heartbeatTimer); clearTimeout(this.reconnectTimer); clearInterval(this.snapshotRefreshTimer);

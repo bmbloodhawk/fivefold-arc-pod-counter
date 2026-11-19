@@ -22,7 +22,7 @@ function fixture({ waitForToken = false } = {}) {
     dom: { createDeck: element(), joinDeck: element(), saveGameDeck: element() }, $: () => button,
     signOutInFlight: false, homeAccountSignedIn: true, awardProfileEpoch: 0,
     resetAwardProfile() { context.awardProfileEpoch++; }, signOutAccount: async () => {},
-    sessionStorage: { removeItem() {} }, clearAccountAppearance() {}, competitionHub: { authChanged() {} },
+    sessionStorage: { removeItem() {} }, clearAccountAppearance() {}, clearPrivateDeckState() {}, competitionHub: { authChanged() {} },
     renderHomeAccount(signedIn) { context.homeAccountSignedIn = signedIn; },
     escapeHtml: value => String(value), sortSetupDecks: decks => decks, updateFormatSetup() {},
   });
