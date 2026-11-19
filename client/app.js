@@ -14,7 +14,7 @@ import { applyCollectionVisual } from './collection-visual.js?v=4';
 import { createCompetitionHub } from './competition-ui.js?v=10';
 import { parseCompetitionFragment } from './competition-model.mjs?v=2';
 import { createAppearanceCatchUp } from './appearance-catch-up.js?v=2';
-import { createDialLayout } from './dial-layout.js?v=2';
+import { createDialLayout } from './dial-layout.js?v=3';
 import { nextGameStarterPolicy } from './next-game-starter.js?v=1';
 import { tournamentTableFlow } from './tournament-table-flow.mjs?v=1';
 
@@ -1880,7 +1880,8 @@ function render() {
   state.players.forEach(evaluatePlayer); localLastPlayerStanding();
   const eliminatedOwner = state.players.find(player => player.id === state.ownerPlayerId && player.eliminated && player.eliminationUndo?.id);
   if (!state.localSimulation && eliminatedOwner && eliminatedOwner.eliminationUndo.id !== announcedEliminationUndoId) state.activePlayerId = eliminatedOwner.id;
-  const player = activePlayer(); const source = state.mode === 'commander' ? selectedSourceFor(player) : null;
+  const player = activePlayer();
+  if (state.mode === 'commander') selectedSourceFor(player);
   dom.game.style.setProperty('--identity-seal', identityBackground(playerIdentity(player)) || 'none');
   dom.game.dataset.hasIdentity = String(playerIdentity(player).length > 0);
   dom.game.dataset.counterMode = state.mode;
@@ -1888,11 +1889,11 @@ function render() {
   dom.podLabel.textContent = state.podCode === 'LOCAL' ? 'LOCAL TABLE' : `TABLE ${state.podCode}`; dom.modeTitle.textContent = state.mode.toUpperCase(); dom.mainValue.value = counterValue; dom.mainValue.classList.toggle('elimination-placeholder', player.eliminated); dom.mainValue.setAttribute('aria-hidden', String(player.eliminated));
   dom.game.style.setProperty('--dial-seal-rotation', `${counterValue * 12}deg`);
   const inspectingSharedSeat = !state.localSimulation && player.id !== state.ownerPlayerId;
-  dom.counterContext.textContent = state.mode === 'commander' ? (source ? `${displayPlayer(player)} · DAMAGE FROM ${displaySource(source)}` : `NO OTHER COMMANDERS · ${displayPlayer(player)}`) : `${displayName(player)}${player.id === state.ownerPlayerId ? ' · YOU' : state.localSimulation ? ' · SIMULATED' : ' · READ ONLY'}`;
-  dom.inspectionNotice.hidden = !inspectingSharedSeat;
-  dom.inspectionNotice.textContent = inspectingSharedSeat ? `VIEWING ${displayPlayer(player)} · READ ONLY ON THIS PHONE` : '';
-  dom.commanderDamageDetails.hidden = !(inspectingSharedSeat && commanderFormat);
-  dom.lethalMark.hidden = !player.eliminated; dom.eliminationOutcome.hidden = !player.eliminated; if (player.eliminationOutcome) { dom.lethalImage.src = ELIMINATION_ART[player.eliminationOutcome.art] || ELIMINATION_ART.life; dom.eliminationOutcome.querySelector('strong').textContent = player.eliminationOutcome.title; dom.eliminationOutcome.querySelector('span').textContent = player.eliminationOutcome.detail; } const status = player.warning; const lifeChangeOwnsStatusSlot = lifeChange?.playerId === player.id; renderStatusMessage(status, { hidden: lifeChangeOwnsStatusSlot }); dom.statusMessage.classList.toggle('lethal', false);
+  dom.counterContext.textContent = `${displayName(player)}${state.localSimulation && player.id !== state.ownerPlayerId ? ' · SIMULATED' : ''}`;
+  dom.inspectionNotice.hidden = true;
+  dom.inspectionNotice.textContent = '';
+  dom.commanderDamageDetails.hidden = !(inspectingSharedSeat && commanderFormat && state.mode === 'commander');
+  dom.lethalMark.hidden = !player.eliminated; dom.eliminationOutcome.hidden = !player.eliminated; if (player.eliminationOutcome) { dom.lethalImage.src = ELIMINATION_ART[player.eliminationOutcome.art] || ELIMINATION_ART.life; dom.eliminationOutcome.querySelector('strong').textContent = player.eliminationOutcome.title; dom.eliminationOutcome.querySelector('span').textContent = player.eliminationOutcome.detail; } const status = player.warning; const feedbackOwnsStatusSlot = inspectingSharedSeat || lifeChange?.playerId === player.id; renderStatusMessage(status, { hidden: feedbackOwnsStatusSlot }); dom.statusMessage.classList.toggle('lethal', false);
   const counterStage = dom.game.querySelector('.counter-stage');
   if (interfaceStyle === 'dial') dom.customLifeButton.before(dom.sideSeats);
   else counterStage.prepend(dom.sideSeats);
@@ -1940,11 +1941,24 @@ function renderLifeChange(player) {
   if (lifeChange && lifeChange.playerId !== player?.id) {
     clearTimeout(lifeChangeTimer); lifeChange = null;
   }
-  // A fresh life change combines with low-life/lethal state into one line,
-  // then returns to the standalone warning without competing text.
-  const visible = lifeChange?.playerId === player?.id;
+  // Inspection uses the existing feedback space beneath the name, including
+  // any safety warning, without adding a separate notice to the page.
+  const inspectingSharedSeat = Boolean(player && !state.localSimulation && player.id !== state.ownerPlayerId);
+  const visible = inspectingSharedSeat || lifeChange?.playerId === player?.id;
+  dom.lifeChangeIndicator.classList.toggle('view-only', inspectingSharedSeat);
   dom.lifeChangeIndicator.hidden = !visible;
-  if (!visible) return;
+  if (!visible) {
+    dom.lifeChangeIndicator.textContent = '';
+    dom.lifeChangeIndicator.classList.toggle('negative', false);
+    return;
+  }
+  if (inspectingSharedSeat) {
+    dom.lifeChangeIndicator.textContent = player.warning ? `VIEW ONLY · ${player.warning}` : 'VIEW ONLY';
+    dom.lifeChangeIndicator.classList.toggle('negative', false);
+    return;
+  }
+  // A fresh life change combines with the warning, then returns to the
+  // standalone warning after the confirmation expires.
   const sign = lifeChange.delta > 0 ? '+' : lifeChange.delta < 0 ? '−' : '';
   const safetyStatus = player?.warning;
   dom.lifeChangeIndicator.textContent = safetyStatus

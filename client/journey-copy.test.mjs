@@ -382,7 +382,7 @@ test('life changes and low-life warnings do not reflow the fixed play surface', 
   assert.match(dialStyles, /\.counter-readout \.main-value \{[^}]*position: absolute;[^}]*min-width: 0;/);
   assert.match(dialStyles, /:is\(\.life-change-indicator, \.status-message\) \{[^}]*position: absolute;[^}]*--counter-feedback-top/);
   assert.doesNotMatch(styles, /\.main-value[^}]*min-width: 3ch/);
-  assert.match(app, /lifeChangeOwnsStatusSlot = lifeChange\?\.playerId === player\.id/);
+  // Warning/preview slot ownership is exercised against actual render code in counter-readability.test.mjs and life-preview.test.mjs.
   assert.match(app, /\$\{safetyStatus\} · \$\{sign\}\$\{Math\.abs\(lifeChange\.delta\)\} LIFE/);
   assert.doesNotMatch(app, /SYNCED JUST NOW/);
 });

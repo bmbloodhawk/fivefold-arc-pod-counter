@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="styles.css?v=251">
   <link rel="stylesheet" href="collection-visual.css?v=6">
   <link rel="stylesheet" href="competition.css?v=4">
-  <link rel="stylesheet" href="dial-layout.css?v=3">
+  <link rel="stylesheet" href="dial-layout.css?v=4">
 </head>
 <body>
   <header class="brand-bar">
@@ -347,6 +347,8 @@
             </div>
             <div id="lethalMark" class="lethal-mark" hidden><img src="assets/elimination-skull-v1.png" alt=""><span class="sr-only">Eliminated</span></div>
           </div>
+          <div class="counter-label-art-fade" aria-hidden="true"></div>
+          <div class="counter-mode-art-fade" aria-hidden="true"></div>
           <div class="counter-readout">
             <p class="counter-mode"><span id="modeTitle">LIFE</span></p>
             <output id="mainValue" class="main-value">40</output>
@@ -810,6 +812,6 @@
   </dialog>
   <p id="competitionSetupStatus" role="status" hidden></p>
   <script src="vendor/jsqr.js?v=1"></script>
-  <script type="module" src="app.js?v=325"></script>
+  <script type="module" src="app.js?v=326"></script>
 </body>
 </html>

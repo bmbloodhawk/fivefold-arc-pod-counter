@@ -139,6 +139,31 @@ export function createDialLayout(game, value) {
     const correction = glyphCenterCorrection(metrics, baseline, height);
     value.style.setProperty('--dial-glyph-x', `${correction.x}px`);
     value.style.setProperty('--dial-glyph-y', `${correction.y}px`);
+    if (button) {
+      readout.style.removeProperty('--counter-context-top');
+      for (const name of ['--counter-label-top', '--counter-label-left', '--counter-label-width',
+        '--counter-context-height', '--counter-info-height', '--counter-mode-top', '--counter-mode-left']) assembly.style.removeProperty(name);
+    } else {
+      const numberBox = value.getBoundingClientRect();
+      const assemblyBox = assembly.getBoundingClientRect();
+      const readoutBox = readout.getBoundingClientRect();
+      const readoutScaleY = readoutBox.height / parseFloat(getComputedStyle(readout).height) || 1;
+      const outcome = readout.querySelector('.elimination-outcome');
+      const outcomeBottom = outcome && !outcome.hidden ? outcome.getBoundingClientRect().bottom : numberBox.bottom;
+      // The name is inside the authored readout transform; feedback and fades
+      // are assembly siblings and need the final physical coordinates instead.
+      readout.style.setProperty('--counter-context-top', `${(Math.max(numberBox.bottom, outcomeBottom) + 12 - readoutBox.top) / readoutScaleY}px`);
+      const contextBox = readout.querySelector('.counter-context').getBoundingClientRect();
+      assembly.style.setProperty('--counter-label-top', `${contextBox.top - assemblyBox.top}px`);
+      assembly.style.setProperty('--counter-label-left', `${(contextBox.left + contextBox.right) / 2 - assemblyBox.left}px`);
+      assembly.style.setProperty('--counter-label-width', `${contextBox.width}px`);
+      assembly.style.setProperty('--counter-context-height', `${contextBox.height}px`);
+      const message = feedback.find(node => !node.hidden);
+      assembly.style.setProperty('--counter-info-height', `${Math.max(18, message?.getBoundingClientRect().height || 0)}px`);
+      const modeBox = readout.querySelector('.counter-mode').getBoundingClientRect();
+      assembly.style.setProperty('--counter-mode-top', `${(modeBox.top + modeBox.bottom) / 2 - assemblyBox.top}px`);
+      assembly.style.setProperty('--counter-mode-left', `${(modeBox.left + modeBox.right) / 2 - assemblyBox.left}px`);
+    }
   };
   const update = () => {
     const active = !game.hidden && game.dataset.interfaceStyle === 'dial';
@@ -151,6 +176,9 @@ export function createDialLayout(game, value) {
   const resizeObserver = new ResizeObserver(update);
   resizeObserver.observe(assembly);
   resizeObserver.observe(stage);
+  resizeObserver.observe(readout.querySelector('.counter-context'));
+  const outcome = readout.querySelector('.elimination-outcome');
+  if (outcome) resizeObserver.observe(outcome);
   feedback.forEach(node => resizeObserver.observe(node));
   // A downloaded skin can change digit metrics without changing the stage.
   // Observe the number's untransformed box as well; optical translations do
