@@ -9,3 +9,4 @@ export async function emailAccountToken(email) {
 }
 export async function signOutAccount() { sessionStorage.removeItem(key); }
 export async function sendAccountPasswordReset() { throw new Error('Email is disabled in local QA.'); }
+export async function validateAccountPassword() { throw new Error('Provider policy is disabled in local QA.'); }

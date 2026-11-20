@@ -9,8 +9,10 @@
 .competition-content > p { line-height: 1.5; }
 .competition-content form, .competition-content .select-field { display: grid; gap: 12px; }
 .competition-content form { margin-block: 12px; }
-.competition-content input:not([type=checkbox]), .competition-content select, .competition-content textarea { min-width: 0; width: 100%; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--muted); border-radius: 8px; min-height: 46px; padding: 10px; box-sizing: border-box; }
-.competition-content button { min-height: 46px; white-space: normal; overflow-wrap: anywhere; font: inherit; }
+.competition-content input:not([type=checkbox]), .competition-content select, .competition-content textarea { min-width: 0; width: 100%; font: inherit; font-size: max(1rem, 1em); color: var(--ink); background: var(--surface); border: 1px solid var(--muted); border-radius: 8px; min-height: 48px; padding: 10px; box-sizing: border-box; }
+.competition-content button { min-height: 48px; white-space: normal; overflow-wrap: anywhere; font: inherit; }
+.competition-dialog:modal, .competition-dialog::backdrop { overscroll-behavior: contain; }
+.competition-dialog::backdrop { overflow: hidden; }
 .competition-content small { display: block; color: var(--muted); line-height: 1.4; font-size: .85rem; }
 .competition-content details { border-top: 1px solid color-mix(in srgb, var(--muted) 30%, transparent); padding-block: 16px; margin-top: 16px; }
 .competition-content summary { min-height: 44px; cursor: pointer; padding-top: 8px; }
@@ -44,6 +46,44 @@
 .competition-seat-choice { border: 1px solid var(--muted); border-radius: 8px; padding: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .competition-seat-choice label { display: flex; gap: 8px; align-items: center; min-height: 44px; }
 .competition-eyebrow { color: var(--brass); font-weight: 700; }
+.competition-clock { font-variant-numeric: tabular-nums; font-size: 1.5rem; font-weight: 700; }
+.competition-table-card h5 { margin-block: 0 12px; font-size: 1rem; }
+.competition-watch-timer { font-variant-numeric: tabular-nums; line-height: 1.5; overflow-wrap: anywhere; }
+.competition-watch-overview h3 { margin-block: 12px 8px; font-size: 1rem; }
+.competition-watch-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; list-style: none; margin-block: 0 12px; padding: 0; }
+.competition-watch-summary li { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 8px; align-items: center; padding: 8px; border: 1px solid color-mix(in srgb, var(--muted) 45%, transparent); border-radius: 8px; background: var(--surface); }
+.competition-watch-summary li > span { grid-column: 1 / -1; font-size: .9rem; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+.competition-watch-summary strong { font-size: 1.75rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.competition-watch-summary small { text-align: end; font-size: .75rem; overflow-wrap: anywhere; }
+.competition-watch-summary .is-active { border-color: var(--brass); }
+.competition-watch-summary .is-active small { color: var(--brass); font-weight: 700; }
+.competition-watch-summary .is-eliminated strong { color: var(--muted); }
+.competition-watch-result { padding: 12px; border: 1px solid var(--muted); border-radius: 8px; line-height: 1.5; overflow-wrap: anywhere; }
+.competition-watch-result h3 { margin-top: 0; }
+.competition-watch-seats { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin-block: 16px; }
+.competition-watch-seat { min-width: 0; padding: 12px; border: 1px solid color-mix(in srgb, var(--muted) 45%, transparent); border-radius: 10px; background: var(--surface); }
+.competition-watch-seat.is-active { border-color: var(--brass); }
+.competition-watch-seat.is-eliminated .competition-watch-life { color: var(--muted); }
+.competition-watch-seat-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
+.competition-watch-seat-heading h3 { margin: 0; font-size: 1.125rem; overflow-wrap: anywhere; }
+.competition-watch-seat-heading > span { color: var(--muted); font-size: .9rem; }
+.competition-watch-seat.is-active .competition-watch-seat-heading > span { color: var(--brass); font-weight: 700; }
+.competition-watch-life { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-block: 8px; }
+.competition-watch-life strong { font-size: 2.5rem; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.competition-watch-commanders, .competition-watch-damage { list-style: none; padding: 0; margin-block: 12px; }
+.competition-watch-commanders li { margin-block: 8px; overflow-wrap: anywhere; }
+.competition-watch-seat details { margin-top: 12px; padding-block: 8px 0; }
+.competition-watch-seat summary { line-height: 1.4; }
+.competition-watch-seat h4 { margin-block: 16px 8px; }
+.competition-watch-counters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; }
+.competition-watch-counters > div, .competition-watch-damage li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; line-height: 1.5; }
+.competition-watch-counters dd { margin: 0; font-weight: 700; }
+.competition-watch-damage li { margin-block: 8px; }
+.competition-watch-damage span { min-width: 0; overflow-wrap: anywhere; }
+.competition-watch-damage b, .competition-watch-counters dd { font-variant-numeric: tabular-nums; }
+#spectatorBackBoard, #spectatorTableRefresh { width: 100%; }
+@media (min-width: 600px) { .competition-watch-seats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .competition-watch-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+#tournamentRoundButton { grid-column: 1 / -1; min-height: 44px; }
 #competitionSetupStatus { margin: 8px 0; padding: 10px; border: 1px solid var(--muted); border-radius: 8px; line-height: 1.4; font-size: .9rem; }
 @media (max-width: 359px) { .competition-content { padding-inline: 12px; } .competition-ranks li { gap: 8px; grid-template-columns: 1.5rem minmax(0, 1fr) auto; } .competition-header { padding-inline: 8px; } .competition-form-grid { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { .competition-dialog * { scroll-behavior: auto; } }

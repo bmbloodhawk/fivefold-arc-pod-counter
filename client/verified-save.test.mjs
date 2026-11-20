@@ -20,11 +20,13 @@ function browserFixture({ accountToken = async () => 'test-profile' } = {}) {
   const context = createContext({
     state: { podCode: 'ABC123', gameResult: { gameId: 'completed-first', saveEligible: true } },
     selectedDeckId: 'deck-first',
+    selectedDeckForGame() { return context.selectedDeckId; },
     transport: { seatId: 1, connectionId: 'seat-connection', sessionEpoch: 1 },
     dom: { saveGameButton: {}, victoryDialog: { open: true } },
     currentAccountToken: accountToken,
     googleAccountToken: async () => 'test-profile',
     savedGameKey: null, savingGameKey: null, savedGameMoment: null, awardProfileEpoch: 0,
+    findDeckColorsButton: { disabled: false },
     unlockedAchievementsByGame: unlocked, dismissedVictoryKeys: new Set(),
     appearanceCatchUp: { reset() { context.catchUpReset = true; } },
     async fetch(path, options) {

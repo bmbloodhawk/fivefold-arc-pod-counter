@@ -4,6 +4,8 @@ import { getTableDeviceId } from './table-device-id.js?v=1';
 const SNAPSHOT_SAFETY_REFRESH_MS = 30_000;
 const CONNECTION_INCIDENT_REPORT_INTERVAL_MS = 30_000;
 const SUPPORTED_TABLE_PROTOCOLS = [1, 2];
+const creationOperationId = () => typeof crypto.randomUUID === 'function' ? crypto.randomUUID()
+  : [...crypto.getRandomValues(new Uint8Array(16))].map(byte => byte.toString(16).padStart(2, '0')).join('');
 
 export class RealtimeAdapter extends EventTarget {
   constructor({ apiBase = location.origin } = {}) {
@@ -14,19 +16,62 @@ export class RealtimeAdapter extends EventTarget {
     this.heartbeatTimer = null; this.reconnectTimer = null; this.snapshotRefreshTimer = null;
     this.sseRecoveryInFlight = false; this.resumePromise = null;
     this.connectionIncident = null; this.connectionRecoveryTimer = null;
+    this.creationAttempt = null;
     this.status = 'local'; this.localMode = true; this.stopped = false; this.sessionEpoch = 0;
   }
 
   async createRoom({ playerCount, seatCapacity = playerCount, startingLife, gameFormat = 'commander', commanderCount = 1, commanderNames = Array.from({ length: commanderCount }, () => ''), commanderColors = Array.from({ length: commanderCount }, () => []), name = 'P1', roundLimitMinutes = null, tableSkinId = null, accountToken = null }) {
-    const epoch = this.#beginSession();
+    const body = structuredClone({ playerCount, seatCapacity, startingLife, gameFormat, commanderCount, commanderNames, commanderColors, name, ...(roundLimitMinutes ? { roundLimitMinutes } : {}), ...(tableSkinId ? { tableSkinId } : {}) });
+    const fingerprint = JSON.stringify(body);
+    let attempt = this.creationAttempt;
+    if (!attempt || attempt.fingerprint !== fingerprint || attempt.accountToken !== accountToken
+      || !this.#isCurrentSession(attempt.epoch) || (attempt.connectionId && attempt.connectionId !== this.connectionId)) {
+      const epoch = this.#beginSession();
+      attempt = { epoch, fingerprint, accountToken, body: { ...body, operationId: creationOperationId() }, connectionId: null, pending: null };
+      this.creationAttempt = attempt;
+    }
+    if (attempt.pending) return attempt.pending;
+    const pending = this.#createRoomAttempt(attempt);
+    attempt.pending = pending;
+    try { return await pending; }
+    finally { if (attempt.pending === pending) attempt.pending = null; }
+  }
+
+  async #createRoomAttempt(attempt) {
+    const { epoch, body, accountToken } = attempt;
     try {
-      if (!await this.#startConnection(epoch)) return { ignored: true };
-      const result = await this.#request('/api/rooms', { method: 'POST', authenticated: true, accountToken, body: { playerCount, seatCapacity, startingLife, gameFormat, commanderCount, commanderNames, commanderColors, name, ...(roundLimitMinutes ? { roundLimitMinutes } : {}), ...(tableSkinId ? { tableSkinId } : {}) } });
+      if (!attempt.connectionId) {
+        if (!await this.#startConnection(epoch)) return { ignored: true };
+        attempt.connectionId = this.connectionId;
+      }
+      const requestCreation = async () => {
+        const result = await this.#request('/api/rooms', { method: 'POST', authenticated: true, accountToken, body });
+        if (!result.snapshot?.code || !Number.isInteger(result.seatId) || !result.reclaimToken) {
+          throw new Error('The table creation response was interrupted. Try again.');
+        }
+        return result;
+      };
+      let result;
+      try { result = await requestCreation(); }
+      catch (error) {
+        if (!this.#isCurrentSession(epoch)) return { ignored: true };
+        // A dropped response may hide an accepted creation. Retry that same
+        // connection and operation once; never allocate another table here.
+        if (error.status) throw error;
+        result = await requestCreation();
+      }
       if (!this.#isCurrentSession(epoch)) return { ignored: true };
+      this.creationAttempt = null;
       this.#adoptSeat(result.snapshot.code, result.seatId, result.reclaimToken, result.snapshot, epoch);
       if (result.hostRecoveryKey) { try { localStorage.setItem(this.#recoveryKey(result.snapshot.code), result.hostRecoveryKey); } catch { /* storage optional */ } }
       return result;
-    } catch (error) { if (!this.#isCurrentSession(epoch)) return { ignored: true }; throw error; }
+    } catch (error) {
+      if (!this.#isCurrentSession(epoch)) return { ignored: true };
+      // A failed recovery save also leaves an allocated table behind. Keep
+      // that intent for an explicit retry without retrying the HTTP failure.
+      if ((error.status && error.code !== 'RECOVERY_SAVE_FAILED') || !attempt.connectionId) this.creationAttempt = null;
+      throw error;
+    }
   }
 
   inspectRoom(code) { return this.#request(`/api/rooms/${encodeURIComponent(code)}`); }
@@ -51,6 +96,10 @@ export class RealtimeAdapter extends EventTarget {
       return { ...result, snapshot: this.snapshot };
     } catch (error) {
       if (!this.#isCurrentSession(epoch)) return { ignored: true };
+      // A failed confirmation must pause writes too. Retire the old stream so
+      // a late open cannot re-enable controls before the seat reconnects.
+      this.events?.close(); this.events = null;
+      this.#scheduleReconnect(epoch);
       throw error;
     }
   }
@@ -72,13 +121,16 @@ export class RealtimeAdapter extends EventTarget {
     return resume;
   }
 
-  async claimRoom({ code, seatId, name, commanderCount = 1, commanderNames = Array.from({ length: commanderCount }, () => ''), commanderColors = Array.from({ length: commanderCount }, () => []), accountToken = null }) {
+  async claimRoom({ code, seatId, name, commanderCount = 1, commanderNames = Array.from({ length: commanderCount }, () => ''), commanderColors = Array.from({ length: commanderCount }, () => []), accountToken = null, reclaimOnly = false }) {
     const epoch = this.#beginSession();
     try {
-      if (!await this.#startConnection(epoch)) return { ignored: true };
       const normalizedCode = code.toUpperCase();
-      const savedToken = this.#storedToken(normalizedCode, seatId);
-      const result = await this.#request(`/api/rooms/${encodeURIComponent(normalizedCode)}/claim`, {
+      const recoveryToken = reclaimOnly ? this.#storedToken(normalizedCode, seatId) : null;
+      if (reclaimOnly && !recoveryToken) throw Object.assign(new Error('This phone no longer has the saved seat credential.'), { code: 'RECLAIM_UNAVAILABLE' });
+      if (!await this.#startConnection(epoch)) return { ignored: true };
+      const savedToken = recoveryToken || this.#storedToken(normalizedCode, seatId);
+      const action = reclaimOnly ? 'reclaim' : 'claim';
+      const result = await this.#request(`/api/rooms/${encodeURIComponent(normalizedCode)}/${action}`, {
         method: 'POST', authenticated: true, accountToken, body: { seatId, ...(savedToken ? { reclaimToken: savedToken } : { name, commanderCount, commanderNames, commanderColors }) }
       });
       if (!this.#isCurrentSession(epoch)) return { ignored: true };
@@ -129,7 +181,7 @@ export class RealtimeAdapter extends EventTarget {
       this.#acceptSnapshot(result.snapshot, epoch); return result;
     } catch (error) {
       if (!this.#isCurrentSession(epoch)) return { ignored: true };
-      if (error.status === 409 && error.code === 'GAME_NOT_PLAYING' && error.payload?.snapshot) {
+      if (error.status === 409 && ['GAME_NOT_PLAYING', 'FINISH_PENDING'].includes(error.code) && error.payload?.snapshot) {
         this.#acceptSnapshot(error.payload.snapshot, epoch);
         return { locked: true };
       }
@@ -202,6 +254,7 @@ export class RealtimeAdapter extends EventTarget {
   async handoffTurn() { return this.#turnRequest('/turn-handoff'); }
 
   async undoTurnHandoff() { return this.#turnRequest('/turn-handoff/undo'); }
+  async undoElimination(eliminationId) { return this.#turnRequest('/undo-elimination', { eliminationId }); }
   async setTurnTracking(enabled) { return this.#hostGameRequest('/turn-tracking', { enabled }); }
   async setTurnCues(cueMode) { return this.#hostGameRequest('/turn-cues', { cueMode }); }
   async setSessionKind(sessionKind) { return this.#hostGameRequest('/session-kind', { sessionKind }); }
@@ -226,6 +279,8 @@ export class RealtimeAdapter extends EventTarget {
   }
 
   async beginIntermission() { return this.#hostGameRequest('/begin-intermission'); }
+  async openTableSeats() { return this.#hostGameRequest('/open-seats'); }
+  async setNextGameCommanderSetup(commanderCount, commanderNames, commanderColors) { return this.#turnRequest('/next-game-setup', { commanderCount, commanderNames, commanderColors }); }
   async setNextGameReady(ready = true) {
     if (this.localMode) return { local: true };
     if (this.status !== 'connected' || !this.snapshot) return { blocked: true };
@@ -251,7 +306,7 @@ export class RealtimeAdapter extends EventTarget {
 
   async eliminatePlayer(targetSeatId, reason, detail = '') { return this.#hostGameRequest('/eliminate-player', { targetSeatId, reason, detail }); }
 
-  async chooseStartingPlayer(startingSeatId) { return this.#hostGameRequest('/choose-starting-player', startingSeatId === undefined ? {} : { startingSeatId }); }
+  async chooseStartingPlayer(startingSeatId, { useDefault = false } = {}) { return this.#hostGameRequest('/choose-starting-player', useDefault ? { useDefault: true } : startingSeatId === undefined ? {} : { startingSeatId }); }
 
   async reportStartingPlayerRoll(value) {
     if (this.localMode) return { local: true };
@@ -264,7 +319,7 @@ export class RealtimeAdapter extends EventTarget {
     } catch (error) { if (!this.#isCurrentSession(epoch)) return { ignored: true }; return this.#handleConflict(error, epoch); }
   }
 
-  async startGame() { return this.#hostGameRequest('/start-game'); }
+  async startGame({ baseVersion } = {}) { return this.#hostGameRequest('/start-game', baseVersion === undefined ? {} : { baseVersion }); }
 
   async #hostGameRequest(path, extra = {}, accountToken = null) {
     if (this.localMode) return { local: true };
@@ -289,6 +344,7 @@ export class RealtimeAdapter extends EventTarget {
   }
 
   disconnect() {
+    this.creationAttempt = null;
     this.stopped = true; this.events?.close(); this.events = null;
     clearInterval(this.heartbeatTimer); clearTimeout(this.reconnectTimer); clearInterval(this.snapshotRefreshTimer); clearTimeout(this.connectionRecoveryTimer);
     this.heartbeatTimer = null; this.reconnectTimer = null; this.snapshotRefreshTimer = null; this.connectionRecoveryTimer = null; this.connectionId = null;
@@ -457,6 +513,7 @@ export class RealtimeAdapter extends EventTarget {
   }
 
   #beginSession() {
+    this.creationAttempt = null;
     this.sessionEpoch += 1;
     this.events?.close(); this.events = null;
     clearInterval(this.heartbeatTimer); clearTimeout(this.reconnectTimer); clearInterval(this.snapshotRefreshTimer);

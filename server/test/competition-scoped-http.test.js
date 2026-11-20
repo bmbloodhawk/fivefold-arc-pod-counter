@@ -1,3 +1,4 @@
+import { expireEliminationWindow } from '../test-support/expire-elimination-window.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createRealtimeServer } from '../src/app.js';
@@ -93,6 +94,8 @@ test('scoped HTTP Table completion, guests and duplicate confirmation keep life 
   assert.equal(f.database.calls.length, before, 'Signed-in life taps add no competition reads or writes.');
   await f.ok(`/api/rooms/${code}/adjust`, post({ counter: 'life', delta: -40 }, { token: null, connectionId: guest }));
   await f.ok(`/api/rooms/${code}/adjust`, post({ counter: 'life', delta: -40 }, { token: 'member', connectionId: second }));
+  assert.equal(f.service.room(code).gameResult, null);
+  expireEliminationWindow(f.service, code);
   await f.ok(`/api/rooms/${code}/reset`, post({ baseVersion: f.service.room(code).version }, { token: null, connectionId: host }));
   const history = await f.ok(`/api/competitions/pod/${pod.id}/history`), gameId = history.games[0].gameId;
   assert.equal(history.games[0].status, 'pending');
@@ -278,7 +281,9 @@ for (const native of [false, true]) {
     assert.equal((await f.request('/api/account', { token: 'member', method: 'DELETE' })).status, 204);
     await f.ok(`/api/rooms/${code}/start-game`, post({ baseVersion: f.service.room(code).version }, { connectionId: host }));
     await f.ok(`/api/rooms/${code}/adjust`, post({ counter: 'life', delta: -40 }, { token: null, connectionId: second }));
-    await f.ok(`/api/rooms/${code}/reset`, post({ baseVersion: f.service.room(code).version }, { token: null, connectionId: host }));
+    assert.equal(f.service.room(code).gameResult, null);
+  expireEliminationWindow(f.service, code);
+  await f.ok(`/api/rooms/${code}/reset`, post({ baseVersion: f.service.room(code).version }, { token: null, connectionId: host }));
     const gameId = (await f.ok(`/api/competitions/pod/${pod.id}/history`)).games[0].gameId;
     const detail = await f.ok(`/api/competitions/pod/${pod.id}/games/${gameId}`);
     assert.equal(detail.players.find(row => row.kind === 'guest').name, 'Deleted member');

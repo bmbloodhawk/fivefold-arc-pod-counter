@@ -1,5 +1,6 @@
 import QRCode from 'qrcode';
 import { competitionError } from './competitions.js';
+import { TournamentSpectators } from './tournament-spectators.js';
 
 // Bearer account tokens or event-scoped guest capabilities; never ambient cookies.
 // Invite secrets use POST bodies and browser fragments, not logged URL queries.
@@ -7,6 +8,9 @@ export async function competitionRoute({ req, url, readBody, account, domain, ta
   if (!url.pathname.startsWith('/api/competitions/')) return null;
   const path = url.pathname.slice('/api/competitions/'.length).split('/');
   const method = req.method;
+  const spectatorRead = path[0] === 'tournament' && path[2] === 'spectator' && method === 'GET'
+    && (path.length === 3 || (path.length === 4 && path[3] === 'table'));
+  if (req.headers?.['x-event-viewer-token'] !== undefined && !spectatorRead) throw competitionError('Event viewing links only open the read-only event board.', 403, 'EVENT_VIEWER_ACCESS');
   const supportedPodEnvironment = ['staging', 'production'].includes(appEnv);
   const podDeletionEnabled = Boolean(domain) && supportedPodEnvironment && !domain.identityStore && !domain.scopeStore;
   if (method === 'GET' && path[0] === 'config') return { status: 200, data: { enabled: Boolean(domain), podDeletionEnabled,
@@ -43,10 +47,30 @@ export async function competitionRoute({ req, url, readBody, account, domain, ta
   }
   const [kind, id, action, detail, subaction] = path;
   if (!['pod', 'tournament'].includes(kind) || !id) throw competitionError('Unknown competition route.', 404);
+  if (kind === 'tournament' && (path.length === 3 || spectatorRead)) {
+    const spectators = new TournamentSpectators({ domain, tournaments, tables });
+    if (action === 'spectator' && method === 'GET' && path.length === 3) return ok(await spectators.board(id, req.headers['x-event-viewer-token']));
+    if (action === 'spectator' && detail === 'table' && method === 'GET' && path.length === 4) {
+      const round = url.searchParams.get('round'), table = url.searchParams.get('table');
+      if (!/^[1-9]\d?$/.test(round || '') || !/^[1-9]\d?$/.test(table || '') || Number(round) > 20 || Number(table) > 64
+        || url.searchParams.getAll('round').length !== 1 || url.searchParams.getAll('table').length !== 1) {
+        throw competitionError('Choose one valid round and Table to watch.');
+      }
+      return ok(await spectators.watch(id, req.headers['x-event-viewer-token'], { roundNumber: Number(round), tableNumber: Number(table) }));
+    }
+    if (action === 'spectator-links' && method === 'GET') return ok(await spectators.metadata(await auth(), id));
+    if (action === 'spectator-links' && method === 'POST') return ok(await spectators.change(await auth(), id, await readBody()));
+    if (action === 'release-table' && method === 'POST') {
+      const input = await readBody();
+      if (!input || typeof input !== 'object' || Array.isArray(input) || typeof input.assignmentId !== 'string') throw competitionError('Choose an unstarted Table assignment.');
+      return ok(await tables.releaseTournamentAssignment(await auth(), id, input.assignmentId));
+    }
+  }
   if (kind === 'pod' && path.length === 2 && method === 'DELETE' && podDeletionEnabled) {
     return ok(await domain.deletePod(await signed(), id, await readBody()));
   }
   if (!action && method === 'GET') return ok(kind === 'pod' ? await domain.getPod(await signed(), id) : await tournaments.get(await auth(), id));
+  if (kind === 'pod' && action === 'activity' && path.length === 3 && method === 'GET') return ok(await tables.activity(await signed(), id));
   if (action === 'invites' && method === 'GET') return ok(await domain.listInvites(await signed(), kind, id));
   if (action === 'invites' && method === 'POST') return ok(detail && subaction === 'revoke'
     ? await domain.revokeInvite(await signed(), kind, id, detail) : await domain.invite(await signed(), kind, id));

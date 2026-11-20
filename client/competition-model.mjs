@@ -21,10 +21,28 @@ export function localDateKey(timestamp) {
 export function parseCompetitionFragment(hash) {
   if (typeof hash !== 'string' || hash.length > 400) return null;
   const params = new URLSearchParams(hash.replace(/^#/, ''));
+  if (params.has('watch') || params.has('viewer')) {
+    const eventId = params.get('watch'), viewerToken = params.get('viewer');
+    return [...params.keys()].length === 2 && /^event_[\w-]{1,100}$/.test(eventId || '') && /^[\w-]{8,100}$/.test(viewerToken || '')
+      ? { eventId, viewerToken } : null;
+  }
   const invite = params.get('invite');
   if (invite && /^(pod|tournament)\.[\w-]{1,100}\.[\w-]{1,100}$/.test(invite)) return { invite };
   const eventId = params.get('event'), guestToken = params.get('guest');
   return /^event_[\w-]{1,100}$/.test(eventId || '') && /^[\w-]{8,100}$/.test(guestToken || '') ? { eventId, guestToken } : null;
+}
+export function tournamentAttendance(event) {
+  const entrants = (event.members || []).filter(row => row.participating);
+  return { attending: entrants.filter(row => row.status === 'active').length,
+    pending: entrants.filter(row => row.status === 'pending').length,
+    withdrawn: entrants.filter(row => row.status === 'left').length };
+}
+export function finishedTableTransition(current, nextCode = null) {
+  if (!current?.code) return 'available';
+  if (current.code === nextCode) return 'same';
+  const snapshot = current.snapshot;
+  if (snapshot?.gameResult || ['finished', 'complete', 'intermission'].includes(snapshot?.lifecycle?.status)) return 'confirm';
+  return 'blocked';
 }
 export function setupObservationKey(snapshot, seatId, connectionId, authEpoch) {
   if (!snapshot?.code || !connectionId || !Number.isInteger(seatId) || !['lobby', 'intermission'].includes(snapshot.lifecycle?.status)) return null;
@@ -33,5 +51,5 @@ export function setupObservationKey(snapshot, seatId, connectionId, authEpoch) {
 }
 export function contextObservationKey(snapshot, seatId, connectionId, authEpoch) {
   return snapshot?.code && connectionId && Number.isInteger(seatId)
-    ? [snapshot.code, seatId, connectionId, authEpoch].join(':') : null;
+    ? [snapshot.code, seatId, connectionId, authEpoch, snapshot.lifecycle?.status || '', snapshot.gameId || ''].join(':') : null;
 }

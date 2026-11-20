@@ -62,6 +62,7 @@ Returns `{ connectionId, expiresInMs }`. Send `POST /api/connections/heartbeat` 
 - `GET /api/rooms/:code` returns `{ snapshot }` and is useful before selecting an open seat.
 - `POST /api/rooms/:code/claim` with a connection header and `{ "seatId": 2, "name": "Ajani", "commanderCount": 2 }` claims an open seat. `name` is optional and otherwise remains the seat's `P#` fallback. `commanderCount` may be `1` or `2` and defaults to `1`.
 - To reconnect, create a new connection and send `{ "seatId": 2, "reclaimToken": "locally stored token" }` to the same claim endpoint. Omitting `name` preserves the current display name; supplying one renames the reclaimed seat.
+- Automatic return after reload uses `POST /api/rooms/:code/reclaim` with the saved seat ID and existing token. It requires an existing reservation, ignores profile/counter fields, and returns `403 RECLAIM_UNAVAILABLE` for a released seat. Success waits for the same durable recovery acknowledgement as ordinary claims.
 
 A snapshot includes the declared count on every seat and a derived active source list:
 

@@ -1,4 +1,5 @@
 <!doctype html>
+<!-- Release: Saved deck library and search, November 18, 2026. -->
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -8,9 +9,10 @@
   <title>Fivefold Arc — Table Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=241">
-  <link rel="stylesheet" href="collection-visual.css?v=4">
-  <link rel="stylesheet" href="competition.css?v=1">
+  <link rel="stylesheet" href="styles.css?v=253">
+  <link rel="stylesheet" href="collection-visual.css?v=6">
+  <link rel="stylesheet" href="competition.css?v=4">
+  <link rel="stylesheet" href="dial-layout.css?v=8">
 </head>
 <body>
   <header class="brand-bar">
@@ -33,7 +35,9 @@
         <button id="createPodButton" class="primary-action" type="button">Create a table</button>
         <button id="joinPodButton" class="primary-action" type="button">Join a table</button>
         <div class="home-account-actions">
-          <p id="accountSignedInStatus" class="account-signed-in" hidden>Signed in</p>
+          <p id="accountSignedInStatus" class="account-signed-in" role="status">Signed out</p>
+          <button id="homeSignOutButton" class="text-action home-sign-out" type="button" disabled>Sign out</button>
+          <p id="homeAccountMessage" class="home-account-message" role="status" hidden></p>
           <button id="myPodsButton" class="secondary-action" type="button" hidden>My Pods</button>
           <button id="tournamentsButton" class="secondary-action" type="button" hidden>Tournaments</button>
           <button id="myGamesButton" class="secondary-action account-action" type="button" disabled>My profile</button>
@@ -56,13 +60,49 @@
       </div>
     </section>
 
+    <section id="registerView" class="view registration-view" hidden aria-labelledby="registerTitle">
+      <h1 id="registerTitle" tabindex="-1">Create account</h1>
+      <p class="registration-intro">Save your games, decks, and preferences.</p>
+      <form id="registerForm" class="registration-form" method="post">
+        <div class="registration-field">
+          <label for="registerEmail">Email</label>
+          <input id="registerEmail" name="email" type="email" autocomplete="username" inputmode="email" spellcheck="false" aria-invalid="false" required>
+          <p id="registerEmailError" class="registration-error" hidden></p>
+        </div>
+        <div class="registration-field">
+          <label for="registerPassword">Password</label>
+          <div class="registration-password-row">
+            <input id="registerPassword" name="password" type="password" autocomplete="new-password" aria-describedby="registerPasswordHelp" aria-invalid="false" required>
+            <button id="registerPasswordToggle" class="registration-password-toggle" type="button" aria-controls="registerPassword" aria-label="Show password" aria-pressed="false">Show</button>
+          </div>
+          <p id="registerPasswordHelp" class="registration-help">Use a unique password.</p>
+          <p id="registerPasswordError" class="registration-error" hidden></p>
+        </div>
+        <div class="registration-field">
+          <label for="registerDisplayName">Display name <span class="registration-optional">(optional)</span></label>
+          <input id="registerDisplayName" name="displayName" type="text" maxlength="24" autocomplete="nickname" aria-describedby="registerNameHelp">
+          <p id="registerNameHelp" class="registration-help">Your name at the table.</p>
+        </div>
+        <label class="registration-agreement" for="registerAgreement">
+          <input id="registerAgreement" name="agreement" type="checkbox" required>
+          <span>I agree to the <a href="terms.html" target="_blank" rel="noopener">Terms of use</a> and have read the <a href="privacy.html" target="_blank" rel="noopener">Privacy notice</a>.</span>
+        </label>
+        <p id="registerStatus" class="registration-status" hidden></p>
+        <div class="registration-actions">
+          <button id="registerSubmit" class="primary-action" type="submit">Create account</button>
+          <button id="registerBack" class="secondary-action" type="button">Back to sign in</button>
+        </div>
+      </form>
+      <p id="registerAnnouncer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
+    </section>
+
     <section id="createView" class="view setup-shell" hidden aria-labelledby="createTitle">
       <button class="back-button" data-back type="button">← Back</button>
       <p class="eyebrow">CREATE TABLE</p>
       <h1 id="createTitle">Set the table.</h1>
       <form id="createForm" class="setup-form">
         <section class="create-step" data-create-step="1">
-          <p class="eyebrow">STEP 1 OF 5</p>
+          <p class="eyebrow">STEP 1 OF 4</p>
           <fieldset class="choice-field">
             <legend>Table rules</legend>
             <div class="segmented" role="radiogroup" aria-label="Table rules">
@@ -70,7 +110,6 @@
               <label><input type="radio" name="gameFormat" value="casual"><span>Casual</span></label>
               <label><input type="radio" name="gameFormat" value="custom"><span>Custom</span></label>
             </div>
-            <small id="gameFormatHelp" class="field-help">40 life with commander damage and commander tax.</small>
           </fieldset>
           <fieldset class="choice-field">
             <legend>Starting life</legend>
@@ -80,34 +119,23 @@
               <label><input type="radio" name="startingLife" value="40" checked><span>40</span></label>
             </div>
           </fieldset>
-          <label id="customStartingLifeField" class="select-field" hidden>Other starting life
-            <input id="customStartingLife" name="customStartingLife" type="number" inputmode="numeric" min="1" max="999" step="1" placeholder="e.g. 25">
-            <small>Choose any whole number from 1 to 999.</small>
+          <label id="customStartingLifeField" class="select-field" hidden>Other starting life (optional)
+            <input id="customStartingLife" name="customStartingLife" type="number" inputmode="numeric" min="1" max="999" step="1" disabled placeholder="e.g. 25" aria-invalid="false" aria-describedby="customStartingLifeHelp">
+            <small id="customStartingLifeHelp">Blank uses your selection. Or enter 1 to 999.</small>
+            <small id="customStartingLifeError" class="field-help" hidden></small>
           </label>
-          <button id="createStepOneNext" class="primary-action" type="button">Next: players</button>
+          <button id="createStepOneNext" class="primary-action" type="button">Next: your name</button>
         </section>
         <section class="create-step" data-create-step="2" hidden>
-          <p class="eyebrow">STEP 2 OF 5</p>
-          <fieldset class="choice-field">
-            <legend>Players for game one</legend>
-            <div id="playerCountChoices" class="segmented dense" role="radiogroup" aria-label="Number of players"></div>
-          </fieldset>
-          <label class="select-field">Seats available in this table
-            <select id="seatCapacity" name="seatCapacity"><option value="2">Up to 2 players</option><option value="3">Up to 3 players</option><option value="4" selected>Up to 4 players</option><option value="5">Up to 5 players</option><option value="6">Up to 6 players</option><option value="7">Up to 7 players</option><option value="8">Up to 8 players</option></select>
-            <small>Extra seats can join during next-game setup.</small>
-          </label>
-          <div class="dialog-actions"><button class="secondary-action" data-create-back type="button">Back</button><button id="createStepTwoNext" class="primary-action" type="button">Next: your name</button></div>
-        </section>
-        <section class="create-step" data-create-step="3" hidden>
-          <p class="eyebrow">STEP 3 OF 5</p>
+          <p class="eyebrow">STEP 2 OF 4</p>
           <label class="select-field">What should the table call you? <small>(optional)</small>
             <input id="createName" name="name" type="text" autocomplete="name" maxlength="24" placeholder="P1">
             <small>Blank uses P1.</small>
           </label>
-          <div class="dialog-actions"><button class="secondary-action" data-create-back type="button">Back</button><button id="createStepThreeNext" class="primary-action" type="button">Next: commander</button></div>
+          <div class="dialog-actions"><button class="secondary-action" data-create-back type="button">Back</button><button id="createStepTwoNext" class="primary-action" type="button">Next: commander</button></div>
         </section>
-        <section class="create-step commander-setup-step" data-create-step="4" hidden>
-          <p class="eyebrow">STEP 4 OF 5</p>
+        <section class="create-step commander-setup-step" data-create-step="3" hidden>
+          <p class="eyebrow">STEP 3 OF 4</p>
           <label id="createDeckField" class="select-field" hidden>My deck <small>(optional)</small><select id="createDeck"><option value="">No deck selected</option></select></label>
           <fieldset class="choice-field">
             <legend>Your commander <small>(optional)</small></legend>
@@ -118,10 +146,10 @@
             <small class="field-help">Find the card to add its color identity.</small>
           </fieldset>
           <div id="createCommanderNames" class="commander-name-fields"></div>
-          <div class="dialog-actions"><button class="secondary-action" data-create-back type="button">Back</button><button id="createStepFourSkip" class="secondary-action" type="button">Skip for now</button><button id="createStepFourNext" class="primary-action" type="button">Continue</button></div>
+          <div class="dialog-actions"><button class="secondary-action" data-create-back type="button">Back</button><button id="createStepThreeSkip" class="secondary-action" type="button">Skip for now</button><button id="createStepThreeNext" class="primary-action" type="button">Continue</button></div>
         </section>
-        <section class="create-step" data-create-step="5" hidden>
-          <p class="eyebrow">STEP 5 OF 5</p>
+        <section class="create-step" data-create-step="4" hidden>
+          <p class="eyebrow">STEP 4 OF 4</p>
           <div class="setup-options">
           <label class="select-field">Table appearance <small>Shared with the table.</small>
             <select id="tableSkin" name="tableSkinId"><option value="">Standard appearance</option></select>
@@ -130,10 +158,16 @@
             <input id="roundLimitMinutes" name="roundLimitMinutes" type="number" inputmode="numeric" min="1" max="999" step="1" placeholder="No limit — game time counts up">
             <small>Organizer countdown only; it never ends a turn.</small>
           </label>
-          <label id="localSimulationField" class="toggle-field" hidden>
-            <input id="localSimulation" type="checkbox">
-            <span><strong>Local simulation</strong><small>Switch active seats on one phone for testing.</small></span>
-          </label>
+          <div id="localSimulationField" hidden>
+            <label class="toggle-field">
+              <input id="localSimulation" type="checkbox">
+              <span><strong>Local simulation</strong><small>Switch active seats on one phone for testing.</small></span>
+            </label>
+            <fieldset class="choice-field">
+              <legend>Simulated players</legend>
+              <div id="playerCountChoices" class="segmented dense" role="radiogroup" aria-label="Number of simulated players"></div>
+            </fieldset>
+          </div>
           </div>
           <div class="dialog-actions"><button class="secondary-action" data-create-back type="button">Back</button><button class="primary-action" type="submit">Create table</button></div>
         </section>
@@ -203,6 +237,7 @@
     </section>
 
     <section id="lobbyView" class="view setup-shell lobby-screen" hidden aria-labelledby="lobbyHeading">
+      <button id="leaveLobbyButton" class="secondary-action" type="button">Leave table</button>
       <p class="eyebrow">GATHER YOUR TABLE</p>
       <h1 id="lobbyHeading">Set up your game</h1>
       <p class="setup-intro">Share the table code, wait for your players, then start when everyone is ready.</p>
@@ -215,13 +250,18 @@
         <h2 id="intermissionTitle">Set up the next game</h2>
         <p id="intermissionDetail">Choose your deck, then mark yourself ready.</p>
         <button id="competitionIntermissionButton" class="secondary-action" type="button" hidden>Review group result</button>
-        <div id="intermissionInvite" class="intermission-invite" hidden>
-          <p>Invite another player</p>
-          <output id="intermissionInviteCode" class="lobby-invite-code" aria-label="Table code"></output>
-          <button id="copyIntermissionJoinLinkButton" class="secondary-action" type="button">Copy invite link</button>
-          <button id="showIntermissionJoinQrButton" class="secondary-action" type="button">Show join QR</button>
-        </div>
+          <button id="returnToTournamentButton" class="primary-action" type="button" hidden>Return to tournament</button>
         <div id="intermissionRoster" class="intermission-roster"></div>
+        <details id="intermissionInvite" class="intermission-invite-disclosure" hidden>
+          <summary class="secondary-action">Add player</summary>
+          <div class="intermission-invite">
+            <p>Share this table with another player.</p>
+            <output id="intermissionInviteCode" class="lobby-invite-code" aria-label="Table code"></output>
+            <button id="copyIntermissionJoinLinkButton" class="secondary-action" type="button">Copy invite link</button>
+            <button id="showIntermissionJoinQrButton" class="secondary-action" type="button">Show join QR</button>
+          </div>
+        </details>
+        <button id="intermissionSetupButton" class="secondary-action" type="button">Change deck / commander</button>
         <button id="intermissionReadyButton" class="primary-action" type="button">I’m ready</button>
         <button id="intermissionStartButton" class="primary-action" type="button" hidden>Start next game</button>
         <button id="intermissionLeaveButton" class="text-action" type="button">Leave table</button>
@@ -240,14 +280,18 @@
           <h2 id="nextGameConfirmTitle">Start the next game?</h2>
           <p id="nextGameConfirmDetail"></p>
           <ul id="nextGameConfirmRoster" class="confirm-roster"></ul>
-          <div class="dialog-actions"><button class="secondary-action" value="cancel" type="submit">Back</button><button id="confirmNextGameStart" class="primary-action" value="confirm" type="submit">Start game</button></div>
+          <label class="select-field" for="nextGameStarter">First player
+            <select id="nextGameStarter" name="startingPlayer" aria-describedby="nextGameStarterHelp"></select>
+            <small id="nextGameStarterHelp" role="status"></small>
+          </label>
+          <div class="dialog-actions"><button id="cancelNextGameStartButton" class="secondary-action" value="cancel" type="submit">Back</button><button id="confirmNextGameStart" class="primary-action" value="confirm" type="submit">Start game</button></div>
         </form>
       </dialog>
     </section>
 
     <section id="gameView" class="view game-shell" hidden aria-labelledby="modeTitle">
       <div class="game-topline">
-        <div class="game-identity"><span id="podLabel" class="pod-label">LOCAL TABLE</span><span id="commanderIdentityName" class="commander-identity-name" hidden></span><span id="identityHeaderRail" class="identity-header-rail" aria-hidden="true"></span></div>
+        <div class="game-identity"><span id="podLabel" class="pod-label">LOCAL TABLE</span></div>
         <button id="moreButton" class="icon-button" type="button" aria-label="Game menu" aria-expanded="false">•••</button>
       </div>
 
@@ -268,7 +312,7 @@
         <button id="copyLobbyJoinLinkButton" class="primary-action" type="button">Copy invite link</button>
         <button id="showJoinQrButton" class="secondary-action" type="button">Show join QR</button>
         <div id="lobbyRoster" class="intermission-roster" hidden></div>
-        <p class="lobby-start-help">Start with 2+ ready players. Other seats stay unused.</p>
+        <p class="lobby-start-help">Start with 2 or more players.</p>
         <button id="startGameButton" class="primary-action" type="button">Start game · P1 goes first</button>
         <details id="firstPlayerOptions" class="lobby-options">
           <summary>Choose a different first player</summary>
@@ -286,32 +330,41 @@
         <strong id="turnPlayer">P1</strong>
         <span id="turnElapsed">TURN 0:00</span>
         <span id="gameTimer">GAME TIME 0:00</span>
+          <button id="tournamentRoundButton" class="text-action" type="button" hidden>Round clock &amp; final turns</button>
         <span id="lastTurnSummary" hidden>LAST TURN · —</span>
       </section>
       <div class="counter-stage" aria-live="polite">
         <aside id="sideSeats" class="side-seats" aria-label="Additional table seats" hidden></aside>
-        <div class="counter-sigil" aria-hidden="true">
-          <svg viewBox="0 0 100 100" focusable="false">
-            <circle cx="50" cy="50" r="45"></circle>
-            <circle cx="50" cy="50" r="39"></circle>
-            <path d="M50 11 73 82 14 38H86L27 82Z"></path>
-            <circle cx="50" cy="50" r="7"></circle>
-          </svg>
+        <div class="dial-assembly">
+          <div class="dial-face">
+            <div class="counter-sigil" aria-hidden="true">
+              <svg viewBox="0 0 100 100" focusable="false">
+                <circle cx="50" cy="50" r="45"></circle>
+                <circle cx="50" cy="50" r="39"></circle>
+                <path d="M50 11 73 82 14 38H86L27 82Z"></path>
+                <circle cx="50" cy="50" r="7"></circle>
+              </svg>
+            </div>
+            <div id="lethalMark" class="lethal-mark" hidden><img src="assets/elimination-skull-v1.png" alt=""><span class="sr-only">Eliminated</span></div>
+          </div>
+          <div class="counter-label-art-fade" aria-hidden="true"></div>
+          <div class="counter-mode-art-fade" aria-hidden="true"></div>
+          <div class="counter-readout">
+            <p class="counter-mode"><span id="modeTitle">LIFE</span></p>
+            <output id="mainValue" class="main-value">40</output>
+            <div id="eliminationOutcome" class="elimination-outcome" hidden aria-live="polite"><strong></strong><span></span></div>
+            <p id="counterContext" class="counter-context">P1 · YOU</p>
+          </div>
+          <div id="dialControls" class="dial-controls" role="group" aria-label="Dial counter controls" hidden>
+            <button type="button" class="dial-step dial-step-minus" data-delta="-1" aria-label="Decrease counter by one"></button>
+            <div id="dialGesture" class="dial-gesture" role="slider" tabindex="0" aria-label="Counter dial. Drag clockwise to increase and counterclockwise to decrease." aria-valuemin="0" aria-valuenow="40" aria-valuetext="40"></div>
+            <button type="button" class="dial-step dial-step-plus" data-delta="1" aria-label="Increase counter by one"></button>
+            <span class="dial-step-label dial-step-minus-label" aria-hidden="true">−</span>
+            <span class="dial-step-label dial-step-plus-label" aria-hidden="true">+</span>
+          </div>
+          <output id="lifeChangeIndicator" class="life-change-indicator" aria-live="polite" hidden></output>
+          <p id="statusMessage" class="status-message" hidden></p>
         </div>
-        <div id="lethalMark" class="lethal-mark" hidden><img src="assets/elimination-skull-v1.png" alt=""><span class="sr-only">Eliminated</span></div>
-        <div class="counter-readout">
-          <p class="counter-mode"><span id="modeTitle">LIFE</span></p>
-          <output id="mainValue" class="main-value">40</output>
-          <div id="eliminationOutcome" class="elimination-outcome" hidden aria-live="polite"><strong></strong><span></span></div>
-          <p id="counterContext" class="counter-context">P1 · YOU</p>
-        </div>
-        <div id="dialControls" class="dial-controls" role="group" aria-label="Dial counter controls" hidden>
-          <button type="button" class="dial-step dial-step-minus" data-delta="-1" aria-label="Decrease counter by one"><span class="dial-step-label" aria-hidden="true">−</span></button>
-          <div id="dialGesture" class="dial-gesture" role="slider" tabindex="0" aria-label="Counter dial. Drag clockwise to increase and counterclockwise to decrease." aria-valuemin="0" aria-valuenow="40" aria-valuetext="40"></div>
-          <button type="button" class="dial-step dial-step-plus" data-delta="1" aria-label="Increase counter by one"><span class="dial-step-label" aria-hidden="true">+</span></button>
-        </div>
-        <output id="lifeChangeIndicator" class="life-change-indicator" aria-live="polite" hidden></output>
-        <p id="statusMessage" class="status-message" hidden></p>
       </div>
 
       <section id="sourcePanel" class="source-panel" hidden aria-label="Commander damage sources"></section>
@@ -319,8 +372,10 @@
       <section id="turnActions" class="turn-actions" aria-label="Turn controls">
         <button id="endTurnButton" class="end-turn-button" type="button">End turn → Next player</button>
         <button id="undoTurnButton" class="undo-turn-button" type="button" hidden>Undo handoff</button>
+        <button id="undoEliminationButton" class="undo-turn-button" type="button" hidden>Undo elimination</button>
         <p id="turnActionDetail" class="turn-action-detail">Only the active player can end this turn.</p>
       </section>
+      <p id="eliminationUndoStatus" class="sr-only" role="status"></p>
       <div id="adjustControls" class="adjust-controls" aria-label="Adjust counter">
         <button type="button" data-delta="-5"><span>−5</span><small>decrease five</small></button>
         <button type="button" data-delta="-1"><span>−1</span><small>decrease one</small></button>
@@ -333,7 +388,7 @@
       <nav id="modeNav" class="mode-nav" aria-label="Counter mode">
         <button type="button" data-mode="life"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 20.3 4.7 13C1 9.3 3.2 4 7.5 4c2 0 3.5 1.1 4.5 2.4C13 5.1 14.5 4 16.5 4 20.8 4 23 9.3 19.3 13Z"/></svg><small>Life</small></button>
         <button type="button" data-mode="commander" aria-label="Commander damage"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 2 20 6v6c0 5.2-3.4 8.2-8 10-4.6-1.8-8-4.8-8-10V6Z"/><path d="M12 5v13M8 8l4-3 4 3"/></svg><small aria-hidden="true">Cmdr</small></button>
-        <button type="button" data-mode="radiation"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2"/><path d="M12 10 8 4.5M14 13l5.8 2.2M10 13l-5.8 2.2"/></svg><small>Radiation</small></button>
+        <button type="button" data-mode="radiation" aria-label="Radiation"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2"/><path d="M12 10 8 4.5M14 13l5.8 2.2M10 13l-5.8 2.2"/></svg><small>Radiation</small></button>
         <button type="button" data-mode="poison"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 15.5C3.3 13.7 3 10.8 3 9a9 9 0 0 1 18 0c0 1.8-.3 4.7-3 6.5V20h-3v-3h-2v3h-2v-3H9v3H6Z"/><circle cx="8.5" cy="10" r="1.6"/><circle cx="15.5" cy="10" r="1.6"/></svg><small>Poison</small></button>
         <button type="button" data-mode="energy"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14 2-9 12h7l-2 8 9-12h-7Z"/></svg><small>Energy</small></button>
         <button type="button" data-mode="generic"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m12 2 8 4.5v10L12 21l-8-4.5v-10Z"/><path d="m4 6.5 8 4.5 8-4.5M12 11v10"/></svg><small>Generic</small></button>
@@ -365,6 +420,7 @@
         <button id="declareWinnerButton" type="button">Declare winner</button>
         <button id="commanderSetupButton" type="button">My commander setup</button>
         <button id="pauseTurnButton" type="button" hidden>Pause timers</button>
+        <button id="adjustTableOrderButton" type="button" hidden>Adjust table order</button>
         <button id="toggleTurnTrackingButton" type="button" hidden>Turn tracking: on</button>
         <button id="toggleTurnCuesButton" type="button" hidden>Turn cue: off</button>
         <button id="toggleDeviceCuesButton" type="button">My turn cue: on</button>
@@ -378,6 +434,19 @@
       </aside>
     </section>
   </main>
+
+  <dialog id="tableOrderDialog" aria-labelledby="tableOrderTitle" aria-describedby="tableOrderHelp">
+    <form method="dialog">
+      <h2 id="tableOrderTitle" tabindex="-1" autofocus>Adjust table order</h2>
+      <p id="tableOrderHelp">Top to bottom is turn order. The current player keeps their turn. Changes apply to the next turn.</p>
+      <ol id="tableOrderRoster" aria-label="Turn order"></ol>
+      <p id="tableOrderStatus" role="status" aria-live="polite"></p>
+      <div class="dialog-actions">
+        <button id="cancelTableOrderButton" class="secondary-action" value="cancel">Cancel</button>
+        <button id="saveTableOrderButton" class="primary-action" type="button">Save order</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="resetDialog">
     <form method="dialog">
@@ -469,10 +538,12 @@
     </form>
   </dialog>
 
-  <dialog id="commanderCountDialog">
+  <dialog id="commanderCountDialog" aria-labelledby="commanderSetupTitle" aria-describedby="commanderCountDetail">
     <form id="commanderCountForm" method="dialog">
-      <h2>My commander setup</h2>
+      <p id="commanderSetupEyebrow" class="eyebrow" hidden>NEXT GAME</p>
+      <h2 id="commanderSetupTitle">My commander setup</h2>
       <p id="commanderCountDetail">Change your commander names for this table. Your current game and seat stay in place.</p>
+      <label id="commanderDeckField" class="select-field" hidden>My saved deck <small>(optional)</small><select id="commanderDeck"><option value="">Enter commanders manually</option></select></label>
       <fieldset class="choice-field">
         <legend class="sr-only">Commander count</legend>
         <div class="segmented commander-count-choice" role="radiogroup" aria-label="Commander count">
@@ -481,7 +552,7 @@
         </div>
       </fieldset>
       <div id="gameCommanderNames" class="commander-name-fields"></div>
-      <label id="commanderDeckField" class="select-field" hidden>My deck <small>(optional)</small><select id="commanderDeck"><option value="">No deck selected</option></select></label>
+      <p id="commanderSetupStatus" class="field-help" role="status" hidden></p>
       <div class="dialog-actions">
         <button value="cancel" class="secondary-action">Cancel</button>
         <button id="saveCommanderCountButton" value="confirm" class="primary-action">Update this table</button>
@@ -491,10 +562,8 @@
 
   <dialog id="commanderTaxDialog" aria-labelledby="commanderTaxTitle">
     <form method="dialog">
-      <div class="dialog-mark" aria-hidden="true">♜</div>
       <h2 id="commanderTaxTitle">Commander tax</h2>
-      <p id="commanderTaxDetail">Track casts for your commander.</p>
-      <p class="field-help">Tax increases when cast from command zone, not merely when it dies.</p>
+      <p id="commanderTaxDetail" hidden></p>
       <div id="commanderTaxList" class="commander-tax-list" aria-live="polite"></div>
       <div class="dialog-actions commander-tax-close">
         <button value="close" class="secondary-action">Done</button>
@@ -724,8 +793,17 @@
   <dialog id="savedPlaytestsDialog" aria-labelledby="savedPlaytestsTitle">
     <form method="dialog"><h2 id="savedPlaytestsTitle">Saved playtests</h2><div id="savedPlaytestsContent"></div><div class="dialog-actions"><button value="close" class="primary-action">Done</button></div></form>
   </dialog>
-  <dialog id="myGamesDialog" aria-labelledby="myGamesTitle"><form method="dialog"><h2 id="myGamesTitle">Sign in</h2><p id="myGamesStatus">Save your profile, games, and decks. Guest play is always available.</p><div id="myGamesContent" hidden></div><label id="accountPreferredNameField" class="select-field" hidden>Preferred name <small>(used to prefill new tables)</small><input id="accountPreferredName" maxlength="24" autocomplete="name"></label><label id="accountDefaultPlayerCountField" class="select-field" hidden>Default Table size<select id="accountDefaultPlayerCount"><option value="2">2 players</option><option value="3">3 players</option><option value="4">4 players</option><option value="5">5 players</option><option value="6">6 players</option><option value="7">7 players</option><option value="8">8 players</option></select></label><label id="accountDefaultRoundLimitField" class="select-field" hidden>Default round limit <small>(optional)</small><input id="accountDefaultRoundLimit" type="number" inputmode="numeric" min="1" max="999" placeholder="No limit"></label><label id="accountInterfaceStyleField" class="select-field" hidden>Interface style <small>(changes only this phone's gameplay presentation)</small><select id="accountInterfaceStyle"><option value="button">Button</option><option value="dial">Dial</option></select></label><label id="accountPersonalSkinField" class="select-field" hidden>My skin <small>(used only when you opt in below)</small><select id="accountPersonalSkin" aria-label="My skin"><option value="">Standard shared appearance</option></select></label><label id="accountUsePersonalSkinField" class="select-field" hidden><input id="accountUsePersonalSkin" type="checkbox"> Use my saved skin when I sign in <small>A choice in the game menu takes priority.</small></label><section id="accountSkinRewards" class="account-skin-rewards" aria-labelledby="accountSkinRewardsTitle" hidden><h3 id="accountSkinRewardsTitle">Achievement skins</h3><ul></ul></section><label id="emailSignInFields" class="select-field" hidden>Email<input id="accountEmail" type="email" autocomplete="email"><small>Password</small><input id="accountPassword" type="password" minlength="6" autocomplete="current-password"></label><div class="dialog-actions"><button id="myGamesSignInButton" type="button" class="primary-action">Sign in with Google</button><button id="emailSignInButton" type="button" class="secondary-action">Use email</button><button id="forgotPasswordButton" type="button" class="text-action" hidden>Forgot password?</button><button id="createAccountButton" type="button" class="text-action" hidden>Create account</button><button id="saveAccountPreferencesButton" type="button" class="text-action" hidden>Save preferences</button><button id="exportAccountButton" type="button" class="text-action" hidden>Export my data</button><button id="deleteAccountButton" type="button" class="text-action" hidden>Delete my account data</button><button id="signOutButton" type="button" class="text-action" hidden>Sign out</button><button value="close" class="secondary-action">Close</button></div></form></dialog>
-  <dialog id="myDecksDialog" aria-labelledby="myDecksTitle"><form method="dialog"><h2 id="myDecksTitle">My decks</h2><p id="myDecksStatus">Sign in to keep private deck notes.</p><section id="deckEditor" aria-labelledby="deckEditorTitle"><h3 id="deckEditorTitle">Add a deck</h3><fieldset class="choice-field"><legend>Commanders</legend><div class="segmented commander-count-choice"><label><input type="radio" name="deckCommanderCount" value="1" checked><span>1 commander</span></label><label><input type="radio" name="deckCommanderCount" value="2"><span>2 commanders</span></label></div></fieldset><label class="select-field">Commander 1<input id="deckCommanderName" maxlength="120" autocomplete="off" placeholder="e.g. Atraxa, Praetors’ Voice"></label><label id="deckCommanderNameTwoField" class="select-field" hidden>Commander 2<input id="deckCommanderNameTwo" maxlength="120" autocomplete="off" placeholder="e.g. Tymna the Weaver"></label><button id="findDeckColorsButton" type="button" class="secondary-action">Find commander colors</button><small id="deckCommanderStatus" class="commander-lookup-status" aria-live="polite">We’ll also check the commander colors when you save.</small><fieldset class="choice-field"><legend>Deck colors <small>(checked from your commander when found)</small></legend><label><input name="deckColors" type="checkbox" value="W"> White</label><label><input name="deckColors" type="checkbox" value="U"> Blue</label><label><input name="deckColors" type="checkbox" value="B"> Black</label><label><input name="deckColors" type="checkbox" value="R"> Red</label><label><input name="deckColors" type="checkbox" value="G"> Green</label></fieldset><label class="select-field">Deck name <small>(optional)</small><input id="deckName" maxlength="120" autocomplete="off" placeholder="e.g. Poison counters"></label><label class="select-field">Private notes <small>(optional)</small><textarea id="deckNotes" maxlength="500" placeholder="A reminder for yourself"></textarea></label><label class="select-field"><input id="deckFavorite" type="checkbox"> Favorite this deck</label><div class="dialog-actions"><button id="myDecksSignInButton" type="button" class="secondary-action">Sign in with Google</button><button id="createDeckButton" type="button" class="primary-action">Save deck</button><button value="close" class="secondary-action">Close</button></div></section><section id="savedDeckList" aria-labelledby="savedDeckListTitle"><h3 id="savedDeckListTitle">Saved decks</h3><div id="myDecksContent" hidden></div></section></form></dialog>
+  <dialog id="myGamesDialog" aria-labelledby="myGamesTitle"><form method="dialog"><h2 id="myGamesTitle">Sign in</h2><p id="myGamesStatus">Save your profile, games, and decks. Guest play is always available.</p><div id="myGamesContent" hidden></div><label id="accountPreferredNameField" class="select-field" hidden>Preferred name <small>(used to prefill new tables)</small><input id="accountPreferredName" maxlength="24" autocomplete="name"></label><label id="accountDefaultPlayerCountField" class="select-field" hidden>Default Table size<select id="accountDefaultPlayerCount"><option value="2">2 players</option><option value="3">3 players</option><option value="4">4 players</option><option value="5">5 players</option><option value="6">6 players</option><option value="7">7 players</option><option value="8">8 players</option></select></label><label id="accountDefaultRoundLimitField" class="select-field" hidden>Default round limit <small>(optional)</small><input id="accountDefaultRoundLimit" type="number" inputmode="numeric" min="1" max="999" placeholder="No limit"></label><label id="accountInterfaceStyleField" class="select-field" hidden>Interface style <small>(changes only this phone's gameplay presentation)</small><select id="accountInterfaceStyle"><option value="button">Button</option><option value="dial">Dial</option></select></label><label id="accountPersonalSkinField" class="select-field" hidden>My skin <small>(used only when you opt in below)</small><select id="accountPersonalSkin" aria-label="My skin"><option value="">Standard shared appearance</option></select></label><label id="accountUsePersonalSkinField" class="select-field" hidden><input id="accountUsePersonalSkin" type="checkbox"> Use my saved skin when I sign in <small>A choice in the game menu takes priority.</small></label><section id="accountSkinRewards" class="account-skin-rewards" aria-labelledby="accountSkinRewardsTitle" hidden><h3 id="accountSkinRewardsTitle">Achievement skins</h3><ul></ul></section><label id="emailSignInFields" class="select-field" hidden>Email<input id="accountEmail" type="email" autocomplete="email"><small>Password</small><input id="accountPassword" type="password" minlength="6" autocomplete="current-password"></label><div class="dialog-actions"><button id="myGamesSignInButton" type="button" class="primary-action">Sign in with Google</button><button id="emailSignInButton" type="button" class="secondary-action">Use email</button><button id="forgotPasswordButton" type="button" class="text-action" hidden>Forgot password?</button><button id="createAccountButton" type="button" class="secondary-action" hidden>Create account</button><button id="saveAccountPreferencesButton" type="button" class="text-action" hidden>Save preferences</button><button id="exportAccountButton" type="button" class="text-action" hidden>Export my data</button><button id="deleteAccountButton" type="button" class="text-action" hidden>Delete my account data</button><button id="signOutButton" type="button" class="text-action" hidden>Sign out</button><button value="close" class="secondary-action">Close</button></div></form></dialog>
+  <dialog id="myDecksDialog" aria-labelledby="myDecksTitle">
+    <header class="deck-library-header"><h2 id="myDecksTitle">My decks</h2><button id="closeMyDecksButton" type="button" class="text-action">Close</button></header>
+    <p id="myDecksStatus" role="status" aria-live="polite">Loading your decks…</p>
+    <section id="deckLibraryView" aria-label="Your saved decks">
+      <div class="deck-library-tools"><button id="addDeckButton" type="button" class="primary-action" disabled>Add deck</button><search><label class="select-field" for="deckSearch">Search decks<input id="deckSearch" type="search" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="Deck or commander name" aria-controls="myDecksContent"></label></search></div>
+      <section id="savedDeckList" aria-labelledby="savedDeckListTitle"><h3 id="savedDeckListTitle">Saved decks</h3><div id="myDecksContent" hidden></div></section>
+    </section>
+    <button id="myDecksSignInButton" type="button" class="secondary-action" hidden>Sign in with Google</button>
+    <form id="deckEditor" aria-labelledby="myDecksTitle" hidden><fieldset class="choice-field"><legend>Commanders</legend><div class="segmented commander-count-choice"><label><input type="radio" name="deckCommanderCount" value="1" checked><span>1 commander</span></label><label><input type="radio" name="deckCommanderCount" value="2"><span>2 commanders</span></label></div></fieldset><label class="select-field">Commander 1<input id="deckCommanderName" required maxlength="120" autocomplete="off" placeholder="e.g. Atraxa, Praetors’ Voice"></label><div id="deckCommanderMatches" class="deck-commander-matches" role="group" aria-label="Suggested cards for Commander 1" hidden></div><label id="deckCommanderNameTwoField" class="select-field" hidden>Commander 2<input id="deckCommanderNameTwo" maxlength="120" autocomplete="off" placeholder="e.g. Tymna the Weaver"></label><div id="deckCommanderMatchesTwo" class="deck-commander-matches" role="group" aria-label="Suggested cards for Commander 2" hidden></div><button id="findDeckColorsButton" type="button" class="secondary-action">Find commander colors</button><small id="deckCommanderStatus" class="commander-lookup-status" aria-live="polite">We’ll also check the commander colors when you save.</small><fieldset class="choice-field"><legend>Deck colors <small>(checked from your commander when found)</small></legend><label><input name="deckColors" type="checkbox" value="W"> White</label><label><input name="deckColors" type="checkbox" value="U"> Blue</label><label><input name="deckColors" type="checkbox" value="B"> Black</label><label><input name="deckColors" type="checkbox" value="R"> Red</label><label><input name="deckColors" type="checkbox" value="G"> Green</label></fieldset><label class="select-field">Deck name <small>(optional)</small><input id="deckName" maxlength="120" autocomplete="off" placeholder="e.g. Poison counters"></label><label class="select-field">Private notes <small>(optional)</small><textarea id="deckNotes" maxlength="500" placeholder="A reminder for yourself"></textarea></label><label class="select-field"><input id="deckFavorite" type="checkbox"> Favorite this deck</label><div class="dialog-actions"><button id="cancelDeckEditorButton" type="button" class="secondary-action">Cancel</button><button id="createDeckButton" type="submit" class="primary-action">Save deck</button></div></form>
+  </dialog>
 
   <dialog id="competitionDialog" class="competition-dialog" aria-labelledby="competitionTitle">
     <header class="competition-header"><button id="competitionBack" type="button" class="text-action" hidden>Back</button><h2 id="competitionTitle" tabindex="-1">My Pods</h2><button id="competitionClose" type="button" class="text-action" aria-label="Close Pods and tournaments">Close</button></header>
@@ -734,6 +812,6 @@
   </dialog>
   <p id="competitionSetupStatus" role="status" hidden></p>
   <script src="vendor/jsqr.js?v=1"></script>
-  <script type="module" src="app.js?v=301"></script>
+  <script type="module" src="app.js?v=334"></script>
 </body>
 </html>

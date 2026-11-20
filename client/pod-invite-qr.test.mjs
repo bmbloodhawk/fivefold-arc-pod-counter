@@ -23,7 +23,7 @@ test('Back stops scanning before waiting for the Pod list, so a late camera resu
   assert.ok(start>=0&&end>start);
   let cameraReading=true,previews=0,release;
   const pending=new Promise(resolve=>{release=resolve;});
-  const context=vm.createContext({navigationEpoch:0,dialog:{open:true},content:{setAttribute(){},removeAttribute(){}},message(){},stopInviteScanner(){cameraReading=false;}});
+  const context=vm.createContext({navigationEpoch:0,dialog:{open:true},content:{setAttribute(){},removeAttribute(){}},message(){},stopView(){},stopInviteScanner(){cameraReading=false;}});
   const run=vm.runInContext(source.slice(start,end)+'run;',context);
   const back=run(()=>pending);
   if(cameraReading)previews++; // A decode delivered while home() is still pending.

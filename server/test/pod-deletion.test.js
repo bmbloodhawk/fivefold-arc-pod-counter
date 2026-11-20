@@ -5,6 +5,7 @@ import { MemoryAccountHistoryStore, AccountHistory } from '../src/account-histor
 import { createRealtimeServer } from '../src/app.js';
 import { MemoryPlaytestLedger } from '../src/playtest-ledger.js';
 import { CompetitionRecovery } from '../src/competition-recovery.js';
+import { competitionRoute } from '../src/competition-http.js';
 
 const directoryPath = 'competitions/directory.json';
 function fixture() {
@@ -141,8 +142,8 @@ async function http(t, appEnv = 'staging') {
   return { ...instance, store, personal, request };
 }
 
-test('staging advertises deletion and enforces auth, typed name, and idempotent HTTP deletion', async t => {
-  const f = await http(t);
+for (const appEnv of ['staging', 'production']) test(`${appEnv} advertises deletion and enforces auth, typed name, and idempotent HTTP deletion`, async t => {
+  const f = await http(t, appEnv);
   assert.equal((await f.request('config', { token: null })).data.podDeletionEnabled, true);
   const pod = (await f.request('pods', { method: 'POST', body: { name: 'HTTP delete', displayName: 'Owner' } })).data;
   const target = `pod/${pod.id}`, input = { method: 'DELETE', body: { confirmationName: pod.name } };
@@ -158,30 +159,20 @@ test('staging advertises deletion and enforces auth, typed name, and idempotent 
   assert.equal(JSON.stringify([...f.personal.values]), profilesBefore);
 });
 
-test('production advertises deletion but only the owner can delete after confirming the current name', async t => {
-  const f = await http(t, 'production');
-  assert.equal((await f.request('config', { token: null })).data.podDeletionEnabled, true);
-  const pod = (await f.request('pods', { method: 'POST', body: { name: 'Production owner deletion', displayName: 'Owner' } })).data;
-  const invite = (await f.request(`pod/${pod.id}/invites`, { method: 'POST', body: {} })).data;
-  const admin = (await f.request('join', { token: 'admin', method: 'POST', body: { token: invite.token, displayName: 'Admin' } })).data;
-  assert.equal((await f.request(`pod/${pod.id}/members`, { method: 'POST', body: { action: 'admin', targetId: admin.me, enabled: true } })).status, 200);
-  const current = (await f.request(`pod/${pod.id}`, { token: 'admin' })).data;
-  assert.equal(current.role, 'admin'); assert.equal(current.canDelete, false);
-  const input = { method: 'DELETE', body: { confirmationName: pod.name } };
-  assert.equal((await f.request(`pod/${pod.id}`, { ...input, token: null })).status, 401);
-  const denied = await f.request(`pod/${pod.id}`, { ...input, token: 'admin' });
-  assert.equal(denied.status, 403); assert.equal(denied.data.error.code, 'POD_OWNER_REQUIRED');
-  assert.equal((await f.request(`pod/${pod.id}`, { method: 'DELETE', body: { confirmationName: 'Wrong name' } })).status, 400);
-  assert.equal((await f.request(`pod/${pod.id}`, input)).status, 200);
-  assert.equal((await f.request(`pod/${pod.id}`)).status, 404);
-});
-
-test('an unsupported environment does not advertise or accept Pod deletion', async t => {
-  const f = await http(t, 'test');
+test('local does not advertise or accept Pod deletion even for an admin', async t => {
+  const f = await http(t, 'local');
   assert.equal((await f.request('config')).data.podDeletionEnabled, false);
-  const pod = (await f.request('pods', { method: 'POST', body: { name: 'Keep unsupported environment', displayName: 'Owner' } })).data;
+  const pod = (await f.request('pods', { method: 'POST', body: { name: 'Keep production', displayName: 'Owner' } })).data;
   assert.equal((await f.request(`pod/${pod.id}`, { method: 'DELETE', body: { confirmationName: pod.name } })).status, 404);
   assert.equal((await f.request(`pod/${pod.id}`)).status, 200);
+});
+
+test('identity and scoped storage keep deletion unavailable in both supported service environments', async () => {
+  for (const appEnv of ['staging', 'production']) for (const mode of ['identityStore', 'scopeStore']) {
+    const response = await competitionRoute({ req: { method: 'GET' },
+      url: new URL('https://example.test/api/competitions/config'), appEnv, domain: { [mode]: {} } });
+    assert.equal(response.data.podDeletionEnabled, false, `${appEnv} ${mode}`);
+  }
 });
 
 test('running Pod games block deletion; completed and reconciled games permit deletion without changing the Table', async t => {

@@ -1,15 +1,24 @@
-import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=88';
-import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=73';
+import { RealtimeAdapter, apiBaseFromPage } from './realtime.js?v=95';
+import { eliminationUndoPresentation } from './elimination-undo.js?v=1';
+import { captureLocalElimination, rememberLocalElimination, advanceLocalElimination, undoLocalElimination } from './local-elimination-undo.js?v=1';
+import { LifeAdjustmentBatcher } from './life-adjustment-batcher.js?v=74';
 import { rollPhysicalD20s, stopPhysicalD20s } from './dice-roll-3d.js?v=114';
 import { connectionPresentation } from './connection-state.js?v=1';
 import { createInteractionAdvice } from './card-interaction-advice.js?v=1';
 import { commanderFallbackLabel } from './commander-source-flow.js?v=1';
-import { currentAccountToken, emailAccountToken, googleAccountToken, restoredAccountToken, sendAccountPasswordReset, signOutAccount } from './account-auth.js?v=6';
+import { currentAccountToken, emailAccountToken, googleAccountToken, restoredAccountToken, sendAccountPasswordReset, signOutAccount, validateAccountPassword } from './account-auth.js?v=7';
+import { createAccountScreen, saveRegistrationPreferredName } from './create-account.js?v=1';
 import { JoinQrScanner } from './join-qr-scanner.js?v=5';
 import { GameWakeLock } from './game-wake-lock.js?v=1';
 import { applyCollectionVisual } from './collection-visual.js?v=4';
-import { createCompetitionHub } from './competition-ui.js?v=5';
+import { createCompetitionHub } from './competition-ui.js?v=10';
+import { parseCompetitionFragment } from './competition-model.mjs?v=2';
 import { createAppearanceCatchUp } from './appearance-catch-up.js?v=2';
+import { createDialLayout } from './dial-layout.js?v=6';
+import { bindDialSideTaps } from './dial-side-zones.js?v=2';
+import { bindDialTouchGuard } from './dial-touch-guard.js?v=1';
+import { nextGameStarterPolicy } from './next-game-starter.js?v=1';
+import { tournamentTableFlow } from './tournament-table-flow.mjs?v=1';
 
 const appearancePreviewMode = new URLSearchParams(location.search).get('appearance-preview') === '1';
 const appearanceParams = new URLSearchParams(location.search);
@@ -28,10 +37,13 @@ const ELIMINATION_ART = { life: 'assets/elimination-skull-v1.png', poison: 'asse
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const dom = {
+  nextGameStarter: $('#nextGameStarter'), nextGameStarterHelp: $('#nextGameStarterHelp'), cancelNextGameStartButton: $('#cancelNextGameStartButton'),
+  intermissionSetupButton: $('#intermissionSetupButton'), commanderSetupTitle: $('#commanderSetupTitle'), commanderSetupEyebrow: $('#commanderSetupEyebrow'), commanderSetupStatus: $('#commanderSetupStatus'),
+  undoEliminationButton: $('#undoEliminationButton'), eliminationUndoStatus: $('#eliminationUndoStatus'),
   views: $$('.view'), landing: $('#landingView'), create: $('#createView'), join: $('#joinView'), joinSeatView: $('#joinSeatView'), lobby: $('#lobbyView'), lobbyMount: $('#lobbyMount'), game: $('#gameView'), joinCodeForm: $('#joinCodeForm'), joinCodeStatus: $('#joinCodeStatus'), scanJoinQrButton: $('#scanJoinQrButton'), joinQrScannerDialog: $('#joinQrScannerDialog'), joinQrScannerVideo: $('#joinQrScannerVideo'), joinQrScannerStatus: $('#joinQrScannerStatus'), joinQrCameraFallback: $('#joinQrCameraFallback'), joinQrCameraInput: $('#joinQrCameraInput'), savedTables: $('#savedTables'), savedTablesList: $('#savedTablesList'), quickTestButton: $('#quickTestButton'), localSimulationField: $('#localSimulationField'),
   connectionButton: $('#connectionButton'), connectionText: $('#connectionText'), connectionDialog: $('#connectionDialog'), connectionDetail: $('#connectionDetail'), tableActionDialog: $('#tableActionDialog'), tableActionDetail: $('#tableActionDetail'), editPlayerNameButton: $('#editPlayerNameButton'), editPlayerNameDialog: $('#editPlayerNameDialog'), editPlayerNameForm: $('#editPlayerNameForm'), editPlayerName: $('#editPlayerName'), eliminatePlayerButton: $('#eliminatePlayerButton'), eliminatePlayerDialog: $('#eliminatePlayerDialog'), eliminatePlayerForm: $('#eliminatePlayerForm'), eliminatePlayerSeat: $('#eliminatePlayerSeat'), eliminatePlayerReason: $('#eliminatePlayerReason'), eliminatePlayerDetail: $('#eliminatePlayerDetail'), leaveTableButton: $('#leaveTableButton'), leaveTableDialog: $('#leaveTableDialog'), confirmLeaveTableButton: $('#confirmLeaveTableButton'),
-  playerCountChoices: $('#playerCountChoices'), seatCapacity: $('#seatCapacity'), createName: $('#createName'), joinSeat: $('#joinSeat'), joinName: $('#joinName'), joinSeatClaim: $('#joinSeatClaim'), activeSeat: $('#activeSeat'), localSimulation: $('#localSimulation'), roundLimitMinutes: $('#roundLimitMinutes'), createCommanderNames: $('#createCommanderNames'), joinCommanderNames: $('#joinCommanderNames'), gameCommanderNames: $('#gameCommanderNames'), createDeckField: $('#createDeckField'), createDeck: $('#createDeck'), joinDeckField: $('#joinDeckField'), joinDeck: $('#joinDeck'),
-  podStrip: $('#podStrip'), podLabel: $('#podLabel'), commanderIdentityName: $('#commanderIdentityName'), identityHeaderRail: $('#identityHeaderRail'), modeTitle: $('#modeTitle'), mainValue: $('#mainValue'), dialControls: $('#dialControls'), dialGesture: $('#dialGesture'),
+  playerCountChoices: $('#playerCountChoices'), createName: $('#createName'), joinSeat: $('#joinSeat'), joinName: $('#joinName'), joinSeatClaim: $('#joinSeatClaim'), activeSeat: $('#activeSeat'), localSimulation: $('#localSimulation'), roundLimitMinutes: $('#roundLimitMinutes'), createCommanderNames: $('#createCommanderNames'), joinCommanderNames: $('#joinCommanderNames'), gameCommanderNames: $('#gameCommanderNames'), createDeckField: $('#createDeckField'), createDeck: $('#createDeck'), joinDeckField: $('#joinDeckField'), joinDeck: $('#joinDeck'),
+  podStrip: $('#podStrip'), podLabel: $('#podLabel'), modeTitle: $('#modeTitle'), mainValue: $('#mainValue'), dialControls: $('#dialControls'), dialGesture: $('#dialGesture'),
   counterContext: $('#counterContext'), statusMessage: $('#statusMessage'), lethalMark: $('#lethalMark'), lethalImage: $('#lethalMark img'), eliminationOutcome: $('#eliminationOutcome'), lifeChangeIndicator: $('#lifeChangeIndicator'), sourcePanel: $('#sourcePanel'), commanderSourceDialog: $('#commanderSourceDialog'), commanderSourceTitle: $('#commanderSourceTitle'), commanderSourceDetail: $('#commanderSourceDetail'), commanderSourceList: $('#commanderSourceList'), inspectionNotice: $('#inspectionNotice'), commanderDamageDetails: $('#viewCommanderDamageButton'), sideSeats: $('#sideSeats'),
   activeSeatBar: $('#activeSeatBar'), gameMenu: $('#gameMenu'), gameMenuBackdrop: $('#gameMenuBackdrop'), moreButton: $('#moreButton'), tableSkinMenuField: $('#tableSkinMenuField'), tableSkinMenu: $('#tableSkinMenu'), deviceAppearanceField: $('#deviceAppearanceField'), deviceAppearanceChoice: $('#deviceAppearanceChoice'), viewCelebrationButton: $('#viewCelebrationButton'),
   disconnectBanner: $('#disconnectBanner'), syncBanner: $('#syncBanner'), coinTossNotice: $('#coinTossNotice'), victoryNotice: $('#victoryNotice'), intermission: $('#intermissionView'), intermissionPanel: $('#intermissionPanel'), intermissionTitle: $('#intermissionTitle'), intermissionDetail: $('#intermissionDetail'), intermissionInvite: $('#intermissionInvite'), intermissionInviteCode: $('#intermissionInviteCode'), copyIntermissionJoinLinkButton: $('#copyIntermissionJoinLinkButton'), showIntermissionJoinQrButton: $('#showIntermissionJoinQrButton'), intermissionRoster: $('#intermissionRoster'), intermissionReadyButton: $('#intermissionReadyButton'), intermissionStartButton: $('#intermissionStartButton'), intermissionLeaveButton: $('#intermissionLeaveButton'), intermissionLeaveDialog: $('#intermissionLeaveDialog'), intermissionLeaveForm: $('#intermissionLeaveForm'), coinTossButton: $('#coinTossButton'), coinTossDialog: $('#coinTossDialog'), coinTossResult: $('#coinTossResult'), tossAgainButton: $('#tossAgainButton'), resetDialog: $('#resetDialog'), resetTitle: $('#resetTitle'), resetDetail: $('#resetDetail'), confirmResetButton: $('#confirmResetButton'), saveGameButton: $('#saveGameButton'), saveGameDeck: $('#saveGameDeck'), commanderSetupButton: $('#commanderSetupButton'), backToSetupButton: $('#backToSetupButton'), declareWinnerButton: $('#declareWinnerButton'), declareWinnerDialog: $('#declareWinnerDialog'), declareWinnerForm: $('#declareWinnerForm'), winnerSeat: $('#winnerSeat'), winnerReason: $('#winnerReason'), victoryDialog: $('#victoryDialog'), victoryArt: $('.victory-art'), victoryEyebrow: $('#victoryEyebrow'), victoryTitle: $('#victoryTitle'), victoryDetail: $('#victoryDetail'), personalMatchMoment: $('#personalMatchMoment'), personalMatchArt: $('#personalMatchArt'), personalMatchMomentTitle: $('#personalMatchMomentTitle'), personalMatchMomentLine: $('#personalMatchMomentLine'), personalMatchMomentFact: $('#personalMatchMomentFact'),
@@ -43,8 +55,12 @@ const dom = {
   customLifeButton: $('#customLifeButton'), customLifeDialog: $('#customLifeDialog'), customLifeForm: $('#customLifeForm'), customLifeAmount: $('#customLifeAmount'), cancelCustomLifeButton: $('#cancelCustomLifeButton'), radiationDialog: $('#radiationDialog'), radiationForm: $('#radiationForm'), radiationDetail: $('#radiationDetail'), radiationNonlandCount: $('#radiationNonlandCount'), resolveRadiationButton: $('#resolveRadiationButton'), playtestNotesButton: $('#playtestNotesButton'), playtestRecapButton: $('#playtestRecapButton'), fieldTestButton: $('#fieldTestButton'), markDevelopmentButton: $('#markDevelopmentButton'), fieldTestDialog: $('#fieldTestDialog'), fieldTestForm: $('#fieldTestForm'), fieldTestStatus: $('#fieldTestStatus'), savedPlaytestsButton: $('#savedPlaytestsButton'), lockDeveloperModeButton: $('#lockDeveloperModeButton'), developerModeDialog: $('#developerModeDialog'), developerModeForm: $('#developerModeForm'), developerModeKey: $('#developerModeKey'), developerModeStatus: $('#developerModeStatus'), unlockDeveloperModeButton: $('#unlockDeveloperModeButton'), refreshTableButton: $('#refreshTableButton'), playtestNotesDialog: $('#playtestNotesDialog'), playtestNotesForm: $('#playtestNotesForm'), playtestNotesList: $('#playtestNotesList'), playtestNoteText: $('#playtestNoteText'), playtestNoteStatus: $('#playtestNoteStatus'), playtestRecapDialog: $('#playtestRecapDialog'), playtestRecapContent: $('#playtestRecapContent'), savedPlaytestsDialog: $('#savedPlaytestsDialog'), savedPlaytestsContent: $('#savedPlaytestsContent')
 };
 const winnerCondition = $('#winnerCondition');
+const dialLayout = createDialLayout(dom.game, dom.mainValue);
 dom.lobbyMount.append(dom.lobbyControls);
 const transport = new RealtimeAdapter({ apiBase: apiBaseFromPage() });
+let tournamentTableContext = null;
+const tournamentRoundButton = $('#tournamentRoundButton');
+const returnToTournamentButton = $('#returnToTournamentButton');
 const competitionHub = createCompetitionHub({
   getSession: () => ({ code: transport.roomCode, seatId: transport.seatId, connectionId: transport.connectionId, snapshot: transport.snapshot }),
   getAccountToken: currentAccountToken,
@@ -52,10 +68,19 @@ const competitionHub = createCompetitionHub({
   openSignIn: () => openMyProfile(),
   closeTableMenu: () => closeGameMenu(),
   returnToTable: () => { if (state) { showTableView(); render(); } },
+  onCompetitionContext: value => {
+    tournamentTableContext = value ? { ...value, code: transport.roomCode, receivedAt: Date.now() } : null;
+    if (state) {
+      if ([dom.game, dom.lobby, dom.intermission].some(view => !view.hidden)) showTableView();
+      renderTurnFlow();
+    }
+  },
+  leaveFinishedTable: () => leaveFinishedTournamentTable(),
+  leaveReplacedTable: code => leaveReplacedTournamentTable(code),
   joinTable: code => { if (transport.roomCode === code && state) { showTableView(); render(); } else void openJoinCode(code); },
   createTable: link => {
     dom.localSimulation.checked = false;
-    if (link.playerCount) { const choice = $(`input[name="playerCount"][value="${link.playerCount}"]`); if (choice) choice.checked = true; dom.seatCapacity.value = String(link.playerCount); }
+    if (link.playerCount) { const choice = $(`input[name="playerCount"][value="${link.playerCount}"]`); if (choice) choice.checked = true; }
     dom.roundLimitMinutes.value = ''; showCreateStep(1); showView(dom.create); void loadSetupDecks();
   },
   onClose: () => { if (state) { if (transport.roomCode && !transport.localMode) showTableView(); render(); } },
@@ -126,12 +151,43 @@ function recordClientDiagnostic(kind, extra = {}) {
 const signInButton = $('#signInButton'); const myGamesButton = $('#myGamesButton'); const myGamesDialog = $('#myGamesDialog'); const myGamesStatus = $('#myGamesStatus'); const myGamesContent = $('#myGamesContent'); const myGamesSignInButton = $('#myGamesSignInButton'); const emailSignInFields = $('#emailSignInFields'); const emailSignInButton = $('#emailSignInButton'); const forgotPasswordButton = $('#forgotPasswordButton'); const createAccountButton = $('#createAccountButton'); const exportAccountButton = $('#exportAccountButton'); const deleteAccountButton = $('#deleteAccountButton'); const signOutButton = $('#signOutButton'); const accountEmail = $('#accountEmail'); const accountPassword = $('#accountPassword'); const accountPreferredNameField = $('#accountPreferredNameField'); const accountPreferredName = $('#accountPreferredName'); const accountDefaultPlayerCountField = $('#accountDefaultPlayerCountField'); const accountDefaultPlayerCount = $('#accountDefaultPlayerCount'); const accountDefaultRoundLimitField = $('#accountDefaultRoundLimitField'); const accountDefaultRoundLimit = $('#accountDefaultRoundLimit'); const saveAccountPreferencesButton = $('#saveAccountPreferencesButton'); const myDecksButton = $('#myDecksButton'); const myDecksDialog = $('#myDecksDialog'); const myDecksStatus = $('#myDecksStatus'); const myDecksContent = $('#myDecksContent'); const myDecksSignInButton = $('#myDecksSignInButton'); const createDeckButton = $('#createDeckButton'); const findDeckColorsButton = $('#findDeckColorsButton'); const deckCommanderStatus = $('#deckCommanderStatus'); const deckCommanderName = $('#deckCommanderName'); const deckCommanderNameTwo = $('#deckCommanderNameTwo'); const deckCommanderNameTwoField = $('#deckCommanderNameTwoField'); const deckName = $('#deckName'); const deckNotes = $('#deckNotes'); const deckFavorite = $('#deckFavorite');
 myGamesStatus.setAttribute('role', 'status');
 const baseSealMarkup = $('.counter-sigil')?.innerHTML || ''; const baseModeNavMarkup = new Map($$('[data-mode]').map(button => [button.dataset.mode, button.innerHTML]));
+const deckLibraryView = $('#deckLibraryView'), deckEditor = $('#deckEditor'), deckSearch = $('#deckSearch');
+const deckCommanderMatches = [$('#deckCommanderMatches'), $('#deckCommanderMatchesTwo')];
+const addDeckButton = $('#addDeckButton'), cancelDeckEditorButton = $('#cancelDeckEditorButton');
+const myDecksTitle = $('#myDecksTitle'), closeMyDecksButton = $('#closeMyDecksButton');
 const accountSignedInStatus = $('#accountSignedInStatus');
+const homeSignOutButton = $('#homeSignOutButton');
+const homeAccountMessage = $('#homeAccountMessage');
+let homeAccountSignedIn = false;
+let signOutInFlight = false;
+const registrationView = $('#registerView');
+let registrationReturnView = null;
+const registration = createAccountScreen({
+  root: registrationView,
+  register: (email, password) => emailAccountToken(email, password, true),
+  complete: finishAccountSignIn,
+  savePreferredName: saveRegistrationPreferredName,
+  validatePassword: validateAccountPassword,
+  onPendingChange(pending) {
+    for (const button of [myGamesSignInButton, emailSignInButton, createAccountButton]) button.disabled = pending;
+  },
+  onBack(email) {
+    accountEmail.value = email;
+    showView(registrationReturnView || dom.landing);
+    openSignIn({ returnToJoin: pendingSignInReturn?.view === 'join' });
+  },
+  onBackgroundError(message) {
+    if (myGamesDialog.open) myGamesStatus.textContent = message;
+    else { homeAccountMessage.textContent = message; homeAccountMessage.hidden = false; }
+  },
+});
 const accountSkinRewards = $('#accountSkinRewards');
 const accountInterfaceStyleField = $('#accountInterfaceStyleField'); const accountInterfaceStyle = $('#accountInterfaceStyle'); const accountPersonalSkinField = $('#accountPersonalSkinField'); const accountPersonalSkin = $('#accountPersonalSkin'); const accountUsePersonalSkinField = $('#accountUsePersonalSkinField'); const accountUsePersonalSkin = $('#accountUsePersonalSkin');
 let state = null;
 let developerMode = sessionStorage.getItem(DEVELOPER_MODE_KEY) === 'on';
 const SAVED_TABLES_KEY = 'fivefold-arc:saved-tables';
+const ACTIVE_TABLE_KEY = 'fivefold-arc:active-table';
+const LEGACY_ACTIVE_TABLE_KEY = 'fivefold-arc:last-active-table';
 const clearPastTablesButton = $('#clearPastTablesButton');
 const clearPastTablesDialog = $('#clearPastTablesDialog');
 const clearPastTablesError = $('#clearPastTablesError');
@@ -173,6 +229,8 @@ let localStartingRollKey = null;
 let pendingStartingRoll = null;
 let pendingStartingSeatId = null;
 let turnTicker = null;
+let pendingEliminationUndoId = null;
+let announcedEliminationUndoId = null;
 let turnUndoTimer = null;
 let lastTurnHandoffKey = null;
 let shownVictoryKey = null; let victoryDismissReady = false; let victoryDismissTimer = null; let victoryStage = 'winner';
@@ -182,9 +240,15 @@ let pendingSignInReturn = null;
 const unlockedAchievementsByGame = new Map();
 let resolvedRadiationTurnKey = null;
 let selectedDeckId = ''; let setupDecks = []; let commanderDecks = []; let joinGameFormat = 'commander'; let savedDecks = []; let editingDeckId = null; let deckCommanderColors = [];
+let commanderSetupDraft = null; let pendingNextGameSetup = false;
+let nextGameConfirmation = null; let nextGameStarterPending = false; let nextGameStartPending = false;
+let gameStartRequest = null;
+let pendingTableCreation = null;
+let backgroundTableEpoch = null;
 let optimisticLifeDelta = 0;
 let awaitingConfirmedResync = false;
 let syncBannerTimer = null;
+let activeTableRecoveryEpoch = null;
 // New players begin with the Dial. An explicit previous Button choice remains
 // respected on this device.
 let interfaceStyle = (() => { try { return localStorage.getItem(INTERFACE_STYLE_KEY) === 'button' ? 'button' : 'dial'; } catch { return 'dial'; } })();
@@ -199,29 +263,40 @@ let stagingReviewSkins = [];
 let stagingReviewChoice;
 let dialPointer = null;
 let pendingIntermissionKey = null;
-async function reconcileLifeWriteError(error) {
+async function reconcileTableWriteError(error) {
   try {
     const result = await transport.refreshRoom();
     if (result.ignored) return false;
-    renderConnection('connected');
+    renderMutationAvailability();
     return true;
   } catch {
-    renderConnection('disconnected'); showError(error);
+    showError(error);
     return false;
   }
 }
 const lifeBatcher = new LifeAdjustmentBatcher({ delayMs: 300, send: async ({ delta, operationId }) => {
+  const epoch = transport.sessionEpoch, roomCode = transport.roomCode, ownerPlayerId = state?.ownerPlayerId;
+  const currentTable = () => epoch === transport.sessionEpoch && roomCode === transport.roomCode && ownerPlayerId === state?.ownerPlayerId;
+  const discardPending = () => { lifeBatcher.clear(); optimisticLifeDelta = 0; };
   // The transport applies its snapshot before resolving. Remove this just-sent
   // amount first so the authoritative response cannot be visually double-counted.
   optimisticLifeDelta -= delta;
   try {
     const result = await transport.adjust({ counter: 'life', delta, operationId });
-    if (result.ignored || result.local || result.locked) return;
+    if (!currentTable()) return { ignored: true };
+    if (result.ignored || result.local || result.locked) { discardPending(); if (result.locked) confirmLifeChange(ownerPlayerId); return result; }
     if (result.blocked) throw new Error('Reconnect before changing life. The pending adjustment was not saved.');
-    confirmLifeChange(state?.ownerPlayerId);
+    confirmLifeChange(ownerPlayerId);
+    return result;
   }
-  catch (error) { await reconcileLifeWriteError(error); }
-  finally { if (state) render(); }
+  catch (error) {
+    if (!currentTable()) return { ignored: true };
+    discardPending();
+    if (!lifeChange?.confirmed) { clearTimeout(lifeChangeTimer); lifeChange = null; }
+    await reconcileTableWriteError(error);
+    return { failed: true };
+  }
+  finally { if (state && currentTable()) render(); }
 } });
 
 function sourceForSeat(player, slot) {
@@ -295,17 +370,17 @@ function stateFromSnapshot(snapshot) {
   const activePlayerId = previous?.localSimulation === false && previous.podCode === snapshot.code && snapshot.seats.some(seat => `P${seat.seatId + 1}` === previous.activePlayerId) ? previous.activePlayerId : ownerPlayerId;
   const turn = snapshot.turn || { activeSeatId: 0, gameStarted: true, gameStartedAt: Date.now(), turnStartedAt: Date.now(), turnNumber: 1, roundEndsAt: null, startingPlayerSeatId: 0, startingPlayerRoll: null, lastHandoff: null, trackingEnabled: true, cueMode: 'off', pausedAt: null };
   return {
+    pendingFinish: snapshot.pendingFinish || null,
     playerCount: snapshot.config.playerCount, seatCapacity: snapshot.config.seatCapacity || snapshot.config.playerCount, startingLife: snapshot.config.startingLife, gameFormat: snapshot.config.gameFormat || 'commander', roundLimitMinutes: snapshot.config.roundLimitMinutes || null, commanderSources, commanderCastCounts: castCountsFromSnapshot(snapshot, commanderSources), ownerPlayerId, activePlayerId, turnSeatId: `P${turn.activeSeatId + 1}`, turn,
     localSimulation: false, podCode: snapshot.code, version: snapshot.version, hostSeatId: snapshot.hostSeatId, tableSkinId: snapshot.config.tableSkinId || '', earnedTableSkinName: snapshot.config.earnedTableSkinName || '', sessionKind: snapshot.sessionKind || 'standard', feedbackPromptSeatId: snapshot.feedbackPromptSeatId, lastCoinToss: snapshot.lastCoinToss || null, gameResult: snapshot.gameResult ? { ...snapshot.gameResult, gameId: snapshot.completedGameId, saveEligible: snapshot.completedGameEligible === true } : null, lifecycle: snapshot.lifecycle || { status: snapshot.turn?.gameStarted ? 'playing' : 'lobby', seatIds: snapshot.seats.filter(seat => seat.claimed).map(seat => seat.seatId), readySeatIds: [] }, lastGameWinnerSeatId: Number.isInteger(snapshot.lastGameWinnerSeatId) ? snapshot.lastGameWinnerSeatId : null, mode: previous?.mode || 'life', selectedSourceId: previous?.selectedSourceId || null,
-    players: snapshot.seats.map(seat => ({ id: `P${seat.seatId + 1}`, name: seat.name, commanderCount: seat.commanderCount === 2 ? 2 : 1, commanderNames: seat.commanderNames || [], commanderColors: (seat.commanderColors || []).map(normaliseIdentity), life: seat.counters.life, poison: seat.counters.poison, poisonReceived: seat.counterTotals?.poison || 0, commanderDamage: damageFromSnapshot(seat, commanderSources), radiation: seat.counters.radiation ?? 0, energy: seat.counters.energy, generic: seat.counters.generic, alternateElimination: seat.alternateElimination || null, connectionStatus: seat.connected ? 'connected' : seat.claimed ? 'disconnected' : 'waiting', eliminated: false, lethalCause: null, warning: null }))
+    players: snapshot.seats.map(seat => ({ id: `P${seat.seatId + 1}`, name: seat.name, commanderCount: seat.commanderCount === 2 ? 2 : 1, commanderNames: seat.commanderNames || [], commanderColors: (seat.commanderColors || []).map(normaliseIdentity), life: seat.counters.life, poison: seat.counters.poison, poisonReceived: seat.counterTotals?.poison || 0, commanderDamage: damageFromSnapshot(seat, commanderSources), radiation: seat.counters.radiation ?? 0, energy: seat.counters.energy, generic: seat.counters.generic, alternateElimination: seat.alternateElimination || null, eliminationUndo: seat.eliminationUndo || null, connectionStatus: seat.connected ? 'connected' : seat.claimed ? 'disconnected' : 'waiting', eliminated: false, lethalCause: null, warning: null }))
   };
 }
 function sourcesForDefender(_playerId) { return state.commanderSources; }
 function ownCommanderSources(playerId) { return state.commanderSources.filter(source => source.ownerPlayerId === playerId); }
 function tablePositionLabel(player) {
-  const seatId = Number(String(player?.id || '').slice(1)) - 1;
-  const position = state?.lifecycle?.seatIds?.indexOf(seatId);
-  return Number.isInteger(position) && position >= 0 ? `P${position + 1}` : player?.id || 'Player';
+  // Claimed seat identity stays the same when its turn position moves.
+  return player?.id || 'Player';
 }
 function displayName(player) { return String(player?.name || player?.id || 'Player').trim() || player.id; }
 function displayPlayer(player) { const name = displayName(player); const position = tablePositionLabel(player); return name === position ? name : `${name} · ${position}`; }
@@ -350,13 +425,22 @@ function renderStatusMessage(status, { hidden = false } = {}) {
   dom.statusMessage.textContent = status;
 }
 function localLastPlayerStanding() {
-  if (!state?.localSimulation || state.gameResult) return;
-  const survivors = state.players.filter(player => !player.eliminated);
-  if (state.players.length >= 2 && survivors.length === 1) { state.gameResult = { winnerSeatId: Number(survivors[0].id.slice(1)) - 1, reason: 'last_player_standing', decidedAt: Date.now() }; state.lifecycle = { ...state.lifecycle, status: 'complete' }; }
+  advanceLocalElimination(state);
 }
 function victoryKey(result) { return result ? result.gameId || `${result.winnerSeatId}:${result.reason}:${result.decidedAt}` : null; }
 function winnerFromResult() { return Number.isInteger(state?.gameResult?.winnerSeatId) ? state.players.find(player => player.id === `P${state.gameResult.winnerSeatId + 1}`) : null; }
 function accoladeArtUrl(title) { return `assets/accolades/${String(title || 'arc-complete').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}.png`; }
+function personalMatchArt(moment) {
+  if (moment.art) return moment.art;
+  // Older completed games retain the original text-only card, including null art.
+  const legacyArt = ['table-victor', 'pod-company', 'turn-order', 'table-chronicle', 'format-finish', 'starting-line',
+    'clock-record', 'result-recorded', 'finish-call', 'turn-logged', 'place-recorded', 'closing-total'];
+  for (const name of [moment.id, moment.category, moment.title]) {
+    const key = String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    if (legacyArt.includes(key)) return key;
+  }
+  return 'arc-complete';
+}
 function winnerArtUrl(winner, gameKey) { const variants = ['last-one-standing', 'table-monarch', 'arc-victor']; const seed = [...String(gameKey || winner?.id || '')].reduce((total, character) => total + character.codePointAt(0), 0); return `assets/accolades/${variants[seed % variants.length]}.png`; }
 const achievementRarityLabel = (rarity) => ({ common: 'Common', uncommon: 'Uncommon', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' })[rarity] || 'Common';
 const achievementRarityMark = (rarity) => ({ common: '◇', uncommon: '✦', rare: '✧', epic: '✹', legendary: '✪' })[rarity] || '◇';
@@ -416,7 +500,7 @@ function showPersonalMatchMoment(moment) {
   const card = !moment || moment.kind === 'recap'
     ? { title: 'Arc Complete', category: 'Arc Complete', line: 'You completed this game.', fact: 'Game finished', art: 'arc-complete' }
     : moment;
-  const art = card.art;
+  const art = personalMatchArt(card);
   dom.personalMatchMomentTitle.textContent = card.title;
   dom.personalMatchMoment.toggleAttribute('data-text-card', !art);
   dom.personalMatchArt.hidden = !art;
@@ -456,14 +540,30 @@ function advanceEndGameFlow(key) {
   finishEndGameFlow(key);
 }
 async function loadSaveGameDecks() {
-  try { const token = await currentAccountToken(); if (!token) return; const response = await fetch('/api/account/decks', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) return; const { decks } = await response.json(); dom.saveGameDeck.innerHTML = `<option value="">No deck selected</option>${decks.map(deck => `<option value="${escapeHtml(deck.deckId)}">${escapeHtml([deck.commanderName, deck.name].filter(Boolean).join(' · '))}</option>`).join('')}`; } catch { /* Saving a game remains available without a deck. */ }
+  const profileEpoch = awardProfileEpoch;
+  try { const token = await currentAccountToken(); if (!token || profileEpoch !== awardProfileEpoch) return; const response = await fetch('/api/account/decks', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) return; const { decks } = await response.json(); if (profileEpoch !== awardProfileEpoch) return; dom.saveGameDeck.innerHTML = `<option value="">No deck selected</option>${decks.map(deck => `<option value="${escapeHtml(deck.deckId)}">${escapeHtml([deck.commanderName, deck.name].filter(Boolean).join(' · '))}</option>`).join('')}`; } catch { /* Saving a game remains available without a deck. */ }
 }
-async function loadCommanderDecks() {
-  try { const token = await currentAccountToken(); if (!token) return; const response = await fetch('/api/account/decks', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) return; const { decks } = await response.json(); commanderDecks = decks; dom.commanderDeck.innerHTML = `<option value="">No deck selected</option>${decks.map(deck => `<option value="${escapeHtml(deck.deckId)}">${escapeHtml([deck.commanderName, deck.name].filter(Boolean).join(' · '))}</option>`).join('')}`; dom.commanderDeck.value = selectedDeckId; dom.commanderDeckField.hidden = false; } catch { /* Deck choice remains optional. */ }
+async function loadCommanderDecks(draft = commanderSetupDraft) {
+  try {
+    const token = await currentAccountToken();
+    if (!token || draft !== commanderSetupDraft || !commanderSetupContextMatches(draft)) return;
+    const response = await fetch('/api/account/decks', { headers: { authorization: `Bearer ${token}` } });
+    if (!response.ok) throw new Error('Saved decks could not load. You can enter commanders manually.');
+    const { decks } = await response.json();
+    if (draft !== commanderSetupDraft || !commanderSetupContextMatches(draft) || draft.saving) return;
+    const draftDeckId = dom.commanderDeck.value;
+    commanderDecks = decks;
+    dom.commanderDeck.innerHTML = `<option value="">Enter commanders manually</option>${decks.map(deck => `<option value="${escapeHtml(deck.deckId)}">${escapeHtml([deck.name, deck.commanderName].filter(Boolean).join(' · '))}</option>`).join('')}`;
+    dom.commanderDeck.value = draftDeckId;
+    dom.commanderDeckField.hidden = false;
+  } catch (error) {
+    if (draft === commanderSetupDraft && commanderSetupContextMatches(draft)) showCommanderSetupError(error.message);
+  }
 }
 function sortSetupDecks(decks) { return [...decks].sort((left, right) => Number(right.favorite) - Number(left.favorite) || String(left.name || left.commanderName || '').localeCompare(String(right.name || right.commanderName || ''), undefined, { sensitivity: 'base' })); }
 async function loadSetupDecks() {
-  try { const token = await currentAccountToken(); if (!token) return; const response = await fetch('/api/account/decks', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) return; const { decks } = await response.json(); setupDecks = sortSetupDecks(decks); const options = `<option value="">No deck selected</option>${setupDecks.map(deck => `<option value="${escapeHtml(deck.deckId)}">${escapeHtml(`${deck.favorite ? '★ ' : ''}${[deck.commanderName, deck.name, deck.colors?.join('')].filter(Boolean).join(' · ')}`)}</option>`).join('')}`; [dom.createDeck, dom.joinDeck].forEach(select => { select.innerHTML = options; select.value = ''; }); $('#joinSignInDeckButton').hidden = true; updateFormatSetup(); } catch {} }
+  const profileEpoch = awardProfileEpoch;
+  try { const token = await currentAccountToken(); if (!token || profileEpoch !== awardProfileEpoch) return; const response = await fetch('/api/account/decks', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) return; const { decks } = await response.json(); if (profileEpoch !== awardProfileEpoch) return; setupDecks = sortSetupDecks(decks); const options = `<option value="">No deck selected</option>${setupDecks.map(deck => `<option value="${escapeHtml(deck.deckId)}">${escapeHtml(`${deck.favorite ? '★ ' : ''}${[deck.commanderName, deck.name, deck.colors?.join('')].filter(Boolean).join(' · ')}`)}</option>`).join('')}`; [dom.createDeck, dom.joinDeck].forEach(select => { select.innerHTML = options; select.value = ''; }); $('#joinSignInDeckButton').hidden = true; updateFormatSetup(); } catch {} }
 function renderVictory() {
   const result = state?.gameResult; const winner = winnerFromResult();
   const timedDraw = result?.reason === 'timed_draw';
@@ -529,11 +629,11 @@ function setInterfaceStyle(style, { persistAccount = false } = {}) {
   if (persistAccount) void saveAccountPreferences();
 }
 const gameDefaultLayoutStyle = document.createElement('style'); gameDefaultLayoutStyle.textContent = 'html.game-layout-active #gameView .pod-strip{translate:var(--game-layout-pod-strip-x,0) var(--game-layout-pod-strip-y,0);scale:var(--game-layout-pod-strip-scale,1);transform-origin:center}html.game-layout-active #gameView .counter-readout{translate:var(--game-layout-counter-readout-x,0) var(--game-layout-counter-readout-y,0);scale:var(--game-layout-counter-readout-scale,1);transform-origin:center}html.game-layout-active #gameView .dial-gesture{translate:var(--game-layout-dial-surface-x,0) var(--game-layout-dial-surface-y,0);scale:var(--game-layout-dial-surface-scale,1);transform-origin:center}html.game-layout-active #gameView .source-panel{translate:var(--game-layout-commander-damage-x,0) var(--game-layout-commander-damage-y,0);scale:var(--game-layout-commander-damage-scale,1);transform-origin:center}html.game-layout-active #gameView #turnActions{translate:var(--game-layout-turn-actions-x,0) var(--game-layout-turn-actions-y,0);scale:var(--game-layout-turn-actions-scale,1);transform-origin:center}html.game-layout-active #gameView .adjust-controls{translate:var(--game-layout-adjust-controls-x,0) var(--game-layout-adjust-controls-y,0);scale:var(--game-layout-adjust-controls-scale,1);transform-origin:center}html.game-layout-active #gameView .custom-life-button{translate:var(--game-layout-custom-life-x,0) var(--game-layout-custom-life-y,0);scale:var(--game-layout-custom-life-scale,1);transform-origin:center}html.game-layout-active #gameView .commander-tax-quick{translate:var(--game-layout-commander-tax-x,0) var(--game-layout-commander-tax-y,0);scale:var(--game-layout-commander-tax-scale,1);transform-origin:center}html.game-layout-active #gameView .mode-nav{translate:var(--game-layout-mode-nav-x,0) var(--game-layout-mode-nav-y,0);scale:var(--game-layout-mode-nav-scale,1);transform-origin:center}'; document.head.append(gameDefaultLayoutStyle);
-function applyGameDefaultLayout() { const layout = gameDefaultLayout?.modeLayouts?.[interfaceStyle]; if (!layout) return; document.documentElement.classList.add('game-layout-active'); const regions = { podStrip: 'pod-strip', counterReadout: 'counter-readout', dialSurface: 'dial-surface', commanderDamage: 'commander-damage', turnActions: 'turn-actions', adjustControls: 'adjust-controls', customLife: 'custom-life', commanderTax: 'commander-tax', modeNav: 'mode-nav' }; Object.entries(regions).forEach(([key, css]) => { const placement = layout.componentLayout?.[key] || {}; document.documentElement.style.setProperty(`--game-layout-${css}-x`, `${Math.min(100, Math.max(-100, Number(placement.x) || 0))}px`); document.documentElement.style.setProperty(`--game-layout-${css}-y`, `${Math.min(140, Math.max(-140, Number(placement.y) || 0))}px`); document.documentElement.style.setProperty(`--game-layout-${css}-scale`, String(Math.min(140, Math.max(70, Number(placement.scale) || 100)) / 100)); }); }
+function applyGameDefaultLayout() { const layout = gameDefaultLayout?.modeLayouts?.[interfaceStyle]; if (!layout) return; document.documentElement.classList.add('game-layout-active'); const regions = { podStrip: 'pod-strip', counterReadout: 'counter-readout', dialSurface: 'dial-surface', commanderDamage: 'commander-damage', turnActions: 'turn-actions', adjustControls: 'adjust-controls', customLife: 'custom-life', commanderTax: 'commander-tax', modeNav: 'mode-nav' }; Object.entries(regions).forEach(([key, css]) => { const placement = layout.componentLayout?.[key] || {}; document.documentElement.style.setProperty(`--game-layout-${css}-x`, `${Math.min(100, Math.max(-100, Number(placement.x) || 0))}px`); document.documentElement.style.setProperty(`--game-layout-${css}-y`, `${Math.min(140, Math.max(-140, Number(placement.y) || 0))}px`); document.documentElement.style.setProperty(`--game-layout-${css}-scale`, String(Math.min(140, Math.max(70, Number(placement.scale) || 100)) / 100)); }); dialLayout.update(); }
 async function loadGameDefaultLayout() { try { const response = await fetch('/api/game-layout', { cache: 'no-store' }); if (!response.ok) return; gameDefaultLayout = (await response.json()).layout; applyGameDefaultLayout(); } catch { /* Game play remains available if the optional layout cannot load. */ } }
 const publishedSkinStyle = document.createElement('style'); publishedSkinStyle.textContent = 'html.game-skin-active body{background:radial-gradient(circle at var(--skin-atmosphere-position,50% 0%),color-mix(in srgb,var(--skin-atmosphere,#000) calc(var(--skin-atmosphere-strength,0) * 100%),transparent),transparent 58%),var(--bg);background-size:cover;background-position:center}html.game-skin-active #gameView .pod-seat{border-radius:var(--skin-seat-radius,8px);border-color:color-mix(in srgb,#5b594f calc(var(--skin-seat-border,70) * 1%),transparent);background:color-mix(in srgb,var(--surface) calc(var(--skin-seat-opacity,100) * 1%),transparent);backdrop-filter:blur(calc(var(--skin-seat-blur,0) * 1px))}html.game-skin-active #gameView[data-appearance-seat="flat"] .pod-seat{border-radius:0;box-shadow:none}html.game-skin-active #gameView[data-appearance-seat="glass"] .pod-seat{background:color-mix(in srgb,var(--surface) calc(var(--skin-seat-opacity,100) * .72%),transparent)}html.game-skin-active #gameView .end-turn-button{border-radius:var(--skin-button-radius,8px);border-color:color-mix(in srgb,var(--brass) calc(var(--skin-button-border,70) * 1%),transparent);background:color-mix(in srgb,var(--brass) calc(var(--skin-button-opacity,100) * 1%),transparent);backdrop-filter:blur(calc(var(--skin-button-blur,0) * 1px))}html.game-skin-active #gameView[data-appearance-button="outline"] .end-turn-button{background:transparent;color:var(--brass)}html.game-skin-active #gameView .pod-strip{translate:var(--skin-pod-strip-x,0) var(--skin-pod-strip-y,0);scale:var(--skin-pod-strip-scale,1);transform-origin:center}html.game-skin-active #gameView .counter-readout{translate:var(--skin-counter-readout-x,0) var(--skin-counter-readout-y,0);scale:var(--skin-counter-readout-scale,1);transform-origin:center}html.game-skin-active #gameView .dial-gesture{translate:var(--skin-dial-surface-x,0) var(--skin-dial-surface-y,0);scale:var(--skin-dial-surface-scale,1);transform-origin:center}html.game-skin-active #gameView .source-panel{translate:var(--skin-commander-damage-x,0) var(--skin-commander-damage-y,0);scale:var(--skin-commander-damage-scale,1);transform-origin:center}html.game-skin-active #gameView #turnActions{translate:var(--skin-turn-actions-x,0) var(--skin-turn-actions-y,0);scale:var(--skin-turn-actions-scale,1);transform-origin:center}html.game-skin-active #gameView .adjust-controls{translate:var(--skin-adjust-controls-x,0) var(--skin-adjust-controls-y,0);scale:var(--skin-adjust-controls-scale,1);transform-origin:center}html.game-skin-active #gameView .custom-life-button{translate:var(--skin-custom-life-x,0) var(--skin-custom-life-y,0);scale:var(--skin-custom-life-scale,1);transform-origin:center}html.game-skin-active #gameView .commander-tax-quick{translate:var(--skin-commander-tax-x,0) var(--skin-commander-tax-y,0);scale:var(--skin-commander-tax-scale,1);transform-origin:center}html.game-skin-active #gameView .mode-nav{translate:var(--skin-mode-nav-x,0) var(--skin-mode-nav-y,0);scale:var(--skin-mode-nav-scale,1);transform-origin:center}'; document.head.append(publishedSkinStyle);
 const publishedSkinArtStyle = document.createElement('style'); publishedSkinArtStyle.textContent = 'html.game-skin-active .mode-nav img{width:22px;height:22px;object-fit:contain}html.game-skin-active .counter-sigil img{width:100%;height:100%;object-fit:contain}html.game-skin-active .skin-overlay{position:absolute;inset:0;z-index:2;width:100%;height:100%;object-fit:cover;pointer-events:none;mix-blend-mode:var(--skin-overlay-blend,normal);opacity:var(--skin-overlay-opacity,.3);transform:scale(var(--skin-overlay-scale,1));transform-origin:center}html.game-skin-active .skin-dial-art{object-fit:contain;transform:scale(var(--skin-overlay-scale,1)) rotate(var(--dial-seal-rotation,0deg))}html.game-skin-active .pod-seat{position:relative;overflow:hidden}html.game-skin-active .pod-seat>.seat-name,html.game-skin-active .pod-seat>.seat-life,html.game-skin-active .dial-controls>*:not(.skin-overlay){position:relative;z-index:3}'; document.head.append(publishedSkinArtStyle);
-const publishedDialArtStyle = document.createElement('style'); publishedDialArtStyle.textContent = 'html.game-skin-active #gameView .dial-gesture{position:absolute;z-index:1;overflow:visible;transform-origin:50% 50%}html.game-skin-active #gameView .dial-step{position:relative;z-index:2}html.game-skin-active .dial-gesture>.skin-overlay{border-radius:0;object-fit:contain;object-position:center;transform:scale(var(--skin-overlay-scale,1)) rotate(var(--dial-seal-rotation,0deg));transform-origin:50% 50%;will-change:transform}'; document.head.append(publishedDialArtStyle);
+const publishedDialArtStyle = document.createElement('style'); publishedDialArtStyle.textContent = 'html.game-skin-active #gameView .dial-gesture{position:absolute;z-index:1;overflow:visible;transform-origin:50% 50%}html.game-skin-active #gameView .dial-step{z-index:2}html.game-skin-active .dial-gesture>.skin-overlay{border-radius:0;object-fit:contain;object-position:center;transform:scale(var(--skin-overlay-scale,1)) rotate(var(--dial-seal-rotation,0deg));transform-origin:50% 50%;will-change:transform}'; document.head.append(publishedDialArtStyle);
 function deviceAppearanceChoice() {
   if (stagingReviewChoice !== undefined) return stagingReviewChoice;
   try { return localStorage.getItem(DEVICE_APPEARANCE_KEY) || ''; } catch { return ''; }
@@ -607,9 +707,9 @@ async function refreshAccountSkinChoices(token, profileEpoch) {
     void applySelectedAppearance();
   } catch { /* Refresh the profile on its next open. */ }
 }
-function clearPublishedSkin() { const root = document.documentElement; if (root.hasAttribute('data-collection-treatment')) applyCollectionVisual(root, null); root.classList.remove('game-skin-active'); root.removeAttribute('data-game-skin'); ['--bg','--surface','--surface-2','--ink','--muted','--brass','--brass-dark'].forEach(name => root.style.removeProperty(name)); document.body.style.backgroundImage = ''; document.body.style.backgroundSize = ''; document.body.style.backgroundPosition = ''; dom.game.removeAttribute('data-appearance-seat'); dom.game.removeAttribute('data-appearance-button'); document.querySelectorAll('.skin-overlay').forEach(node => node.remove()); const seal = $('.counter-sigil'); if (seal) seal.innerHTML = baseSealMarkup; baseModeNavMarkup.forEach((markup, mode) => { const button = $(`[data-mode="${mode}"]`); if (button) button.innerHTML = markup; }); }
-function applyPublishedSkin(skin) { const root = document.documentElement; root.classList.add('game-skin-active'); root.dataset.gameSkin = skin.id; root.style.setProperty('--bg', skin.background || '#080808'); root.style.setProperty('--surface', skin.surface || '#161616'); root.style.setProperty('--surface-2', skin.surface || '#161616'); root.style.setProperty('--ink', skin.text || '#f4ecd9'); root.style.setProperty('--muted', skin.muted || '#afa590'); root.style.setProperty('--brass', skin.accent || '#d8ae61'); root.style.setProperty('--brass-dark', skin.secondary || '#6e552a'); root.style.setProperty('--skin-atmosphere', skin.atmosphereColor || skin.secondary || '#000'); root.style.setProperty('--skin-atmosphere-strength', String(Math.min(0.8, Math.max(0, Number(skin.atmosphereStrength || 0) / 100)))); root.style.setProperty('--skin-atmosphere-position', skin.atmospherePosition === 'bottom' ? '50% 100%' : skin.atmospherePosition === 'center' ? '50% 50%' : '50% 0%'); root.style.setProperty('--skin-seat-radius', `${Math.min(24, Math.max(0, Number(skin.seatRadius) || 8))}px`); ['seat','button'].forEach(prefix => { root.style.setProperty(`--skin-${prefix}-opacity`, String(Math.min(100, Math.max(35, Number(skin[`${prefix}Opacity`]) || 100)))); root.style.setProperty(`--skin-${prefix}-blur`, String(Math.min(16, Math.max(0, Number(skin[`${prefix}Blur`]) || 0)))); root.style.setProperty(`--skin-${prefix}-border`, String(Math.min(100, Math.max(0, Number(skin[`${prefix}Border`]) || 70)))); }); root.style.setProperty('--skin-button-radius', `${Math.min(24, Math.max(0, Number(skin.buttonRadius) || 8))}px`); const layout = skin.modeLayouts?.[interfaceStyle] || skin.componentLayout || {}; const regions = { podStrip: 'pod-strip', counterReadout: 'counter-readout', dialSurface: 'dial-surface', commanderDamage: 'commander-damage', turnActions: 'turn-actions', adjustControls: 'adjust-controls', customLife: 'custom-life', commanderTax: 'commander-tax', modeNav: 'mode-nav' }; Object.entries(regions).forEach(([key, css]) => { const placement = layout.componentLayout?.[key] || {}; root.style.setProperty(`--skin-${css}-x`, `${Math.min(100, Math.max(-100, Number(placement.x) || 0))}px`); root.style.setProperty(`--skin-${css}-y`, `${Math.min(140, Math.max(-140, Number(placement.y) || 0))}px`); root.style.setProperty(`--skin-${css}-scale`, String(Math.min(140, Math.max(70, Number(placement.scale) || 100)) / 100)); }); dom.game.dataset.appearanceSeat = skin.seatTreatment || 'raised'; dom.game.dataset.appearanceButton = skin.buttonTreatment || 'solid'; if (skin.backgroundData) { document.body.style.backgroundImage = `linear-gradient(rgb(0 0 0 / .32), rgb(0 0 0 / .32)), url("${skin.backgroundData}")`; document.body.style.backgroundSize = `${Math.min(200, Math.max(50, Number(skin.backgroundScale) || 100))}% auto`; document.body.style.backgroundPosition = `${Math.min(100, Math.max(0, Number(skin.backgroundPositionX) || 50))}% ${Math.min(100, Math.max(0, Number(skin.backgroundPositionY) || 50))}%`; } }
-function applyPublishedSkinArt(skin) { document.querySelectorAll('.skin-overlay').forEach(node => node.remove()); const seal = $('.counter-sigil'); if (seal && skin.sealData) { seal.replaceChildren(); const image = new Image(); image.alt = ''; image.src = skin.sealData; seal.append(image); } Object.entries(skin.symbolData || {}).forEach(([mode, data]) => { const button = $(`[data-mode="${mode}"]`); if (!button || !data) return; button.replaceChildren(); const image = new Image(); image.alt = ''; image.src = data; image.style.transform = `scale(${Math.min(2, Math.max(.6, Number(skin.symbolScale?.[mode]) || 100) / 100)})`; const label = document.createElement('small'); label.textContent = mode === 'commander' ? 'Cmdr' : mode; button.append(image, label); }); const add = (target, data, slot) => { if (!target || !data) return; const image = new Image(); image.className = `skin-overlay${slot === 'dial' && skin.dialArtSpin ? ' skin-dial-art' : ''}`; image.alt = ''; image.src = data; image.style.setProperty('--skin-overlay-opacity', String(Math.min(70, Math.max(0, Number(skin.overlayOpacity?.[slot]) || 0)) / 100)); image.style.setProperty('--skin-overlay-scale', String(Math.min(1.6, Math.max(.5, Number(skin.overlayScale?.[slot]) || 100) / 100))); image.style.setProperty('--skin-overlay-blend', skin.overlayBlend?.[slot] || 'normal'); target.append(image); }; document.querySelectorAll('.pod-seat').forEach(seat => add(seat, skin.overlayData?.seat, 'seat')); add($('.counter-stage'), skin.overlayData?.counter, 'counter'); add($('.dial-gesture'), skin.overlayData?.dial, 'dial'); }
+function clearPublishedSkin() { const root = document.documentElement; if (root.hasAttribute('data-collection-treatment')) applyCollectionVisual(root, null); root.classList.remove('game-skin-active'); root.removeAttribute('data-game-skin'); ['--bg','--surface','--surface-2','--ink','--muted','--brass','--brass-dark'].forEach(name => root.style.removeProperty(name)); document.body.style.backgroundImage = ''; document.body.style.backgroundSize = ''; document.body.style.backgroundPosition = ''; dom.game.removeAttribute('data-appearance-seat'); dom.game.removeAttribute('data-appearance-button'); document.querySelectorAll('.skin-overlay').forEach(node => node.remove()); const seal = $('.counter-sigil'); if (seal) seal.innerHTML = baseSealMarkup; baseModeNavMarkup.forEach((markup, mode) => { const button = $(`[data-mode="${mode}"]`); if (button) { button.innerHTML = markup; const label = button.querySelector('small'); if (label) label.textContent = counterModeLabel(mode); } }); dialLayout.update(); }
+function applyPublishedSkin(skin) { const root = document.documentElement; root.classList.add('game-skin-active'); root.dataset.gameSkin = skin.id; root.style.setProperty('--bg', skin.background || '#080808'); root.style.setProperty('--surface', skin.surface || '#161616'); root.style.setProperty('--surface-2', skin.surface || '#161616'); root.style.setProperty('--ink', skin.text || '#f4ecd9'); root.style.setProperty('--muted', skin.muted || '#afa590'); root.style.setProperty('--brass', skin.accent || '#d8ae61'); root.style.setProperty('--brass-dark', skin.secondary || '#6e552a'); root.style.setProperty('--skin-atmosphere', skin.atmosphereColor || skin.secondary || '#000'); root.style.setProperty('--skin-atmosphere-strength', String(Math.min(0.8, Math.max(0, Number(skin.atmosphereStrength || 0) / 100)))); root.style.setProperty('--skin-atmosphere-position', skin.atmospherePosition === 'bottom' ? '50% 100%' : skin.atmospherePosition === 'center' ? '50% 50%' : '50% 0%'); root.style.setProperty('--skin-seat-radius', `${Math.min(24, Math.max(0, Number(skin.seatRadius) || 8))}px`); ['seat','button'].forEach(prefix => { root.style.setProperty(`--skin-${prefix}-opacity`, String(Math.min(100, Math.max(35, Number(skin[`${prefix}Opacity`]) || 100)))); root.style.setProperty(`--skin-${prefix}-blur`, String(Math.min(16, Math.max(0, Number(skin[`${prefix}Blur`]) || 0)))); root.style.setProperty(`--skin-${prefix}-border`, String(Math.min(100, Math.max(0, Number(skin[`${prefix}Border`]) || 70)))); }); root.style.setProperty('--skin-button-radius', `${Math.min(24, Math.max(0, Number(skin.buttonRadius) || 8))}px`); const layout = skin.modeLayouts?.[interfaceStyle] || skin.componentLayout || {}; const regions = { podStrip: 'pod-strip', counterReadout: 'counter-readout', dialSurface: 'dial-surface', commanderDamage: 'commander-damage', turnActions: 'turn-actions', adjustControls: 'adjust-controls', customLife: 'custom-life', commanderTax: 'commander-tax', modeNav: 'mode-nav' }; Object.entries(regions).forEach(([key, css]) => { const placement = layout.componentLayout?.[key] || {}; root.style.setProperty(`--skin-${css}-x`, `${Math.min(100, Math.max(-100, Number(placement.x) || 0))}px`); root.style.setProperty(`--skin-${css}-y`, `${Math.min(140, Math.max(-140, Number(placement.y) || 0))}px`); root.style.setProperty(`--skin-${css}-scale`, String(Math.min(140, Math.max(70, Number(placement.scale) || 100)) / 100)); }); dom.game.dataset.appearanceSeat = skin.seatTreatment || 'raised'; dom.game.dataset.appearanceButton = skin.buttonTreatment || 'solid'; if (skin.backgroundData) { document.body.style.backgroundImage = `linear-gradient(rgb(0 0 0 / .32), rgb(0 0 0 / .32)), url("${skin.backgroundData}")`; document.body.style.backgroundSize = `${Math.min(200, Math.max(50, Number(skin.backgroundScale) || 100))}% auto`; document.body.style.backgroundPosition = `${Math.min(100, Math.max(0, Number(skin.backgroundPositionX) || 50))}% ${Math.min(100, Math.max(0, Number(skin.backgroundPositionY) || 50))}%`; } dialLayout.update(); }
+function applyPublishedSkinArt(skin) { document.querySelectorAll('.skin-overlay').forEach(node => node.remove()); const seal = $('.counter-sigil'); if (seal && skin.sealData) { seal.replaceChildren(); const image = new Image(); image.alt = ''; image.src = skin.sealData; seal.append(image); } Object.entries(skin.symbolData || {}).forEach(([mode, data]) => { const button = $(`[data-mode="${mode}"]`); if (!button || !data) return; button.replaceChildren(); const image = new Image(); image.alt = ''; image.src = data; image.style.transform = `scale(${Math.min(2, Math.max(.6, Number(skin.symbolScale?.[mode]) || 100) / 100)})`; const label = document.createElement('small'); label.textContent = counterModeLabel(mode); button.append(image, label); }); const add = (target, data, slot) => { if (!target || !data) return; const image = new Image(); image.className = `skin-overlay${slot === 'dial' && skin.dialArtSpin ? ' skin-dial-art' : ''}`; image.alt = ''; image.src = data; image.style.setProperty('--skin-overlay-opacity', String(Math.min(70, Math.max(0, Number(skin.overlayOpacity?.[slot]) || 0)) / 100)); image.style.setProperty('--skin-overlay-scale', String(Math.min(1.6, Math.max(.5, Number(skin.overlayScale?.[slot]) || 100) / 100))); image.style.setProperty('--skin-overlay-blend', skin.overlayBlend?.[slot] || 'normal'); target.append(image); }; document.querySelectorAll('.pod-seat').forEach(seat => add(seat, skin.overlayData?.seat, 'seat')); add($('.counter-stage'), skin.overlayData?.counter, 'counter'); add($('.dial-gesture'), skin.overlayData?.dial, 'dial'); }
 async function applySelectedAppearance() {
   const shared = state?.tableSkinId || '';
   const earned = unlockedSkinChoices();
@@ -733,6 +833,7 @@ async function finishAccountSignIn(token) {
   // A valid Firebase session enables account actions even if profile preferences are unavailable.
   resetAwardProfile();
   const profileEpoch = awardProfileEpoch;
+  clearPrivateDeckState({ signedIn: true });
   clearAccountAppearance();
   renderHomeAccount(true);
   try {
@@ -770,18 +871,42 @@ async function restoreSavedAccountSession() {
     competitionHub.authChanged(true, { restored: true });
   } catch { /* A missing or expired Firebase session leaves guest play unchanged. */ }
 }
+let profileLoadAttempt = 0;
+function prepareProfileLoading() {
+  myGamesDialog.querySelector('#myGamesTitle').textContent = 'My profile';
+  myGamesStatus.textContent = 'Loading your profile…';
+  myGamesContent.hidden = true; accountSkinRewards.hidden = true;
+  [myGamesSignInButton, emailSignInButton, emailSignInFields, forgotPasswordButton, createAccountButton,
+    accountPreferredNameField, accountDefaultPlayerCountField, accountDefaultRoundLimitField,
+    accountInterfaceStyleField, accountPersonalSkinField, accountUsePersonalSkinField,
+    saveAccountPreferencesButton, exportAccountButton, deleteAccountButton, signOutButton]
+    .forEach(control => { control.hidden = true; });
+  accountPassword.value = '';
+}
+myGamesDialog.addEventListener('close', () => { if (!myGamesDialog.open) profileLoadAttempt++; });
+myGamesDialog.addEventListener('cancel', () => { profileLoadAttempt++; });
 async function showMyGames() {
-  const profileEpoch = awardProfileEpoch;
-  myGamesContent.hidden = true; accountSkinRewards.hidden = true; myGamesStatus.textContent = 'Loading your profile…'; myGamesSignInButton.hidden = true;
+  const profileEpoch = awardProfileEpoch, attempt = ++profileLoadAttempt;
+  const currentProfile = () => profileEpoch === awardProfileEpoch && attempt === profileLoadAttempt && myGamesDialog.open;
+  prepareProfileLoading();
   try {
     const token = await currentAccountToken();
+    if (!currentProfile()) return;
     if (!token) { myGamesDialog.close(); openSignIn(); return; }
-    const response = await fetch('/api/account/history', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) throw new Error('Your games are not available yet.');
-    const history = (await response.json()).history; if (profileEpoch !== awardProfileEpoch) return; renderHomeAccount(true); void loadSetupDecks(); myGamesSignInButton.hidden = true; emailSignInButton.hidden = true; emailSignInFields.hidden = true; accountPassword.value = ''; forgotPasswordButton.hidden = true; createAccountButton.hidden = true; exportAccountButton.hidden = false; deleteAccountButton.hidden = false; signOutButton.hidden = false; accountPreferredNameField.hidden = false; saveAccountPreferencesButton.hidden = false;
-    const preferencesResponse = await fetch('/api/account/preferences', { headers: { authorization: `Bearer ${token}` } }); const { preferences, skins } = preferencesResponse.ok ? await preferencesResponse.json() : { preferences: { preferredName: null, defaultPlayerCount: 4, defaultRoundLimitMinutes: null, interfaceStyle: 'dial', personalSkinId: null, usePersonalSkin: false } }; if (profileEpoch !== awardProfileEpoch) return; applyAccountPreferences(preferences, skins); accountDefaultPlayerCountField.hidden = false; accountDefaultRoundLimitField.hidden = false; accountInterfaceStyleField.hidden = false; accountPersonalSkinField.hidden = false; accountUsePersonalSkinField.hidden = false; if (preferences.preferredName) { dom.createName.value ||= preferences.preferredName; dom.joinName.value ||= preferences.preferredName; } const playerDefault = $(`input[name="playerCount"][value="${preferences.defaultPlayerCount || 4}"]`); if (playerDefault) playerDefault.checked = true; dom.roundLimitMinutes.value ||= preferences.defaultRoundLimitMinutes || '';
+    const response = await fetch('/api/account/history', { headers: { authorization: `Bearer ${token}` } });
+    if (!currentProfile()) return;
+    if (!response.ok) throw new Error('Your games are not available yet.');
+    const history = (await response.json()).history;
+    if (!currentProfile()) return;
+    const preferencesResponse = await fetch('/api/account/preferences', { headers: { authorization: `Bearer ${token}` } });
+    if (!currentProfile()) return;
+    const { preferences, skins } = preferencesResponse.ok ? await preferencesResponse.json() : { preferences: { preferredName: null, defaultPlayerCount: 4, defaultRoundLimitMinutes: null, interfaceStyle: 'dial', personalSkinId: null, usePersonalSkin: false } };
+    if (!currentProfile()) return;
+    renderHomeAccount(true); void loadSetupDecks(); applyAccountPreferences(preferences, skins);
+    if (preferences.preferredName) { dom.createName.value ||= preferences.preferredName; dom.joinName.value ||= preferences.preferredName; } const playerDefault = $(`input[name="playerCount"][value="${preferences.defaultPlayerCount || 4}"]`); if (playerDefault) playerDefault.checked = true; dom.roundLimitMinutes.value ||= preferences.defaultRoundLimitMinutes || '';
     myGamesStatus.textContent = `${history.wins} wins in ${history.gamesPlayed} games${history.gamesPlayed ? ` · ${Math.round(history.winRate * 100)}% win rate` : ''}`;
     const historyItems = history.games || history.recentGames;
-    myGamesContent.innerHTML = `<section><h3>This month</h3><p>${history.thisMonth?.wins || 0} wins in ${history.thisMonth?.gamesPlayed || 0} games.${historyItems[0] ? ` Last saved ${new Date(historyItems[0].savedAt).toLocaleDateString()}.` : ''}</p></section><section><h3>Private milestones</h3><p>${(history.milestones || []).map(item => `${item.reached ? '✓' : '○'} ${escapeHtml(item.label)}`).join(' · ') || 'Save your first game to begin.'}</p></section>${history.deckStats?.length ? `<section><h3>Deck statistics</h3><ul>${history.deckStats.map(stat => `<li>${escapeHtml(stat.name || 'Saved deck')}: ${stat.wins}/${stat.gamesPlayed} wins${stat.gamesPlayed ? ` · ${Math.round(stat.winRate * 100)}%` : ''}</li>`).join('')}</ul></section>` : ''}<section><h3>Game history</h3><label class="select-field">Find a game<input id="gameHistorySearch" type="search" placeholder="Commander or result"></label><ul id="gameHistoryList">${historyItems.map(game => `<li data-history-game><strong>${game.won ? 'Win' : 'Game'} · ${game.tableSize} players${game.place ? ` · ${game.place}${game.place === 1 ? 'st' : game.place === 2 ? 'nd' : game.place === 3 ? 'rd' : 'th'}` : ''}</strong><br><small>${new Date(game.savedAt).toLocaleDateString()}${game.commanderName ? ` · ${escapeHtml(game.commanderName)}` : ''}${game.outcomeDescription ? ` · ${escapeHtml(game.outcomeDescription)}` : ''}</small><br><button type="button" class="text-action" data-remove-game="${escapeHtml(game.gameId)}">Remove</button></li>`).join('') || '<li>No saved games yet.</li>'}</ul></section>`; myGamesContent.hidden = false;
+    myGamesContent.innerHTML = `<section><h3>This month</h3><p>${history.thisMonth?.wins || 0} wins in ${history.thisMonth?.gamesPlayed || 0} games.${historyItems[0] ? ` Last saved ${new Date(historyItems[0].savedAt).toLocaleDateString()}.` : ''}</p></section><section><h3>Private milestones</h3><p>${(history.milestones || []).map(item => `${item.reached ? '✓' : '○'} ${escapeHtml(item.label)}`).join(' · ') || 'Save your first game to begin.'}</p></section>${history.deckStats?.length ? `<section><h3>Deck statistics</h3><ul>${history.deckStats.map(stat => `<li>${escapeHtml(stat.name || 'Saved deck')}: ${stat.wins}/${stat.gamesPlayed} wins${stat.gamesPlayed ? ` · ${Math.round(stat.winRate * 100)}%` : ''}</li>`).join('')}</ul></section>` : ''}<section><h3>Game history</h3><label class="select-field">Find a game<input id="gameHistorySearch" type="search" placeholder="Commander or result"></label><ul id="gameHistoryList">${historyItems.map(game => `<li data-history-game><strong>${game.won ? 'Win' : 'Game'} · ${game.tableSize} players${game.place ? ` · ${game.place}${game.place === 1 ? 'st' : game.place === 2 ? 'nd' : game.place === 3 ? 'rd' : 'th'}` : ''}</strong><br><small>${new Date(game.savedAt).toLocaleDateString()}${game.commanderName ? ` · ${escapeHtml(game.commanderName)}` : ''}${game.outcomeDescription ? ` · ${escapeHtml(game.outcomeDescription)}` : ''}</small><br><button type="button" class="text-action" data-remove-game="${escapeHtml(game.gameId)}">Remove</button></li>`).join('') || '<li>No saved games yet.</li>'}</ul></section>`;
     const achievements = history.achievements || []; const achievementSection = myGamesContent.querySelector(':scope > section:nth-of-type(2)'); achievementSection.querySelector('h3').textContent = 'Achievements'; achievementSection.querySelector('p').textContent = achievements.length ? `You have uncovered ${achievements.length} achievement${achievements.length === 1 ? '' : 's'}. More await.` : 'Save a completed game to uncover your first achievement.'; if (achievements.length) { const rarities = ['common', 'uncommon', 'rare', 'epic', 'legendary']; const achievementFolder = (rarity) => achievements.filter(achievement => (achievement.rarity || 'common') === rarity); achievementSection.insertAdjacentHTML('beforeend', `<div class="achievement-folders" aria-label="Achievement rarity folders"><div class="achievement-rarity-tabs" role="tablist" aria-label="Achievement rarity">${rarities.map(rarity => { const items = achievementFolder(rarity); const unread = items.filter(item => item.isNew).length; return `<button type="button" role="tab" aria-selected="false" data-achievement-rarity-tab="${rarity}"><span>${achievementRarityMark(rarity)} ${achievementRarityLabel(rarity)}</span>${unread ? `<b class="achievement-new-mark" aria-label="${unread} new">${unread > 9 ? '9+' : unread}</b>` : ''}</button>`; }).join('')}</div><p class="achievement-folder-prompt">Choose a rarity to view the achievements you have uncovered.</p>${rarities.map(rarity => `<div class="achievement-folder" data-achievement-rarity-panel="${rarity}" hidden>${achievementFolder(rarity).map(achievement => achievementCardHtml(achievement, true)).join('') || `<p class="achievement-folder-empty">No ${achievementRarityLabel(rarity).toLowerCase()} achievements uncovered yet.</p>`}</div>`).join('')}</div>`); }
     myGamesDialog.querySelector('#myGamesTitle').textContent = 'My profile';
     const profileSections = [...myGamesContent.querySelectorAll(':scope > section')];
@@ -794,31 +919,158 @@ async function showMyGames() {
     const profileTabs = [{ label: 'Overview', panel: 0 }, { label: 'Achievements', panel: 1 }, ...(deckStatsIndex >= 0 ? [{ label: 'Deck stats', panel: deckStatsIndex }] : []), ...(gameHistoryIndex >= 0 ? [{ label: 'Games', panel: gameHistoryIndex }] : []), { label: 'Settings', panel: 'settings' }];
     myGamesContent.insertAdjacentHTML('afterbegin', `<nav class="profile-tabs" aria-label="Profile sections">${profileTabs.map((tab, index) => `<button type="button" data-profile-tab="${tab.panel}"${index ? '' : ' aria-current="page"'}>${tab.label}</button>`).join('')}</nav>`);
     profileSections[1]?.querySelector('h3')?.replaceChildren('Achievements');
-    myGamesContent.querySelectorAll('[data-profile-tab]').forEach(button => button.addEventListener('click', () => { const active = button.dataset.profileTab; profileSections.forEach((section, index) => { section.hidden = String(index) !== active; }); overviewProfileFields.forEach(item => { item.hidden = active !== '0'; }); profileSettings.forEach(item => { item.hidden = active !== 'settings'; }); accountSkinRewards.hidden = active !== 'settings' || !accountSkinChoices.length; myGamesContent.querySelectorAll('[data-profile-tab]').forEach(tab => tab.toggleAttribute('aria-current', tab === button)); }));
+    myGamesContent.querySelectorAll('[data-profile-tab]').forEach(button => button.addEventListener('click', () => { const active = button.dataset.profileTab; profileSections.forEach((section, index) => { section.hidden = String(index) !== active; }); overviewProfileFields.forEach(item => { item.hidden = active !== '0'; }); profileSettings.forEach(item => { item.hidden = active !== 'settings'; }); accountSkinRewards.hidden = active !== 'settings' || !accountSkinChoices.length; myGamesContent.querySelectorAll('[data-profile-tab]').forEach(tab => { if (tab === button) tab.setAttribute('aria-current', 'page'); else tab.removeAttribute('aria-current'); }); }));
     myGamesContent.querySelectorAll('[data-achievement-rarity-tab]').forEach(button => button.addEventListener('click', async () => { const rarity = button.dataset.achievementRarityTab; myGamesContent.querySelectorAll('[data-achievement-rarity-panel]').forEach(panel => { panel.hidden = panel.dataset.achievementRarityPanel !== rarity; }); myGamesContent.querySelectorAll('[data-achievement-rarity-tab]').forEach(tab => tab.setAttribute('aria-selected', String(tab === button))); myGamesContent.querySelector('.achievement-folder-prompt')?.setAttribute('hidden', ''); const marker = button.querySelector('.achievement-new-mark'); if (!marker) return; marker.remove(); try { const token = await currentAccountToken(); if (!token) return; const response = await fetch('/api/account/achievements/viewed', { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ rarity }) }); if (!response.ok) throw new Error('Achievement view could not be saved.'); } catch { button.insertAdjacentHTML('beforeend', '<b class="achievement-new-mark" aria-label="New achievements">New</b>'); } }));
-    if (profileEpoch === awardProfileEpoch) void appearanceCatchUp.check();
+    myGamesContent.hidden = false;
+    if (currentProfile()) void appearanceCatchUp.check();
     $('#gameHistorySearch')?.addEventListener('input', event => { const query = event.currentTarget.value.trim().toLowerCase(); $$('#gameHistoryList [data-history-game]').forEach(item => { item.hidden = Boolean(query) && !item.textContent.toLowerCase().includes(query); }); });
-  } catch (error) { myGamesStatus.textContent = error?.message || 'Your games are not available yet.'; myGamesSignInButton.hidden = false; }
+  } catch (error) { if (currentProfile()) myGamesStatus.textContent = error?.message || 'Your games are not available yet.'; }
 }
-async function showMyDecks(signIn = false) {
-  myDecksContent.hidden = true; myDecksStatus.textContent = signIn ? 'Signing in…' : 'Loading your decks…';
+let deckEditorOpen = false;
+let deckLibraryRequest = 0;
+function deckMatchesSearch(deck, query) {
+  const terms = String(query || '').normalize('NFKC').trim().toLowerCase().split(/\s+/u).filter(Boolean);
+  const names = [deck.name || '', deck.commanderName || '', ...(deck.commanderNames || [])]
+    .join(' ').normalize('NFKC').toLowerCase();
+  return terms.every(term => names.includes(term));
+}
+function renderDeckLibrary() {
+  const query = deckSearch.value.trim();
+  const decks = savedDecks.filter(deck => deckMatchesSearch(deck, query));
+  myDecksContent.innerHTML = decks.length ? `<ul>${decks.map(deck => `<li><strong>${deck.favorite ? '★ ' : ''}${escapeHtml(deck.commanderName)}</strong>${deck.archived ? ' <small>Archived</small>' : ''}${deck.name ? `<br><small>${escapeHtml(deck.name)}</small>` : ''}${deck.colors?.length ? `<br><small>${escapeHtml(deck.colors.join(' '))}</small>` : ''}${deck.notes ? `<br><small>${escapeHtml(deck.notes)}</small>` : ''}<br><button type="button" class="text-action" data-edit-deck="${escapeHtml(deck.deckId)}">Edit</button> <button type="button" class="text-action" data-toggle-favorite="${escapeHtml(deck.deckId)}">${deck.favorite ? 'Unfavorite' : 'Favorite'}</button> <button type="button" class="text-action" data-toggle-archive="${escapeHtml(deck.deckId)}">${deck.archived ? 'Restore' : 'Archive'}</button> <button type="button" class="text-action" data-export-deck="${escapeHtml(deck.deckId)}">Export deck</button> <button type="button" class="text-action" data-remove-deck="${escapeHtml(deck.deckId)}">Remove</button></li>`).join('')}</ul>` : '';
+  myDecksContent.hidden = !decks.length;
+  if (!deckEditorOpen) myDecksStatus.textContent = !savedDecks.length ? 'No saved decks yet. Choose Add deck to save your first deck.'
+    : !decks.length ? `No decks match “${query}”. Try a deck or commander name.`
+      : query ? `${decks.length} of ${savedDecks.length} saved decks` : `${decks.length} saved deck${decks.length === 1 ? '' : 's'}`;
+}
+function showDeckLibrary({ focus = true } = {}) {
+  deckEditorOpen = false; deckEditor.hidden = true; deckLibraryView.hidden = false;
+  myDecksTitle.textContent = 'My decks';
+  renderDeckLibrary();
+  if (focus && myDecksDialog.open) closeMyDecksButton.focus();
+}
+function openDeckEditor() {
+  deckEditorOpen = true; deckEditor.hidden = false; deckLibraryView.hidden = true;
+  myDecksTitle.textContent = editingDeckId ? 'Edit deck' : 'Add deck';
+  if (myDecksDialog.open) deckCommanderName.focus();
+}
+function resetDeckEditorDraft() {
+  deckSaveAttempt++; invalidateDeckCommanderMatches();
+  editingDeckId = null; deckCommanderColors = [];
+  deckCommanderName.value = ''; deckCommanderNameTwo.value = ''; deckName.value = ''; deckNotes.value = '';
+  deckFavorite.checked = false; deckCommanderNameTwoField.hidden = true;
+  $$('input[name="deckCommanderCount"]').forEach(input => { input.checked = input.value === '1'; });
+  setDeckColors([]);
+  deckCommanderStatus.textContent = 'We’ll also check the commander colors when you save.';
+  createDeckButton.textContent = 'Save deck'; createDeckButton.disabled = false; findDeckColorsButton.disabled = false;
+}
+function beginNewDeck() {
+  resetDeckEditorDraft();
+  myDecksStatus.textContent = 'Add your commander and any private notes, then save your deck.';
+  openDeckEditor();
+}
+function cancelDeckEditor() { resetDeckEditorDraft(); showDeckLibrary(); void showMyDecks(); }
+function closeMyDecks() {
+  if (deckEditorOpen) cancelDeckEditor();
+  else myDecksDialog.close();
+}
+function openMyDecks() {
+  if (deckEditorOpen) resetDeckEditorDraft();
+  showDeckLibrary({ focus: false });
+  void showMyDecks();
+  myDecksDialog.showModal();
+}
+async function showMyDecks(signIn = false, currentRequest = () => true) {
+  let profileEpoch = awardProfileEpoch, request = ++deckLibraryRequest;
+  const currentProfile = () => profileEpoch === awardProfileEpoch && request === deckLibraryRequest && currentRequest();
+  if (!currentProfile()) return;
+  myDecksContent.hidden = true; addDeckButton.disabled = true; deckSearch.disabled = true; myDecksSignInButton.hidden = true;
+  if (!deckEditorOpen) myDecksStatus.textContent = signIn ? 'Signing in…' : 'Loading your decks…';
   try {
     const token = signIn ? await googleAccountToken() : await currentAccountToken();
-    if (!token) { myDecksStatus.textContent = 'Sign in to keep private deck notes.'; myDecksSignInButton.hidden = false; createDeckButton.disabled = true; return; }
-    const response = await fetch('/api/account/decks?archived=all', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) throw new Error('Your decks are not available yet.');
-    const decks = (await response.json()).decks; savedDecks = decks; renderHomeAccount(true); myDecksStatus.textContent = decks.length ? `${decks.length} saved deck${decks.length === 1 ? '' : 's'}` : 'No saved decks yet.'; myDecksContent.innerHTML = decks.length ? `<ul>${decks.map(deck => `<li><strong>${deck.favorite ? '★ ' : ''}${escapeHtml(deck.commanderName)}</strong>${deck.archived ? ' <small>Archived</small>' : ''}${deck.name ? `<br><small>${escapeHtml(deck.name)}</small>` : ''}${deck.colors?.length ? `<br><small>${escapeHtml(deck.colors.join(' '))}</small>` : ''}${deck.notes ? `<br><small>${escapeHtml(deck.notes)}</small>` : ''}<br><button type="button" class="text-action" data-edit-deck="${escapeHtml(deck.deckId)}">Edit</button> <button type="button" class="text-action" data-toggle-favorite="${escapeHtml(deck.deckId)}">${deck.favorite ? 'Unfavorite' : 'Favorite'}</button> <button type="button" class="text-action" data-toggle-archive="${escapeHtml(deck.deckId)}">${deck.archived ? 'Restore' : 'Archive'}</button> <button type="button" class="text-action" data-export-deck="${escapeHtml(deck.deckId)}">Export deck</button> <button type="button" class="text-action" data-remove-deck="${escapeHtml(deck.deckId)}">Remove</button></li>`).join('')}</ul>` : ''; myDecksContent.hidden = !decks.length; myDecksSignInButton.hidden = true; createDeckButton.disabled = false;
-  } catch (error) { myDecksStatus.textContent = error?.message || 'Your decks are not available yet.'; myDecksSignInButton.hidden = false; createDeckButton.disabled = true; }
+    if (!currentProfile()) return;
+    if (!token) { resetAwardProfile(); clearPrivateDeckState(); return; }
+    if (signIn) {
+      resetAwardProfile();
+      clearPrivateDeckState({ signedIn: true });
+      profileEpoch = awardProfileEpoch;
+      request = ++deckLibraryRequest;
+    }
+    const response = await fetch('/api/account/decks?archived=all', { headers: { authorization: 'Bearer ' + token } });
+    if (!currentProfile()) return;
+    if (!response.ok) throw new Error('Your decks are not available yet.');
+    const decks = (await response.json()).decks;
+    if (!currentProfile()) return;
+    savedDecks = decks; renderHomeAccount(true); renderDeckLibrary();
+    myDecksSignInButton.hidden = true; addDeckButton.disabled = false;
+    if (!deckEditorOpen) createDeckButton.disabled = false;
+  } catch (error) {
+    if (!currentProfile()) return;
+    if (!deckEditorOpen || signIn) myDecksStatus.textContent = error?.message || 'Your decks are not available yet.';
+    if (!deckEditorOpen) { myDecksSignInButton.hidden = false; createDeckButton.disabled = true; }
+  } finally { if (profileEpoch === awardProfileEpoch && request === deckLibraryRequest) deckSearch.disabled = false; }
 }
 function setDeckColors(colors) { const confirmed = normaliseIdentity(colors); $$('input[name="deckColors"]').forEach(input => { input.checked = confirmed.includes(input.value); }); }
+function clearDeckCommanderMatches() {
+  deckCommanderMatches.forEach(panel => { panel.replaceChildren(); panel.hidden = true; });
+}
+function invalidateDeckCommanderMatches() {
+  deckColorLookupAttempt++;
+  clearDeckCommanderMatches();
+  findDeckColorsButton.disabled = false;
+}
+function offerDeckCommanderMatches(results, isCurrent) {
+  if (!isCurrent() || !deckEditorOpen) return false;
+  clearDeckCommanderMatches();
+  const profileEpoch = awardProfileEpoch, attempt = deckColorLookupAttempt;
+  let offered = false;
+  results.forEach((result, slot) => {
+    if (result.status !== 'rejected' || !result.reason?.matches?.length) return;
+    const panel = deckCommanderMatches[slot], input = [deckCommanderName, deckCommanderNameTwo][slot];
+    const heading = document.createElement('small');
+    heading.textContent = 'Choose the card you meant:';
+    panel.append(heading);
+    result.reason.matches.slice(0, 5).forEach(card => {
+      const button = document.createElement('button');
+      button.type = 'button'; button.className = 'secondary-action';
+      button.textContent = `${card.name} · ${card.colors.join('') || 'Colorless'}`;
+      button.addEventListener('click', () => {
+        if (profileEpoch !== awardProfileEpoch || attempt !== deckColorLookupAttempt || !isCurrent()
+          || !myDecksDialog.open || !deckEditorOpen || !panel.contains(button)) return;
+        input.focus(); input.value = card.name;
+        invalidateDeckCommanderMatches(); deckCommanderColors = [];
+        void confirmDeckCommanderColors();
+      });
+      panel.append(button);
+    });
+    panel.hidden = false; offered = true;
+  });
+  if (offered) {
+    deckCommanderStatus.textContent = 'Choose the card you meant, then save your deck. Your current deck colors were kept.';
+    if (myDecksDialog.open) deckCommanderMatches.find(panel => !panel.hidden).scrollIntoView({ block: 'nearest' });
+  }
+  return offered;
+}
+let deckColorLookupAttempt = 0;
 async function confirmDeckCommanderColors() {
+  invalidateDeckCommanderMatches();
+  const profileEpoch = awardProfileEpoch, attempt = deckColorLookupAttempt;
   const count = Number($('input[name="deckCommanderCount"]:checked')?.value || 1);
   const inputs = [deckCommanderName, deckCommanderNameTwo].slice(0, count);
   const names = inputs.map(input => input.value.trim());
+  const currentLookup = () => profileEpoch === awardProfileEpoch && attempt === deckColorLookupAttempt;
+  const unchangedDraft = () => currentLookup() && count === Number($('input[name="deckCommanderCount"]:checked')?.value || 1)
+    && inputs.every((input, index) => input.value.trim() === names[index]);
   if (names.some(name => !name)) { deckCommanderStatus.textContent = count === 2 ? 'Enter both commanders to find the combined color identity.' : 'Enter a commander name to find its color identity.'; return false; }
   findDeckColorsButton.disabled = true;
   deckCommanderStatus.textContent = 'Finding commander colors…';
   try {
-    const cards = await Promise.all(names.map(lookupCommanderIdentity));
+    const results = await Promise.allSettled(names.map(lookupCommanderIdentity));
+    if (!unchangedDraft()) return false;
+    if (offerDeckCommanderMatches(results, unchangedDraft)) return false;
+    const failed = results.find(result => result.status === 'rejected');
+    if (failed) throw failed.reason;
+    const cards = results.map(result => result.value);
     cards.forEach((card, index) => { inputs[index].value = card.name; });
     deckCommanderColors = cards.map(card => normaliseIdentity(card.colors));
     const colors = normaliseIdentity(deckCommanderColors.flat());
@@ -826,18 +1078,122 @@ async function confirmDeckCommanderColors() {
     deckCommanderStatus.textContent = `✓ Confirmed: ${colors.join('') || 'Colorless'}`;
     return true;
   } catch (error) {
+    if (!unchangedDraft()) return false;
     deckCommanderStatus.textContent = `${error?.message || 'Commander colors could not be confirmed.'} Your current deck colors were kept.`;
     return false;
-  } finally { findDeckColorsButton.disabled = false; }
+  } finally { if (currentLookup()) findDeckColorsButton.disabled = false; }
 }
 function savedDeckCommanderColors(deck, count) { if (Array.isArray(deck?.commanderColors) && deck.commanderColors.length === count) return deck.commanderColors.map(normaliseIdentity); return count === 1 ? [normaliseIdentity(deck?.colors || [])] : []; }
-function beginDeckEdit(deckId) { const deck = savedDecks.find(item => item.deckId === deckId); if (!deck) return; editingDeckId = deckId; const names = deck.commanderNames || [deck.commanderName]; deckCommanderColors = savedDeckCommanderColors(deck, names.length); $(`input[name="deckCommanderCount"][value="${names.length}"]`).checked = true; deckCommanderName.value = names[0] || ''; deckCommanderNameTwo.value = names[1] || ''; deckCommanderNameTwoField.hidden = names.length !== 2; deckName.value = deck.name || ''; deckNotes.value = deck.notes || ''; deckFavorite.checked = deck.favorite === true; setDeckColors(deck.colors || []); deckCommanderStatus.textContent = 'Check the commander colors after editing a commander name.'; createDeckButton.textContent = 'Update deck'; myDecksStatus.textContent = `Editing ${deck.commanderName}. Make your correction, then choose Update deck.`; }
-async function createDeck() {
-  const token = await currentAccountToken(); const commanderNames = [deckCommanderName.value, deckCommanderNameTwo.value].map(name => name.trim()).filter(Boolean); if (!token || !commanderNames.length || commanderNames.length !== Number($('input[name="deckCommanderCount"]:checked')?.value || 1)) return;
-  createDeckButton.disabled = true;
-  try { await confirmDeckCommanderColors(); const verifiedCommanderNames = [deckCommanderName.value, deckCommanderNameTwo.value].map(name => name.trim()).filter(Boolean); const colors = $$('input[name="deckColors"]:checked').map(input => input.value); const commanderColors = deckCommanderColors.length === verifiedCommanderNames.length ? deckCommanderColors : verifiedCommanderNames.length === 1 ? [colors] : Array.from({ length: verifiedCommanderNames.length }, () => []); const body = { commanderNames: verifiedCommanderNames, commanderColors, name: deckName.value, colors, notes: deckNotes.value, favorite: deckFavorite.checked }; const response = await fetch(editingDeckId ? `/api/account/decks/${encodeURIComponent(editingDeckId)}` : '/api/account/decks', { method: editingDeckId ? 'PATCH' : 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(body) }); if (!response.ok) throw new Error('This deck could not be saved yet.'); editingDeckId = null; deckCommanderColors = []; createDeckButton.textContent = 'Save deck'; deckCommanderName.value = ''; deckCommanderNameTwo.value = ''; deckName.value = ''; deckNotes.value = ''; deckFavorite.checked = false; setDeckColors([]); deckCommanderStatus.textContent = 'We’ll also check the commander colors when you save.'; await showMyDecks(); void loadSetupDecks(); } catch (error) { myDecksStatus.textContent = error?.message || 'This deck could not be saved yet.'; createDeckButton.disabled = false; }
+function beginDeckEdit(deckId) { const deck = savedDecks.find(item => item.deckId === deckId); if (!deck) return; resetDeckEditorDraft(); editingDeckId = deckId; const names = deck.commanderNames || [deck.commanderName]; deckCommanderColors = savedDeckCommanderColors(deck, names.length); $(`input[name="deckCommanderCount"][value="${names.length}"]`).checked = true; deckCommanderName.value = names[0] || ''; deckCommanderNameTwo.value = names[1] || ''; deckCommanderNameTwoField.hidden = names.length !== 2; deckName.value = deck.name || ''; deckNotes.value = deck.notes || ''; deckFavorite.checked = deck.favorite === true; setDeckColors(deck.colors || []); deckCommanderStatus.textContent = 'Check the commander colors after editing a commander name.'; createDeckButton.textContent = 'Update deck'; myDecksStatus.textContent = `Editing ${deck.commanderName}. Make your correction, then choose Update deck.`; openDeckEditor(); }
+let deckSaveAttempt = 0;
+function clearPrivateDeckState({ signedIn = false } = {}) {
+  deckSaveAttempt++; invalidateDeckCommanderMatches(); deckLibraryRequest++;
+  deckEditorOpen = false; deckEditor.hidden = true; deckLibraryView.hidden = false;
+  deckSearch.value = ''; deckSearch.disabled = true; addDeckButton.disabled = true; myDecksTitle.textContent = 'My decks';
+  editingDeckId = null; deckCommanderColors = []; selectedDeckId = '';
+  savedDecks = []; setupDecks = []; commanderDecks = [];
+  deckCommanderName.value = ''; deckCommanderNameTwo.value = ''; deckName.value = ''; deckNotes.value = '';
+  deckFavorite.checked = false; deckCommanderNameTwoField.hidden = true;
+  $$('input[name="deckCommanderCount"]').forEach(input => { input.checked = input.value === '1'; });
+  setDeckColors([]);
+  deckCommanderStatus.textContent = 'We’ll also check the commander colors when you save.';
+  createDeckButton.textContent = 'Save deck'; createDeckButton.disabled = !signedIn;
+  findDeckColorsButton.disabled = false; myDecksSignInButton.hidden = signedIn;
+  myDecksStatus.textContent = signedIn ? '' : 'Sign in to keep private deck notes.';
+  myDecksContent.innerHTML = ''; myDecksContent.hidden = true;
+  [dom.createDeck, dom.joinDeck, dom.saveGameDeck].forEach(select => {
+    select.innerHTML = '<option value="">No deck selected</option>'; select.value = '';
+  });
+  dom.commanderDeck.innerHTML = '<option value="">Enter commanders manually</option>'; dom.commanderDeck.value = '';
+  dom.createDeckField.hidden = true; dom.joinDeckField.hidden = true; dom.commanderDeckField.hidden = true;
+  try { sessionStorage.removeItem('fivefold-arc:confirmed-commander-deck'); } catch { /* Browser storage is optional. */ }
 }
-async function saveAccountPreferences() { const token = await currentAccountToken(); if (!token) return; const response = await fetch('/api/account/preferences', { method: 'PUT', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ preferredName: accountPreferredName.value, defaultPlayerCount: Number(accountDefaultPlayerCount.value), defaultRoundLimitMinutes: accountDefaultRoundLimit.value || null, interfaceStyle, personalSkinId: accountPersonalSkin.value || null, usePersonalSkin: accountUsePersonalSkin.checked }) }); if (!response.ok) { myGamesStatus.textContent = 'Your preferences could not be saved yet.'; return; } accountPreferences = (await response.json()).preferences; void applySelectedAppearance(); const preferredName = accountPreferences.preferredName || ''; dom.createName.value ||= preferredName; dom.joinName.value ||= preferredName; myGamesStatus.textContent = preferredName ? `Saved. ${preferredName} will prefill your name when you create or join a pod.` : 'Preferences saved. Set a preferred name whenever you want new pods to prefill it.'; }
+function captureDeckSaveDraft() {
+  return { deckId: editingDeckId, count: Number($('input[name="deckCommanderCount"]:checked')?.value || 1),
+    names: [deckCommanderName.value, deckCommanderNameTwo.value],
+    commanderColors: deckCommanderColors.map(colors => [...colors]),
+    colors: $$('input[name="deckColors"]:checked').map(input => input.value),
+    name: deckName.value, notes: deckNotes.value, favorite: deckFavorite.checked };
+}
+async function createDeck() {
+  clearDeckCommanderMatches();
+  const lookupAttempt = deckColorLookupAttempt;
+  const profileEpoch = awardProfileEpoch, draft = captureDeckSaveDraft();
+  const commanderNames = draft.names.map(name => name.trim()).filter(Boolean);
+  if (!commanderNames.length || commanderNames.length !== draft.count) return;
+  const attempt = ++deckSaveAttempt, signature = JSON.stringify(draft);
+  const currentSave = () => profileEpoch === awardProfileEpoch && attempt === deckSaveAttempt;
+  let confirmedSignature = signature;
+  const unchangedDraft = () => {
+    if (!currentSave()) return false;
+    const current = JSON.stringify(captureDeckSaveDraft());
+    return current === signature || current === confirmedSignature;
+  };
+  createDeckButton.disabled = true;
+  try {
+    const token = await currentAccountToken();
+    if (!currentSave() || !token) return;
+    let names = commanderNames, colors = draft.colors;
+    let commanderColors = draft.commanderColors.length === names.length ? draft.commanderColors
+      : names.length === 1 ? [colors] : names.map(() => []);
+    // Resolve only the submitted names. A save must never read or normalize a later editor draft.
+    const results = await Promise.allSettled(commanderNames.map(lookupCommanderIdentity));
+    if (!currentSave()) return;
+    if (results.some(result => result.status === 'rejected' && result.reason?.matches?.length)) {
+      // An offered choice only verifies commanders; later notes edits need their own explicit Save.
+      if (unchangedDraft()) offerDeckCommanderMatches(results, () => currentSave() && lookupAttempt === deckColorLookupAttempt
+        && editingDeckId === draft.deckId && draft.count === Number($('input[name="deckCommanderCount"]:checked')?.value || 1)
+        && [deckCommanderName, deckCommanderNameTwo].every((input, slot) => input.value === draft.names[slot]));
+      return;
+    }
+    // Keep submitted manual colors only for genuine lookup failures, never rendering errors.
+    if (results.every(result => result.status === 'fulfilled')) {
+      const cards = results.map(result => result.value);
+      names = cards.map(card => card.name);
+      commanderColors = cards.map(card => normaliseIdentity(card.colors));
+      colors = normaliseIdentity(commanderColors.flat());
+      // A separate blur lookup may have normalized this same submitted draft.
+      confirmedSignature = JSON.stringify({ ...draft, names: [...names, ''].slice(0, 2), commanderColors, colors });
+    }
+    if (!currentSave()) return;
+    const body = { commanderNames: names, commanderColors, name: draft.name, colors, notes: draft.notes, favorite: draft.favorite };
+    const response = await fetch(draft.deckId ? `/api/account/decks/${encodeURIComponent(draft.deckId)}` : '/api/account/decks', {
+      method: draft.deckId ? 'PATCH' : 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(body),
+    });
+    if (!currentSave()) return;
+    if (!response.ok) throw new Error('This deck could not be saved yet.');
+    if (unchangedDraft()) {
+      invalidateDeckCommanderMatches();
+      editingDeckId = null; deckCommanderColors = []; createDeckButton.textContent = 'Save deck';
+      deckCommanderName.value = ''; deckCommanderNameTwo.value = ''; deckName.value = ''; deckNotes.value = ''; deckFavorite.checked = false;
+      setDeckColors([]); deckCommanderStatus.textContent = 'We’ll also check the commander colors when you save.';
+      const clearedSignature = JSON.stringify(captureDeckSaveDraft());
+      showDeckLibrary();
+      await showMyDecks(false, () => currentSave() && JSON.stringify(captureDeckSaveDraft()) === clearedSignature);
+    }
+    if (currentSave()) void loadSetupDecks();
+  } catch (error) {
+    if (unchangedDraft()) myDecksStatus.textContent = error?.message || 'This deck could not be saved yet.';
+  } finally { if (currentSave()) createDeckButton.disabled = false; }
+}
+async function saveAccountPreferences() {
+  const profileEpoch = awardProfileEpoch;
+  const preferences = { preferredName: accountPreferredName.value, defaultPlayerCount: Number(accountDefaultPlayerCount.value), defaultRoundLimitMinutes: accountDefaultRoundLimit.value || null, interfaceStyle, personalSkinId: accountPersonalSkin.value || null, usePersonalSkin: accountUsePersonalSkin.checked };
+  try {
+    const token = await currentAccountToken();
+    if (!token || profileEpoch !== awardProfileEpoch) return;
+    const response = await fetch('/api/account/preferences', { method: 'PUT', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(preferences) });
+    if (profileEpoch !== awardProfileEpoch) return;
+    if (!response.ok) throw new Error('Your preferences could not be saved yet.');
+    const saved = (await response.json()).preferences;
+    if (profileEpoch !== awardProfileEpoch) return;
+    accountPreferences = saved;
+    void applySelectedAppearance();
+    const preferredName = saved.preferredName || '';
+    dom.createName.value ||= preferredName; dom.joinName.value ||= preferredName;
+    myGamesStatus.textContent = preferredName ? `Saved. ${preferredName} will prefill your name when you create or join a pod.` : 'Preferences saved. Set a preferred name whenever you want new pods to prefill it.';
+  } catch (error) { if (profileEpoch === awardProfileEpoch) myGamesStatus.textContent = error?.message || 'Your preferences could not be saved yet.'; }
+}
 async function removeAccountItem(kind, id) {
   const token = await currentAccountToken(); if (!token) return;
   const response = await fetch(`/api/account/${kind}/${encodeURIComponent(id)}`, { method: 'DELETE', headers: { authorization: `Bearer ${token}` } }); if (!response.ok) throw new Error('That item could not be removed.');
@@ -854,11 +1210,20 @@ async function exportAccountData() {
 async function deleteAccountData() {
   if (!window.confirm('Permanently delete your saved games, decks, and account data? Shared Pod/tournament results keep their numbers as Deleted member, with your name and account link removed. This cannot be undone.')) return;
   resetAwardProfile();
-  const token = await currentAccountToken(); if (!token) throw new Error('Sign in to delete your account data.');
-  const response = await fetch('/api/account', { method: 'DELETE', headers: { authorization: `Bearer ${token}` } });
-  if (!response.ok) throw new Error('Your account data could not be deleted.');
-  exportAccountButton.hidden = true; deleteAccountButton.hidden = true; myGamesContent.hidden = true; myGamesStatus.textContent = 'Your saved account data has been deleted.';
-  competitionHub.authChanged(false);
+  const profileEpoch = awardProfileEpoch;
+  try {
+    const token = await currentAccountToken();
+    if (profileEpoch !== awardProfileEpoch) return;
+    if (!token) throw new Error('Sign in to delete your account data.');
+    const response = await fetch('/api/account', { method: 'DELETE', headers: { authorization: `Bearer ${token}` } });
+    if (profileEpoch !== awardProfileEpoch) return;
+    if (!response.ok) throw new Error('Your account data could not be deleted.');
+    // Retire work started while the provider request was pending as well.
+    resetAwardProfile();
+    clearPrivateDeckState();
+    exportAccountButton.hidden = true; deleteAccountButton.hidden = true; myGamesContent.hidden = true; myGamesStatus.textContent = 'Your saved account data has been deleted.';
+    competitionHub.authChanged(false);
+  } catch (error) { if (profileEpoch === awardProfileEpoch) throw error; }
 }
 function clearAccountAppearance() {
   accountPreferences = null;
@@ -868,26 +1233,47 @@ function clearAccountAppearance() {
   void applySelectedAppearance();
 }
 async function signOut() {
+  if (signOutInFlight) return;
+  signOutInFlight = true;
   signOutButton.disabled = true;
+  homeSignOutButton.disabled = true;
+  homeSignOutButton.textContent = 'Signing out…';
+  homeAccountMessage.hidden = true;
+  homeAccountMessage.textContent = '';
   resetAwardProfile();
+  const profileEpoch = awardProfileEpoch;
   try {
     await signOutAccount();
-    selectedDeckId = ''; setupDecks = []; savedDecks = [];
+    if (profileEpoch !== awardProfileEpoch) return;
+    resetAwardProfile();
+    clearPrivateDeckState();
     clearAccountAppearance();
     renderHomeAccount(false);
     competitionHub.authChanged(false);
     if (myGamesDialog.open) myGamesDialog.close(); if (myDecksDialog.open) myDecksDialog.close();
   } catch (error) {
+    if (profileEpoch !== awardProfileEpoch) return;
     myGamesStatus.textContent = error?.message || 'Sign-out did not finish. Please try again.';
-  } finally { signOutButton.disabled = false; }
+    homeAccountMessage.textContent = myGamesStatus.textContent;
+    homeAccountMessage.hidden = false;
+  } finally {
+    signOutInFlight = false;
+    signOutButton.disabled = false;
+    homeSignOutButton.textContent = 'Sign out';
+    homeSignOutButton.disabled = !homeAccountSignedIn;
+  }
 }
 function renderHomeAccount(signedIn) {
-  accountSignedInStatus.hidden = !signedIn;
+  homeAccountSignedIn = signedIn;
+  accountSignedInStatus.textContent = signedIn ? 'Signed in' : 'Signed out';
+  homeSignOutButton.disabled = !signedIn || signOutInFlight;
+  homeAccountMessage.hidden = true;
+  homeAccountMessage.textContent = '';
   myGamesButton.disabled = !signedIn;
   myDecksButton.disabled = !signedIn;
   signInButton.hidden = signedIn;
 }
-function openSignIn({ returnToJoin = false } = {}) { pendingSignInReturn = returnToJoin ? { view: 'join', code: $('#podCode').value.trim().toUpperCase(), step: joinStep } : null; myGamesDialog.querySelector('#myGamesTitle').textContent = 'Sign in'; myGamesStatus.textContent = 'Save your profile, games, and decks. Guest play is always available.'; myGamesContent.hidden = true; accountPreferredNameField.hidden = true; accountDefaultPlayerCountField.hidden = true; accountDefaultRoundLimitField.hidden = true; accountPersonalSkinField.hidden = true; accountUsePersonalSkinField.hidden = true; accountSkinRewards.hidden = true; emailSignInFields.hidden = true; accountPassword.value = ''; myGamesSignInButton.hidden = false; emailSignInButton.hidden = false; emailSignInButton.textContent = 'Use email'; emailSignInButton.classList.replace('primary-action', 'secondary-action'); myGamesSignInButton.classList.replace('secondary-action', 'primary-action'); forgotPasswordButton.hidden = true; createAccountButton.hidden = true; saveAccountPreferencesButton.hidden = true; exportAccountButton.hidden = true; deleteAccountButton.hidden = true; signOutButton.hidden = true; myGamesDialog.showModal(); }
+function openSignIn({ returnToJoin = false } = {}) { profileLoadAttempt++; pendingSignInReturn = returnToJoin ? { view: 'join', code: $('#podCode').value.trim().toUpperCase(), step: joinStep } : null; myGamesDialog.querySelector('#myGamesTitle').textContent = 'Sign in'; myGamesStatus.textContent = 'Save your profile, games, and decks. Guest play is always available.'; myGamesContent.hidden = true; accountPreferredNameField.hidden = true; accountDefaultPlayerCountField.hidden = true; accountDefaultRoundLimitField.hidden = true; accountInterfaceStyleField.hidden = true; accountPersonalSkinField.hidden = true; accountUsePersonalSkinField.hidden = true; accountSkinRewards.hidden = true; emailSignInFields.hidden = true; accountPassword.value = ''; myGamesSignInButton.hidden = false; emailSignInButton.hidden = false; emailSignInButton.textContent = 'Use email'; emailSignInButton.classList.replace('primary-action', 'secondary-action'); myGamesSignInButton.classList.replace('secondary-action', 'primary-action'); forgotPasswordButton.hidden = true; createAccountButton.hidden = false; saveAccountPreferencesButton.hidden = true; exportAccountButton.hidden = true; deleteAccountButton.hidden = true; signOutButton.hidden = true; if (registration.pending) myGamesStatus.textContent = 'Creating your account…'; myGamesDialog.showModal(); }
 let emailSignInInFlight = false;
 async function signInWithEmailPassword() {
   if (emailSignInInFlight) return;
@@ -897,8 +1283,15 @@ async function signInWithEmailPassword() {
   catch (error) { myGamesStatus.textContent = error?.message || 'Email sign-in did not work.'; }
   finally { emailSignInInFlight = false; }
 }
-function openMyProfile() { myGamesDialog.showModal(); void showMyGames(); }
-function tableViewForState() { if (state?.lifecycle?.status === 'intermission') return dom.intermission; return state?.turn?.gameStarted ? dom.game : dom.lobby; }
+function openMyProfile() {
+  prepareProfileLoading();
+  const title = myGamesDialog.querySelector('#myGamesTitle');
+  title.tabIndex = -1;
+  myGamesDialog.showModal();
+  title.focus();
+  void showMyGames();
+}
+function tableViewForState() { if (state?.lifecycle?.status === 'intermission' || (state?.lifecycle?.status === 'complete' && tournamentTableFlow(state, tournamentTableContext)?.finished)) return dom.intermission; return state?.turn?.gameStarted ? dom.game : dom.lobby; }
 function syncGameWakeLock() {
   const active = Boolean(!appearancePreviewMode && !dom.game.hidden && state?.turn?.gameStarted && !state.gameResult && (state.lifecycle?.status ?? 'playing') === 'playing');
   const supported = gameWakeLock.supported;
@@ -910,15 +1303,64 @@ function syncGameWakeLock() {
   void gameWakeLock.sync({ active, enabled: keepScreenAwake });
 }
 function showView(view) {
+  if (pendingTableCreation) pendingTableCreation.foreground = false;
+  if ([dom.game, dom.lobby, dom.intermission].includes(view)) backgroundTableEpoch = null;
+  if (view === dom.create || view === dom.join
+      || (activeTableRecoveryEpoch === transport.sessionEpoch && ![dom.game, dom.lobby, dom.intermission].includes(view))) {
+    clearActiveTable();
+    cancelActiveTableRecovery();
+  }
   const activeView = view === dom.game && state ? tableViewForState() : view;
   dom.views.forEach(item => { item.hidden = item !== activeView; });
+  dialLayout.update();
   syncGameWakeLock();
   window.scrollTo({ top: 0, behavior: 'instant' });
 }
 function savedTables() { try { const tables = JSON.parse(localStorage.getItem(SAVED_TABLES_KEY)); return Array.isArray(tables) ? tables.filter(table => /^[A-Z0-9]{6}$/.test(table?.code)).slice(0, 8) : []; } catch { return []; } }
+function validActiveTableTarget(target) {
+  return typeof target?.code === 'string' && /^[A-Z0-9]{6}$/.test(target.code)
+    && Number.isInteger(target.seatId) && target.seatId >= 0 && target.seatId < 8
+    && Number.isFinite(target.updatedAt);
+}
+function readActiveTable() {
+  try {
+    const current = localStorage.getItem(ACTIVE_TABLE_KEY);
+    if (current !== null) {
+      const target = JSON.parse(current);
+      return validActiveTableTarget(target) && transport.hasStoredReclaimToken(target.code, target.seatId) ? target : null;
+    }
+    // First upgrade only: use the newest real target across old metadata.
+    // An existing new marker, including null after Leave, is authoritative.
+    let legacy;
+    try { legacy = JSON.parse(localStorage.getItem(LEGACY_ACTIVE_TABLE_KEY)); } catch { /* Ignore corrupt legacy metadata. */ }
+    const candidates = [legacy, ...savedTables().filter(table => !table.recoveryOnly)
+      .map(table => ({ code: table.code, seatId: table.seatId, updatedAt: table.lastUsedAt }))]
+      .filter(validActiveTableTarget).sort((left, right) => right.updatedAt - left.updatedAt);
+    const latest = candidates[0];
+    const target = latest && transport.hasStoredReclaimToken(latest.code, latest.seatId)
+      ? { code: latest.code, seatId: latest.seatId, updatedAt: latest.updatedAt } : null;
+    // Missing credentials must not silently select an older different table.
+    localStorage.setItem(ACTIVE_TABLE_KEY, JSON.stringify(target));
+    return target;
+  } catch { return null; }
+}
+function clearActiveTable(expected) {
+  if (expected) {
+    const active = readActiveTable();
+    if (active && (active.code !== expected.code || active.seatId !== expected.seatId)) return;
+  }
+  try { localStorage.setItem(ACTIVE_TABLE_KEY, 'null'); } catch { /* Storage is optional. */ }
+}
+function cancelActiveTableRecovery() {
+  if (activeTableRecoveryEpoch !== transport.sessionEpoch) return;
+  activeTableRecoveryEpoch = null;
+  transport.clearSession();
+}
 function saveTable() {
   if (!state || state.localSimulation || !/^[A-Z0-9]{6}$/.test(state.podCode)) return;
   const entry = { code: state.podCode, seatId: transport.seatId, name: displayName(state.players.find(player => player.id === state.ownerPlayerId)), isHost: transport.seatId === state.hostSeatId, lastUsedAt: Date.now() };
+  // History includes deliberately left seats; only this marker permits auto-return.
+  try { localStorage.setItem(ACTIVE_TABLE_KEY, JSON.stringify({ code: entry.code, seatId: entry.seatId, updatedAt: entry.lastUsedAt })); } catch { /* Storage is optional. */ }
   try { localStorage.setItem(SAVED_TABLES_KEY, JSON.stringify([entry, ...savedTables().filter(table => table.code !== entry.code || table.seatId !== entry.seatId)].slice(0, 8))); } catch { /* Storage is optional; reclaim remains available when the browser can retain it. */ }
 }
 function latestRecoverableHostTable() {
@@ -929,6 +1371,7 @@ function latestRecoverableHostTable() {
 }
 function resetAwardProfile() {
   awardProfileEpoch += 1;
+  findDeckColorsButton.disabled = false;
   appearanceCatchUp.reset();
   savedGameKey = null;
   savingGameKey = null;
@@ -943,7 +1386,7 @@ async function saveGameToHistory({ automatic = false, gameKey = victoryKey(state
   if (savingGameKey === gameKey) return null;
 
   const roomCode = state.podCode;
-  const deckId = selectedDeckId || null;
+  const deckId = selectedDeckForGame(gameKey) || null;
   const seatId = transport.seatId;
   const transportEpoch = transport.sessionEpoch;
   const profileEpoch = awardProfileEpoch;
@@ -1022,14 +1465,37 @@ function clearPastTables(event) {
     clearPastTablesError.textContent = 'Could not clear the table list on this device. Please try again.';
     return;
   }
+  clearActiveTable();
+  cancelActiveTableRecovery();
   clearPastTablesDialog.close('confirm');
   renderSavedTables(true);
   $('#savedTablesTitle').focus();
 }
 async function openJoinCode(code) {
+  competitionHub.clearPending();
   const normalizedCode = String(code || '').toUpperCase();
   if (!/^[A-Z0-9]{6}$/.test(normalizedCode)) return;
   showView(dom.join); $('#podCode').value = normalizedCode; dom.joinCodeStatus.textContent = 'Finding your table…'; await refreshJoinSeats();
+}
+async function recoverActiveTable() {
+  if (dom.landing.hidden || competitionHub.isOpen() || transport.roomCode || activeTableRecoveryEpoch !== null) return;
+  const target = readActiveTable();
+  if (!target) return;
+  const attempt = transport.claimRoom({ code: target.code, seatId: target.seatId, reclaimOnly: true });
+  const epoch = transport.sessionEpoch;
+  activeTableRecoveryEpoch = epoch;
+  try {
+    const result = await attempt;
+    if (!result?.snapshot || transport.sessionEpoch !== epoch) return;
+    showSharedGame(transport.snapshot);
+  } catch (error) {
+    if (transport.sessionEpoch !== epoch) return;
+    if (['ROOM_NOT_FOUND', 'RECLAIM_UNAVAILABLE', 'SEAT_RESERVED', 'INVALID_INPUT'].includes(error?.code)) clearActiveTable(target);
+    awaitingConfirmedResync = false;
+    transport.clearSession();
+  } finally {
+    if (activeTableRecoveryEpoch === epoch) activeTableRecoveryEpoch = null;
+  }
 }
 let joinQrScanner = null;
 function stopJoinQrScanner() { joinQrScanner?.stop(dom.joinQrScannerVideo); }
@@ -1096,14 +1562,9 @@ async function copyJoinLink(button) {
     showError(new Error('Copy is not available here. Scan the QR code or use the table code shown above.'));
   }
 }
-function syncSeatCapacityChoices() {
-  const players = Number($('input[name="playerCount"]:checked')?.value || 4);
-  [...dom.seatCapacity.options].forEach(option => { option.disabled = Number(option.value) < players; });
-  if (Number(dom.seatCapacity.value) < players) dom.seatCapacity.value = [...dom.seatCapacity.options].find(option => !option.disabled)?.value || '8';
-}
-function fillSetupControls() { dom.playerCountChoices.innerHTML = Array.from({ length: 7 }, (_, index) => { const value = index + 2; return `<label><input type="radio" name="playerCount" value="${value}" ${value === 4 ? 'checked' : ''}><span>${value}</span></label>`; }).join(''); dom.playerCountChoices.querySelectorAll('input').forEach(input => input.addEventListener('change', syncSeatCapacityChoices)); syncSeatCapacityChoices(); }
+function fillSetupControls() { dom.playerCountChoices.innerHTML = Array.from({ length: 7 }, (_, index) => { const value = index + 2; return `<label><input type="radio" name="playerCount" value="${value}" ${value === 4 ? 'checked' : ''}><span>${value}</span></label>`; }).join(''); }
 function selectedGameFormat() { return $('input[name="gameFormat"]:checked')?.value || 'commander'; }
-function updateFormatSetup() { const format = selectedGameFormat(); const commander = format === 'commander'; dom.createCommanderNames.previousElementSibling.hidden = !commander; dom.createCommanderNames.hidden = !commander; dom.createDeckField.hidden = !commander || !setupDecks.length; $('#customStartingLifeField').hidden = format !== 'custom'; $('#createStepThreeNext').textContent = commander ? 'Next: commander' : 'Next: table settings'; $('#gameFormatHelp').textContent = commander ? '40 life with commander damage and commander tax.' : format === 'casual' ? '20 life by default. Commander damage and commander tax are off.' : 'Choose the life total and counters your table wants. Commander-only rules are off.'; const joiningCommander = joinGameFormat === 'commander'; dom.joinCommanderNames.previousElementSibling.hidden = !joiningCommander; dom.joinCommanderNames.hidden = !joiningCommander; dom.joinDeckField.hidden = !joiningCommander || !setupDecks.length; }
+function updateFormatSetup() { const format = selectedGameFormat(); const commander = format === 'commander'; dom.createCommanderNames.previousElementSibling.hidden = !commander; dom.createCommanderNames.hidden = !commander; dom.createDeckField.hidden = !commander || !setupDecks.length; $('#customStartingLifeField').hidden = format !== 'custom'; $('#customStartingLife').disabled = format !== 'custom'; $('#createStepTwoNext').textContent = commander ? 'Next: commander' : 'Next: table settings'; const joiningCommander = joinGameFormat === 'commander'; dom.joinCommanderNames.previousElementSibling.hidden = !joiningCommander; dom.joinCommanderNames.hidden = !joiningCommander; dom.joinDeckField.hidden = !joiningCommander || !setupDecks.length; $('#joinStepThreeNext').textContent = joiningCommander ? 'Next: commander' : 'Claim this seat'; }
 function commanderNamesFromForm(form, count) { return Array.from({ length: count }, (_, slot) => String(form.get(`commanderName${slot}`) || '').trim()); }
 function commanderColorsFromFields(container, count) { return Array.from({ length: count }, (_, slot) => normaliseIdentity(String(container.querySelector(`input[name="commanderName${slot}"]`)?.dataset.commanderColors || '').split(',').filter(Boolean))); }
 async function lookupCommanderIdentity(name) {
@@ -1136,20 +1597,25 @@ function showCommanderMatchChoices(field, input, status, matches) {
   field.append(choices);
   status.textContent = 'Choose the card you meant before applying its color identity.';
 }
-async function confirmUnresolvedCommanderDetails(container, count) {
+async function confirmUnresolvedCommanderDetails(container, count, isCurrent = () => true) {
   const unresolved = [];
   for (let slot = 0; slot < count; slot += 1) {
+    if (!isCurrent()) return { colors: [], unresolved: [] };
     const input = container.querySelector(`input[name="commanderName${slot}"]`);
     const name = input?.value.trim();
     if (!name || input.dataset.commanderColors !== undefined || input.dataset.commanderLookupFailed === 'true') continue;
+    const current = () => isCurrent() && container.querySelector(`input[name="commanderName${slot}"]`) === input
+      && input.value.trim() === name && input.dataset.commanderColors === undefined;
     const status = input.closest('.commander-identity-field')?.querySelector('.commander-lookup-status');
     if (status) status.textContent = 'Confirming commander…';
     try {
       const card = await lookupCommanderIdentity(name);
+      if (!current()) return { colors: [], unresolved: [name] };
       input.value = card.name;
       input.dataset.commanderColors = card.colors.join(',');
       if (status) status.textContent = `✓ Confirmed: ${card.colors.join('') || 'Colorless'}`;
     } catch (error) {
+      if (!current()) return { colors: [], unresolved: [name] };
       unresolved.push(name);
       if (error.matches?.length && status) showCommanderMatchChoices(input.closest('.commander-identity-field'), input, status, error.matches);
       else { input.dataset.commanderLookupFailed = 'true'; if (status) status.textContent = error.message || 'Commander not found. Check the spelling and try again.'; }
@@ -1172,14 +1638,14 @@ async function lookupCardInteraction(first, second) {
 function renderCommanderNameFields(container, count, names = [], identities = []) {
   if (!container) return;
   const current = [...container.querySelectorAll('input[name^="commanderName"]')].map(input => ({ name: input.value, colors: input.dataset.commanderColors || '' }));
-  container.innerHTML = Array.from({ length: count }, (_, slot) => { const prior = current[slot]; const colors = normaliseIdentity((prior?.colors || identities[slot] || []).toString().split(',').filter(Boolean)); const name = names[slot] ?? prior?.name ?? ''; const identity = colors.length ? `✓ Confirmed: ${colors.join('')}` : 'Confirm the card to apply its color identity.'; const colorData = colors.length ? ` data-commander-colors="${escapeHtml(colors.join(','))}"` : ''; return `<div class="commander-identity-field"><label class="select-field">Commander ${count === 2 ? slot === 0 ? 'A' : 'B' : ''} name <small>(optional)</small><input name="commanderName${slot}" type="text" maxlength="60" autocomplete="off" placeholder="e.g. Atraxa, Praetors’ Voice" value="${escapeHtml(name)}"${colorData}></label><button class="commander-lookup" data-lookup-commander="${slot}" type="button">Find commander details</button><small class="commander-lookup-status" aria-live="polite">${identity}</small></div>`; }).join('');
+  container.innerHTML = Array.from({ length: count }, (_, slot) => { const prior = current[slot]; const name = names[slot] ?? prior?.name ?? ''; const colors = normaliseIdentity((identities[slot] ?? (name === prior?.name ? prior.colors : '')).toString().split(',').filter(Boolean)); const identity = colors.length ? `✓ Confirmed: ${colors.join('')}` : 'Confirm the card to apply its color identity.'; const colorData = colors.length ? ` data-commander-colors="${escapeHtml(colors.join(','))}"` : ''; return `<div class="commander-identity-field"><label class="select-field">Commander ${count === 2 ? slot === 0 ? 'A' : 'B' : ''} name <small>(optional)</small><input name="commanderName${slot}" type="text" maxlength="60" autocomplete="off" placeholder="e.g. Atraxa, Praetors’ Voice" value="${escapeHtml(name)}"${colorData}></label><button class="commander-lookup" data-lookup-commander="${slot}" type="button">Find commander details</button><small class="commander-lookup-status" aria-live="polite">${identity}</small></div>`; }).join('');
   container.querySelectorAll('input[name^="commanderName"]').forEach(input => input.addEventListener('input', () => { delete input.dataset.commanderColors; input.closest('.commander-identity-field').querySelector('.commander-match-choices')?.remove(); const status = input.closest('.commander-identity-field').querySelector('.commander-lookup-status'); status.textContent = 'Name changed. Confirm the card to apply its color identity.'; }));
-  container.querySelectorAll('[data-lookup-commander]').forEach(button => button.addEventListener('click', async () => { const field = button.closest('.commander-identity-field'); const input = field.querySelector('input'); const status = field.querySelector('.commander-lookup-status'); const name = input.value.trim(); if (!name) { input.focus(); return; } button.disabled = true; status.textContent = 'Finding commander…'; try { const card = await lookupCommanderIdentity(name); applyCommanderIdentity(input, status, card); field.querySelector('.commander-manual-colors')?.remove(); } catch (error) { delete input.dataset.commanderColors; if (error.matches?.length) showCommanderMatchChoices(field, input, status, error.matches); else { input.dataset.commanderLookupFailed = 'true'; status.textContent = error.message; if (container === dom.createCommanderNames && !field.querySelector('.commander-manual-colors')) { field.insertAdjacentHTML('beforeend', '<div class="commander-manual-colors"><button type="button" class="secondary-action" data-enter-colors>Enter colors manually</button><button type="button" class="text-action" data-skip-colors>Keep without colors</button></div>'); field.querySelector('[data-enter-colors]').addEventListener('click', () => { const chooser = document.createElement('fieldset'); chooser.className = 'commander-color-chooser'; chooser.innerHTML = '<legend>Color identity</legend>W U B R G'.split(' ').map(color => `<label><input type="checkbox" value="${color}">${color}</label>`).join(''); chooser.addEventListener('change', () => { input.dataset.commanderColors = [...chooser.querySelectorAll('input:checked')].map(item => item.value).join(','); status.textContent = `Manual identity: ${input.dataset.commanderColors || 'Colorless'}`; }); field.querySelector('.commander-manual-colors').replaceWith(chooser); }); field.querySelector('[data-skip-colors]').addEventListener('click', () => { status.textContent = 'Kept without a color identity.'; field.querySelector('.commander-manual-colors').remove(); }); } } } finally { button.disabled = false; } }));
+  container.querySelectorAll('[data-lookup-commander]').forEach(button => button.addEventListener('click', async () => { const field = button.closest('.commander-identity-field'); const input = field.querySelector('input'); const status = field.querySelector('.commander-lookup-status'); const name = input.value.trim(); if (!name) { input.focus(); return; } const expectedColors = input.dataset.commanderColors; const current = () => container.querySelector(`input[name="commanderName${button.dataset.lookupCommander}"]`) === input && input.value.trim() === name && input.dataset.commanderColors === expectedColors; button.disabled = true; status.textContent = 'Finding commander…'; try { const card = await lookupCommanderIdentity(name); if (!current()) return; applyCommanderIdentity(input, status, card); field.querySelector('.commander-manual-colors')?.remove(); } catch (error) { if (!current()) return; delete input.dataset.commanderColors; if (error.matches?.length) showCommanderMatchChoices(field, input, status, error.matches); else { input.dataset.commanderLookupFailed = 'true'; status.textContent = error.message; if (container === dom.createCommanderNames && !field.querySelector('.commander-manual-colors')) { field.insertAdjacentHTML('beforeend', '<div class="commander-manual-colors"><button type="button" class="secondary-action" data-enter-colors>Enter colors manually</button><button type="button" class="text-action" data-skip-colors>Keep without colors</button></div>'); field.querySelector('[data-enter-colors]').addEventListener('click', () => { const chooser = document.createElement('fieldset'); chooser.className = 'commander-color-chooser'; chooser.innerHTML = '<legend>Color identity</legend>W U B R G'.split(' ').map(color => `<label><input type="checkbox" value="${color}">${color}</label>`).join(''); chooser.addEventListener('change', () => { input.dataset.commanderColors = [...chooser.querySelectorAll('input:checked')].map(item => item.value).join(','); status.textContent = `Manual identity: ${input.dataset.commanderColors || 'Colorless'}`; }); field.querySelector('.commander-manual-colors').replaceWith(chooser); }); field.querySelector('[data-skip-colors]').addEventListener('click', () => { status.textContent = 'Kept without a color identity.'; field.querySelector('.commander-manual-colors').remove(); }); } } } finally { button.disabled = false; } }));
 }
 function selectedCommanderCount(formName) { return Number($(`input[name="${formName}"]:checked`)?.value || 1); }
 function refreshSetupCommanderNames() { renderCommanderNameFields(dom.createCommanderNames, selectedCommanderCount('commanderCount')); renderCommanderNameFields(dom.joinCommanderNames, selectedCommanderCount('joinCommanderCount')); }
 function showTableView() { showView(tableViewForState()); }
-function beginLocalGame(config) { transport.useLocal(); state = { ...createState(config), localDemoLastInteractionAt: Date.now() }; showTableView(); render(); void applySelectedAppearance(); }
+function beginLocalGame(config) { clearActiveTable(); cancelActiveTableRecovery(); transport.useLocal(); state = { ...createState(config), localDemoLastInteractionAt: Date.now() }; showTableView(); render(); void applySelectedAppearance(); }
 function clearDeepJoinCode() {
   const url = new URL(location.href);
   if (!url.searchParams.has('join')) return;
@@ -1202,6 +1668,17 @@ function turnPlayer() { return state.players.find(player => player.id === state.
 function formatDuration(milliseconds) { const seconds = Math.max(0, Math.floor(milliseconds / 1000)); return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`; }
 function renderTurnFlow() {
   if (!state?.turn) return;
+  syncTableOrderControls();
+  if (nextGameConfirmation && dom.nextGameConfirmDialog.open && !nextGameStarterPending && !nextGameStartPending && !nextGameConfirmationMatches(nextGameConfirmation)) {
+    const sameTable = nextGameConfirmation.roomCode === state.podCode;
+    dom.nextGameConfirmDialog.close('stale');
+    if (sameTable && state.lifecycle?.status === 'intermission') showTableActionError('The table changed. Review the players and first player before starting.');
+  }
+  if (commanderSetupDraft?.nextGame && !commanderSetupContextMatches(commanderSetupDraft)) dom.commanderCountDialog.close('stale');
+  if (state.localSimulation && state.pendingFinish) {
+    advanceLocalElimination(state);
+    if (state.gameResult) { render(); return; }
+  }
   const turnPlayerValue = turnPlayer(); const now = Date.now(); const handoff = state.turn.lastHandoff;
   const claimedPlayers = state.players.filter(player => player.connectionStatus !== 'waiting');
   const isHost = state.localSimulation || transport.seatId === state.hostSeatId;
@@ -1209,9 +1686,13 @@ function renderTurnFlow() {
   const lifecycleStatus = state.lifecycle?.status || (state.turn.gameStarted ? 'playing' : 'lobby');
   const isIntermission = lifecycleStatus === 'intermission';
   const isComplete = lifecycleStatus === 'complete';
+  const eventFlow = tournamentTableFlow(state, tournamentTableContext, now);
+  const showPostgame = isIntermission || (isComplete && Boolean(eventFlow));
+  const eliminationUndo = renderEliminationUndo();
   const isStarted = Boolean(state.turn.gameStarted) && !isComplete;
   dom.lobbyControls.hidden = isStarted || isIntermission || isComplete;
-  dom.intermissionPanel.hidden = !isIntermission;
+  dom.intermissionPanel.hidden = !showPostgame;
+  if (!showPostgame) dom.intermissionInvite.open = false;
   const renderSeatOrder = (container, rosterIds, { intermission = false } = {}) => {
     const readyIds = state.lifecycle?.readySeatIds || [];
     const isHost = state.localSimulation || transport.seatId === state.hostSeatId;
@@ -1221,7 +1702,7 @@ function renderTurnFlow() {
       const skip = intermission && isHost && seatId !== state.hostSeatId ? `<button type="button" class="text-action" data-skip-next-seat="${seatId}">Remove</button>` : '';
       const move = isHost ? `<span class="intermission-move"><button type="button" class="text-action" data-move-seat="${seatId}" data-direction="-1" ${position === 0 ? 'disabled' : ''} aria-label="Move ${escapeHtml(displayName(player))} earlier">↑</button><button type="button" class="text-action" data-move-seat="${seatId}" data-direction="1" ${position === rosterIds.length - 1 ? 'disabled' : ''} aria-label="Move ${escapeHtml(displayName(player))} later">↓</button></span>` : '';
       const status = intermission ? (ready ? 'Ready' : 'Waiting for ready') : 'Table order';
-      return `<div class="intermission-seat"><span><strong>P${position + 1} · ${escapeHtml(displayName(player))}</strong><small>${status}</small></span><span class="intermission-actions">${move}${skip}</span></div>`;
+      return `<div class="intermission-seat"><span><strong>P${seatId + 1} · ${escapeHtml(displayName(player))}</strong><small>${status}</small></span><span class="intermission-actions">${move}${skip}</span></div>`;
     }).join('');
     container.querySelectorAll('[data-skip-next-seat]').forEach(button => button.addEventListener('click', () => void skipNextGameSeat(Number(button.dataset.skipNextSeat))));
     container.querySelectorAll('[data-move-seat]').forEach(button => button.addEventListener('click', () => void moveNextGameSeat(Number(button.dataset.moveSeat), Number(button.dataset.direction))));
@@ -1229,7 +1710,7 @@ function renderTurnFlow() {
   const lobbyRosterIds = state.lifecycle?.seatIds || [];
   dom.lobbyRoster.hidden = lobbyRosterIds.length < 2 || isIntermission || isComplete;
   if (!dom.lobbyRoster.hidden) renderSeatOrder(dom.lobbyRoster, lobbyRosterIds);
-  if (isIntermission) {
+  if (showPostgame) {
     const rosterIds = state.lifecycle?.seatIds || [];
     const readyIds = state.lifecycle?.readySeatIds || [];
     const isHost = state.localSimulation || transport.seatId === state.hostSeatId;
@@ -1237,20 +1718,32 @@ function renderTurnFlow() {
     const youAreReady = readyIds.includes(ownSeatId);
     dom.intermissionTitle.textContent = 'Set up the next game';
     const openSeats = state.players.filter(player => player.connectionStatus === 'waiting').length;
-    dom.intermissionDetail.textContent = `${readyIds.length}/${rosterIds.length} players ready. ${openSeats ? `A new player can join this Table now; then arrange the table to match the real seats.` : 'This Table is full; start a new Table to add another player.'}`;
-    dom.intermissionInvite.hidden = !isHost || !openSeats || !canShareJoin;
+    const canAddPlayer = openSeats > 0 || state.players.length < 8;
+    dom.intermissionDetail.textContent = `${readyIds.length}/${rosterIds.length} players ready.${canAddPlayer ? '' : ' All 8 seats are claimed. A player must leave to open a seat.'}`;
+    dom.intermissionInvite.hidden = !isHost || !canAddPlayer || !canShareJoin;
+    if (dom.intermissionInvite.hidden) dom.intermissionInvite.open = false;
     dom.intermissionInviteCode.textContent = state.podCode;
     renderSeatOrder(dom.intermissionRoster, rosterIds, { intermission: true });
     dom.intermissionReadyButton.hidden = !rosterIds.includes(ownSeatId);
+    dom.intermissionSetupButton.hidden = !rosterIds.includes(ownSeatId) || youAreReady;
+    dom.intermissionSetupButton.disabled = pendingNextGameSetup || (!state.localSimulation && transport.status !== 'connected');
     dom.intermissionReadyButton.textContent = youAreReady ? 'I need to make a change' : 'I’m ready';
-    dom.intermissionReadyButton.disabled = !state.localSimulation && transport.status !== 'connected';
+    dom.intermissionReadyButton.disabled = pendingNextGameSetup || (!state.localSimulation && transport.status !== 'connected');
     dom.intermissionStartButton.hidden = !isHost;
     const everyoneReady = rosterIds.length >= 2 && rosterIds.every(id => readyIds.includes(id));
     dom.intermissionStartButton.disabled = !everyoneReady || (!state.localSimulation && transport.status !== 'connected');
     dom.intermissionStartButton.textContent = everyoneReady ? `Start next game · ${rosterIds.length} players` : `Waiting for every player · ${readyIds.length}/${rosterIds.length} ready`;
     dom.intermissionLeaveButton.disabled = !state.localSimulation && transport.status !== 'connected';
+    if (eventFlow) {
+      dom.intermissionTitle.textContent = 'Tournament game complete';
+      dom.intermissionDetail.textContent = eventFlow.canOpenEvent
+        ? 'Review the finish, then return to your tournament for the next assignment or final standings.'
+        : 'Your Table host confirms the finish. Ask the organizer for event access or your next assignment.';
+      for (const node of [dom.intermissionReadyButton, dom.intermissionSetupButton, dom.intermissionStartButton, dom.intermissionRoster, dom.intermissionInvite]) node.hidden = true;
+    } else dom.intermissionRoster.hidden = false;
   }
-  const freezeGameControls = isIntermission || isComplete;
+  returnToTournamentButton.hidden = !showPostgame || !eventFlow?.canOpenEvent;
+  const freezeGameControls = isIntermission || isComplete || eliminationUndo.gamePending;
   $('#adjustControls').hidden = freezeGameControls;
   // `interfaceStyle` is the current saved value, not a getter. Calling it
   // halted rendering in a local simulation just after the visual style was
@@ -1260,10 +1753,11 @@ function renderTurnFlow() {
   dom.showJoinQrMenuButton.hidden = !canShareJoin || !isHost;
   const trackingEnabled = state.turn.trackingEnabled !== false;
   const paused = Boolean(state.turn.pausedAt);
-  dom.turnBanner.hidden = !isStarted || !trackingEnabled;
+  dom.turnBanner.hidden = !isStarted || (!trackingEnabled && !eliminationUndo.gamePending && eventFlow?.remainingMs == null);
+  tournamentRoundButton.hidden = !isStarted || !eventFlow?.canOpenEvent || eventFlow.remainingMs === null;
   dom.turnActions.hidden = !isStarted;
   dom.toggleTurnTrackingButton.hidden = !isHost;
-  dom.toggleTurnTrackingButton.disabled = !isHost || !(state.localSimulation || transport.status === 'connected');
+  dom.toggleTurnTrackingButton.disabled = !isHost || !(state.localSimulation || transport.status === 'connected') || eliminationUndo.gamePending;
   dom.toggleTurnTrackingButton.textContent = `Turn tracking: ${trackingEnabled ? 'on' : 'off'}`;
   dom.toggleTurnCuesButton.hidden = !isHost;
   dom.toggleTurnCuesButton.disabled = !isHost || !(state.localSimulation || transport.status === 'connected');
@@ -1272,7 +1766,7 @@ function renderTurnFlow() {
   dom.turnSoundPreferencesButton.textContent = `My turn sound: ${turnSound().replace('-', ' ')}`;
   dom.toggleTouchFeedbackButton.textContent = `Touch feedback: ${touchFeedbackEnabled() ? 'on' : 'off'}`;
   dom.pauseTurnButton.hidden = !isStarted || !isHost || !trackingEnabled;
-  if (freezeGameControls) {
+  if (isIntermission || isComplete) {
     clearInterval(turnTicker); turnTicker = null;
     return;
   }
@@ -1304,34 +1798,71 @@ function renderTurnFlow() {
     const pendingPlayer = Number.isInteger(pendingStartingSeatId) ? claimedPlayers.find(player => player.id === `P${pendingStartingSeatId + 1}`) : null;
     dom.chooseFirstButton.textContent = pendingPlayer ? `Use ${displayName(pendingPlayer)} as first player` : 'Use selected first player';
     dom.randomFirstButton.disabled = !isHost || claimedPlayers.length < 2;
-    dom.startGameButton.disabled = !isHost || claimedPlayers.length < 2;
-    dom.startGameButton.textContent = `Start game · ${displayName(firstPlayer)} goes first`;
+    const starting = gameStartRequest?.roomCode === state.podCode && gameStartRequest.epoch === transport.sessionEpoch;
+    dom.startGameButton.disabled = starting || !isHost || claimedPlayers.length < 2;
+    dom.startGameButton.textContent = starting ? 'Starting game…' : `Start game · ${displayName(firstPlayer)} goes first`;
     clearInterval(turnTicker); turnTicker = null;
     return;
   }
   const timerNow = state.turn.pausedAt || now;
   const actingSeatId = state.localSimulation ? state.activePlayerId : state.ownerPlayerId;
   const isOwnerActive = state.turnSeatId === actingSeatId;
-  dom.game.dataset.yourTurn = String(isOwnerActive && trackingEnabled && !paused);
-  dom.turnLabel.textContent = paused ? 'TURN PAUSED' : isOwnerActive ? 'YOUR TURN' : `${state.turnSeatId}'S TURN`;
-  dom.turnPlayer.textContent = turnPlayerValue ? displayName(turnPlayerValue) : state.turnSeatId;
+  dom.game.dataset.yourTurn = String(isOwnerActive && trackingEnabled && !paused && !eliminationUndo.gamePending);
+  dom.turnLabel.textContent = eliminationUndo.gamePending ? (eliminationUndo.pendingSeconds ? `RESULT IN ${eliminationUndo.pendingSeconds}s` : 'FINALIZING RESULT') : paused ? 'TURN PAUSED' : isOwnerActive ? 'YOUR TURN' : `${state.turnSeatId}'S TURN`;
+  const pendingWinner = state.players.find(player => player.id === `P${state.pendingFinish?.winnerSeatId + 1}`);
+  dom.turnPlayer.textContent = eliminationUndo.gamePending && pendingWinner ? displayName(pendingWinner) : turnPlayerValue ? displayName(turnPlayerValue) : state.turnSeatId;
   dom.turnElapsed.textContent = `TURN ${formatDuration(timerNow - state.turn.turnStartedAt)}`;
-  dom.gameTimer.textContent = state.turn.roundEndsAt ? `ROUND ENDS IN ${formatDuration(state.turn.roundEndsAt - timerNow)}` : `GAME TIME ${formatDuration(timerNow - state.turn.gameStartedAt)}`;
+  dom.gameTimer.textContent = eventFlow?.remainingMs !== null && eventFlow?.remainingMs !== undefined
+    ? eventFlow.remainingMs > 0 ? `ROUND ENDS IN ${formatDuration(eventFlow.remainingMs)}` : 'ROUND TIME ENDED'
+    : !eventFlow && state.turn.roundEndsAt ? `ROUND ENDS IN ${formatDuration(state.turn.roundEndsAt - timerNow)}` : `GAME TIME ${formatDuration(timerNow - state.turn.gameStartedAt)}`;
   const recentHandoff = handoff && Number.isFinite(handoff.turnLengthMs) && now - handoff.handedOffAt <= 15_000;
   dom.lastTurnSummary.hidden = false;
   dom.lastTurnSummary.textContent = `TURN ${Math.max(1, Number(state.turn.turnNumber) || 1)}${recentHandoff ? ` · LAST TURN ${formatDuration(handoff.turnLengthMs)}` : ''}`;
-  const canAct = (state.localSimulation || transport.status === 'connected') && isOwnerActive && trackingEnabled && !paused;
+  const canAct = (state.localSimulation || transport.status === 'connected') && isOwnerActive && trackingEnabled && !paused && !eliminationUndo.gamePending;
   dom.endTurnButton.disabled = !canAct;
-  dom.pauseTurnButton.disabled = !isHost || !(state.localSimulation || transport.status === 'connected');
+  dom.pauseTurnButton.disabled = !isHost || !(state.localSimulation || transport.status === 'connected') || eliminationUndo.gamePending;
   dom.pauseTurnButton.textContent = paused ? 'Resume timers' : 'Pause timers';
   dom.turnActionDetail.textContent = !trackingEnabled ? 'Turn tracking is off for this table.' : paused ? 'Timers are paused by the host.' : isOwnerActive ? 'You are active. Press once when you pass the turn.' : `${turnPlayerValue ? displayName(turnPlayerValue) : state.turnSeatId} controls this turn.`;
   const undoAvailable = trackingEnabled && handoff && !handoff.automatic && Date.now() - handoff.handedOffAt <= 15_000 && actingSeatId === `P${handoff.fromSeatId + 1}`;
-  dom.endTurnButton.hidden = !isOwnerActive || !trackingEnabled || undoAvailable;
-  dom.undoTurnButton.hidden = !undoAvailable;
+  dom.endTurnButton.hidden = !isOwnerActive || !trackingEnabled || undoAvailable || eliminationUndo.visible || eliminationUndo.gamePending;
+  dom.undoTurnButton.hidden = !undoAvailable || eliminationUndo.visible || eliminationUndo.gamePending;
   if (undoAvailable) dom.undoTurnButton.textContent = `Undo handoff · ${Math.max(0, Math.ceil((15_000 - (Date.now() - handoff.handedOffAt)) / 1000))}s`;
-  promptRadiationAfterHandoff(isOwnerActive, handoff);
+  if (!eliminationUndo.gamePending) promptRadiationAfterHandoff(isOwnerActive, handoff);
   clearInterval(turnTicker);
   if (!appearancePreviewMode) turnTicker = setInterval(() => { if (state && !dom.game.hidden) renderTurnFlow(); }, 1000);
+}
+function renderEliminationUndo() {
+  const view = eliminationUndoPresentation(state, { status: transport.status, submitting: pendingEliminationUndoId !== null });
+  dom.undoEliminationButton.hidden = !view.visible;
+  dom.undoEliminationButton.disabled = view.disabled;
+  dom.undoEliminationButton.textContent = pendingEliminationUndoId ? 'Undoing elimination…' : `Undo elimination · ${view.seconds}s`;
+  if (view.visible && view.eliminationId !== announcedEliminationUndoId) {
+    announcedEliminationUndoId = view.eliminationId;
+    closeGameOverlays(); closeGameMenu();
+    dom.eliminationUndoStatus.textContent = `You were eliminated. You have ${view.seconds} seconds to undo the entry.`;
+  }
+  return view;
+}
+async function undoElimination() {
+  const view = eliminationUndoPresentation(state, { status: transport.status, submitting: pendingEliminationUndoId !== null });
+  if (!view.visible || view.disabled) return;
+  const id = view.eliminationId;
+  pendingEliminationUndoId = id;
+  render();
+  try {
+    let result;
+    if (state.localSimulation) { undoLocalElimination(state, id); result = { local: true }; }
+    else result = await transport.undoElimination(id);
+    if (result.conflict) { showTableActionError('The undo window ended or the table changed. The latest state is shown.'); return; }
+    if (result.blocked || result.ignored) return;
+    if (state && !state.localSimulation) state.activePlayerId = state.ownerPlayerId;
+    lifeBatcher.clear(); optimisticLifeDelta = 0;
+    clearTimeout(lifeChangeTimer); lifeChange = null;
+  } catch (error) { showTableRequestError(error); }
+  finally {
+    if (pendingEliminationUndoId === id) pendingEliminationUndoId = null;
+    if (state) render();
+  }
 }
 function radiationTurnKey(handoff) { return handoff ? `${state.podCode}:${handoff.toSeatId}:${handoff.handedOffAt}` : ''; }
 function promptRadiationAfterHandoff(isOwnerActive, handoff) {
@@ -1345,7 +1876,7 @@ async function resolveRadiation() {
   if (!Number.isInteger(nonlandCount) || nonlandCount < 0 || !player || nonlandCount > player.radiation || !key) { dom.radiationNonlandCount.focus(); return; }
   dom.resolveRadiationButton.disabled = true;
   try {
-    if (transport.status === 'local') { const removed = Math.min(nonlandCount, player.radiation); player.radiation -= removed; player.life -= nonlandCount; showLifeChange(player.id, -nonlandCount, player.life + nonlandCount, player.life); }
+    if (transport.status === 'local') { const before = captureLocalElimination(player); const removed = Math.min(nonlandCount, player.radiation); player.radiation -= removed; player.life -= nonlandCount; evaluatePlayer(player); rememberLocalElimination(state, player.id, before); showLifeChange(player.id, -nonlandCount, player.life + nonlandCount, player.life); }
     else { const result = await transport.resolveRadiation(nonlandCount); if (result.conflict) throw new Error('The table changed first. Check your radiation counters and try again.'); }
     resolvedRadiationTurnKey = key; dom.radiationDialog.close('confirm'); render();
   } catch (error) { showError(error); } finally { dom.resolveRadiationButton.disabled = false; }
@@ -1359,29 +1890,30 @@ function render() {
   dom.commanderTaxQuickButton.closest('.commander-tax-quick').hidden = !commanderFormat;
   dom.commanderSetupButton.hidden = !commanderFormat;
   if (!state.commanderCastCounts) state.commanderCastCounts = blankDamage(state.commanderSources);
-  state.players.forEach(evaluatePlayer); localLastPlayerStanding(); const player = activePlayer(); const source = state.mode === 'commander' ? selectedSourceFor(player) : null;
+  state.players.forEach(evaluatePlayer); localLastPlayerStanding();
+  const eliminatedOwner = state.players.find(player => player.id === state.ownerPlayerId && player.eliminated && player.eliminationUndo?.id);
+  if (!state.localSimulation && eliminatedOwner && eliminatedOwner.eliminationUndo.id !== announcedEliminationUndoId) state.activePlayerId = eliminatedOwner.id;
+  const player = activePlayer();
+  if (state.mode === 'commander') selectedSourceFor(player);
   dom.game.style.setProperty('--identity-seal', identityBackground(playerIdentity(player)) || 'none');
   dom.game.dataset.hasIdentity = String(playerIdentity(player).length > 0);
   dom.game.dataset.counterMode = state.mode;
-  const identityNames = player.commanderNames.filter(Boolean).join(' · ');
   const counterValue = currentValue(player);
-  dom.podLabel.textContent = state.podCode === 'LOCAL' ? 'LOCAL TABLE' : `TABLE ${state.podCode}`; dom.commanderIdentityName.hidden = !identityNames; dom.commanderIdentityName.textContent = identityNames; dom.identityHeaderRail.style.setProperty('--identity-rail', identityRail(playerIdentity(player)) || 'transparent'); dom.identityHeaderRail.hidden = !playerIdentity(player).length; dom.modeTitle.textContent = state.mode.toUpperCase(); dom.mainValue.value = counterValue; dom.mainValue.classList.toggle('elimination-placeholder', player.eliminated); dom.mainValue.setAttribute('aria-hidden', String(player.eliminated));
+  dom.podLabel.textContent = state.podCode === 'LOCAL' ? 'LOCAL TABLE' : `TABLE ${state.podCode}`; dom.modeTitle.textContent = state.mode.toUpperCase(); dom.mainValue.value = counterValue; dom.mainValue.classList.toggle('elimination-placeholder', player.eliminated); dom.mainValue.setAttribute('aria-hidden', String(player.eliminated));
   dom.game.style.setProperty('--dial-seal-rotation', `${counterValue * 12}deg`);
   const inspectingSharedSeat = !state.localSimulation && player.id !== state.ownerPlayerId;
-  dom.counterContext.textContent = state.mode === 'commander' ? (source ? `${displayPlayer(player)} · DAMAGE FROM ${displaySource(source)}` : `NO OTHER COMMANDERS · ${displayPlayer(player)}`) : `${displayName(player)}${player.id === state.ownerPlayerId ? ' · YOU' : state.localSimulation ? ' · SIMULATED' : ' · READ ONLY'}`;
-  dom.inspectionNotice.hidden = !inspectingSharedSeat;
-  dom.inspectionNotice.textContent = inspectingSharedSeat ? `VIEWING ${displayPlayer(player)} · READ ONLY ON THIS PHONE` : '';
-  dom.commanderDamageDetails.hidden = !(inspectingSharedSeat && commanderFormat);
-  dom.lethalMark.hidden = !player.eliminated; dom.eliminationOutcome.hidden = !player.eliminated; if (player.eliminationOutcome) { dom.lethalImage.src = ELIMINATION_ART[player.eliminationOutcome.art] || ELIMINATION_ART.life; dom.eliminationOutcome.querySelector('strong').textContent = player.eliminationOutcome.title; dom.eliminationOutcome.querySelector('span').textContent = player.eliminationOutcome.detail; } const status = player.warning; const lifeChangeOwnsStatusSlot = lifeChange?.playerId === player.id; renderStatusMessage(status, { hidden: lifeChangeOwnsStatusSlot }); dom.statusMessage.classList.toggle('lethal', false);
+  dom.counterContext.textContent = `${displayName(player)}${state.localSimulation && player.id !== state.ownerPlayerId ? ' · SIMULATED' : ''}`;
+  dom.inspectionNotice.hidden = true;
+  dom.inspectionNotice.textContent = '';
+  dom.commanderDamageDetails.hidden = !(inspectingSharedSeat && commanderFormat && state.mode === 'commander');
+  dom.lethalMark.hidden = !player.eliminated; dom.eliminationOutcome.hidden = !player.eliminated; if (player.eliminationOutcome) { dom.lethalImage.src = ELIMINATION_ART[player.eliminationOutcome.art] || ELIMINATION_ART.life; dom.eliminationOutcome.querySelector('strong').textContent = player.eliminationOutcome.title; dom.eliminationOutcome.querySelector('span').textContent = player.eliminationOutcome.detail; } const status = player.warning; const feedbackOwnsStatusSlot = inspectingSharedSeat || lifeChange?.playerId === player.id; renderStatusMessage(status, { hidden: feedbackOwnsStatusSlot }); dom.statusMessage.classList.toggle('lethal', false);
   const counterStage = dom.game.querySelector('.counter-stage');
   if (interfaceStyle === 'dial') dom.customLifeButton.before(dom.sideSeats);
   else counterStage.prepend(dom.sideSeats);
   renderPodStrip(); renderSources(player); renderModeNav(); renderSeatPicker();
-  renderTurnFlow();
   renderCoinTossNotice();
   renderVictory();
   syncGameWakeLock();
-  renderCommanderTaxDialog();
   renderMutationAvailability();
   dom.toggleInterfaceStyleButton.textContent = `Interface style: ${interfaceStyle === 'dial' ? 'Dial' : 'Button'}`;
   const tableHost = state.localSimulation || transport.seatId === state.hostSeatId;
@@ -1404,37 +1936,62 @@ function render() {
   dom.coinTossButton.disabled = !(transport.status === 'local' || transport.status === 'connected');
   dom.declareWinnerButton.hidden = !state.turn.gameStarted || (!state.localSimulation && transport.seatId !== state.hostSeatId);
   dom.eliminatePlayerButton.hidden = !tableHost || !state.turn.gameStarted;
+  dom.declareWinnerButton.disabled = Boolean(state.pendingFinish);
+  dom.eliminatePlayerButton.disabled = Boolean(state.pendingFinish);
+  dom.commanderSetupButton.disabled = Boolean(state.pendingFinish);
+  $('#resetButton').disabled = Boolean(state.pendingFinish);
   dom.playtestNotesButton.hidden = state.localSimulation; dom.playtestNotesButton.disabled = transport.status !== 'connected'; dom.refreshTableButton.hidden = state.localSimulation; dom.refreshTableButton.disabled = transport.status !== 'connected';
   dom.playtestRecapButton.hidden = !developerMenuVisible; dom.playtestRecapButton.disabled = transport.status !== 'connected'; dom.savedPlaytestsButton.hidden = !developerMenuVisible; dom.savedPlaytestsButton.disabled = transport.status !== 'connected';
   dom.fieldTestButton.hidden = !developerMenuVisible || state.localSimulation || !state.turn.gameStarted; dom.fieldTestButton.disabled = transport.status !== 'connected';
   dom.markDevelopmentButton.hidden = !developerMenuVisible; dom.markDevelopmentButton.disabled = transport.status !== 'connected'; dom.markDevelopmentButton.textContent = state.sessionKind === 'development' ? 'Mark standard table' : 'Mark development run';
   renderCommanderTaxQuick(taxPlayer, inspectingSharedSeat);
   if (dom.backToSetupButton) dom.backToSetupButton.hidden = !canReturnToSetup();
+  dialLayout.update();
   saveLocal();
 }
 function renderLifeChange(player) {
   if (!dom.lifeChangeIndicator) return;
-  // A fresh life change combines with low-life/lethal state into one line,
-  // then returns to the standalone warning without competing text.
-  const visible = lifeChange?.playerId === player?.id;
+  if (lifeChange && lifeChange.playerId !== player?.id) {
+    clearTimeout(lifeChangeTimer); lifeChange = null;
+  }
+  // Inspection uses the existing feedback space beneath the name, including
+  // any safety warning, without adding a separate notice to the page.
+  const inspectingSharedSeat = Boolean(player && !state.localSimulation && player.id !== state.ownerPlayerId);
+  const visible = inspectingSharedSeat || lifeChange?.playerId === player?.id;
+  dom.lifeChangeIndicator.classList.toggle('view-only', inspectingSharedSeat);
   dom.lifeChangeIndicator.hidden = !visible;
-  if (!visible) return;
-  const sign = lifeChange.delta > 0 ? '+' : '−';
+  if (!visible) {
+    dom.lifeChangeIndicator.textContent = '';
+    dom.lifeChangeIndicator.classList.toggle('negative', false);
+    return;
+  }
+  if (inspectingSharedSeat) {
+    dom.lifeChangeIndicator.textContent = player.warning ? `VIEW ONLY · ${player.warning}` : 'VIEW ONLY';
+    dom.lifeChangeIndicator.classList.toggle('negative', false);
+    return;
+  }
+  // A fresh life change combines with the warning, then returns to the
+  // standalone warning after the confirmation expires.
+  const sign = lifeChange.delta > 0 ? '+' : lifeChange.delta < 0 ? '−' : '';
   const safetyStatus = player?.warning;
   dom.lifeChangeIndicator.textContent = safetyStatus
     ? `${safetyStatus} · ${sign}${Math.abs(lifeChange.delta)} LIFE`
     : `${sign}${Math.abs(lifeChange.delta)} LIFE · ${lifeChange.from} → ${lifeChange.to}`;
   dom.lifeChangeIndicator.classList.toggle('negative', lifeChange.delta < 0);
 }
-function countersLocked(lifecycle) { return ['complete', 'intermission'].includes(lifecycle?.status); }
+function countersLocked(lifecycle, pendingFinish = null) { return pendingEliminationUndoId !== null || Boolean(pendingFinish) || ['complete', 'intermission'].includes(lifecycle?.status); }
 function renderMutationAvailability() {
-  if (!state || dom.game.hidden) return;
+  if (!state) return;
+  // Refresh shared actions without rebuilding the dial on connection changes.
+  renderTurnFlow();
+  renderCommanderTaxDialog();
+  if (dom.game.hidden) return;
   const player = activePlayer();
   if (!player) return;
   const source = state.mode === 'commander' ? selectedSourceFor(player) : null;
   const counterValue = currentValue(player);
   const playerCanMutate = state.localSimulation || player.id === state.ownerPlayerId;
-  const gameFrozen = countersLocked(state.lifecycle);
+  const gameFrozen = countersLocked(state.lifecycle, state.pendingFinish);
   const mutationsEnabled = !gameFrozen && playerCanMutate && (transport.status === 'local' || transport.status === 'connected') && (state.mode !== 'commander' || Boolean(source));
   $$('[data-delta]').forEach(button => { button.disabled = !mutationsEnabled; });
   dom.dialControls.hidden = interfaceStyle !== 'dial' || gameFrozen;
@@ -1449,8 +2006,9 @@ function showLifeChange(playerId, delta, from, to, { confirmed = false } = {}) {
   if (!delta) return;
   // Keep one rolling confirmation while a player is entering a burst of life
   // changes. The total resets only after four quiet seconds or a seat switch.
-  const prior = lifeChange?.playerId === playerId && Math.sign(lifeChange.delta) === Math.sign(delta) ? lifeChange : null;
+  const prior = lifeChange?.playerId === playerId ? lifeChange : null;
   const start = prior?.from ?? from;
+  to = prior ? prior.to + delta : to;
   lifeChange = { playerId, from: start, to, delta: to - start, confirmed, startedAt: Date.now() };
   clearTimeout(lifeChangeTimer);
   lifeChangeTimer = setTimeout(() => { lifeChange = null; if (state) render(); }, 4000);
@@ -1516,7 +2074,7 @@ function showStartingPlayerRoll(roll, { dialog = true } = {}) {
   dom.rollMyD20Button.hidden = false;
   if (localStartingRollKey === key) { dom.rollMyD20Button.disabled = true; dom.startingRollStatus.textContent = 'YOUR D20 IS ROLLING…'; return; }
   pendingStartingRoll = { key, player: state?.players.find(candidate => candidate.id === state.ownerPlayerId) || {} };
-  dom.startingRollStatus.textContent = contenderSeatIds.length < (state?.players.length || 0) ? 'TIE — ROLL AGAIN' : 'ROLL WHEN YOU ARE READY';
+  dom.startingRollStatus.textContent = roll.rounds.length > 1 ? 'TIE — ROLL AGAIN' : 'ROLL WHEN YOU ARE READY';
 }
 async function rollMyStartingD20() {
   const pending = pendingStartingRoll; if (!pending || localStartingRollKey === pending.key) return;
@@ -1571,7 +2129,6 @@ function renderPodStrip() {
     : state.players;
   const largePod = visiblePlayers.length > 4;
   dom.podStrip.dataset.playerCount = String(visiblePlayers.length);
-  dom.game.dataset.dialSideSeatCount = interfaceStyle === 'dial' && largePod ? String(visiblePlayers.length - 4) : '0';
   dom.game.querySelector('.counter-stage').classList.toggle('has-side-seats', largePod && interfaceStyle !== 'dial');
   const seatMarkup = (player) => {
     const isWaiting = player.connectionStatus === 'waiting';
@@ -1611,12 +2168,10 @@ function openCommanderSourceDialog(player) {
   renderCommanderSourceDialog(player, { readOnly }); dom.commanderSourceDialog.showModal();
 }
 function renderSources(player) {
-  dom.game.dataset.dialCommanderSourceHeight = '0';
   dom.sourcePanel.hidden = state.mode !== 'commander'; if (dom.sourcePanel.hidden) return; const source = selectedSourceFor(player);
   dom.sourcePanel.classList.remove('source-panel-dense', 'source-panel-turn-clearance');
   const pairedSources = source ? sourcesForDefender(player.id).filter(candidate => candidate.ownerPlayerId === source.ownerPlayerId) : [];
   const hasPair = pairedSources.length === 2;
-  dom.game.dataset.dialCommanderSourceHeight = hasPair ? '64' : '52';
   dom.sourcePanel.classList.toggle('commander-source-pair', hasPair);
   dom.sourcePanel.innerHTML = source ? (hasPair ? pairedSources.map(candidate => {
     const selected = candidate.id === source.id;
@@ -1628,10 +2183,15 @@ function renderSources(player) {
     else { state.selectedSourceId = button.dataset.inlineSourceChoice; render(); }
   }));
 }
-function renderModeNav() { $$('[data-mode]').forEach(button => { const active = button.dataset.mode === state.mode; button.classList.toggle('active', active); button.setAttribute('aria-current', active ? 'page' : 'false'); }); }
+function counterModeLabel(mode) {
+  if (mode === 'commander') return 'Cmdr';
+  if (mode === 'radiation' && interfaceStyle === 'dial') return 'Rad';
+  return mode.charAt(0).toUpperCase() + mode.slice(1);
+}
+function renderModeNav() { $$('[data-mode]').forEach(button => { const active = button.dataset.mode === state.mode; button.classList.toggle('active', active); button.setAttribute('aria-current', active ? 'page' : 'false'); const label = button.querySelector('small'); if (label) label.textContent = counterModeLabel(button.dataset.mode); }); }
 function renderSeatPicker() { dom.activeSeat.innerHTML = state.players.map(player => `<option value="${player.id}">${escapeHtml(displayPlayer(player))}${player.id === state.ownerPlayerId ? ' (you)' : ''}</option>`).join(''); dom.activeSeat.value = state.activePlayerId; }
 function commanderTaxPlayer() { return activePlayer(); }
-function commanderTaxEnabled() { return transport.status === 'local' || transport.status === 'connected'; }
+function commanderTaxEnabled() { return !countersLocked(state?.lifecycle, state?.pendingFinish) && (transport.status === 'local' || transport.status === 'connected'); }
 function renderCommanderTaxQuick(player, inspectingSharedSeat) {
   if (!dom.commanderTaxQuickButton) return;
   const sources = ownCommanderSources(player.id);
@@ -1645,7 +2205,16 @@ function renderCommanderTaxQuick(player, inspectingSharedSeat) {
   dom.commanderTaxQuickButton.innerHTML = `<span class="commander-tax-quick-title">${escapeHtml(title)}</span><span class="commander-tax-quick-name">${escapeHtml(names)}</span><span class="commander-tax-quick-values">${values}</span>`;
   dom.commanderTaxQuickButton.setAttribute('aria-label', `${displayPlayer(player)} ${accessibleValues}${inspectingSharedSeat ? ', read only' : ''}. Open commander tax.`);
 }
-function confirmLifeChange(playerId) { if (lifeChange?.playerId === playerId) { lifeChange.confirmed = true; render(); } }
+function confirmLifeChange(playerId) {
+  if (lifeChange?.playerId !== playerId) return;
+  const player = state?.players.find(item => item.id === playerId);
+  if (player && !state.localSimulation) {
+    lifeChange.to = player.life + optimisticLifeDelta;
+    lifeChange.delta = lifeChange.to - lifeChange.from;
+  }
+  lifeChange.confirmed = optimisticLifeDelta === 0;
+  render();
+}
 async function openPlaytestNotes() { try { const { notes } = await transport.listPlaytestNotes(); dom.playtestNotesList.innerHTML = notes.length ? notes.map(note => `<li><strong>${note.authorSeatId === transport.seatId ? 'You' : escapeHtml(displayName(state.players[note.authorSeatId]))}</strong><p>${escapeHtml(note.text)}</p></li>`).join('') : '<li>No notes yet. Add something while it is fresh.</li>'; dom.gameMenu.hidden = true; dom.playtestNotesDialog.showModal(); } catch (error) { showError(error); } }
 async function openPlaytestRecap() { try { const { recap } = await transport.getPlaytestRecap(); const winner = recap.winner ? displayName(state.players[recap.winner.seatId]) : 'Not recorded yet'; const players = recap.players.map(player => `${escapeHtml(player.name)}${player.commanders.length ? ` · ${player.commanders.map(escapeHtml).join(' / ')}` : ''}`).join('<br>'); dom.playtestRecapContent.innerHTML = `<p><strong>Duration:</strong> ${Math.round(recap.durationMs / 60000)} min</p><p><strong>Winner:</strong> ${escapeHtml(winner)}</p><p><strong>Players:</strong><br>${players || 'No claimed players'}</p><p><strong>Notes:</strong> ${recap.notes.length}</p>`; dom.gameMenu.hidden = true; dom.playtestRecapDialog.showModal(); } catch (error) { showError(error); } }
 async function openSavedPlaytests() { try { const { playtests } = await transport.getSavedPlaytests(); dom.savedPlaytestsContent.innerHTML = playtests.length ? playtests.map(item => { const players = item.players.map(player => `${escapeHtml(player.name)}${player.commanders.length ? ` · ${player.commanders.map(escapeHtml).join(' / ')}` : ''}`).join('<br>'); const winner = item.winner ? escapeHtml(item.players.find(player => player.seatId === item.winner.seatId)?.name || 'Recorded winner') : 'Interrupted'; return `<section class="playtest-notes-list"><p><strong>${winner}</strong> · ${Math.round(item.durationMs / 60000)} min</p><p>${players}</p><p>${item.notes?.length || 0} note(s)</p></section>`; }).join('') : '<p>No completed or interrupted playtests are saved for this table yet.</p>'; dom.gameMenu.hidden = true; dom.savedPlaytestsDialog.showModal(); } catch (error) { showError(error); } }
@@ -1658,6 +2227,7 @@ function renderJoinSeatClaim() {
     : 'Choose an open seat to see what this phone will control.';
 }
 async function refreshJoinSeats() {
+  competitionHub.clearPending();
   const code = $('#podCode').value.trim().toUpperCase();
   if (code.length !== 6) {
     dom.joinCodeStatus.textContent = 'Enter the six-character table code.';
@@ -1702,19 +2272,20 @@ function renderCommanderTaxDialog() {
   if (!state || !dom.commanderTaxDetail || !dom.commanderTaxList) return;
   const player = commanderTaxPlayer(); const canEdit = state.localSimulation || player.id === state.ownerPlayerId; const enabled = canEdit && commanderTaxEnabled(); const sources = ownCommanderSources(player.id);
   const playerLabel = displayPlayer(player);
+  dom.commanderTaxDetail.hidden = canEdit && !state.localSimulation;
   dom.commanderTaxDetail.textContent = state.localSimulation
-    ? (player.id === state.ownerPlayerId ? `Your commanders (${playerLabel}) for the active simulated seat.` : `Inspecting ${playerLabel}'s commanders. Local simulation lets this phone update ${displayName(player)}'s counts.`)
-    : canEdit ? `Your claimed seat (${playerLabel}) can change these counts. Changes sync live.` : `Viewing ${playerLabel}'s commanders. Cast counts and tax are read-only on your phone.`;
+    ? `SIMULATED · ${playerLabel}`
+    : canEdit ? '' : `${playerLabel} · Read only`;
   dom.commanderTaxList.innerHTML = sources.map(source => {
     const count = state.commanderCastCounts[source.id] || 0; const nextTax = count * 2;
-    const actions = canEdit ? `<button class="commander-tax-cast" data-commander-cast="${source.id}" type="button" ${enabled ? '' : 'disabled'}>Cast from command zone</button><button class="commander-tax-undo" data-commander-undo="${source.id}" type="button" ${enabled && count > 0 ? '' : 'disabled'}>Undo cast</button>` : '<p class="commander-tax-read-only">Read only</p>';
-    const label = displaySource(source); const heading = source.commanderName ? `<div><strong>${escapeHtml(sourceOwnerLabel(source))}</strong><p class="commander-tax-card-name">${escapeHtml(source.commanderName)}</p></div>` : `<strong>${escapeHtml(label)}</strong>`; return `<section class="commander-tax-row" aria-label="${escapeHtml(label)} commander tax"><div class="commander-tax-summary">${heading}<span>Cast count: ${count}</span></div><div class="commander-tax-next">Next tax +${nextTax}</div>${actions}</section>`;
+    const actions = canEdit ? `<div class="commander-tax-actions"><button class="commander-tax-cast" data-commander-cast="${source.id}" type="button" ${enabled ? '' : 'disabled'}>Cast from command zone</button><button class="commander-tax-undo" data-commander-undo="${source.id}" type="button" ${enabled && count > 0 ? '' : 'disabled'}>Undo cast</button></div>` : '';
+    const label = displaySource(source); return `<section class="commander-tax-row" aria-label="${escapeHtml(label)} commander tax"><strong class="commander-tax-card-name">${escapeHtml(source.commanderName || label)}</strong><div class="commander-tax-summary"><span>Cast count: ${count}</span><span class="commander-tax-next">Next tax +${nextTax}</span></div>${actions}</section>`;
   }).join('') || '<p class="field-help">No commanders are configured for this seat.</p>';
   $$('[data-commander-cast]').forEach(button => button.addEventListener('click', () => updateCommanderCastCount(button.dataset.commanderCast, 1)));
   $$('[data-commander-undo]').forEach(button => button.addEventListener('click', () => updateCommanderCastCount(button.dataset.commanderUndo, -1)));
 }
 async function adjust(delta) {
-  if (!state || countersLocked(state.lifecycle) || !(transport.status === 'local' || transport.status === 'connected')) return; const player = activePlayer(); if (!state.localSimulation && player.id !== state.ownerPlayerId) return; const source = state.mode === 'commander' ? selectedSourceFor(player) : null; if (state.mode === 'commander' && !source) return;
+  if (!state || countersLocked(state.lifecycle, state.pendingFinish) || !(transport.status === 'local' || transport.status === 'connected')) return; const player = activePlayer(); if (!state.localSimulation && player.id !== state.ownerPlayerId) return; const source = state.mode === 'commander' ? selectedSourceFor(player) : null; if (state.mode === 'commander' && !source) return;
   const target = state.mode === 'commander' ? 'commanderDamage' : state.mode;
   const previous = currentValue(player);
   const next = state.mode === 'life' ? player.life + delta : Math.max(0, previous + delta);
@@ -1725,16 +2296,17 @@ async function adjust(delta) {
   const lifeBefore = player.life; const lifeAfter = lifeBefore + lifeDelta;
   if (state.mode === 'commander' && commanderDelta === 0) return;
   if (transport.status === 'local') {
+    const before = captureLocalElimination(player);
     if (state.mode === 'commander') { player.commanderDamage[source.id] = next; player.life += lifeDelta; }
     else player[target] = next;
+    evaluatePlayer(player); rememberLocalElimination(state, player.id, before);
     if (lifeDelta) showLifeChange(player.id, lifeDelta, lifeBefore, lifeAfter);
     render(); return;
   }
   if (state.mode === 'life') {
     optimisticLifeDelta += delta;
     lifeBatcher.add(delta);
-    if (!optimisticLifeDelta) { clearTimeout(lifeChangeTimer); lifeChange = null; render(); }
-    else showLifeChange(player.id, optimisticLifeDelta, player.life, player.life + optimisticLifeDelta);
+    showLifeChange(player.id, delta, previous, previous + delta);
     return;
   }
   $$('[data-delta]').forEach(button => { button.disabled = true; });
@@ -1743,7 +2315,7 @@ async function adjust(delta) {
     if (lifeDelta && !result.blocked && !result.ignored && !result.locked) showLifeChange(player.id, lifeDelta, lifeBefore, lifeAfter);
   } catch (error) {
     if (error.status) showTableActionError(error.message);
-    else { renderConnection('disconnected'); showError(error); }
+    else if (await reconcileTableWriteError(error)) showError(error);
   }
 }
 function remapLocalDamage(previousSources, nextSources) {
@@ -1754,10 +2326,155 @@ function remapLocalCastCounts(previousSources, nextSources) {
   const oldId = new Map(previousSources.map(source => [`${source.ownerPlayerId}:${source.slot || 'A'}`, source.id]));
   state.commanderCastCounts = Object.fromEntries(nextSources.map(source => [source.id, state.commanderCastCounts[oldId.get(`${source.ownerPlayerId}:${source.slot || 'A'}`)] || 0]));
 }
-async function updateCommanderSetup(count, names, colors) {
-  const player = state.localSimulation ? activePlayer() : state.players.find(item => item.id === state.ownerPlayerId);
-  if (transport.status === 'local') { const previousSources = state.commanderSources; player.commanderCount = count; player.commanderNames = names; player.commanderColors = colors; state.commanderSources = sourcesFromPlayers(state.players); remapLocalDamage(previousSources, state.commanderSources); remapLocalCastCounts(previousSources, state.commanderSources); state.selectedSourceId = null; render(); return; }
-  try { dom.saveCommanderCountButton.disabled = true; const result = await transport.setCommanderSetup(count, names, colors); if (result.conflict) showError(new Error('The table changed first. The latest commander setup is shown.')); } catch (error) { showError(error); } finally { dom.saveCommanderCountButton.disabled = false; }
+async function updateCommanderSetup(count, names, colors, { ownerOnly = false } = {}) {
+  const player = state.localSimulation && !ownerOnly ? activePlayer() : state.players.find(item => item.id === state.ownerPlayerId);
+  if (transport.status === 'local') { const previousSources = state.commanderSources; player.commanderCount = count; player.commanderNames = names; player.commanderColors = colors; state.commanderSources = sourcesFromPlayers(state.players); remapLocalDamage(previousSources, state.commanderSources); remapLocalCastCounts(previousSources, state.commanderSources); state.selectedSourceId = null; render(); return true; }
+  try { const result = await transport.setCommanderSetup(count, names, colors); if (result.conflict) showError(new Error('The table changed first. The latest commander setup is shown.')); return !result.conflict && !result.blocked && !result.ignored; } catch (error) { showError(error); return false; }
+}
+function confirmedCommanderDeck() {
+  try {
+    const record = JSON.parse(sessionStorage.getItem('fivefold-arc:confirmed-commander-deck'));
+    const seatId = transport.seatId, player = state?.players.find(item => item.id === state.ownerPlayerId);
+    const signature = JSON.stringify([player?.commanderCount, player?.commanderNames, player?.commanderColors]);
+    return record && !state?.localSimulation && Number.isInteger(seatId) && player?.id === `P${seatId + 1}`
+      && record.roomCode === state.podCode && record.seatId === seatId && record.commanderSignature === signature
+      && typeof record.deckId === 'string' && typeof record.previousDeckId === 'string'
+      && (record.excludedGameId === null || typeof record.excludedGameId === 'string') ? record : null;
+  } catch { return null; }
+}
+function selectedDeckForGame(gameKey) {
+  const record = confirmedCommanderDeck();
+  return record ? (record.excludedGameId && record.excludedGameId === gameKey ? record.previousDeckId : record.deckId) : selectedDeckId;
+}
+function rememberCommanderDeck(deckId, { nextGame = false } = {}) {
+  const seatId = transport.seatId, player = state?.players.find(item => item.id === state.ownerPlayerId);
+  const excludedGameId = nextGame ? victoryKey(state?.gameResult) : null;
+  let previousDeckId = selectedDeckId;
+  try {
+    const previous = JSON.parse(sessionStorage.getItem('fivefold-arc:confirmed-commander-deck'));
+    // A confirmed edit changes the signature; retain the original game's deck
+    // through subsequent edits of this same owner's next-game setup.
+    if (nextGame && excludedGameId && previous?.roomCode === state.podCode && previous.seatId === seatId
+      && previous.excludedGameId === excludedGameId && typeof previous.previousDeckId === 'string') previousDeckId = previous.previousDeckId;
+    if (!state?.localSimulation && Number.isInteger(seatId) && player?.id === `P${seatId + 1}`) {
+      sessionStorage.setItem('fivefold-arc:confirmed-commander-deck', JSON.stringify({
+        roomCode: state.podCode, seatId,
+        commanderSignature: JSON.stringify([player.commanderCount, player.commanderNames, player.commanderColors]),
+        deckId, excludedGameId, previousDeckId,
+      }));
+    }
+  } catch { /* Optional browser storage must not prevent a confirmed save. */ }
+  selectedDeckId = deckId;
+  try { sessionStorage.setItem('fivefold-arc:selected-deck', deckId); } catch { /* Optional browser storage. */ }
+}
+function myIntermissionSeat() {
+  const seatId = state?.localSimulation ? Number(String(state.ownerPlayerId).slice(1)) - 1 : transport.seatId;
+  return state?.lifecycle?.status === 'intermission' && state.lifecycle.seatIds.includes(seatId) ? seatId : null;
+}
+function commanderSetupContextMatches(draft) {
+  if (!draft || !state || draft.roomCode !== state.podCode || draft.sessionEpoch !== transport.sessionEpoch || draft.profileEpoch !== awardProfileEpoch) return false;
+  const seatId = state.localSimulation ? Number(String(state.ownerPlayerId).slice(1)) - 1 : transport.seatId;
+  return draft.seatId === seatId && (!draft.nextGame || (myIntermissionSeat() === seatId && draft.gameKey === victoryKey(state.gameResult)));
+}
+function showCommanderSetupError(message = '') {
+  dom.commanderSetupStatus.textContent = message;
+  dom.commanderSetupStatus.hidden = !message;
+}
+function openCommanderSetup({ nextGame = false } = {}) {
+  const confirmedDeck = confirmedCommanderDeck();
+  if (confirmedDeck) selectedDeckId = confirmedDeck.deckId;
+  const player = state.localSimulation && !nextGame ? activePlayer() : state.players.find(item => item.id === state.ownerPlayerId);
+  commanderSetupDraft = { nextGame, roomCode: state.podCode, seatId: state.localSimulation ? Number(String(state.ownerPlayerId).slice(1)) - 1 : transport.seatId, sessionEpoch: transport.sessionEpoch, profileEpoch: awardProfileEpoch, gameKey: victoryKey(state.gameResult), saving: false, writing: false, revision: 0 };
+  dom.gameMenu.hidden = true;
+  dom.commanderCountDialog.classList.toggle('next-game-setup', nextGame);
+  dom.commanderSetupEyebrow.hidden = !nextGame;
+  dom.commanderSetupTitle.textContent = nextGame ? 'Deck & commander' : 'My commander setup';
+  dom.commanderCountDetail.textContent = nextGame ? 'Save your changes, then tap I’m ready at the table.' : state.localSimulation ? `Local simulation: change ${displayName(player)}'s commander details.` : 'Change your commander names and color identity for this table. Your current game and seat stay in place.';
+  dom.saveCommanderCountButton.textContent = nextGame ? 'Save changes' : 'Update this pod';
+  dom.saveCommanderCountButton.disabled = false;
+  showCommanderSetupError();
+  commanderDecks = [];
+  dom.commanderDeckField.hidden = true;
+  dom.commanderDeck.innerHTML = `<option value="">Enter commanders manually</option>${selectedDeckId ? `<option value="${escapeHtml(selectedDeckId)}">Current deck</option>` : ''}`;
+  dom.commanderDeck.value = selectedDeckId;
+  $(`input[name="gameCommanderCount"][value="${player.commanderCount}"]`).checked = true;
+  dom.gameCommanderNames.replaceChildren();
+  renderCommanderNameFields(dom.gameCommanderNames, player.commanderCount, player.commanderNames, player.commanderColors);
+  dom.commanderCountDialog.showModal();
+  void loadCommanderDecks(commanderSetupDraft);
+}
+async function openNextGameSetup() {
+  const seatId = myIntermissionSeat();
+  if (seatId === null || pendingNextGameSetup || (!state.localSimulation && transport.status !== 'connected')) return;
+  const roomCode = state.podCode, epoch = transport.sessionEpoch;
+  pendingNextGameSetup = true;
+  renderTurnFlow();
+  try {
+    if (state.lifecycle.readySeatIds.includes(seatId)) {
+      if (state.localSimulation) state.lifecycle.readySeatIds = state.lifecycle.readySeatIds.filter(id => id !== seatId);
+      else {
+        const result = await transport.setNextGameReady(false);
+        if (result.ignored) return;
+        if (result.blocked || result.conflict) { showTableActionError(result.blocked ? 'Reconnect before changing your setup.' : 'The table changed first. Review it and try again.'); return; }
+      }
+    }
+    if (state?.podCode !== roomCode || transport.sessionEpoch !== epoch || myIntermissionSeat() !== seatId || state.lifecycle.readySeatIds.includes(seatId)) return;
+    openCommanderSetup({ nextGame: true });
+  } catch (error) { showTableRequestError(error); }
+  finally { pendingNextGameSetup = false; renderTurnFlow(); }
+}
+function selectCommanderDeck(event) {
+  if (!commanderSetupDraft) return;
+  commanderSetupDraft.revision++;
+  const deck = commanderDecks.find(item => item.deckId === event.currentTarget.value);
+  const commanderNames = deck?.commanderNames?.length ? deck.commanderNames : [deck?.commanderName].filter(Boolean);
+  if (!commanderNames.length) return;
+  const identities = savedDeckCommanderColors(deck, commanderNames.length);
+  $(`input[name="gameCommanderCount"][value="${commanderNames.length}"]`).checked = true;
+  dom.gameCommanderNames.replaceChildren();
+  renderCommanderNameFields(dom.gameCommanderNames, commanderNames.length, commanderNames, identities);
+}
+function markCommanderSetupManual() {
+  if (!commanderSetupDraft) return;
+  commanderSetupDraft.revision++;
+  dom.commanderDeck.value = '';
+}
+async function saveCommanderSetupDraft(event) {
+  if (event.submitter?.value !== 'confirm') return;
+  event.preventDefault();
+  const draft = commanderSetupDraft;
+  if (!draft || draft.saving || !commanderSetupContextMatches(draft)) return;
+  const count = Number(new FormData(dom.commanderCountForm).get('gameCommanderCount'));
+  const revision = draft.revision;
+  const saveLabel = dom.saveCommanderCountButton.textContent;
+  let controls = [];
+  draft.saving = true;
+  dom.saveCommanderCountButton.disabled = true;
+  showCommanderSetupError();
+  try {
+    const { colors, unresolved } = await confirmUnresolvedCommanderDetails(dom.gameCommanderNames, count, () => commanderSetupDraft === draft && commanderSetupContextMatches(draft) && draft.revision === revision);
+    if (commanderSetupDraft !== draft || !commanderSetupContextMatches(draft)) return;
+    if (draft.revision !== revision) { showCommanderSetupError('Your setup changed while checking card details. Save again.'); return; }
+    if (unresolved.length) { dom.saveCommanderCountButton.textContent = draft.nextGame ? 'Save without colors' : 'Update without colors'; return; }
+    const names = commanderNamesFromForm(new FormData(dom.commanderCountForm), count);
+    const deckId = dom.commanderDeck.value || '';
+    controls = [...dom.commanderCountForm.querySelectorAll('input, select, button')].map(control => [control, control.disabled]);
+    controls.forEach(([control]) => { control.disabled = true; });
+    draft.writing = true;
+    dom.saveCommanderCountButton.textContent = draft.nextGame ? 'Saving changes…' : 'Updating…';
+    dom.commanderCountDialog.setAttribute('closedby', 'none');
+    const result = draft.nextGame && !state.localSimulation ? await transport.setNextGameCommanderSetup(count, names, colors) : await updateCommanderSetup(count, names, colors, { ownerOnly: draft.nextGame });
+    if (commanderSetupDraft !== draft || !commanderSetupContextMatches(draft)) return;
+    if (result === false || result?.conflict || result?.blocked || result?.ignored) { showCommanderSetupError('Changes were not saved. Check your connection and try again.'); return; }
+    rememberCommanderDeck(deckId, { nextGame: draft.nextGame });
+    dom.commanderCountDialog.close('confirm');
+  } catch (error) {
+    if (commanderSetupDraft === draft && commanderSetupContextMatches(draft)) showCommanderSetupError(error.message || 'Changes were not saved. Try again.');
+  } finally {
+    draft.saving = false; draft.writing = false;
+    controls.forEach(([control, disabled]) => { control.disabled = disabled; });
+    if (commanderSetupDraft === draft) { dom.commanderCountDialog.removeAttribute('closedby'); dom.saveCommanderCountButton.disabled = false; if (['Saving changes…', 'Updating…'].includes(dom.saveCommanderCountButton.textContent)) dom.saveCommanderCountButton.textContent = saveLabel; }
+  }
 }
 async function updateCommanderCastCount(sourceId, delta) {
   if (!commanderTaxEnabled()) return;
@@ -1766,18 +2483,21 @@ async function updateCommanderCastCount(sourceId, delta) {
   if (transport.status === 'local') { state.commanderCastCounts[sourceId] = next; render(); return; }
   $$('[data-commander-cast], [data-commander-undo]').forEach(button => { button.disabled = true; });
   try { const result = await transport.setCommanderCastCount(sourceId, next); if (result.conflict) showError(new Error('The table changed first. The latest cast counts are shown; please make your change again.')); }
-  catch (error) { renderConnection('disconnected'); showError(error); }
+  catch (error) { if (error.status || await reconcileTableWriteError(error)) showError(error); }
+  finally { renderCommanderTaxDialog(); }
 }
 async function resetGame() {
   pendingStartingSeatId = null;
-  if (transport.status === 'local') { const sources = state.commanderSources; const preservedCueMode = cueMode(state.turn); const previousStarterSeatId = Number.isInteger(state.turn.startingPlayerSeatId) ? state.turn.startingPlayerSeatId : state.turn.activeSeatId; const claimedPlayers = state.players.filter(player => player.connectionStatus !== 'waiting'); const startIndex = claimedPlayers.findIndex(player => Number(player.id.slice(1)) - 1 === previousStarterSeatId); const nextStartingSeatId = Number(claimedPlayers[(Math.max(startIndex, -1) + 1) % claimedPlayers.length]?.id.slice(1)) - 1 || 0; state.players = state.players.map(player => ({ ...playerTemplate(Number(player.id.slice(1)), state.startingLife, player.commanderCount, sources, player.commanderNames, player.commanderColors), name: player.name, commanderCount: player.commanderCount, commanderNames: player.commanderNames, commanderColors: player.commanderColors })); state.commanderCastCounts = blankDamage(sources); state.lastCoinToss = null; state.lastGameWinnerSeatId = Number.isInteger(state.gameResult?.winnerSeatId) ? state.gameResult.winnerSeatId : null; state.gameResult = null; state.turn = { activeSeatId: nextStartingSeatId, gameStarted: false, gameStartedAt: null, turnStartedAt: null, turnNumber: 0, roundEndsAt: null, startingPlayerSeatId: nextStartingSeatId, startingPlayerRoll: null, lastHandoff: null, trackingEnabled: true, cueMode: preservedCueMode, pausedAt: null }; state.turnSeatId = `P${nextStartingSeatId + 1}`; coinTossNotice = null; clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); clearStartingRollTimers(); state.selectedSourceId = null; render(); return; }
+  if (transport.status === 'local') { const sources = state.commanderSources; const preservedCueMode = cueMode(state.turn); const previousStarterSeatId = Number.isInteger(state.turn.startingPlayerSeatId) ? state.turn.startingPlayerSeatId : state.turn.activeSeatId; const claimedPlayers = state.players.filter(player => player.connectionStatus !== 'waiting'); const startIndex = claimedPlayers.findIndex(player => Number(player.id.slice(1)) - 1 === previousStarterSeatId); const nextStartingSeatId = Number(claimedPlayers[(Math.max(startIndex, -1) + 1) % claimedPlayers.length]?.id.slice(1)) - 1 || 0; state.players = state.players.map(player => ({ ...playerTemplate(Number(player.id.slice(1)), state.startingLife, player.commanderCount, sources, player.commanderNames, player.commanderColors), name: player.name, commanderCount: player.commanderCount, commanderNames: player.commanderNames, commanderColors: player.commanderColors })); state.commanderCastCounts = blankDamage(sources); state.lastCoinToss = null; state.lastGameWinnerSeatId = Number.isInteger(state.gameResult?.winnerSeatId) ? state.gameResult.winnerSeatId : null; state.gameResult = null; state.pendingFinish = null; state.turn = { activeSeatId: nextStartingSeatId, gameStarted: false, gameStartedAt: null, turnStartedAt: null, turnNumber: 0, roundEndsAt: null, startingPlayerSeatId: nextStartingSeatId, startingPlayerRoll: null, lastHandoff: null, trackingEnabled: true, cueMode: preservedCueMode, pausedAt: null }; state.turnSeatId = `P${nextStartingSeatId + 1}`; coinTossNotice = null; clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); clearStartingRollTimers(); state.selectedSourceId = null; render(); return; }
   try { const result = await transport.reset(); if (result.conflict) showError(new Error('The table changed first. The latest totals are shown; confirm reset again if it is still needed.')); else { coinTossNotice = null; clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); render(); } } catch (error) { showError(error); }
 }
 async function handoffTurn() {
   const actingSeatId = state?.localSimulation ? state.activePlayerId : state?.ownerPlayerId;
   if (!state || !state.turn.gameStarted || state.turn.trackingEnabled === false || state.turn.pausedAt || state.turnSeatId !== actingSeatId || !(transport.status === 'local' || transport.status === 'connected')) return;
   if (transport.status === 'local') {
-    state.players.forEach(evaluatePlayer); const fromSeatId = Number(state.turnSeatId.slice(1)) - 1; const living = state.players.filter(player => player.connectionStatus !== 'waiting' && !player.eliminated); const sequence = living.length ? living : state.players.filter(player => player.connectionStatus !== 'waiting'); const currentIndex = sequence.findIndex(player => player.id === state.turnSeatId); const toSeatId = Number(sequence[(currentIndex + 1) % sequence.length].id.slice(1)) - 1; const handedOffAt = Date.now();
+    state.players.forEach(evaluatePlayer); const fromSeatId = Number(state.turnSeatId.slice(1)) - 1;
+    const tablePlayers = (state.lifecycle?.seatIds || state.players.map(player => Number(player.id.slice(1)) - 1)).map(id => state.players.find(player => player.id === `P${id + 1}`)).filter(player => player && player.connectionStatus !== 'waiting');
+    const living = tablePlayers.filter(player => !player.eliminated); const sequence = living.length ? living : tablePlayers; const currentIndex = sequence.findIndex(player => player.id === state.turnSeatId); const toSeatId = Number(sequence[(currentIndex + 1) % sequence.length].id.slice(1)) - 1; const handedOffAt = Date.now();
     const turnLengthMs = Math.max(0, handedOffAt - state.turn.turnStartedAt); state.turn = { ...state.turn, activeSeatId: toSeatId, turnStartedAt: handedOffAt, turnNumber: (state.turn.turnNumber || 1) + (toSeatId === state.turn.startingPlayerSeatId ? 1 : 0), lastHandoff: { fromSeatId, toSeatId, handedOffAt, turnLengthMs } }; state.turnSeatId = `P${toSeatId + 1}`; state.activePlayerId = state.turnSeatId; showTurnHandoff(); render(); return;
   }
   dom.endTurnButton.disabled = true;
@@ -1796,23 +2516,35 @@ async function chooseStartingPlayer(startingSeatId = undefined) {
   }
   try { const result = await transport.chooseStartingPlayer(startingSeatId); if (result.conflict) showError(new Error('The table changed first. The latest lobby is shown.')); } catch (error) { showError(error); }
 }
-async function startGame() {
+async function startGame({ baseVersion } = {}) {
   if (!state || state.turn.gameStarted) return;
   if (state.localSimulation) {
     const startedAt = Date.now(); const startingPlayerSeatId = state.turn.startingPlayerSeatId ?? state.turn.activeSeatId;
-    state.turn = { ...state.turn, gameStarted: true, activeSeatId: startingPlayerSeatId, startingPlayerSeatId, gameStartedAt: startedAt, turnStartedAt: startedAt, turnNumber: 1, roundEndsAt: state.roundLimitMinutes ? startedAt + state.roundLimitMinutes * 60000 : null, lastHandoff: null }; state.lifecycle = { ...state.lifecycle, status: 'playing', readySeatIds: [] }; state.gameResult = null; state.turnSeatId = `P${startingPlayerSeatId + 1}`; state.activePlayerId = state.turnSeatId; render(); return;
+    state.turn = { ...state.turn, gameStarted: true, activeSeatId: startingPlayerSeatId, startingPlayerSeatId, gameStartedAt: startedAt, turnStartedAt: startedAt, turnNumber: 1, roundEndsAt: state.roundLimitMinutes ? startedAt + state.roundLimitMinutes * 60000 : null, lastHandoff: null }; state.lifecycle = { ...state.lifecycle, status: 'playing', readySeatIds: [] }; state.gameResult = null; state.pendingFinish = null; state.turnSeatId = `P${startingPlayerSeatId + 1}`; state.activePlayerId = state.turnSeatId; render(); return;
   }
   const startingNextGame = state.lifecycle?.status === 'intermission';
+  const requestRoom = state.podCode, requestEpoch = transport.sessionEpoch;
+  if (gameStartRequest?.roomCode === requestRoom && gameStartRequest.epoch === requestEpoch) return;
+  const request = { roomCode: requestRoom, epoch: requestEpoch };
+  gameStartRequest = request;
+  const currentTable = () => state?.podCode === requestRoom && transport.sessionEpoch === requestEpoch;
+  renderTurnFlow();
   try {
     await competitionHub.beforeStart();
-    const result = await transport.startGame();
+    if (!currentTable() || state.turn.gameStarted || (startingNextGame && state.lifecycle?.status !== 'intermission')) return;
+    const result = await transport.startGame({ baseVersion });
+    if (!currentTable()) return;
     if (result.conflict) {
       if (startingNextGame) showTableActionError('The table changed first. Check the next-game roster.');
       else showError(new Error('The table changed first. The latest lobby is shown.'));
     }
   } catch (error) {
+    if (!currentTable()) return;
     if (startingNextGame) showTableRequestError(error);
     else showError(error);
+  } finally {
+    if (gameStartRequest === request) gameStartRequest = null;
+    if (currentTable()) renderTurnFlow();
   }
 }
 async function undoTurnHandoff() {
@@ -1828,7 +2560,7 @@ function openResetDialog({ nextGame = false } = {}) {
   dom.resetDialog.showModal();
 }
 async function toggleTurnTracking() {
-  if (!state || (!state.localSimulation && transport.seatId !== state.hostSeatId)) return;
+  if (!state || state.pendingFinish || (!state.localSimulation && transport.seatId !== state.hostSeatId)) return;
   dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false');
   const enabled = state.turn.trackingEnabled === false;
   if (transport.status === 'local') { state.turn = { ...state.turn, trackingEnabled: enabled, pausedAt: null, turnStartedAt: enabled && state.turn.gameStarted ? Date.now() : state.turn.turnStartedAt, lastHandoff: null }; render(); return; }
@@ -1862,7 +2594,7 @@ function openDeclareWinner() {
 }
 async function beginIntermission(gameKey) {
   if (!gameKey || gameKey !== victoryKey(state?.gameResult) || state.lifecycle?.status === 'intermission') return;
-  if (state.localSimulation) { state.lifecycle = { status: 'intermission', seatIds: state.players.filter(player => player.connectionStatus !== 'waiting').map(player => Number(player.id.slice(1)) - 1), readySeatIds: [] }; state.turn = { ...state.turn, gameStarted: false }; showTableView(); render(); return; }
+  if (state.localSimulation) { const previousSeatIds = [...state.lifecycle.seatIds]; const previousStarterSeatId = state.turn.startingPlayerSeatId ?? state.turn.activeSeatId; state.lifecycle = { status: 'intermission', seatIds: previousSeatIds.filter(id => state.players.some(player => player.id === `P${id + 1}` && player.connectionStatus !== 'waiting')), readySeatIds: [], nextGameStarter: { previousStarterSeatId, previousSeatIds, overrideSeatId: null } }; state.turn = { ...state.turn, gameStarted: false }; refreshLocalNextGameStarter(); showTableView(); render(); return; }
   if (state.lifecycle?.status !== 'complete' || transport.seatId !== state.hostSeatId) return;
   const podCode = state.podCode;
   const requestKey = podCode + ':' + gameKey;
@@ -1880,8 +2612,10 @@ async function beginIntermission(gameKey) {
   }
 }
 async function setNextGameReady() {
+  if (commanderSetupDraft?.nextGame || pendingNextGameSetup) return;
   const ownSeatId = state?.localSimulation ? Number(String(state.ownerPlayerId).slice(1)) - 1 : transport.seatId;
   const ready = !(state?.lifecycle?.readySeatIds || []).includes(ownSeatId);
+  if (!ready) { await openNextGameSetup(); return; }
   if (state?.localSimulation) { state.lifecycle.readySeatIds = ready ? [...state.lifecycle.readySeatIds, ownSeatId] : state.lifecycle.readySeatIds.filter(id => id !== ownSeatId); render(); return; }
   try {
     const result = await transport.setNextGameReady(ready);
@@ -1889,7 +2623,7 @@ async function setNextGameReady() {
   } catch (error) { showTableRequestError(error); }
 }
 async function skipNextGameSeat(seatId) {
-  if (state?.localSimulation) { state.lifecycle.seatIds = state.lifecycle.seatIds.filter(id => id !== seatId); state.lifecycle.readySeatIds = state.lifecycle.readySeatIds.filter(id => id !== seatId); render(); return; }
+  if (state?.localSimulation) { state.lifecycle.seatIds = state.lifecycle.seatIds.filter(id => id !== seatId); state.lifecycle.readySeatIds = state.lifecycle.readySeatIds.filter(id => id !== seatId); refreshLocalNextGameStarter(); render(); return; }
   try {
     const result = await transport.skipNextGameSeat(seatId);
     if (result.conflict) showTableActionError('The table changed first. Check the next-game roster.');
@@ -1899,28 +2633,182 @@ async function moveNextGameSeat(seatId, direction) {
   const order = [...(state?.lifecycle?.seatIds || [])]; const index = order.indexOf(seatId); const nextIndex = index + direction;
   if (index < 0 || nextIndex < 0 || nextIndex >= order.length) return;
   [order[index], order[nextIndex]] = [order[nextIndex], order[index]];
-  if (state?.localSimulation) { state.lifecycle.seatIds = order; render(); return; }
+  if (state?.localSimulation) { state.lifecycle.seatIds = order; refreshLocalNextGameStarter(); render(); return; }
   try {
     const result = await transport.reorderNextGameSeats(order);
     if (result.conflict) showTableActionError('The table changed first. Check the next-game seating order.');
   } catch (error) { showTableRequestError(error); }
 }
+const adjustTableOrderButton = $('#adjustTableOrderButton'), tableOrderDialog = $('#tableOrderDialog'), tableOrderRoster = $('#tableOrderRoster'), tableOrderStatus = $('#tableOrderStatus'), saveTableOrderButton = $('#saveTableOrderButton'), cancelTableOrderButton = $('#cancelTableOrderButton');
+dom.tableOrderDialog = tableOrderDialog;
+let tableOrderDraft = null;
+let tableOrderSaving = false;
+function canAdjustTableOrder() {
+  return Boolean(state?.turn?.gameStarted && state.lifecycle?.status === 'playing' && !state.gameResult && !state.pendingFinish && (state.localSimulation || transport.seatId === state.hostSeatId));
+}
+function syncTableOrderControls() {
+  adjustTableOrderButton.hidden = !canAdjustTableOrder();
+  adjustTableOrderButton.disabled = tableOrderSaving || (!state?.localSimulation && transport.status !== 'connected');
+  if (tableOrderDialog.open && !canAdjustTableOrder()) tableOrderDialog.close();
+}
+function renderTableOrderDraft() {
+  if (!tableOrderDraft) return;
+  if (!tableOrderRoster.children.length) tableOrderRoster.innerHTML = tableOrderDraft.seatIds.map(id => {
+    const player = state.players.find(player => player.id === `P${id + 1}`);
+    const label = escapeHtml(displayPlayer(player || { id: `P${id + 1}` }));
+    return `<li data-order-seat="${id}"><strong>${label}</strong><span><button type="button" class="secondary-action" data-order-move="-1" aria-label="Move ${label} earlier">↑</button><button type="button" class="secondary-action" data-order-move="1" aria-label="Move ${label} later">↓</button></span></li>`;
+  }).join('');
+  tableOrderDraft.seatIds.forEach((id, index) => {
+    const row = tableOrderRoster.querySelector(`[data-order-seat="${id}"]`);
+    if (tableOrderRoster.moveBefore) tableOrderRoster.moveBefore(row, null); else tableOrderRoster.append(row);
+    row.querySelector('[data-order-move="-1"]').disabled = tableOrderSaving || index === 0;
+    row.querySelector('[data-order-move="1"]').disabled = tableOrderSaving || index === tableOrderDraft.seatIds.length - 1;
+  });
+}
+function openTableOrder() {
+  if (!canAdjustTableOrder() || tableOrderSaving) return;
+  tableOrderDraft = { seatIds: [...state.lifecycle.seatIds], code: state.podCode, startedAt: state.turn.gameStartedAt };
+  tableOrderRoster.innerHTML = ''; tableOrderStatus.textContent = '';
+  closeGameMenu(); dom.moreButton.focus(); renderTableOrderDraft(); tableOrderDialog.showModal();
+}
+function moveTableOrderSeat(seatId, direction) {
+  if (!tableOrderDraft || tableOrderSaving || ![-1, 1].includes(direction)) return;
+  const order = tableOrderDraft.seatIds, index = order.indexOf(seatId), next = index + direction;
+  if (index < 0 || next < 0 || next >= order.length) return;
+  [order[index], order[next]] = [order[next], order[index]];
+  renderTableOrderDraft(); tableOrderStatus.textContent = 'Order changed. Choose Save order to apply.';
+}
+async function saveTableOrder() {
+  if (!tableOrderDraft || tableOrderSaving) return;
+  if (!canAdjustTableOrder() || tableOrderDraft.code !== state.podCode || tableOrderDraft.startedAt !== state.turn.gameStartedAt) {
+    tableOrderStatus.textContent = 'The game changed. Close this window and reopen Adjust table order.'; return;
+  }
+  tableOrderSaving = true; saveTableOrderButton.disabled = true; cancelTableOrderButton.disabled = true;
+  tableOrderDialog.closedBy = 'none';
+  saveTableOrderButton.textContent = 'Saving…'; tableOrderStatus.textContent = 'Saving table order…'; renderTableOrderDraft();
+  try {
+    if (state.localSimulation) { state.lifecycle.seatIds = [...tableOrderDraft.seatIds]; state.lifecycle.seatOrderConfirmed = true; render(); }
+    else {
+      const result = await transport.reorderNextGameSeats([...tableOrderDraft.seatIds]);
+      if (result.conflict || result.blocked || result.ignored) {
+        tableOrderStatus.textContent = 'The table changed or disconnected. Review the order and try Save again.';
+        if (!tableOrderDialog.open) showError(new Error(tableOrderStatus.textContent));
+        return;
+      }
+    }
+    tableOrderDraft = null; tableOrderDialog.close();
+  } catch (error) {
+    tableOrderStatus.textContent = error?.message || 'The order could not be saved. Try again.';
+    if (!tableOrderDialog.open) showError(error);
+  } finally {
+    tableOrderSaving = false; saveTableOrderButton.disabled = false; cancelTableOrderButton.disabled = false;
+    tableOrderDialog.closedBy = 'closerequest';
+    saveTableOrderButton.textContent = 'Save order'; renderTableOrderDraft();
+  }
+}
+adjustTableOrderButton.addEventListener('click', openTableOrder);
+saveTableOrderButton.addEventListener('click', () => void saveTableOrder());
+tableOrderRoster.addEventListener('click', event => {
+  const button = event.target.closest('[data-order-move]'); if (!button) return;
+  const row = button.closest('[data-order-seat]'); moveTableOrderSeat(Number(row.dataset.orderSeat), Number(button.dataset.orderMove));
+  (button.disabled ? row.querySelector('[data-order-move]:not(:disabled)') : button)?.focus();
+});
+tableOrderDialog.addEventListener('close', () => { if (!tableOrderSaving) tableOrderDraft = null; });
+tableOrderDialog.addEventListener('cancel', event => { if (tableOrderSaving) event.preventDefault(); });
+
+function refreshLocalNextGameStarter(overrideSeatId = state.lifecycle.nextGameStarter?.overrideSeatId ?? null) {
+  const policy = nextGameStarterPolicy({ ...state.lifecycle.nextGameStarter, seatIds: state.lifecycle.seatIds, overrideSeatId });
+  state.lifecycle.nextGameStarter = policy;
+  state.turn = { ...state.turn, activeSeatId: policy.selectedSeatId, startingPlayerSeatId: policy.selectedSeatId, startingPlayerRoll: null };
+  state.turnSeatId = `P${policy.selectedSeatId + 1}`;
+}
+function nextGameRosterKey() { return JSON.stringify(state?.lifecycle?.seatIds || []); }
+function nextGameConfirmationMatches(context) {
+  return Boolean(context && state?.lifecycle?.status === 'intermission' && (state.localSimulation || transport.seatId === state.hostSeatId)
+    && context.roomCode === state.podCode && context.sessionEpoch === transport.sessionEpoch
+    && context.rosterKey === nextGameRosterKey() && context.starterSeatId === state.turn.startingPlayerSeatId && context.version === state.version);
+}
+function renderNextGameConfirmation({ notice = '' } = {}) {
+  if (state?.lifecycle?.status !== 'intermission' || (!state.localSimulation && transport.seatId !== state.hostSeatId)) return;
+  const rosterIds = state.lifecycle.seatIds || [];
+  const players = rosterIds.map(id => state.players.find(player => player.id === `P${id + 1}`)).filter(Boolean);
+  const policy = state.lifecycle.nextGameStarter;
+  const defaultSeatId = policy?.defaultSeatId ?? state.turn.startingPlayerSeatId;
+  const defaultPlayer = state.players.find(player => player.id === `P${defaultSeatId + 1}`);
+  dom.nextGameConfirmDetail.textContent = `${players.length} players at this table.`;
+  dom.nextGameConfirmRoster.innerHTML = players.map(player => `<li>${escapeHtml(tablePositionLabel(player))} · ${escapeHtml(displayName(player))}</li>`).join('');
+  dom.nextGameStarter.innerHTML = `<option value="default">Default · ${escapeHtml(displayName(defaultPlayer))}</option>${rosterIds.map(id => `<option value="${id}">${escapeHtml(displayName(state.players.find(player => player.id === `P${id + 1}`)))} · P${id + 1}</option>`).join('')}`;
+  dom.nextGameStarter.value = Number.isInteger(policy?.overrideSeatId) ? String(policy.overrideSeatId) : 'default';
+  const busy = nextGameStarterPending || nextGameStartPending;
+  const everyoneReady = rosterIds.length >= 2 && rosterIds.every(id => state.lifecycle.readySeatIds.includes(id));
+  dom.nextGameStarter.disabled = busy || (!state.localSimulation && transport.status !== 'connected');
+  dom.confirmNextGameStart.disabled = busy || !everyoneReady || (!state.localSimulation && transport.status !== 'connected');
+  dom.cancelNextGameStartButton.disabled = nextGameStartPending;
+  if (nextGameStartPending) dom.nextGameConfirmDialog.setAttribute('closedby', 'none');
+  else dom.nextGameConfirmDialog.removeAttribute('closedby');
+  dom.confirmNextGameStart.textContent = nextGameStartPending ? 'Starting…' : `Start with ${players.length} players`;
+  const previousPlayer = rosterIds.includes(policy?.previousStarterSeatId) && !policy?.departedSeatIds?.includes(policy.previousStarterSeatId) ? state.players.find(player => player.id === `P${policy.previousStarterSeatId + 1}`) : null;
+  dom.nextGameStarterHelp.textContent = notice || (nextGameStarterPending ? 'Updating first player…' : Number.isInteger(policy?.overrideSeatId) ? `Host choice. Default: ${displayName(defaultPlayer)}.` : previousPlayer ? `Next in table order after ${displayName(previousPlayer)}. Change if needed.` : 'Next remaining player from the last game’s order. Change if needed.');
+  nextGameConfirmation = { roomCode: state.podCode, sessionEpoch: transport.sessionEpoch, rosterKey: nextGameRosterKey(), starterSeatId: state.turn.startingPlayerSeatId, version: state.version };
+}
 async function confirmNextGameStart() {
   if (!state?.lifecycle || state.lifecycle.status !== 'intermission') return;
+  const roomCode = state.podCode, epoch = transport.sessionEpoch;
   if (!state.localSimulation) {
     try {
       const result = await transport.refreshRoom();
       if (result.ignored) return;
     } catch (error) { showTableRequestError(error); return; }
   }
+  if (state?.lifecycle?.status !== 'intermission' || state.podCode !== roomCode || transport.sessionEpoch !== epoch || (!state.localSimulation && transport.seatId !== state.hostSeatId)) return;
   const rosterIds = state.lifecycle.seatIds || [];
   const readyIds = state.lifecycle.readySeatIds || [];
   if (rosterIds.length < 2 || !rosterIds.every(id => readyIds.includes(id))) return showTableActionError('Review the next-game roster: every listed player must be ready before starting.');
-  const players = rosterIds.map(id => state.players.find(player => player.id === `P${id + 1}`)).filter(Boolean);
-  dom.nextGameConfirmDetail.textContent = `You are starting with ${players.length} players in this order.`;
-  dom.nextGameConfirmRoster.innerHTML = players.map((player, index) => `<li>P${index + 1} · ${escapeHtml(displayName(player))}</li>`).join('');
-  dom.confirmNextGameStart.textContent = `Start with ${players.length} players`;
+  renderNextGameConfirmation();
   dom.nextGameConfirmDialog.showModal();
+}
+async function chooseNextGameStarter() {
+  if (nextGameStarterPending || nextGameStartPending || state?.lifecycle?.status !== 'intermission' || (!state.localSimulation && (transport.seatId !== state.hostSeatId || transport.status !== 'connected'))) return;
+  const value = dom.nextGameStarter.value, useDefault = value === 'default';
+  const seatId = useDefault ? undefined : Number(value);
+  if (!useDefault && (!Number.isInteger(seatId) || !state.lifecycle.seatIds.includes(seatId))) return;
+  const roomCode = state.podCode, epoch = transport.sessionEpoch;
+  nextGameStarterPending = true;
+  dom.nextGameStarter.disabled = true; dom.confirmNextGameStart.disabled = true;
+  dom.nextGameStarterHelp.textContent = 'Updating first player…';
+  let notice = '';
+  try {
+    if (state.localSimulation) { refreshLocalNextGameStarter(useDefault ? null : seatId); render(); }
+    else {
+      const result = await transport.chooseStartingPlayer(seatId, { useDefault });
+      if (result.conflict || result.blocked || result.ignored) notice = 'First player was not changed. Review the current selection and try again.';
+    }
+  } catch (error) { notice = error.message || 'First player was not changed. Try again.'; }
+  finally {
+    nextGameStarterPending = false;
+    if (state?.podCode === roomCode && transport.sessionEpoch === epoch && dom.nextGameConfirmDialog.open && state.lifecycle?.status === 'intermission') renderNextGameConfirmation({ notice });
+  }
+}
+async function submitNextGameStart(event) {
+  if (event.submitter?.value !== 'confirm') return;
+  event.preventDefault();
+  if (nextGameStarterPending || nextGameStartPending) return;
+  const context = nextGameConfirmation;
+  const rosterIds = state?.lifecycle?.seatIds || [], readyIds = state?.lifecycle?.readySeatIds || [];
+  if (!nextGameConfirmationMatches(context) || (!state.localSimulation && transport.status !== 'connected') || rosterIds.length < 2 || !rosterIds.includes(context?.starterSeatId) || !rosterIds.every(id => readyIds.includes(id))) {
+    dom.nextGameConfirmDialog.close('stale');
+    showTableActionError('The table changed. Review the players and first player before starting.');
+    return;
+  }
+  nextGameStartPending = true;
+  renderNextGameConfirmation();
+  try {
+    await startGame({ baseVersion: context.version });
+    if (state?.lifecycle?.status === 'playing') dom.nextGameConfirmDialog.close('confirm');
+  } finally {
+    nextGameStartPending = false;
+    if (dom.nextGameConfirmDialog.open && state?.lifecycle?.status === 'intermission') renderNextGameConfirmation();
+  }
 }
 function ownPlayer() { return state?.localSimulation ? activePlayer() : state?.players.find(player => player.id === state?.ownerPlayerId); }
 function openEditPlayerName() {
@@ -1956,7 +2844,7 @@ async function eliminatePlayer() {
     if (state.localSimulation) {
       const player = state.players[targetSeatId];
       if (!player || player.eliminated) return;
-      player.alternateElimination = { reason, detail: detail || null }; state.players.forEach(evaluatePlayer); evaluateLocalVictory(); render();
+      const before = captureLocalElimination(player); player.alternateElimination = { reason, detail: detail || null }; state.players.forEach(evaluatePlayer); rememberLocalElimination(state, player.id, before); render();
     } else {
       const result = await transport.eliminatePlayer(targetSeatId, reason, detail);
       if (result.conflict) showError(new Error('The table changed first. The latest game state is shown.'));
@@ -1993,12 +2881,14 @@ async function tossCoin({ dialog = true } = {}) {
       // The synchronous snapshot event normally starts the animation. This
       // fallback covers transports that return before the event arrives.
       if (coinTossKey(state?.lastCoinToss) === previousKey) showCoinToss(toss, { dialog });
-    } catch (error) { renderConnection('disconnected'); showError(error); return; }
+    } catch (error) { if (error.status || await reconcileTableWriteError(error)) showError(error); return; }
   }
 }
-function closeGameOverlays() { [dom.resetDialog, dom.connectionDialog, dom.tableActionDialog, dom.leaveTableDialog, dom.coinTossDialog, dom.startingRollDialog, dom.turnCueDialog, dom.turnSoundDialog, dom.customLifeDialog, dom.commanderSourceDialog, dom.commanderCountDialog, dom.commanderTaxDialog, dom.victoryDialog, dom.achievementDialog, dom.declareWinnerDialog, dom.eliminatePlayerDialog, dom.playtestNotesDialog, dom.playtestRecapDialog, dom.savedPlaytestsDialog, dom.cardCameraDialog, dom.joinQrScannerDialog].forEach(dialog => { if (dialog?.open) dialog.close(); }); }
+function closeGameOverlays() { [dom.radiationDialog, dom.editPlayerNameDialog, dom.resetDialog, dom.connectionDialog, dom.tableActionDialog, dom.leaveTableDialog, dom.coinTossDialog, dom.startingRollDialog, dom.turnCueDialog, dom.turnSoundDialog, dom.customLifeDialog, dom.commanderSourceDialog, dom.commanderCountDialog, dom.commanderTaxDialog, dom.victoryDialog, dom.achievementDialog, dom.declareWinnerDialog, dom.eliminatePlayerDialog, dom.playtestNotesDialog, dom.playtestRecapDialog, dom.savedPlaytestsDialog, dom.cardCameraDialog, dom.joinQrScannerDialog].forEach(dialog => { if (dialog?.open) dialog.close(); }); }
 
+let cardLookupGeneration = 0;
 async function openCardCamera() {
+  cardLookupGeneration++;
   dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false');
   dom.cardLookupStatus.textContent = ''; dom.cardLookupResult.hidden = true; dom.cardLookupResult.replaceChildren(); dom.cardCameraDialog.showModal(); dom.firstCardTitle.focus();
 }
@@ -2016,10 +2906,24 @@ function renderCommunityCombos(result) {
 }
 async function lookupCardTitles() {
   const firstName = dom.firstCardTitle.value.trim(); const secondName = dom.secondCardTitle.value.trim(); const situation = dom.interactionSituation.value.trim();
+  const generation = ++cardLookupGeneration;
+  const currentLookup = () => generation === cardLookupGeneration && dom.cardCameraDialog.open
+    && firstName === dom.firstCardTitle.value.trim() && secondName === dom.secondCardTitle.value.trim()
+    && situation === dom.interactionSituation.value.trim();
+  dom.cardLookupResult.hidden = true; dom.cardLookupResult.replaceChildren();
   if (!firstName) { dom.firstCardTitle.focus(); return; }
   dom.cardLookupStatus.textContent = 'Loading current Oracle text…';
-  try { const [first, second] = await Promise.all([lookupCard(firstName), secondName ? lookupCard(secondName) : null]); const comboResult = second ? await lookupCardInteraction(first.name, second.name).catch(() => ({ unavailable: true, combos: [], retrievedAt: new Date().toISOString() })) : null; const noEstablishedInteraction = second && !comboResult.unavailable && !comboResult.combos?.length; dom.firstCardTitle.value = first.name; if (second) dom.secondCardTitle.value = second.name; dom.cardLookupResult.innerHTML = `${renderCardLookup(first)}${second ? renderCardLookup(second) + renderCommunityCombos(comboResult) + (noEstablishedInteraction ? renderInteractionAdvice(createInteractionAdvice(first, second, situation), first, second) : '') : ''}`; dom.cardLookupResult.hidden = false; dom.cardLookupStatus.textContent = second ? (noEstablishedInteraction ? 'Current Oracle text and rulings are shown. No established database interaction was found, so a best-effort explanation is included.' : 'Current Oracle text, published rulings, and established interaction results are shown.') : 'Current Oracle text and published rulings are shown.'; }
-  catch (error) { dom.cardLookupStatus.textContent = error.message; }
+  try {
+    const [first, second] = await Promise.all([lookupCard(firstName), secondName ? lookupCard(secondName) : null]);
+    if (!currentLookup()) return;
+    const comboResult = second ? await lookupCardInteraction(first.name, second.name).catch(() => ({ unavailable: true, combos: [], retrievedAt: new Date().toISOString() })) : null;
+    if (!currentLookup()) return;
+    const noEstablishedInteraction = second && !comboResult.unavailable && !comboResult.combos?.length;
+    dom.firstCardTitle.value = first.name; if (second) dom.secondCardTitle.value = second.name;
+    dom.cardLookupResult.innerHTML = `${renderCardLookup(first)}${second ? renderCardLookup(second) + renderCommunityCombos(comboResult) + (noEstablishedInteraction ? renderInteractionAdvice(createInteractionAdvice(first, second, situation), first, second) : '') : ''}`;
+    dom.cardLookupResult.hidden = false;
+    dom.cardLookupStatus.textContent = second ? (noEstablishedInteraction ? 'Current Oracle text and rulings are shown. No established database interaction was found, so a best-effort explanation is included.' : 'Current Oracle text, published rulings, and established interaction results are shown.') : 'Current Oracle text and published rulings are shown.';
+  } catch (error) { if (currentLookup()) dom.cardLookupStatus.textContent = error.message; }
 }
 function returnToSetup() {
   if (!canReturnToSetup()) return;
@@ -2028,7 +2932,12 @@ function returnToSetup() {
 function renderConnection(status = transport.status) {
   if (status !== 'connected' && optimisticLifeDelta) { lifeBatcher.clear(); optimisticLifeDelta = 0; }
   const presentation = connectionPresentation({ status });
-  if (presentation.showOffline) awaitingConfirmedResync = true;
+  if (presentation.showOffline || status === 'local') {
+    // Initial setup is not a reconnect: a false Synced notice would take
+    // space from the dial, then resize it again when the notice disappears.
+    awaitingConfirmedResync = presentation.showOffline && Boolean(state && !state.localSimulation);
+    clearTimeout(syncBannerTimer); dom.syncBanner.hidden = true;
+  }
   dom.connectionButton.dataset.state = status; dom.connectionText.textContent = presentation.label; dom.disconnectBanner.hidden = !presentation.showOffline;
   // The lobby is the single source for sharing a table code. This optional
   // status dialog reports connection health only, so it does not interrupt
@@ -2055,19 +2964,71 @@ function touchLocalDemo() {
 
 fillSetupControls(); refreshSetupCommanderNames(); updateFormatSetup(); renderDeveloperTools(); renderConnection(); renderSavedTables();
 let createStep = 1;
-function showCreateStep(step) { createStep = step; $$('[data-create-step]').forEach(section => { section.hidden = Number(section.dataset.createStep) !== step; }); window.scrollTo({ top: 0, behavior: 'instant' }); }
+function showCreateStep(step) {
+  const previousStep = createStep;
+  createStep = step;
+  const steps = selectedGameFormat() === 'commander' ? [1, 2, 3, 4] : [1, 2, 4];
+  $$('[data-create-step]').forEach(section => {
+    const sectionStep = Number(section.dataset.createStep);
+    section.hidden = sectionStep !== step;
+    section.querySelector('.eyebrow').textContent = `STEP ${steps.indexOf(sectionStep) + 1} OF ${steps.length}`;
+    if (!section.hidden && previousStep !== step) {
+      const control = section.querySelector('input[type="radio"]:checked') || section.querySelector('input:not([type="radio"]):not([disabled]), select:not([disabled]), button');
+      control?.focus();
+    }
+  });
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}
 let joinStep = 2;
-function showJoinStep(step) { joinStep = step; $$('[data-join-step]').forEach(section => { section.hidden = Number(section.dataset.joinStep) !== step; }); window.scrollTo({ top: 0, behavior: 'instant' }); }
-function skipCreateCommanders() { dom.createCommanderNames.querySelectorAll('input[name^="commanderName"]').forEach(input => { input.value = ''; delete input.dataset.commanderColors; }); showCreateStep(5); }
-$('#createStepOneNext').addEventListener('click', () => showCreateStep(2)); $('#createStepTwoNext').addEventListener('click', () => showCreateStep(3)); $('#createStepThreeNext').addEventListener('click', () => showCreateStep(selectedGameFormat() === 'commander' ? 4 : 5)); $('#createStepFourSkip').addEventListener('click', skipCreateCommanders); $('#createStepFourNext').addEventListener('click', async () => { const { unresolved } = await confirmUnresolvedCommanderDetails(dom.createCommanderNames, selectedCommanderCount('commanderCount')); if (!unresolved.length) showCreateStep(5); }); $$('[data-create-back]').forEach(button => button.addEventListener('click', () => showCreateStep(Math.max(1, createStep - 1))));
-$('#joinStepTwoNext').addEventListener('click', () => { if (/^P[1-8]$/.test(dom.joinSeat.value)) showJoinStep(3); }); $('#joinStepThreeNext').addEventListener('click', () => showJoinStep(4)); $$('[data-join-back]').forEach(button => button.addEventListener('click', () => showJoinStep(Math.max(2, joinStep - 1))));
+function showJoinStep(step) { joinStep = step; const total = joinGameFormat === 'commander' ? 4 : 3; $$('[data-join-step]').forEach(section => { const sectionStep = Number(section.dataset.joinStep); section.hidden = sectionStep !== step; section.querySelector('.eyebrow').textContent = `STEP ${sectionStep} OF ${total}`; }); window.scrollTo({ top: 0, behavior: 'instant' }); }
+function skipCreateCommanders() { dom.createCommanderNames.querySelectorAll('input[name^="commanderName"]').forEach(input => { input.value = ''; delete input.dataset.commanderColors; }); showCreateStep(4); }
+function validateCreateStartingLife(form = new FormData($('#createForm'))) {
+  const input = $('#customStartingLife');
+  const custom = form.get('gameFormat') === 'custom';
+  const override = custom ? String(form.get('customStartingLife') || '').trim() : '';
+  const startingLife = Number(override || form.get('startingLife'));
+  const valid = Number.isInteger(startingLife) && startingLife >= 1 && startingLife <= 999 && !(custom && input.validity.badInput);
+  const error = $('#customStartingLifeError');
+  error.textContent = valid ? '' : 'Choose a whole number from 1 to 999 for starting life.';
+  error.hidden = valid;
+  input.setAttribute('aria-invalid', String(!valid));
+  input.setAttribute('aria-describedby', valid ? 'customStartingLifeHelp' : 'customStartingLifeHelp customStartingLifeError');
+  if (!valid) { showCreateStep(1); input.focus(); return null; }
+  return startingLife;
+}
+$('#customStartingLife').addEventListener('input', () => {
+  $('#customStartingLifeError').hidden = true;
+  $('#customStartingLifeError').textContent = '';
+  $('#customStartingLife').setAttribute('aria-invalid', 'false');
+  $('#customStartingLife').setAttribute('aria-describedby', 'customStartingLifeHelp');
+});
+$('#createStepOneNext').addEventListener('click', () => { if (validateCreateStartingLife() !== null) showCreateStep(2); });
+$('#createStepTwoNext').addEventListener('click', () => showCreateStep(selectedGameFormat() === 'commander' ? 3 : 4));
+$('#createStepThreeSkip').addEventListener('click', skipCreateCommanders);
+$('#createStepThreeNext').addEventListener('click', async () => { const { unresolved } = await confirmUnresolvedCommanderDetails(dom.createCommanderNames, selectedCommanderCount('commanderCount')); if (!unresolved.length) showCreateStep(4); });
+$$('[data-create-back]').forEach(button => button.addEventListener('click', () => showCreateStep(createStep === 4 && selectedGameFormat() !== 'commander' ? 2 : Math.max(1, createStep - 1))));
+$('#joinStepTwoNext').addEventListener('click', () => { if (/^P[1-8]$/.test(dom.joinSeat.value)) showJoinStep(3); }); $('#joinStepThreeNext').addEventListener('click', () => { if (joinGameFormat === 'commander') showJoinStep(4); else $('#joinForm').requestSubmit(); }); $$('[data-join-back]').forEach(button => button.addEventListener('click', () => showJoinStep(Math.max(2, joinStep - 1))));
 signInButton.addEventListener('click', () => openSignIn());
+homeSignOutButton.addEventListener('click', () => void signOut());
 clearPastTablesButton.addEventListener('click', () => {
   clearPastTablesError.hidden = true;
   clearPastTablesDialog.showModal();
 });
 clearPastTablesDialog.querySelector('form').addEventListener('submit', clearPastTables);
-$('#createPodButton').addEventListener('click', () => { competitionHub.clearPending(); showView(dom.create); }); $('#joinPodButton').addEventListener('click', () => { showView(dom.join); dom.joinCodeStatus.textContent = ''; }); $('#changePodButton').addEventListener('click', () => showView(dom.join)); $$('[data-back]').forEach(button => button.addEventListener('click', () => { renderSavedTables(); showView(dom.landing); })); $('#podCode').addEventListener('input', event => { event.currentTarget.value = event.currentTarget.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); }); $('#joinSeat').addEventListener('change', () => { dom.joinName.placeholder = dom.joinSeat.value; renderJoinSeatClaim(); }); dom.joinCodeForm.addEventListener('submit', async event => { event.preventDefault(); await refreshJoinSeats(); }); dom.scanJoinQrButton.addEventListener('click', () => void openJoinQrScanner()); dom.joinQrScannerDialog.addEventListener('close', stopJoinQrScanner); $$('input[name="commanderCount"], input[name="joinCommanderCount"]').forEach(input => input.addEventListener('change', refreshSetupCommanderNames)); $$('input[name="gameFormat"]').forEach(input => input.addEventListener('change', () => { if (selectedGameFormat() === 'casual') { $('input[name="startingLife"][value="20"]').checked = true; $('input[name="playerCount"][value="2"]').checked = true; } updateFormatSetup(); }));
+$('#createPodButton').addEventListener('click', () => { competitionHub.clearPending(); showView(dom.create); }); $('#joinPodButton').addEventListener('click', () => { showView(dom.join); dom.joinCodeStatus.textContent = ''; }); $('#changePodButton').addEventListener('click', () => showView(dom.join)); $$('[data-back]').forEach(button => button.addEventListener('click', () => { renderSavedTables(); showView(dom.landing); })); $('#podCode').addEventListener('input', event => { event.currentTarget.value = event.currentTarget.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); }); $('#joinSeat').addEventListener('change', () => { dom.joinName.placeholder = dom.joinSeat.value; renderJoinSeatClaim(); }); dom.joinCodeForm.addEventListener('submit', async event => { event.preventDefault(); await refreshJoinSeats(); }); dom.scanJoinQrButton.addEventListener('click', () => void openJoinQrScanner()); dom.joinQrScannerDialog.addEventListener('close', stopJoinQrScanner); $$('input[name="commanderCount"], input[name="joinCommanderCount"]').forEach(input => input.addEventListener('change', refreshSetupCommanderNames));
+$$('input[name="gameFormat"]').forEach(input => {
+  const selectFormat = event => {
+    if (selectedGameFormat() === 'commander') $('input[name="startingLife"][value="40"]').checked = true;
+    if (selectedGameFormat() === 'casual') {
+      $('input[name="startingLife"][value="20"]').checked = true;
+      if (event.type === 'change') $('input[name="playerCount"][value="2"]').checked = true;
+    }
+    updateFormatSetup();
+    showCreateStep(1);
+  };
+  input.addEventListener('change', selectFormat);
+  input.addEventListener('click', selectFormat);
+});
 dom.joinQrCameraInput.addEventListener('change', event => void readJoinQrCameraPhoto(event));
 $('#quickTestButton').addEventListener('click', async () => {
   const saved = loadLocal();
@@ -2088,34 +3049,32 @@ $('#createPodButton').addEventListener('click', () => { selectedDeckId = ''; try
 $('#joinSignInDeckButton').addEventListener('click', () => openSignIn({ returnToJoin: true }));
 function selectSetupDeck(event) { selectedDeckId = event.currentTarget.value || ''; try { sessionStorage.setItem('fivefold-arc:selected-deck', selectedDeckId); } catch {} if (selectedDeckId && (event.currentTarget === dom.createDeck || event.currentTarget === dom.joinDeck)) { const deck = setupDecks.find(item => item.deckId === selectedDeckId); const commanderNames = deck?.commanderNames?.length ? deck.commanderNames : [deck?.commanderName].filter(Boolean); const joining = event.currentTarget === dom.joinDeck; if (commanderNames.length) { const container = joining ? dom.joinCommanderNames : dom.createCommanderNames; const identities = savedDeckCommanderColors(deck, commanderNames.length); $(`input[name="${joining ? 'joinCommanderCount' : 'commanderCount'}"][value="${commanderNames.length}"]`).checked = true; renderCommanderNameFields(container, commanderNames.length, commanderNames, identities); if (identities.length !== commanderNames.length) void confirmUnresolvedCommanderDetails(container, commanderNames.length); } } }
 dom.createDeck.addEventListener('change', selectSetupDeck); dom.joinDeck.addEventListener('change', selectSetupDeck);
-dom.commanderDeck.addEventListener('change', event => {
-  selectedDeckId = event.currentTarget.value || '';
-  try { sessionStorage.setItem('fivefold-arc:selected-deck', selectedDeckId); } catch {}
-  const deck = commanderDecks.find(item => item.deckId === selectedDeckId);
-  const commanderNames = deck?.commanderNames?.length ? deck.commanderNames : [deck?.commanderName].filter(Boolean);
-  if (!commanderNames.length) return;
-  const identities = savedDeckCommanderColors(deck, commanderNames.length);
-  $(`input[name="gameCommanderCount"][value="${commanderNames.length}"]`).checked = true;
-  renderCommanderNameFields(dom.gameCommanderNames, commanderNames.length, commanderNames, identities);
-  if (identities.length !== commanderNames.length) void confirmUnresolvedCommanderDetails(dom.gameCommanderNames, commanderNames.length);
-});
-$$('input[name="deckCommanderCount"]').forEach(input => input.addEventListener('change', () => { const paired = Number(input.value) === 2; deckCommanderNameTwoField.hidden = !paired; if (!paired) deckCommanderNameTwo.value = ''; deckCommanderColors = []; deckCommanderStatus.textContent = 'Commander count changed. Find colors again to update the deck identity.'; }));
+dom.commanderDeck.addEventListener('change', selectCommanderDeck);
+dom.gameCommanderNames.addEventListener('input', markCommanderSetupManual);
+$$('input[name="deckCommanderCount"]').forEach(input => input.addEventListener('change', () => { invalidateDeckCommanderMatches(); const paired = Number(input.value) === 2; deckCommanderNameTwoField.hidden = !paired; if (!paired) deckCommanderNameTwo.value = ''; deckCommanderColors = []; deckCommanderStatus.textContent = 'Commander count changed. Find colors again to update the deck identity.'; }));
 document.addEventListener('pointerdown', touchLocalDemo);
 document.addEventListener('keydown', touchLocalDemo);
 $('#createForm').addEventListener('submit', async event => {
   event.preventDefault();
+  const createButton = $('#createForm button[type="submit"]');
+  if (createButton.disabled) return;
+  if (createStep !== 4) {
+    const nextButtons = ['#createStepOneNext', '#createStepTwoNext', '#createStepThreeNext'];
+    $(nextButtons[createStep - 1]).click();
+    return;
+  }
   const form = new FormData(event.currentTarget);
   const gameFormat = String(form.get('gameFormat') || 'commander');
-  const playerCount = Number(form.get('playerCount'));
-  const seatCapacity = Number(form.get('seatCapacity'));
+  const playerCount = dom.localSimulation.checked ? Number(form.get('playerCount')) : 8;
+  const seatCapacity = 8;
   const ownerCommanderCount = gameFormat === 'commander' ? Number(form.get('commanderCount')) : 1;
   const ownerCommanderNames = gameFormat === 'commander' ? commanderNamesFromForm(form, ownerCommanderCount) : [''];
   const ownerCommanderColors = gameFormat === 'commander' ? commanderColorsFromFields(dom.createCommanderNames, ownerCommanderCount) : [[]];
   const ownerPlayerId = 'P1';
   const ownerName = String(form.get('name') || '').trim() || ownerPlayerId;
-  const startingLife = Number(gameFormat === 'custom' ? form.get('customStartingLife') : form.get('startingLife'));
-  if (!Number.isInteger(seatCapacity) || seatCapacity < playerCount || seatCapacity > 8) { dom.seatCapacity.focus(); return; }
-  if (!Number.isInteger(startingLife) || startingLife < 1 || startingLife > 999) { $('#customStartingLife').focus(); return; }
+  if (!Number.isInteger(playerCount) || playerCount < 2 || playerCount > 8) { dom.playerCountChoices.querySelector('input:checked')?.focus(); return; }
+  const startingLife = validateCreateStartingLife(form);
+  if (startingLife === null) return;
   const enteredRoundLimit = String(form.get('roundLimitMinutes') || '').trim();
   const roundLimitMinutes = enteredRoundLimit ? Number(enteredRoundLimit) : null;
   const tableSkinId = String(form.get('tableSkinId') || '');
@@ -2123,22 +3082,57 @@ $('#createForm').addEventListener('submit', async event => {
   const config = { playerCount, seatCapacity, startingLife, gameFormat, ownerPlayerId, ownerName, ownerCommanderCount, ownerCommanderNames, ownerCommanderColors, roundLimitMinutes, tableSkinId };
   if (dom.localSimulation.checked) return beginLocalGame({ ...config, localSimulation: true, podCode: 'LOCAL' });
   let result;
+  const creation = { foreground: true };
+  pendingTableCreation = creation;
+  createButton.disabled = true;
+  createButton.textContent = 'Creating table…';
+  createButton.scrollIntoView({ block: 'center' });
   try {
     const accountToken = await accountTokenForSkin(tableSkinId);
+    if (!creation.foreground) return;
     result = await transport.createRoom({ accountToken, playerCount, seatCapacity, startingLife: config.startingLife, gameFormat, commanderCount: ownerCommanderCount, commanderNames: ownerCommanderNames, commanderColors: ownerCommanderColors, name: ownerName, roundLimitMinutes, tableSkinId });
   } catch (error) {
-    showError(error);
+    if (creation.foreground) showError(error);
     return;
+  } finally {
+    if (pendingTableCreation === creation) pendingTableCreation = null;
+    createButton.disabled = false;
+    createButton.textContent = 'Create table';
   }
-  showSharedGame(result.snapshot);
-  try { await competitionHub.tableCreated(result.snapshot.code); } catch (error) { showError(error); }
+  if (result.ignored) return;
+  if (creation.foreground) showSharedGame(result.snapshot);
+  else { backgroundTableEpoch = transport.sessionEpoch; state = stateFromSnapshot(result.snapshot); saveTable(); clearActiveTable({ code: state.podCode, seatId: transport.seatId }); renderSavedTables(); render(); }
+  try { await competitionHub.tableCreated(result.snapshot.code); } catch (error) { if (creation.foreground) showError(error); }
 });
-$('#joinForm').addEventListener('submit', async event => { event.preventDefault(); const form = new FormData(event.currentTarget); const code = $('#podCode').value.trim().toUpperCase(); const ownerPlayerId = $('#joinSeat').value; if (!/^P[1-8]$/.test(ownerPlayerId)) return showError(new Error('Wait for this table’s open seats to load, then choose one.')); const seatId = Number(ownerPlayerId.slice(1)) - 1; const commanderCount = Number(form.get('joinCommanderCount')); const commanderNames = commanderNamesFromForm(form, commanderCount); const commanderColors = commanderColorsFromFields(dom.joinCommanderNames, commanderCount); const ownerName = String(form.get('name') || '').trim() || ownerPlayerId; try { const room = await transport.inspectRoom(code); if (!room.snapshot.seats[seatId] || (room.snapshot.seats[seatId].claimed && !transport.hasStoredReclaimToken(code, seatId))) throw new Error('That seat is no longer open. Choose one of the available seats.'); const accountToken = await currentAccountToken().catch(() => null); const result = await transport.claimRoom({ code, seatId, name: ownerName, commanderCount, commanderNames, commanderColors, accountToken }); showSharedGame(result.snapshot); if (result.competitionWarning) showError(new Error(result.competitionWarning)); } catch (error) { showError(error); } });
+$('#joinForm').addEventListener('submit', async event => { event.preventDefault(); const form = new FormData(event.currentTarget); const code = $('#podCode').value.trim().toUpperCase(); const ownerPlayerId = $('#joinSeat').value; if (!/^P[1-8]$/.test(ownerPlayerId)) return showError(new Error('Wait for this table’s open seats to load, then choose one.')); const seatId = Number(ownerPlayerId.slice(1)) - 1; const commanderCount = joinGameFormat === 'commander' ? Number(form.get('joinCommanderCount')) : 1; const commanderNames = joinGameFormat === 'commander' ? commanderNamesFromForm(form, commanderCount) : ['']; const commanderColors = joinGameFormat === 'commander' ? commanderColorsFromFields(dom.joinCommanderNames, commanderCount) : [[]]; const ownerName = String(form.get('name') || '').trim() || ownerPlayerId; try { const room = await transport.inspectRoom(code); if (!room.snapshot.seats[seatId] || (room.snapshot.seats[seatId].claimed && !transport.hasStoredReclaimToken(code, seatId))) throw new Error('That seat is no longer open. Choose one of the available seats.'); const accountToken = await currentAccountToken().catch(() => null); const result = await transport.claimRoom({ code, seatId, name: ownerName, commanderCount, commanderNames, commanderColors, accountToken }); showSharedGame(result.snapshot); if (result.competitionWarning) showError(new Error(result.competitionWarning)); } catch (error) { showError(error); } });
 $('#recoverPodButton').addEventListener('click', async () => { const code = latestRecoverableHostTable()?.code; if (!code) return showError(new Error('This phone does not have a saved host table to recover.')); try { const { snapshot } = await transport.restoreRoom(code); const host = snapshot.seats[snapshot.hostSeatId]; const result = await transport.claimRoom({ code, seatId: snapshot.hostSeatId, name: host.name, commanderCount: host.commanderCount, commanderNames: host.commanderNames, commanderColors: host.commanderColors }); showSharedGame(result.snapshot); } catch (error) { showError(error); } });
 dom.showJoinQrButton.addEventListener('click', openJoinQr); dom.showJoinQrMenuButton.addEventListener('click', () => { dom.gameMenu.hidden = true; openJoinQr(); }); dom.showIntermissionJoinQrButton.addEventListener('click', openJoinQr);
 dom.shareJoinLinkButton.addEventListener('click', async () => { try { if (!navigator.share) throw new Error('Sharing is not available on this phone.'); await navigator.share({ title: 'Join my Fivefold Arc table', text: `Join pod ${state.podCode}`, url: joinLink() }); } catch (error) { if (error.name !== 'AbortError') showError(error); } });
 dom.copyJoinLinkButton.addEventListener('click', () => copyJoinLink(dom.copyJoinLinkButton));
 dom.copyLobbyJoinLinkButton.addEventListener('click', () => copyJoinLink(dom.copyLobbyJoinLinkButton)); dom.copyIntermissionJoinLinkButton.addEventListener('click', () => copyJoinLink(dom.copyIntermissionJoinLinkButton));
+let openingIntermissionSeatsCode = null;
+async function openIntermissionSeats() {
+  if (!state || state.localSimulation || state.lifecycle?.status !== 'intermission' || !dom.intermissionInvite.open || (state.seatCapacity || state.playerCount) >= 8) return;
+  const code = state.podCode;
+  if (openingIntermissionSeatsCode === code) return;
+  openingIntermissionSeatsCode = code;
+  try {
+    const result = await transport.openTableSeats();
+    if (result.ignored || state?.podCode !== code || state.lifecycle?.status !== 'intermission' || !dom.intermissionInvite.open) return;
+    if ((state.seatCapacity || state.playerCount) >= 8) return;
+    if (result.blocked || result.conflict) {
+      dom.intermissionInvite.open = false;
+      showTableActionError(result.blocked ? 'Reconnect before adding a player.' : 'The table changed first. Try Add player again.');
+    }
+  } catch (error) {
+    if (state?.podCode !== code || state.lifecycle?.status !== 'intermission' || !dom.intermissionInvite.open) return;
+    dom.intermissionInvite.open = false;
+    showTableRequestError(error);
+  } finally {
+    if (openingIntermissionSeatsCode === code) openingIntermissionSeatsCode = null;
+  }
+}
+dom.intermissionInvite.addEventListener('toggle', () => { if (dom.intermissionInvite.open) void openIntermissionSeats(); });
 function dialAngle(event) { const rect = dom.dialGesture.getBoundingClientRect(); return Math.atan2(event.clientY - (rect.top + rect.height / 2), event.clientX - (rect.left + rect.width / 2)) * 180 / Math.PI; }
 function normalizeDialAngle(angle) { return angle > 180 ? angle - 360 : angle < -180 ? angle + 360 : angle; }
 function beginDialDrag(event) {
@@ -2146,11 +3140,14 @@ function beginDialDrag(event) {
   dialPointer = { id: event.pointerId, angle: dialAngle(event), accumulated: 0 }; document.body.classList.add('dial-dragging'); dom.dialGesture.classList.add('dragging'); dom.dialGesture.setPointerCapture?.(event.pointerId); event.preventDefault();
 }
 function leaveTable() {
+  tournamentTableContext = null;
+  if (state && !state.localSimulation) clearActiveTable({ code: state.podCode, seatId: transport.seatId });
   closeGameOverlays(); clearTimeout(coinTossTimer); clearTimeout(coinFlipTimer); clearStartingRollTimers(); clearInterval(turnTicker); lifeBatcher.clear(); optimisticLifeDelta = 0; dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); state = null; transport.clearSession(); renderSavedTables(); showView(dom.landing);
 }
 function forgetCurrentTable() {
   if (!state?.podCode || state.localSimulation) return;
   const code = state.podCode; const seatId = transport.seatId;
+  clearActiveTable({ code, seatId });
   try { localStorage.setItem(SAVED_TABLES_KEY, JSON.stringify(savedTables().filter(table => table.code !== code || table.seatId !== seatId))); } catch { /* Optional browser storage only. */ }
 }
 async function leaveNextGameTable() {
@@ -2161,6 +3158,28 @@ async function leaveNextGameTable() {
     if (result.conflict) return showTableActionError('The table changed first. The latest state is shown.');
     forgetCurrentTable(); leaveTable();
   } catch (error) { showTableRequestError(error); }
+}
+async function leaveFinishedTournamentTable() {
+  if (!state || state.localSimulation) throw new Error('Open your finished tournament Table first.');
+  const code = transport.roomCode, seatId = transport.seatId, epoch = transport.sessionEpoch, profileEpoch = awardProfileEpoch;
+  const stillCurrent = () => transport.roomCode === code && transport.seatId === seatId && transport.sessionEpoch === epoch
+    && awardProfileEpoch === profileEpoch && state?.podCode === code;
+  const refreshed = await transport.refreshRoom();
+  if (refreshed?.ignored || refreshed?.blocked || !stillCurrent() || transport.status !== 'connected') throw new Error('The Table or account changed. Open the current Table and try again.');
+  const finished = Boolean(state.gameResult) || ['complete', 'intermission'].includes(state.lifecycle?.status);
+  if (!finished) throw new Error('Finish the current game before changing Tables.');
+  if (state.lifecycle?.status === 'intermission') {
+    const result = await transport.leaveIntermission();
+    if (result.conflict || !result.left || !stillCurrent()) throw new Error('The Table changed. Review it before leaving.');
+  }
+  forgetCurrentTable(); leaveTable();
+}
+function leaveReplacedTournamentTable(code) {
+  if (!state || state.localSimulation || state.podCode !== code || transport.roomCode !== code || state.turn?.gameStarted || state.gameResult
+    || tournamentTableContext?.code !== code || tournamentTableContext.kind !== 'tournament' || !tournamentTableContext.released) {
+    throw new Error('The Table changed. Return to the released setup before continuing.');
+  }
+  forgetCurrentTable(); leaveTable();
 }
 function moveDialDrag(event) {
   if (!dialPointer || event.pointerId !== dialPointer.id) return;
@@ -2179,15 +3198,9 @@ dom.activeSeat.addEventListener('change', () => { state.activePlayerId = dom.act
   state.mode = nextMode;
   render();
 })); $$('.adjust-controls [data-delta]').forEach(button => button.addEventListener('click', () => adjust(Number(button.dataset.delta))));
-// Side zones are part of the Dial's touch surface. Handle pointer release
-// directly instead of depending on every mobile browser to synthesize a click.
-dom.dialControls.addEventListener('pointerup', event => {
-  const button = event.target.closest('.dial-step[data-delta]');
-  if (!button || button.disabled) return;
-  event.preventDefault();
-  void adjust(Number(button.dataset.delta));
-});
+bindDialSideTaps(dom.dialControls, delta => { void adjust(delta); });
 dom.dialGesture.addEventListener('pointerdown', beginDialDrag); dom.dialGesture.addEventListener('pointermove', moveDialDrag); dom.dialGesture.addEventListener('pointerup', endDialDrag); dom.dialGesture.addEventListener('pointercancel', endDialDrag); dom.dialGesture.addEventListener('keydown', event => { if (event.key === 'ArrowUp' || event.key === 'ArrowRight') { event.preventDefault(); void adjust(1); } if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') { event.preventDefault(); void adjust(-1); } });
+bindDialTouchGuard(dom.dialGesture);
 accountInterfaceStyle.addEventListener('change', () => setInterfaceStyle(accountInterfaceStyle.value, { persistAccount: true }));
 dom.customLifeButton.addEventListener('click', () => { dom.customLifeAmount.value = ''; dom.customLifeDialog.showModal(); dom.customLifeAmount.focus(); }); dom.cancelCustomLifeButton.addEventListener('click', () => dom.customLifeDialog.close('cancel'));
 dom.customLifeForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; const form = new FormData(dom.customLifeForm); const amount = Number(form.get('amount')); if (!Number.isInteger(amount) || amount < 1 || amount > 999) { event.preventDefault(); dom.customLifeAmount.focus(); return; } const delta = form.get('direction') === 'subtract' ? -amount : amount; adjust(delta); });
@@ -2196,6 +3209,7 @@ dom.radiationForm.addEventListener('submit', event => { if (event.submitter?.val
 // every deliberate tap so a cue changed by another phone is ready too.
 document.addEventListener('pointerdown', () => prepareTurnCueAudio(false, cueMode(), true));
 document.addEventListener('pointerup', event => { const button = event.target.closest('button'); if (!button || button.disabled || button.hidden || !button.getClientRects().length) return; pulseTouchFeedback(); });
+dom.undoEliminationButton.addEventListener('click', () => void undoElimination());
 dom.endTurnButton.addEventListener('click', handoffTurn); dom.undoTurnButton.addEventListener('click', undoTurnHandoff); dom.pauseTurnButton.addEventListener('click', toggleTurnPause); dom.toggleTurnTrackingButton.addEventListener('click', toggleTurnTracking); dom.toggleTurnCuesButton.addEventListener('click', openTurnCueDialog); dom.turnCueForm.addEventListener('submit', async event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); const mode = String(new FormData(dom.turnCueForm).get('cueMode') || 'off'); prepareTurnCueAudio(false, mode); if (await setTurnCue(mode)) dom.turnCueDialog.close('confirm'); }); dom.toggleDeviceCuesButton.addEventListener('click', () => { setDeviceTurnCues(!deviceTurnCuesEnabled()); render(); }); dom.toggleTouchFeedbackButton.addEventListener('click', () => { setTouchFeedback(!touchFeedbackEnabled()); render(); });
 dom.turnSoundPreferencesButton.addEventListener('click', openTurnSoundDialog); dom.turnSoundVolume.addEventListener('input', () => { dom.turnSoundVolumeValue.value = `${dom.turnSoundVolume.value}%`; }); dom.previewTurnSoundButton.addEventListener('click', () => { setTurnSound(dom.turnSoundChoice.value, Number(dom.turnSoundVolume.value)); playTurnCue(true); }); dom.turnSoundForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); setTurnSound(dom.turnSoundChoice.value, Number(dom.turnSoundVolume.value)); dom.turnSoundDialog.close('confirm'); render(); }); dom.toggleInterfaceStyleButton.addEventListener('click', () => setInterfaceStyle(interfaceStyle === 'dial' ? 'button' : 'dial', { persistAccount: true }));
 dom.startingSeat.addEventListener('change', () => { pendingStartingSeatId = Number(dom.startingSeat.value); renderTurnFlow(); }); dom.chooseFirstButton.addEventListener('click', () => chooseStartingPlayer(pendingStartingSeatId ?? Number(dom.startingSeat.value))); dom.winnerFirstButton.addEventListener('click', () => { if (Number.isInteger(state?.lastGameWinnerSeatId)) chooseStartingPlayer(state.lastGameWinnerSeatId); }); dom.randomFirstButton.addEventListener('click', () => chooseStartingPlayer()); dom.startGameButton.addEventListener('click', startGame);
@@ -2221,10 +3235,43 @@ dom.gameMenuBackdrop.addEventListener('pointerdown', event => event.stopPropagat
 dom.gameMenuBackdrop.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); closeGameMenu(); });
 dom.moreButton.addEventListener('click', () => { dom.gameMenu.hidden = !dom.gameMenu.hidden; dom.moreButton.setAttribute('aria-expanded', String(!dom.gameMenu.hidden)); }); dom.coinTossButton.addEventListener('click', () => { closeGameMenu(); tossCoin(); }); dom.editPlayerNameButton.addEventListener('click', openEditPlayerName); dom.editPlayerNameForm.addEventListener('submit', event => { if (event.submitter?.value === 'confirm') { event.preventDefault(); void updatePlayerName(); } }); dom.declareWinnerButton.addEventListener('click', openDeclareWinner); dom.tossAgainButton.addEventListener('click', () => tossCoin()); dom.saveGameButton.addEventListener('click', event => { event.stopPropagation(); void saveGameToHistory(); }); myGamesButton.addEventListener('click', openMyProfile); myGamesSignInButton.addEventListener('click', async () => { try { myGamesStatus.textContent = 'Signing in…'; await finishAccountSignIn(await googleAccountToken()); } catch (error) { myGamesStatus.textContent = error?.message || 'Sign-in did not work.'; } }); $('#resetButton').addEventListener('click', () => { closeGameMenu(); openResetDialog(); }); dom.confirmResetButton.addEventListener('click', resetGame);
 myGamesDialog.querySelector('form').addEventListener('submit', event => { event.preventDefault(); if (!event.submitter && !emailSignInFields.hidden && accountEmail.value && accountPassword.value) void signInWithEmailPassword(); }); myGamesDialog.querySelector('button[value="close"]').addEventListener('click', () => myGamesDialog.close());
+emailSignInFields.addEventListener('keydown', event => {
+  if (event.key !== 'Enter' || event.isComposing || emailSignInFields.hidden ||
+      (event.target !== accountEmail && event.target !== accountPassword)) return;
+  event.preventDefault();
+  void signInWithEmailPassword();
+});
 emailSignInButton.addEventListener('click', async () => { const showingEmailFields = !emailSignInFields.hidden; emailSignInFields.hidden = false; forgotPasswordButton.hidden = false; createAccountButton.hidden = false; emailSignInButton.textContent = 'Sign in with email'; emailSignInButton.classList.replace('secondary-action', 'primary-action'); myGamesSignInButton.classList.replace('primary-action', 'secondary-action'); if (!showingEmailFields) { myGamesStatus.textContent = 'Enter your email and password, then choose Sign in with email.'; accountEmail.focus(); return; } await signInWithEmailPassword(); });
-forgotPasswordButton.addEventListener('click', async () => { if (!accountEmail.value) { accountEmail.focus(); myGamesStatus.textContent = 'Enter the email address for your account first.'; return; } try { await sendAccountPasswordReset(accountEmail.value); myGamesStatus.textContent = 'Password-reset email sent. Check your inbox and spam folder.'; } catch (error) { myGamesStatus.textContent = error?.message || 'The password-reset email could not be sent.'; } });
-createAccountButton.addEventListener('click', async () => { try { await finishAccountSignIn(await emailAccountToken(accountEmail.value, accountPassword.value, true)); } catch (error) { myGamesStatus.textContent = error?.message || 'Account creation did not work.'; } });
-myDecksButton.addEventListener('click', () => { myDecksDialog.showModal(); showMyDecks(); });
+forgotPasswordButton.addEventListener('click', async () => {
+  if (forgotPasswordButton.disabled) return;
+  if (!accountEmail.value) { accountEmail.focus(); myGamesStatus.textContent = 'Enter the email address for your account first.'; return; }
+  forgotPasswordButton.disabled = true;
+  myGamesStatus.textContent = 'Sending reset email…';
+  try {
+    await sendAccountPasswordReset(accountEmail.value);
+    myGamesStatus.textContent = 'Password-reset email sent. Check your inbox and spam folder.';
+  } catch (error) {
+    myGamesStatus.textContent = error?.message || 'The password-reset email could not be sent.';
+  } finally { forgotPasswordButton.disabled = false; }
+});
+createAccountButton.addEventListener('click', () => {
+  if (emailSignInInFlight || registration.pending) return;
+  registrationReturnView = dom.views.find(view => !view.hidden) || dom.landing;
+  myGamesDialog.close(); accountPassword.value = '';
+  showView(registrationView); registration.open(accountEmail.value);
+});
+myDecksButton.addEventListener('click', openMyDecks);
+addDeckButton.addEventListener('click', beginNewDeck);
+cancelDeckEditorButton.addEventListener('click', cancelDeckEditor);
+closeMyDecksButton.addEventListener('click', closeMyDecks);
+myDecksDialog.addEventListener('cancel', event => {
+  if (deckEditorOpen) { event.preventDefault(); cancelDeckEditor(); }
+});
+myDecksDialog.addEventListener('close', () => {
+  if (!myDecksDialog.open && deckEditorOpen) { resetDeckEditorDraft(); showDeckLibrary({ focus: false }); }
+});
+deckSearch.addEventListener('input', renderDeckLibrary);
+deckSearch.addEventListener('search', renderDeckLibrary);
 myDecksSignInButton.addEventListener('click', () => showMyDecks(true)); saveAccountPreferencesButton.addEventListener('click', () => void saveAccountPreferences());
 async function accountTokenForSkin(id) {
   if (!unlockedSkinChoices().some(skin => skin.id === id)) return null;
@@ -2250,28 +3297,47 @@ dom.tableSkinMenu.addEventListener('change', async () => {
   } catch (error) { showError(error); render(); }
 });
 dom.deviceAppearanceChoice.addEventListener('change', () => { setDeviceAppearanceChoice(dom.deviceAppearanceChoice.value); activeGameSkinId = ''; void applySelectedAppearance(); });
-createDeckButton.addEventListener('click', createDeck); findDeckColorsButton.addEventListener('click', () => void confirmDeckCommanderColors()); [deckCommanderName, deckCommanderNameTwo].forEach(input => input.addEventListener('change', () => { deckCommanderColors = []; void confirmDeckCommanderColors(); })); signOutButton.addEventListener('click', () => void signOut());
+deckEditor.addEventListener('submit', event => { event.preventDefault(); void createDeck(); }); findDeckColorsButton.addEventListener('click', () => void confirmDeckCommanderColors());
+[deckCommanderName, deckCommanderNameTwo].forEach(input => {
+  input.addEventListener('input', () => { invalidateDeckCommanderMatches(); deckCommanderColors = []; });
+  input.addEventListener('change', () => { deckCommanderColors = []; void confirmDeckCommanderColors(); });
+});
+signOutButton.addEventListener('click', () => void signOut());
 myGamesContent.addEventListener('click', event => { const id = event.target.closest('[data-remove-game]')?.dataset.removeGame; if (id) void removeAccountItem('games', id); }); myDecksContent.addEventListener('click', event => { const editId = event.target.closest('[data-edit-deck]')?.dataset.editDeck; const removeId = event.target.closest('[data-remove-deck]')?.dataset.removeDeck; const favoriteId = event.target.closest('[data-toggle-favorite]')?.dataset.toggleFavorite; const archiveId = event.target.closest('[data-toggle-archive]')?.dataset.toggleArchive; const exportId = event.target.closest('[data-export-deck]')?.dataset.exportDeck; if (editId) beginDeckEdit(editId); else if (removeId) void removeAccountItem('decks', removeId); else if (favoriteId) { const label = event.target.textContent === 'Favorite'; void updateSavedDeck(favoriteId, { favorite: label }).catch(error => { myDecksStatus.textContent = error.message; }); } else if (archiveId) { const label = event.target.textContent === 'Archive'; void updateSavedDeck(archiveId, { archived: label }).catch(error => { myDecksStatus.textContent = error.message; }); } else if (exportId) void exportDeckSummary(exportId).catch(error => { myDecksStatus.textContent = error.message; }); });
 exportAccountButton.addEventListener('click', () => { void exportAccountData().catch(error => { myGamesStatus.textContent = error.message; }); });
 deleteAccountButton.addEventListener('click', () => { void deleteAccountData().catch(error => { myGamesStatus.textContent = error.message; }); });
 dom.cardCameraButton.addEventListener('click', openCardCamera); dom.cardAdvisorForm.addEventListener('submit', event => { if (event.submitter?.value === 'close') return; event.preventDefault(); lookupCardTitles(); });
+dom.cardCameraDialog.addEventListener('close', () => { cardLookupGeneration++; });
+[dom.firstCardTitle, dom.secondCardTitle, dom.interactionSituation].forEach(input => input.addEventListener('input', () => {
+  cardLookupGeneration++; dom.cardLookupStatus.textContent = ''; dom.cardLookupResult.hidden = true; dom.cardLookupResult.replaceChildren();
+}));
 dom.playtestNotesButton.addEventListener('click', openPlaytestNotes); dom.playtestRecapButton.addEventListener('click', openPlaytestRecap); dom.fieldTestButton.addEventListener('click', () => { dom.gameMenu.hidden = true; dom.fieldTestStatus.textContent = ''; dom.fieldTestDialog.showModal(); }); dom.fieldTestForm.addEventListener('submit', async event => { if (event.submitter?.id !== 'saveFieldTestButton') return; event.preventDefault(); const form = new FormData(dom.fieldTestForm); const issues = form.getAll('issues'); if (issues.length > 3) { dom.fieldTestStatus.textContent = 'Choose no more than three friction areas.'; return; } try { dom.fieldTestStatus.textContent = 'Saving…'; await transport.recordFieldTest({ realTable: form.get('realTable') === 'on', deviceMix: form.get('deviceMix'), repeatUse: form.get('repeatUse'), dispute: form.get('dispute'), issues, note: form.get('note') }); dom.fieldTestStatus.textContent = 'Field test saved.'; setTimeout(() => dom.fieldTestDialog.close(), 650); } catch (error) { dom.fieldTestStatus.textContent = `Not saved: ${error.message}`; } }); dom.savedPlaytestsButton.addEventListener('click', openSavedPlaytests); dom.refreshTableButton.addEventListener('click', async () => { try { const { snapshot, ignored } = await transport.refreshRoom(); if (ignored) return; if (snapshot) showSharedGame(snapshot); dom.gameMenu.hidden = true; } catch (error) { showError(error); } }); dom.playtestNotesForm.addEventListener('submit', async event => { if (event.submitter?.id !== 'savePlaytestNoteButton') return; event.preventDefault(); const text = dom.playtestNoteText.value; try { dom.playtestNoteStatus.textContent = 'Saving…'; await transport.addPlaytestNote(text); dom.playtestNoteText.value = ''; dom.playtestNoteStatus.textContent = 'Saved.'; await openPlaytestNotes(); } catch (error) { dom.playtestNoteStatus.textContent = `Not saved: ${error.message}`; } });
 dom.markDevelopmentButton.addEventListener('click', async () => { try { await transport.setSessionKind(state.sessionKind === 'development' ? 'standard' : 'development'); } catch (error) { showError(error); } });
 dom.startingRollDialog.addEventListener('close', () => { startingRollSequence += 1; clearStartingRollTimers(); });
 dom.rollMyD20Button.addEventListener('click', rollMyStartingD20);
 $('#closeGameMenuButton').addEventListener('click', () => { dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); });
-dom.commanderSetupButton.addEventListener('click', () => { dom.gameMenu.hidden = true; const player = state.localSimulation ? activePlayer() : state.players.find(item => item.id === state.ownerPlayerId); dom.commanderCountDetail.textContent = state.localSimulation ? `Local simulation: change ${displayName(player)}'s commander details.` : `Change your commander names and color identity for this pod. Your current game and seat stay in place.`; dom.saveCommanderCountButton.textContent = 'Update this pod'; dom.saveCommanderCountButton.disabled = false; dom.commanderDeckField.hidden = true; $(`input[name="gameCommanderCount"][value="${player.commanderCount}"]`).checked = true; renderCommanderNameFields(dom.gameCommanderNames, player.commanderCount, player.commanderNames, player.commanderColors); dom.commanderCountDialog.showModal(); void loadCommanderDecks(); });
+dom.commanderSetupButton.addEventListener('click', () => openCommanderSetup());
 let developerHoldTimer = null;
 const clearDeveloperHold = () => { clearTimeout(developerHoldTimer); developerHoldTimer = null; };
 dom.podLabel.addEventListener('pointerdown', () => { if (!developerMode && developerHost()) developerHoldTimer = setTimeout(() => { developerHoldTimer = null; dom.developerModeKey.value = ''; dom.developerModeStatus.textContent = ''; dom.developerModeDialog.showModal(); dom.developerModeKey.focus(); }, 750); });
 ['pointerup', 'pointercancel', 'pointerleave'].forEach(type => dom.podLabel.addEventListener(type, clearDeveloperHold));
 dom.developerModeForm.addEventListener('submit', async event => { event.preventDefault(); const key = dom.developerModeKey.value; dom.unlockDeveloperModeButton.disabled = true; dom.developerModeStatus.textContent = 'Verifying…'; try { await verifyDeveloperKey(key); developerMode = true; sessionStorage.setItem(DEVELOPER_MODE_KEY, 'on'); dom.developerModeDialog.close('unlocked'); renderDeveloperTools(); } catch (error) { dom.developerModeStatus.textContent = error.message; } finally { dom.unlockDeveloperModeButton.disabled = false; } });
 dom.lockDeveloperModeButton.addEventListener('click', () => { developerMode = false; sessionStorage.removeItem(DEVELOPER_MODE_KEY); renderDeveloperTools(); });
+$('#leaveLobbyButton')?.addEventListener('click', () => dom.leaveTableDialog.showModal());
 dom.commanderTaxQuickButton?.addEventListener('click', () => { renderCommanderTaxDialog(); dom.commanderTaxDialog.showModal(); });
 dom.backToSetupButton?.addEventListener('click', returnToSetup); dom.leaveTableButton?.addEventListener('click', () => { dom.gameMenu.hidden = true; dom.moreButton.setAttribute('aria-expanded', 'false'); dom.leaveTableDialog.showModal(); }); dom.confirmLeaveTableButton?.addEventListener('click', leaveTable);
-$$('input[name="gameCommanderCount"]').forEach(input => input.addEventListener('change', () => renderCommanderNameFields(dom.gameCommanderNames, selectedCommanderCount('gameCommanderCount'))));
-dom.commanderCountForm.addEventListener('submit', async event => { if (event.submitter?.value === 'confirm') { event.preventDefault(); const form = new FormData(dom.commanderCountForm); const count = Number(form.get('gameCommanderCount')); dom.saveCommanderCountButton.disabled = true; const { colors, unresolved } = await confirmUnresolvedCommanderDetails(dom.gameCommanderNames, count); if (unresolved.length) { dom.saveCommanderCountButton.textContent = 'Update without colors'; dom.saveCommanderCountButton.disabled = false; return; } const names = commanderNamesFromForm(new FormData(dom.commanderCountForm), count); selectedDeckId = dom.commanderDeck.value || ''; try { sessionStorage.setItem('fivefold-arc:selected-deck', selectedDeckId); } catch {} await updateCommanderSetup(count, names, colors); dom.commanderCountDialog.close('confirm'); } }); dom.declareWinnerForm.addEventListener('submit', event => { if (event.submitter?.value === 'confirm') declareWinner(); });
-dom.intermissionReadyButton.addEventListener('click', () => void setNextGameReady()); dom.intermissionStartButton.addEventListener('click', () => void confirmNextGameStart()); dom.intermissionLeaveButton.addEventListener('click', () => dom.intermissionLeaveDialog.showModal()); dom.intermissionLeaveForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); dom.intermissionLeaveDialog.close('confirm'); void leaveNextGameTable(); }); dom.nextGameConfirmForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); dom.nextGameConfirmDialog.close('confirm'); void startGame(); });
+$$('input[name="gameCommanderCount"]').forEach(input => input.addEventListener('change', () => { markCommanderSetupManual(); renderCommanderNameFields(dom.gameCommanderNames, selectedCommanderCount('gameCommanderCount')); }));
+dom.commanderCountForm.addEventListener('submit', saveCommanderSetupDraft);
+dom.commanderCountDialog.addEventListener('cancel', event => { if (commanderSetupDraft?.writing) event.preventDefault(); });
+dom.commanderCountDialog.addEventListener('close', () => { commanderSetupDraft = null; commanderDecks = []; dom.commanderCountDialog.removeAttribute('closedby'); });
+dom.intermissionSetupButton.addEventListener('click', () => void openNextGameSetup());
+dom.declareWinnerForm.addEventListener('submit', event => { if (event.submitter?.value === 'confirm') declareWinner(); });
+dom.intermissionReadyButton.addEventListener('click', () => void setNextGameReady()); dom.intermissionStartButton.addEventListener('click', () => void confirmNextGameStart()); dom.intermissionLeaveButton.addEventListener('click', () => dom.intermissionLeaveDialog.showModal()); dom.intermissionLeaveForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; event.preventDefault(); dom.intermissionLeaveDialog.close('confirm'); void leaveNextGameTable(); }); dom.nextGameConfirmForm.addEventListener('submit', submitNextGameStart);
+tournamentRoundButton.addEventListener('click', () => void competitionHub.openTournamentClock().catch(showTableRequestError));
+returnToTournamentButton.addEventListener('click', () => void competitionHub.returnToTournament().catch(showTableRequestError));
+dom.nextGameStarter.addEventListener('change', () => void chooseNextGameStarter());
+dom.nextGameConfirmDialog.addEventListener('cancel', event => { if (nextGameStartPending) event.preventDefault(); });
+dom.nextGameConfirmDialog.addEventListener('close', () => { nextGameConfirmation = null; dom.nextGameConfirmDialog.removeAttribute('closedby'); });
 dom.victoryDialog.addEventListener('click', () => { if (victoryDismissReady && dom.victoryDialog.open) advanceEndGameFlow(victoryKey(state?.gameResult)); }); dom.achievementDialog.addEventListener('close', () => {
   if (dom.achievementDialog.dataset.catchUpId) {
     delete dom.achievementDialog.dataset.catchUpId;
@@ -2285,13 +3351,13 @@ dom.victoryDialog.addEventListener('click', () => { if (victoryDismissReady && d
 dom.commanderDamageDetails.addEventListener('click', () => { const player = activePlayer(); if (player) openCommanderSourceDialog(player, { readOnly: true }); });
 $('#quickFeedbackForm').addEventListener('submit', async event => { event.preventDefault(); const response = event.submitter?.value; const until = Date.now() + (response === 'skip' ? 30 : 7) * 24 * 60 * 60 * 1000; localStorage.setItem('fivefold-arc:quick-feedback-until', String(until)); if (response !== 'skip') await transport.recordQuickFeedback({ response }); $('#quickFeedbackDialog').close(); });
 dom.viewCelebrationButton.addEventListener('click', () => { shownVictoryKey = null; dom.gameMenu.hidden = true; renderVictory(); });
-transport.addEventListener('status', event => { renderConnection(event.detail); renderMutationAvailability(); });
+transport.addEventListener('status', event => { renderConnection(event.detail); renderMutationAvailability(); if (dom.nextGameConfirmDialog.open) renderNextGameConfirmation(); });
 transport.addEventListener('state', event => {
-  if (!countersLocked(event.detail?.lifecycle)) return;
+  if (!countersLocked(event.detail?.lifecycle, event.detail?.pendingFinish)) return;
   lifeBatcher.clear();
   optimisticLifeDelta = 0;
 });
-transport.addEventListener('state', event => { if (event.detail?.seats?.length) { const previousTossKey = coinTossKey(state?.lastCoinToss); const previousRollKey = startingPlayerRollKey(state?.turn?.startingPlayerRoll); const previousTurnKey = state?.turn?.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; state = stateFromSnapshot(event.detail); if (awaitingConfirmedResync && transport.status === 'connected') { awaitingConfirmedResync = false; const presentation = connectionPresentation({ status: 'connected', resynced: true }); dom.syncBanner.textContent = presentation.syncMessage; dom.syncBanner.hidden = false; clearTimeout(syncBannerTimer); syncBannerTimer = setTimeout(() => { dom.syncBanner.hidden = true; }, 5000); } const nextRollKey = startingPlayerRollKey(state.turn.startingPlayerRoll); const nextTurnKey = state.turn.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; const expectedTableView = tableViewForState(); if (expectedTableView.hidden) showView(expectedTableView); if (nextTurnKey && nextTurnKey !== previousTurnKey && nextTurnKey !== lastTurnHandoffKey) { lastTurnHandoffKey = nextTurnKey; showTurnHandoff(); } if (nextRollKey && nextRollKey !== previousRollKey && nextRollKey !== lastStartingRollKey) { lastStartingRollKey = nextRollKey; showStartingPlayerRoll(state.turn.startingPlayerRoll); } else if (coinTossKey(state.lastCoinToss) && coinTossKey(state.lastCoinToss) !== previousTossKey) { const dialog = coinTossDialogRequested; coinTossDialogRequested = false; showCoinToss(state.lastCoinToss, { dialog }); } else render(); } });
+transport.addEventListener('state', event => { if (event.detail?.seats?.length) { const previousTossKey = coinTossKey(state?.lastCoinToss); const previousRollKey = startingPlayerRollKey(state?.turn?.startingPlayerRoll); const previousTurnKey = state?.turn?.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; state = stateFromSnapshot(event.detail); if (awaitingConfirmedResync && transport.status === 'connected') { awaitingConfirmedResync = false; const presentation = connectionPresentation({ status: 'connected', resynced: true }); dom.syncBanner.textContent = presentation.syncMessage; dom.syncBanner.hidden = false; clearTimeout(syncBannerTimer); syncBannerTimer = setTimeout(() => { dom.syncBanner.hidden = true; }, 5000); } const nextRollKey = startingPlayerRollKey(state.turn.startingPlayerRoll); const nextTurnKey = state.turn.lastHandoff ? `${state.turn.lastHandoff.handedOffAt}:${state.turn.lastHandoff.toSeatId}` : null; const expectedTableView = tableViewForState(); if (expectedTableView.hidden && !pendingTableCreation && backgroundTableEpoch !== transport.sessionEpoch) showView(expectedTableView); if (nextTurnKey && nextTurnKey !== previousTurnKey && nextTurnKey !== lastTurnHandoffKey) { lastTurnHandoffKey = nextTurnKey; showTurnHandoff(); } if (nextRollKey && nextRollKey !== previousRollKey && nextRollKey !== lastStartingRollKey) { lastStartingRollKey = nextRollKey; showStartingPlayerRoll(state.turn.startingPlayerRoll); } else if (coinTossKey(state.lastCoinToss) && coinTossKey(state.lastCoinToss) !== previousTossKey) { const dialog = coinTossDialogRequested; coinTossDialogRequested = false; showCoinToss(state.lastCoinToss, { dialog }); } else render(); } });
 transport.addEventListener('state', event => { const roomCode = event.detail?.code; if (!roomCode || reportedDiagnostics.has(roomCode)) return; reportedDiagnostics.add(roomCode); setTimeout(() => recordClientDiagnostic('session_started'), 0); });
 transport.addEventListener('state', event => { if (event.detail?.seats?.length) void applySelectedAppearance(); });
 transport.addEventListener('state', event => competitionHub.observeTable(event.detail));
@@ -2302,7 +3368,17 @@ dom.startingRollCanvas?.addEventListener('webglcontextlost', () => recordClientD
 transport.addEventListener('protocolerror', () => recordClientDiagnostic('protocol_error'));
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js').catch(() => {});
 const deepJoinCode = new URLSearchParams(location.search).get('join');
-if (!appearancePreviewMode && /^[A-Z0-9]{6}$/i.test(deepJoinCode || '')) openJoinCode(deepJoinCode);
+const deepCompetitionFragment = parseCompetitionFragment(location.hash);
+if (!appearancePreviewMode) {
+  if (/^[A-Z0-9]{6}$/i.test(deepJoinCode || '')) void openJoinCode(deepJoinCode);
+  else if (deepCompetitionFragment) { if (!deepCompetitionFragment.viewerToken) clearActiveTable(); }
+  else void recoverActiveTable();
+  window.addEventListener('online', recoverActiveTable);
+  window.addEventListener('hashchange', () => {
+    const fragment = parseCompetitionFragment(location.hash);
+    if (fragment) { if (!fragment.viewerToken) clearActiveTable(); cancelActiveTableRecovery(); }
+  });
+}
 if (!appearancePreviewMode) {
   void loadGameDefaultLayout();
   void loadPublishedSkinChoices();
@@ -2317,12 +3393,12 @@ if (appearancePreviewMode) {
   state.turn = { ...state.turn, gameStarted: true, gameStartedAt: startedAt, turnStartedAt: startedAt, startingPlayerSeatId: 0 };
   showView(dom.game); render();
   document.documentElement.classList.add('appearance-preview');
-  const appearancePreviewStyle = document.createElement('style'); appearancePreviewStyle.textContent = 'html.appearance-preview[data-appearance-custom="true"] body{background:radial-gradient(circle at var(--appearance-position,50% 0%),color-mix(in srgb,var(--appearance-atmosphere,#000) calc(var(--appearance-strength,0) * 100%),transparent),transparent 58%),var(--bg);background-size:cover;background-position:center}html.appearance-preview .game-shell{pointer-events:none}html.appearance-preview[data-appearance-custom="true"] .counter-stage::after{border-style:var(--appearance-ring-style,solid)}html.appearance-preview[data-appearance-custom="true"] #gameView[data-appearance-ring="none"] .counter-stage::after,html.appearance-preview[data-appearance-custom="true"] #gameView[data-appearance-ring="none"] .counter-sigil{display:none}html.appearance-preview[data-appearance-custom="true"] #gameView[data-appearance-ring="orbit"] .counter-stage::after{border-style:dashed}html.appearance-preview[data-appearance-custom="true"] #gameView[data-appearance-seat="flat"] .pod-seat{border-radius:0;box-shadow:none}html.appearance-preview[data-appearance-custom="true"] #gameView[data-appearance-seat="glass"] .pod-seat{background:color-mix(in srgb,var(--surface) 72%,transparent);backdrop-filter:blur(7px)}html.appearance-preview[data-appearance-custom="true"] #gameView[data-appearance-button="glass"] .end-turn-button{background:color-mix(in srgb,var(--brass) 36%,var(--surface));color:var(--ink);backdrop-filter:blur(8px)}html.appearance-preview[data-appearance-custom="true"] #gameView[data-appearance-button="outline"] .end-turn-button{background:transparent;color:var(--brass)}html.appearance-preview[data-appearance-custom="true"] .mode-nav img{width:22px;height:22px;object-fit:contain}html.appearance-preview[data-appearance-custom="true"] .counter-sigil img{width:100%;height:100%;object-fit:contain}'; document.head.append(appearancePreviewStyle);
+  const appearancePreviewStyle = document.createElement('style'); appearancePreviewStyle.textContent = 'html.appearance-preview[data-appearance-custom="true"] body{background:radial-gradient(circle at var(--appearance-position,50% 0%),color-mix(in srgb,var(--appearance-atmosphere,#000) calc(var(--appearance-strength,0) * 100%),transparent),transparent 58%),var(--bg);background-size:cover;background-position:center}html.appearance-preview .game-shell{pointer-events:none}html.appearance-preview[data-appearance-custom="true"] :is(.counter-stage,.dial-face)::after{border-style:var(--appearance-ring-style,solid)}html.appearance-preview[data-appearance-custom="true"] #gameView[data-appearance-ring="none"] :is(.counter-stage,.dial-face)::after,html.appearance-preview[data-appearance-custom="true"] #gameView[data-appearance-ring="none"] .counter-sigil{display:none}html.appearance-preview[data-appearance-custom="true"] #gameView[data-appearance-ring="orbit"] :is(.counter-stage,.dial-face)::after{border-style:dashed}html.appearance-preview[data-appearance-custom="true"] #gameView[data-appearance-seat="flat"] .pod-seat{border-radius:0;box-shadow:none}html.appearance-preview[data-appearance-custom="true"] #gameView[data-appearance-seat="glass"] .pod-seat{background:color-mix(in srgb,var(--surface) 72%,transparent);backdrop-filter:blur(7px)}html.appearance-preview[data-appearance-custom="true"] #gameView[data-appearance-button="glass"] .end-turn-button{background:color-mix(in srgb,var(--brass) 36%,var(--surface));color:var(--ink);backdrop-filter:blur(8px)}html.appearance-preview[data-appearance-custom="true"] #gameView[data-appearance-button="outline"] .end-turn-button{background:transparent;color:var(--brass)}html.appearance-preview[data-appearance-custom="true"] .mode-nav img{width:22px;height:22px;object-fit:contain}html.appearance-preview[data-appearance-custom="true"] .counter-sigil img{width:100%;height:100%;object-fit:contain}'; document.head.append(appearancePreviewStyle);
   const appearanceSeatStyle = document.createElement('style'); appearanceSeatStyle.textContent = 'html.appearance-preview[data-appearance-custom="true"] #gameView .pod-seat{border-color:color-mix(in srgb,#5b594f calc(var(--appearance-seat-border,70) * 1%),transparent);background:color-mix(in srgb,var(--surface) calc(var(--appearance-seat-opacity,100) * 1%),transparent);backdrop-filter:blur(calc(var(--appearance-seat-blur,0) * 1px))}html.appearance-preview[data-appearance-custom="true"] #gameView[data-appearance-seat="glass"] .pod-seat{background:color-mix(in srgb,var(--surface) calc(var(--appearance-seat-opacity,100) * .72%),transparent)}'; document.head.append(appearanceSeatStyle);
   const appearanceButtonStyle = document.createElement('style'); appearanceButtonStyle.textContent = 'html.appearance-preview[data-appearance-custom="true"] #gameView .end-turn-button{border-color:color-mix(in srgb,var(--brass) calc(var(--appearance-button-border,70) * 1%),transparent);background:color-mix(in srgb,var(--brass) calc(var(--appearance-button-opacity,100) * 1%),transparent);backdrop-filter:blur(calc(var(--appearance-button-blur,0) * 1px))}html.appearance-preview[data-appearance-custom="true"] #gameView .adjust-controls button{border-color:color-mix(in srgb,#62583f calc(var(--appearance-life-button-border,70) * 1%),transparent);background:color-mix(in srgb,var(--surface) calc(var(--appearance-life-button-opacity,100) * 1%),transparent);backdrop-filter:blur(calc(var(--appearance-life-button-blur,0) * 1px))}html.appearance-preview[data-appearance-custom="true"] #gameView .custom-life-button{border-color:color-mix(in srgb,#62583f calc(var(--appearance-custom-life-border,70) * 1%),transparent);background:color-mix(in srgb,var(--surface) calc(var(--appearance-custom-life-opacity,100) * 1%),transparent);backdrop-filter:blur(calc(var(--appearance-custom-life-blur,0) * 1px))}html.appearance-preview[data-appearance-custom="true"] #gameView .commander-tax-quick button{border-color:color-mix(in srgb,#62583f calc(var(--appearance-commander-tax-border,70) * 1%),transparent);background:color-mix(in srgb,var(--surface) calc(var(--appearance-commander-tax-opacity,100) * 1%),transparent);backdrop-filter:blur(calc(var(--appearance-commander-tax-blur,0) * 1px))}'; document.head.append(appearanceButtonStyle);
   const appearanceCommanderDamageStyle = document.createElement('style'); appearanceCommanderDamageStyle.textContent = 'html.appearance-preview[data-appearance-custom="true"] #gameView .source-panel .selected-source-button,html.appearance-preview[data-appearance-custom="true"] #gameView .source-panel .inline-commander-choice{border-color:color-mix(in srgb,#62583f calc(var(--appearance-commander-damage-border,70) * 1%),transparent);background:color-mix(in srgb,var(--surface) calc(var(--appearance-commander-damage-opacity,100) * 1%),transparent);backdrop-filter:blur(calc(var(--appearance-commander-damage-blur,0) * 1px))}'; document.head.append(appearanceCommanderDamageStyle);
   const builtInSealMarkup = document.querySelector('.counter-sigil')?.innerHTML || ''; let activeAppearanceSkin = null;
-  const appearanceUxStyle = document.createElement('style'); appearanceUxStyle.textContent = 'html.appearance-preview #gameView{font-family:var(--appearance-font,inherit)}html.appearance-preview #gameView .pod-seat{border-radius:var(--appearance-seat-radius,8px)}html.appearance-preview #gameView .pod-seat .seat-name{font-size:calc(.72rem * var(--appearance-seat-text-scale,1))}html.appearance-preview #gameView .pod-seat .seat-life{font-size:calc(1.82rem * var(--appearance-seat-text-scale,1))}html.appearance-preview #gameView .turn-banner p{font-size:calc(.67rem * var(--appearance-label-text-scale,1))}html.appearance-preview #gameView .turn-banner strong{font-size:calc(.92rem * var(--appearance-label-text-scale,1))}html.appearance-preview #gameView .turn-banner span{font-size:calc(.62rem * var(--appearance-label-text-scale,1))}html.appearance-preview #gameView .end-turn-button{font-size:calc(.82rem * var(--appearance-label-text-scale,1))}html.appearance-preview #gameView .mode-nav small{font-size:calc(clamp(.48rem,2.4vw,.65rem) * var(--appearance-label-text-scale,1))}html.appearance-preview #gameView .end-turn-button,html.appearance-preview #gameView .adjust-controls button{border-radius:var(--appearance-button-radius,6px)}html.appearance-preview #gameView .counter-readout{translate:0 var(--appearance-counter-offset,0);position:relative;z-index:3}html.appearance-preview #gameView .counter-sigil{translate:none;scale:1;transform:translate(-50%,-43%) translate(var(--appearance-seal-offset-x,0),var(--appearance-seal-offset-y,0)) scale(var(--appearance-seal-scale,1)) rotate(var(--appearance-seal-rotation,0deg));transform-origin:center}html.appearance-preview #gameView .main-value{translate:var(--appearance-life-number-offset-x,0) var(--appearance-life-number-offset-y,0);scale:var(--appearance-life-number-scale,1);transform-origin:center}html.appearance-preview #gameView #turnActions{translate:0 var(--appearance-turn-offset,0)}html.appearance-preview #gameView .adjust-controls{translate:0 var(--appearance-controls-offset,0)}html.appearance-preview .appearance-overlay{position:absolute;inset:0;z-index:2;width:100%;height:100%;object-fit:cover;pointer-events:none;mix-blend-mode:var(--appearance-overlay-blend,normal);opacity:var(--appearance-overlay-opacity,.3);transform:scale(var(--appearance-overlay-scale,1));transform-origin:center}html.appearance-preview .appearance-dial-art{object-fit:contain;transform:scale(var(--appearance-overlay-scale,1)) rotate(var(--appearance-dial-art-rotation,0deg))}html.appearance-preview .pod-seat{position:relative;overflow:hidden}html.appearance-preview .pod-seat>.seat-name,html.appearance-preview .pod-seat>.seat-life,html.appearance-preview .dial-controls>*:not(.appearance-overlay){position:relative;z-index:3}html.appearance-preview .pod-seat>.identity-rail{z-index:3}html.appearance-preview .counter-stage>.dial-controls{z-index:3}'; document.head.append(appearanceUxStyle);
+  const appearanceUxStyle = document.createElement('style'); appearanceUxStyle.textContent = 'html.appearance-preview #gameView{font-family:var(--appearance-font,inherit)}html.appearance-preview #gameView .pod-seat{border-radius:var(--appearance-seat-radius,8px)}html.appearance-preview #gameView .pod-seat .seat-name{font-size:calc(.72rem * var(--appearance-seat-text-scale,1))}html.appearance-preview #gameView .pod-seat .seat-life{font-size:calc(1.82rem * var(--appearance-seat-text-scale,1))}html.appearance-preview #gameView .turn-banner p{font-size:calc(.67rem * var(--appearance-label-text-scale,1))}html.appearance-preview #gameView .turn-banner strong{font-size:calc(.92rem * var(--appearance-label-text-scale,1))}html.appearance-preview #gameView .turn-banner span{font-size:calc(.62rem * var(--appearance-label-text-scale,1))}html.appearance-preview #gameView .end-turn-button{font-size:calc(.82rem * var(--appearance-label-text-scale,1))}html.appearance-preview #gameView .mode-nav small{font-size:calc(clamp(.48rem,2.4vw,.65rem) * var(--appearance-label-text-scale,1))}html.appearance-preview #gameView .end-turn-button,html.appearance-preview #gameView .adjust-controls button{border-radius:var(--appearance-button-radius,6px)}html.appearance-preview #gameView .counter-readout{translate:0 var(--appearance-counter-offset,0);z-index:3}html.appearance-preview #gameView .counter-sigil{translate:none;scale:1;transform:translate(-50%,var(--counter-seal-anchor-y,-43%)) translate(var(--appearance-seal-offset-x,0),var(--appearance-seal-offset-y,0)) scale(var(--appearance-seal-scale,1)) rotate(var(--appearance-seal-rotation,0deg));transform-origin:center}html.appearance-preview #gameView .main-value{translate:var(--appearance-life-number-offset-x,0) var(--appearance-life-number-offset-y,0);scale:var(--appearance-life-number-transform-scale,var(--appearance-life-number-scale,1));transform-origin:center}html.appearance-preview #gameView #turnActions{translate:0 var(--appearance-turn-offset,0)}html.appearance-preview #gameView .adjust-controls{translate:0 var(--appearance-controls-offset,0)}html.appearance-preview .appearance-overlay{position:absolute;inset:0;z-index:2;width:100%;height:100%;object-fit:cover;pointer-events:none;mix-blend-mode:var(--appearance-overlay-blend,normal);opacity:var(--appearance-overlay-opacity,.3);transform:scale(var(--appearance-overlay-scale,1));transform-origin:center}html.appearance-preview .appearance-dial-art{object-fit:contain;transform:scale(var(--appearance-overlay-scale,1)) rotate(var(--appearance-dial-art-rotation,0deg))}html.appearance-preview .pod-seat{position:relative;overflow:hidden}html.appearance-preview .pod-seat>.seat-name,html.appearance-preview .pod-seat>.seat-life,html.appearance-preview .dial-controls>*:not(.appearance-overlay){position:relative;z-index:3}html.appearance-preview .pod-seat>.identity-rail{z-index:3}html.appearance-preview .counter-stage>.dial-controls{z-index:3}'; document.head.append(appearanceUxStyle);
   const appearanceDialArtStyle = document.createElement('style'); appearanceDialArtStyle.textContent = 'html.appearance-preview .dial-gesture{position:relative;overflow:visible;transform-origin:50% 50%}html.appearance-preview .dial-gesture>.appearance-overlay{border-radius:0;object-fit:contain;object-position:center;transform:scale(var(--appearance-overlay-scale,1)) rotate(var(--dial-seal-rotation,0deg));transform-origin:50% 50%;will-change:transform}'; document.head.append(appearanceDialArtStyle);
   const appearanceSemanticTypeStyle = document.createElement('style'); appearanceSemanticTypeStyle.textContent = 'html.appearance-preview[data-appearance-custom="true"] #gameView{font-weight:var(--appearance-font-weight,inherit);line-height:var(--appearance-line-height,normal);letter-spacing:var(--appearance-letter-spacing,normal)}html.appearance-preview[data-appearance-custom="true"] #gameView .turn-banner,html.appearance-preview[data-appearance-custom="true"] #gameView .end-turn-button,html.appearance-preview[data-appearance-custom="true"] #gameView .mode-nav button{text-transform:var(--appearance-text-transform,none);text-align:var(--appearance-label-alignment,inherit);text-shadow:var(--appearance-text-shadow,none)}'; document.head.append(appearanceSemanticTypeStyle);
   const appearanceSeatGapStyle = document.createElement('style'); appearanceSeatGapStyle.textContent = 'html.appearance-preview[data-appearance-custom="true"] #gameView .pod-strip{gap:var(--appearance-seat-gap,8px)}'; document.head.append(appearanceSeatGapStyle);
@@ -2334,7 +3410,7 @@ if (appearancePreviewMode) {
   // A desktop iframe has no iPhone safe-area environment values. Device
   // Preview supplies the selected iOS bottom inset so its live renderer has
   // the same reserved navigation space as the phone it represents.
-  const appearanceSafeAreaStyle = document.createElement('style'); appearanceSafeAreaStyle.textContent = 'html.appearance-preview #gameView .mode-nav{padding-bottom:calc(3px + var(--appearance-preview-safe-bottom,env(safe-area-inset-bottom)))}html.appearance-preview .game-shell{padding-bottom:calc(var(--mode-nav-height) + 18px + var(--appearance-preview-safe-bottom,env(safe-area-inset-bottom)))}'; document.head.append(appearanceSafeAreaStyle);
+  const appearanceSafeAreaStyle = document.createElement('style'); appearanceSafeAreaStyle.textContent = 'html.appearance-preview #gameView .mode-nav{padding-bottom:calc(3px + var(--appearance-preview-safe-bottom,env(safe-area-inset-bottom)))}html.appearance-preview .game-shell:not([data-interface-style="dial"]){padding-bottom:calc(var(--mode-nav-height) + 18px + var(--appearance-preview-safe-bottom,env(safe-area-inset-bottom)))}'; document.head.append(appearanceSafeAreaStyle);
   // Every Studio scale is centered on the same visual point. Position controls
   // may deliberately move an item, but changing only its size never does.
   const appearanceScaleOriginStyle = document.createElement('style'); appearanceScaleOriginStyle.textContent = 'html.appearance-preview #gameView .pod-strip,html.appearance-preview #gameView .counter-readout,html.appearance-preview #gameView .dial-gesture,html.appearance-preview #gameView .source-panel,html.appearance-preview #gameView #turnActions,html.appearance-preview #gameView .adjust-controls,html.appearance-preview #gameView .custom-life-button,html.appearance-preview #gameView .commander-tax-quick,html.appearance-preview #gameView .mode-nav,html.appearance-preview #gameView .counter-sigil,html.appearance-preview #gameView .main-value,html.appearance-preview .appearance-overlay{transform-origin:center center}'; document.head.append(appearanceScaleOriginStyle);
@@ -2363,7 +3439,7 @@ if (appearancePreviewMode) {
     document.body.style.backgroundImage = skin.backgroundData ? `linear-gradient(rgb(0 0 0 / .32), rgb(0 0 0 / .32)), url("${skin.backgroundData}")` : '';
     document.body.style.backgroundSize = skin.backgroundData ? `${Math.min(200, Math.max(50, Number(skin.backgroundScale) || 100))}% auto` : '';
     document.body.style.backgroundPosition = skin.backgroundData ? `${Math.min(100, Math.max(0, Number(skin.backgroundPositionX) || 50))}% ${Math.min(100, Math.max(0, Number(skin.backgroundPositionY) || 50))}%` : '';
-    MODES.forEach(mode => { const button = document.querySelector(`[data-mode="${mode}"]`), asset = skin.symbolData?.[mode], scale = Math.min(200, Math.max(60, Number(skin.symbolScale?.[mode]) || 100)) / 100; if (!button) return; button.innerHTML = asset ? `<img src="${asset}" alt=""><small>${mode === 'commander' ? 'Cmdr' : mode}</small>` : `<span>${skin.symbols?.[mode] || button.textContent.trim().slice(0, 1)}</span><small>${mode === 'commander' ? 'Cmdr' : mode}</small>`; const icon = button.querySelector('img, span'); if (icon) { icon.style.display = 'inline-block'; icon.style.transform = `scale(${scale})`; icon.style.transformOrigin = 'center'; } });
+    MODES.forEach(mode => { const button = document.querySelector(`[data-mode="${mode}"]`), asset = skin.symbolData?.[mode], scale = Math.min(200, Math.max(60, Number(skin.symbolScale?.[mode]) || 100)) / 100; if (!button) return; button.innerHTML = asset ? `<img src="${asset}" alt=""><small>${counterModeLabel(mode)}</small>` : `<span>${skin.symbols?.[mode] || button.textContent.trim().slice(0, 1)}</span><small>${counterModeLabel(mode)}</small>`; const icon = button.querySelector('img, span'); if (icon) { icon.style.display = 'inline-block'; icon.style.transform = `scale(${scale})`; icon.style.transformOrigin = 'center'; } });
     renderConnection(skin.previewState === 'offline' ? 'disconnected' : 'local'); render(); applyAppearanceOverlays(skin);
   });
   if (phoneLayoutSessionId) {

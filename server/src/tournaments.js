@@ -11,25 +11,71 @@ const integer = (value, min, max, name) => {
 const attending = scope => Object.values(scope.members).filter(row => row.participating && row.status === 'active');
 const lastRound = scope => scope.rounds.at(-1);
 
+function reviewedAssignments(scope, previous, groups, ids) {
+  const retained = new Set();
+  const assignments = groups.map((group, index) => {
+    const same = previous?.assignments.find(row => row.hostId === group[0] && row.participantIds.length === group.length
+      && row.participantIds.every(id => group.includes(id)));
+    if (same) { retained.add(same.id); return { ...same, participantIds: [...group] }; }
+    return { id: ids[index], participantIds: [...group], hostId: group[0] };
+  });
+  for (const assignment of previous?.assignments || []) {
+    if (retained.has(assignment.id)) continue;
+    const linked = Object.values(scope.tables).some(table => table.assignmentId === assignment.id
+      || Object.values(table.captures).some(command => command.assignmentId === assignment.id
+        && ['accepted', 'captured', 'abandoned'].includes(command.status)));
+    if (linked || assignment.gameId) throw competitionError('Release this unstarted Table before changing its players or host.', 409, 'EVENT_TABLE_LINKED');
+  }
+  return assignments;
+}
+
 export class Tournaments {
   constructor({ domain }) { this.domain = domain; this.tables = null; }
   actor(scope, auth, directory, options) { return this.tables.actor(scope, auth, directory, options); }
-  async create(accountId, { name, displayName, rounds = 3, preferredSize = 4, priority = 'new_opponents', minutes = null } = {}) {
+  async create(accountId, { name, displayName, rounds = 3, preferredSize = 4, priority = 'new_opponents', minutes = null, requestId } = {}) {
     const title = cleanText(name, 'Tournament name'); const yourName = cleanText(displayName, 'Your name');
     integer(rounds, 1, 20, 'Rounds'); integer(preferredSize, 2, 8, 'Table size');
     if (!['new_opponents', 'standings'].includes(priority)) throw competitionError('Choose a seating priority.');
     if (minutes !== null) integer(minutes, 1, 240, 'Round minutes');
+    if (requestId !== undefined && (typeof requestId !== 'string' || !/^[\w-]{8,100}$/.test(requestId))) throw competitionError('Use a valid Tournament creation request identifier.');
     const identityId = await this.domain.identity(accountId, yourName);
-    const id = `event_${this.domain.createId()}`, hostId = `entrant_${this.domain.createId()}`;
+    let id = `event_${this.domain.createId()}`, hostId = `entrant_${this.domain.createId()}`;
+    let receipt;
+    if (requestId !== undefined) {
+      const requestHash = digest({ name: title, displayName: yourName, rounds, preferredSize, priority, minutes });
+      const candidate = { id, hostId, requestHash, createdAt: this.domain.now(), creationId: digest([identityId, requestId]) };
+      // A separate conditional reservation works for legacy, scoped identities,
+      // and partitioned scope storage. It contains no names or account IDs.
+      receipt = await this.domain.store.update(`competitions/tournament-creations/${identityId}/${digest(requestId)}.json`, current => {
+        if (current && current.requestHash !== requestHash) throw competitionError('That creation request was already used with different Tournament details.', 409, 'TOURNAMENT_CREATE_RETRY_CONFLICT');
+        return current || candidate;
+      });
+      ({ id, hostId } = receipt);
+      let existing;
+      try { existing = await this.domain.readScope('tournament', id); }
+      catch (error) { if (error.code !== 'COMPETITION_NOT_FOUND') throw error; }
+      if (existing) {
+        if (existing.creationId !== receipt.creationId) throw competitionError('This creation request has conflicting saved event data.', 409, 'TOURNAMENT_CREATE_RETRY_CONFLICT');
+        return this.get({ accountId }, id);
+      }
+    }
     await this.domain.setAlias(identityId, id, hostId, yourName);
-    await this.domain.createScope('tournament', id, current => {
+    const create = current => {
+      if (current && receipt && current.creationId === receipt.creationId) return current;
       if (current) throw competitionError('Try creating this event again.', 409);
       return { schemaVersion: 1, id, kind: 'tournament', name: title, creatorId: hostId,
-        createdAt: this.domain.now(), version: 1, status: 'registration',
+        createdAt: receipt?.createdAt ?? this.domain.now(), version: 1, status: 'registration',
+        ...(receipt ? { creationId: receipt.creationId } : {}),
         settings: { rounds, preferredSize, priority, minutes },
         members: { [hostId]: { id: hostId, identityId, kind: 'member', role: 'admin', status: 'active', participating: false } },
         invites: {}, tables: {}, games: {}, standings: {}, rounds: [], audit: [], joinRequests: {} };
-    }, { actorIdentityId: identityId });
+    };
+    try { await this.domain.createScope('tournament', id, create, { actorIdentityId: identityId }); }
+    catch (error) {
+      if (!receipt || error.status !== 409) throw error;
+      const current = await this.domain.readScope('tournament', id);
+      if (current.creationId !== receipt.creationId) throw error;
+    }
     return this.get({ accountId }, id);
   }
   async get(auth, id) {
@@ -72,9 +118,9 @@ export class Tournaments {
       if (lastRound(state)?.status === 'playing' || state.status === 'completed') throw competitionError('Entries open before play or between rounds.', 409, 'ENTRY_BETWEEN_ROUNDS');
       const existing = identityId ? Object.values(state.members).find(row => row.identityId === identityId)
         : state.members[state.joinRequests[joinKey]];
-      if (existing?.participating) return;
+      if (existing?.participating && ['active', 'pending'].includes(existing.status)) return;
       const memberId = existing?.id || candidateId;
-      if (Object.values(state.members).filter(row => row.participating).length >= 128) throw competitionError('This event is full (128 entrants).', 409);
+      if (!existing?.participating && Object.values(state.members).filter(row => row.participating).length >= 128) throw competitionError('This event is full (128 entrants).', 409);
       state.members[memberId] = { ...(existing || {}), id: memberId, identityId, kind: accountId ? 'member' : 'guest',
         role: existing?.role || 'participant', participating: true,
         status: state.rounds.some(round => round.startedAt) ? 'pending' : 'active',
@@ -111,11 +157,18 @@ export class Tournaments {
       const me = this.actor(scope, auth, directory); const target = scope.members[targetId || me.id];
       if (!target) throw competitionError('Choose an event entrant.');
       if (action === 'leave' && (target.id === me.id || me.role === 'admin')) {
+        if (scope.status === 'completed') throw competitionError('This event is complete. Its final entrants and standings are preserved.', 409, 'EVENT_COMPLETED');
         target.status = 'left';
       } else {
         this.actor(scope, auth, directory, { admin: true });
         if (action === 'cohost' && target.id === scope.creatorId) throw competitionError('The primary event host keeps their role.');
-        if (action === 'approve' && target.status === 'pending') target.status = 'active';
+        if (['approve', 'restore'].includes(action)) {
+          if (scope.status === 'completed') throw competitionError('This event is complete.', 409, 'EVENT_COMPLETED');
+          if (lastRound(scope)?.status === 'playing') throw competitionError('Restore or approve entrants before play or between rounds.', 409, 'ENTRY_BETWEEN_ROUNDS');
+          if (target.status !== (action === 'restore' ? 'left' : 'pending') || !target.participating
+            || (target.kind === 'member' && !directory.identities[target.identityId])) throw competitionError('Choose an entrant awaiting approval or restoration.');
+          target.status = 'active';
+        }
         else if (action === 'cohost' && me.id === scope.creatorId && typeof enabled === 'boolean'
           && target.kind === 'member' && directory.identities[target.identityId]
           && (target.status === 'active' || (!enabled && target.status === 'left'))) target.role = enabled ? 'admin' : 'participant';
@@ -185,7 +238,7 @@ export class Tournaments {
       const seating = suggestSeating(inputs);
       const round = { id: previous?.status === 'draft' ? previous.id : roundId, number, status: 'draft', seed, seatingStale: false,
         seatingRuleVersion: SEATING_RULE_VERSION, seatingInputs: inputs, suggestedTables: seating,
-        assignments: seating.map((ids, index) => ({ id: assignmentIds[index], participantIds: ids, hostId: ids[0] })) };
+        assignments: reviewedAssignments(scope, previous?.status === 'draft' ? previous : null, seating, assignmentIds) };
       if (previous?.status === 'draft') scope.rounds[scope.rounds.length - 1] = round;
       else scope.rounds.push(round);
       scope.status = 'between_rounds';
@@ -200,7 +253,7 @@ export class Tournaments {
       if (scope.version !== baseVersion || round?.id !== roundId || round.status !== 'draft') throw competitionError('Review the current unstarted round before editing.', 409, 'VERSION_CONFLICT');
       const ids = attending(scope).filter(row => row.kind === 'guest' || directory.identities[row.identityId]).map(row => row.id);
       validateSeating(tables, ids);
-      round.assignments = tables.map((group, index) => ({ id: assignmentIds[index], participantIds: [...group], hostId: group[0] }));
+      round.assignments = reviewedAssignments(scope, round, tables, assignmentIds);
       round.seatingStale = false;
     }, { auth });
     return this.get(auth, id);

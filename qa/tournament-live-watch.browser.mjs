@@ -1,0 +1,41 @@
+// Real phone-sized app controls; isolated loopback auth/storage only.
+export async function startLiveWatchFlow(qa, { name = 'Live Watch QA' } = {}) {
+  const host = await qa.phone(), member = await qa.phone(), viewer = await qa.phone();
+  await qa.signIn(host);
+  await host.locator('#tournamentsButton').click(); await host.locator('#hubCreate').click();
+  await host.locator('#hubCreateForm [name=name]').fill(name);
+  await host.locator('#hubCreateForm [name=displayName]').fill('Mira');
+  await host.locator('#hubCreateForm [name=rounds]').fill('1');
+  await host.locator('#hubCreateForm [name=preferredSize]').selectOption('2');
+  await host.locator('#hubCreateForm [name=minutes]').fill('5');
+  await host.locator('#hubCreateForm button[type=submit]').click();
+  await host.locator('#eventEnter').waitFor(); await host.locator('#eventEnter').click();
+  await host.locator('#eventLeave').waitFor();
+  await host.locator('#eventSpectatorMain').click(); await host.locator('#spectatorCreate').click();
+  const viewerLink = await host.locator('#spectatorShareLink').inputValue();
+  await host.locator('#competitionBack').click(); await host.locator('#competitionBack').click();
+  await host.locator('#eventInviteMain').click();
+  const invite = await host.locator('#inviteLink').inputValue();
+  await member.goto(invite, { waitUntil: 'domcontentloaded' });
+  await member.locator('#hubJoinForm [name=displayName]').fill('Nico');
+  await member.locator('#hubJoinForm button[type=submit]').click(); await member.locator('#eventLeave').waitFor();
+  await host.locator('#competitionBack').click(); await host.locator('#prepareRound').click();
+  await host.locator('#editSeating').click();
+  for (const box of await host.locator('#seatingForm input[type=checkbox]').all()) await box.uncheck();
+  await host.locator('#seatingForm fieldset').filter({ has: host.locator('legend', { hasText: /^Mira$/ }) }).locator('input[type=checkbox]').check();
+  await host.locator('#seatingForm button[type=submit]').click();
+  await host.locator('[data-create-table]').click(); const code = await qa.createTable(host);
+  await host.locator('#competitionSetupStatus').filter({ hasText: 'Your seat is linked' }).waitFor();
+  await member.locator('#eventRefresh').click(); await member.locator('[data-join-table]').click();
+  await qa.joinTable(member, code, { name: 'Nico', seat: 'P2', fromEvent: true });
+  await member.locator('#competitionSetupStatus').filter({ hasText: 'Your seat is linked' }).waitFor();
+  await host.locator('#competitionLobbyButton').click(); await host.locator('#openTableScope').click();
+  await host.locator('#startRound').click(); await host.locator('#hubConfirm').click();
+  await host.locator('[data-clock]').waitFor(); await host.locator('[data-join-table]').click();
+  await host.locator('#startGameButton').click();
+  await Promise.all([host, member].map(page => page.locator('#gameView').waitFor({ state: 'visible' })));
+  await viewer.goto(viewerLink, { waitUntil: 'domcontentloaded' });
+  await viewer.locator('[data-watch-round="1"][data-watch-table="1"]').click();
+  await viewer.locator('[data-watch-seat="1"] [data-watch-life]').waitFor();
+  return { host, member, viewer, code, viewerLink, name };
+}

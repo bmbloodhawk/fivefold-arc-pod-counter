@@ -461,6 +461,13 @@ export function activeGameDurationMs(turn, completedAt) {
 export function recapFromRoom(room, completedAt) {
   const lastTurnAt = room.turn.turnStartedAt;
   const result = room.gameResult;
+  const finished = room.completedGames?.find(game => game.gameId === room.gameId);
+  // Next-game joins and removals must not rewrite a finished game's size.
+  const frozenCount = Object.keys(finished?.seats || {}).length
+    || (Array.isArray(finished?.source?.starters) ? finished.source.starters.length : 0);
+  const claimed = room.seats.filter(seat => seat.claimed);
+  const rosterCount = Array.isArray(room.lifecycle?.seatIds)
+    ? claimed.filter(seat => room.lifecycle.seatIds.includes(seat.seatId)).length : 0;
   return {
     schemaVersion: 1,
     gameId: room.gameId,
@@ -468,7 +475,7 @@ export function recapFromRoom(room, completedAt) {
     createdAt: room.createdAt,
     completedAt,
     durationMs: activeGameDurationMs(room.turn, completedAt),
-    playerCount: room.config.playerCount,
+    playerCount: frozenCount || rosterCount || claimed.length || room.config.playerCount,
     startingLife: room.config.startingLife,
     players: room.seats.filter((seat) => seat.claimed).map(publicSeat),
     firstPlayerSeatId: room.turn.startingPlayerSeatId,

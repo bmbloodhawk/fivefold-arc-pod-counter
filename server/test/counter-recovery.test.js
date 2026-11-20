@@ -1,3 +1,4 @@
+import { expireEliminationWindow } from '../test-support/expire-elimination-window.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { spawn } from 'node:child_process';
@@ -25,16 +26,20 @@ async function fixture(t, intercept = async () => null, options = {}) {
     } });
   ledger.accessToken = async () => 'local-fixture-only';
   const app = createRealtimeServer({ appEnv: 'test', ledger, autoRecoverRooms: true, ...options });
+  const servers = [app.server];
   await new Promise(resolve => app.server.listen(0, '127.0.0.1', resolve));
   t.after(async () => {
     for (const release of releases) release();
     await ledger.flush();
-    app.server.closeAllConnections();
-    await new Promise(resolve => app.server.close(resolve)); await database.close();
+    for (const server of servers) {
+      server.closeAllConnections();
+      await new Promise(resolve => server.close(resolve));
+    }
+    await database.close();
   });
   const origin = 'http://127.0.0.1:' + app.server.address().port;
-  const call = async (code, action, connectionId, body, method = 'POST') => {
-    const response = await fetch(origin + '/api/rooms/' + code + (action ? '/' + action : ''), {
+  const call = async (code, action, connectionId, body, method = 'POST', endpoint = origin) => {
+    const response = await fetch(endpoint + '/api/rooms/' + code + (action ? '/' + action : ''), {
       method, signal: AbortSignal.timeout(10000), headers: { ...(connectionId ? {'x-connection-id': connectionId} : {}), 'content-type': 'application/json' },
       ...(body === undefined ? {} : {body: JSON.stringify(body)}),
     });
@@ -48,8 +53,81 @@ async function fixture(t, intercept = async () => null, options = {}) {
     app.service.startGame(code,host,{baseVersion:app.service.room(code).version});
     await ledger.flush(); return {code,host,guest};
   }
-  return {...app,ledger,database,call,room,releases,origin};
+  return {...app,ledger,database,call,room,releases,origin,servers};
 }
+
+for (const withNotes of [false, true]) test(`recovered Table reset ${withNotes ? 'preserves nonempty notes' : 'handles Firebase-omitted empty notes'} and archives the incomplete game`, { timeout: 10000 }, async t => {
+  let recapPayload;
+  const f = await fixture(t, async (url, options) => {
+    if (options.method === 'PUT' && /\/playtests\/[^/]+\/recap\.json$/.test(url)) recapPayload = JSON.parse(options.body);
+  });
+  const host = f.service.createConnection().connectionId, guest = f.service.createConnection().connectionId;
+  const created = f.service.createRoom(host, { playerCount: 2, startingLife: 40, name: 'Recovery host',
+    commanderNames: ['Krenko, Mob Boss'], commanderColors: [['R']] });
+  const code = created.snapshot.code;
+  f.service.claimSeat(code, guest, { seatId: 1, name: 'Recovery guest' });
+  f.service.startGame(code, host, { baseVersion: f.service.room(code).version });
+  const adjusted = await f.call(code, 'adjust', host, { counter: 'life', delta: -3, operationId: `recovered_reset_${withNotes}_001` });
+  assert.equal(adjusted.status, 200);
+  const expectedNotes = [];
+  if (withNotes) {
+    const note = await f.call(code, 'playtest-notes', host, { text: 'Keep this note across recovery.' });
+    assert.equal(note.status, 201); expectedNotes.push(note.data.note);
+  }
+  await f.ledger.flush();
+  const saved = f.database.read(`recovery/${code}.json`), previousGameId = saved.room.gameId;
+  assert.equal(Object.hasOwn(saved.room, 'playtestNotes'), withNotes, 'Use the real Firebase shape, including omission of empty arrays.');
+  const restarted = createRealtimeServer({ appEnv: 'staging', ledger: f.ledger }); f.servers.push(restarted.server);
+  await new Promise(resolve => restarted.server.listen(0, '127.0.0.1', resolve));
+  const endpoint = `http://127.0.0.1:${restarted.server.address().port}`;
+  const restored = await f.call(code, '', undefined, undefined, 'GET', endpoint);
+  assert.equal(restored.status, 200); assert.equal(restored.data.snapshot.seats[0].counters.life, 37);
+  const owner = restarted.service.createConnection().connectionId;
+  const reclaimed = await f.call(code, 'reclaim', owner, { seatId: 0, reclaimToken: created.reclaimToken }, 'POST', endpoint);
+  assert.equal(reclaimed.status, 200);
+  const reset = await f.call(code, 'reset', owner, { baseVersion: reclaimed.data.snapshot.version }, 'POST', endpoint);
+  assert.equal(reset.status, 200, JSON.stringify(reset.data));
+  assert.equal(reset.data.snapshot.lifecycle.status, 'lobby');
+  assert.equal(reset.data.snapshot.turn.gameStarted, false);
+  assert.deepEqual(reset.data.snapshot.seats.map(({ seatId, name, claimed, counters }) => ({ seatId, name, claimed, life: counters.life })),
+    [{ seatId: 0, name: 'Recovery host', claimed: true, life: 40 }, { seatId: 1, name: 'Recovery guest', claimed: true, life: 40 }]);
+  assert.deepEqual(reset.data.snapshot.seats[0].commanderNames, ['Krenko, Mob Boss']);
+  assert.deepEqual(reset.data.snapshot.seats[0].commanderColors, [['R']]);
+  await f.ledger.flush();
+  const recap = f.database.read(`playtests/${previousGameId}/recap.json`);
+  assert.equal(recap.gameId, previousGameId); assert.equal(recap.incomplete, true);
+  assert.equal(recap.playerCount, 2);
+  assert.deepEqual(recap.players[0], { seatId: 0, name: 'Recovery host', commanders: ['Krenko, Mob Boss'] });
+  assert.deepEqual(recapPayload.notes, expectedNotes, 'The completion write receives normalized notes without losing existing records.');
+  const archive = await f.call(code, 'saved-playtests', owner, undefined, 'GET', endpoint);
+  assert.equal(archive.status, 200);
+  assert.deepEqual(archive.data.playtests.find(row => row.gameId === previousGameId).notes, expectedNotes);
+  assert.equal(f.database.read(`recovery/${code}.json`).room.version, reset.data.snapshot.version);
+});
+
+test('automatic seat reclaim waits for its durable recovery acknowledgement', { timeout: 10000 }, async t => {
+  const blocked = gate(), entered = gate(); let heldPath;
+  const f = await fixture(t, async (url, options) => {
+    if (recoveryWrite(url, options, heldPath)) { entered.release(); await blocked.promise; }
+  });
+  f.releases.push(blocked.release);
+  const host = f.service.createConnection().connectionId;
+  const created = f.service.createRoom(host, { playerCount: 2, startingLife: 40 });
+  await f.ledger.flush();
+  const code = created.snapshot.code;
+  heldPath = '/recovery/' + code + '.json';
+  let replied = false;
+  const pending = f.call(code, 'reclaim', f.service.createConnection().connectionId, { seatId: 0, reclaimToken: created.reclaimToken })
+    .then(result => { replied = true; return result; });
+  await entered.promise; await pause(40);
+  assert.equal(replied, false, 'a reclaimed seat is not acknowledged before its saved state');
+  assert.equal(f.database.read('recovery/' + code + '.json').room.version, created.snapshot.version);
+  blocked.release();
+  const result = await pending;
+  assert.equal(result.status, 200);
+  assert.equal(result.data.seatId, 0);
+  assert.equal(f.database.read('recovery/' + code + '.json').room.version, result.data.snapshot.version);
+});
 
 for (const method of ['POST','PATCH']) {
   test(method + ' counter confirmation waits for its frozen recovery save; another Table stays responsive', {timeout:10000}, async t => {
@@ -113,7 +191,7 @@ test('failed saves return a retryable error; a room refresh retries the same fro
   assert.equal(duplicate.data.snapshot.seats[0].counters.life,41);
 });
 
-test('a completed-game adjustment waits for the final recovery record, including frozen result evidence', {timeout:10000}, async t=>{
+test('expired elimination completion reads wait for the final recovery record, including frozen result evidence', {timeout:10000}, async t=>{
   const blocked=gate(),entered=gate();let target;
   const f=await fixture(t,async(url,options)=>{
     if(recoveryWrite(url,options,target)?.room.completedGames?.length){
@@ -121,8 +199,10 @@ test('a completed-game adjustment waits for the final recovery record, including
     }
   });
   f.releases.push(blocked.release);const a=await f.room();target='/recovery/'+a.code+'.json';let replied=false;
-  const pending=f.call(a.code,'adjust',a.guest,{counter:'life',delta:-40,operationId:'lethal_recovery_change_0001'})
-    .then(result=>{replied=true;return result;});
+  const adjustment = await f.call(a.code,'adjust',a.guest,{counter:'life',delta:-40,operationId:'lethal_recovery_change_0001'});
+  assert.equal(adjustment.status, 200); assert.equal(adjustment.data.snapshot.gameResult, null);
+  expireEliminationWindow(f.service, a.code);
+  const pending = f.call(a.code,'',a.host,undefined,'GET').then(result=>{replied=true;return result;});
   await entered.promise;await pause(40);
   assert.equal(replied,false,'Completion must wait for the final snapshot, not the earlier result event.');
   blocked.release();const result=await pending;assert.equal(result.status,200);

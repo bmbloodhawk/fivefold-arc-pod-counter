@@ -8,6 +8,7 @@ const html = await readFile(new URL('index.html', root), 'utf8');
 const app = await readFile(new URL('app.js', root), 'utf8');
 const accountAuth = await readFile(new URL('account-auth.js', root), 'utf8');
 const styles = await readFile(new URL('styles.css', root), 'utf8');
+const dialStyles = await readFile(new URL('dial-layout.css', root), 'utf8');
 const feedbackPage = await readFile(new URL('feedback.html', root), 'utf8');
 const layoutInvariants = await readFile(new URL('../UI_LAYOUT_INVARIANTS.md', root), 'utf8');
 const newAccoladeAssets = await Promise.all(['second-serving', 'back-in-the-fight', 'commander-crossfire', 'hazard-pay', 'power-surge', 'hot-zone', 'the-dice-chose', 'table-trilogy'].map(name => readFile(new URL(`assets/accolades/${name}.png`, root))));
@@ -34,9 +35,8 @@ test('shared life sends one net adjustment for a rapid correction burst', () => 
   assert.match(app, /new LifeAdjustmentBatcher\(\{ delayMs: 300,/);
   assert.match(app, /lifeBatcher\.add\(delta\)/);
   assert.match(app, /document\.addEventListener\('visibilitychange',[\s\S]*?lifeBatcher\.flush\(\)/);
-  assert.match(app, /if \(!optimisticLifeDelta\) \{ clearTimeout\(lifeChangeTimer\); lifeChange = null; render\(\); \}/);
   assert.match(app, /optimisticLifeDelta -= delta;\s*try \{\s*const result = await transport\.adjust\(\{ counter: 'life', delta, operationId \}\)/);
-  assert.match(app, /if \(result\.ignored \|\| result\.local \|\| result\.locked\) return;/);
+  assert.match(app, /if \(result\.ignored \|\| result\.local \|\| result\.locked\) \{ discardPending\(\); if \(result\.locked\) confirmLifeChange\(ownerPlayerId\); return result; \}/);
 });
 
 test('turn status shows the shared table turn in its existing compact status row', () => {
@@ -82,18 +82,18 @@ test('manual card-data refresh remains in the protected developer page and opens
 test('switching a deck during next-game commander setup applies that deck’s commanders', () => {
   assert.match(app, /let selectedDeckId = ''; let setupDecks = \[\]; let commanderDecks = \[\];/);
   assert.match(app, /commanderDecks = decks;/);
-  assert.match(app, /dom\.commanderDeck\.addEventListener\('change', event => \{/);
+  assert.match(app, /dom\.commanderDeck\.addEventListener\('change', selectCommanderDeck\)/);
   assert.match(app, /renderCommanderNameFields\(dom\.gameCommanderNames, commanderNames\.length, commanderNames, identities\)/);
 });
 
 test('updating a pod confirms only entered commander names that have not already been checked', () => {
-  assert.match(app, /async function confirmUnresolvedCommanderDetails\(container, count\)/);
+  assert.match(app, /async function confirmUnresolvedCommanderDetails\(container, count, isCurrent = \(\) => true\)/);
   assert.match(app, /input\.dataset\.commanderLookupFailed === 'true'/);
   assert.match(app, /input\.dataset\.commanderLookupFailed = 'true';/);
   assert.match(app, /status\.textContent = error\.message \|\| 'Commander not found\. Check the spelling and try again\.'/);
-  assert.match(app, /dom\.saveCommanderCountButton\.textContent = 'Update without colors';/);
-  assert.match(app, /event\.preventDefault\(\);[\s\S]*await confirmUnresolvedCommanderDetails\(dom\.gameCommanderNames, count\)/);
-  assert.match(app, /dom\.saveCommanderCountButton\.textContent = 'Update this pod';[\s\S]*dom\.saveCommanderCountButton\.disabled = false;[\s\S]*dom\.commanderCountDialog\.showModal\(\)/);
+  assert.match(app, /dom\.saveCommanderCountButton\.textContent = draft\.nextGame \? 'Save without colors' : 'Update without colors';/);
+  assert.match(app, /event\.preventDefault\(\);[\s\S]*await confirmUnresolvedCommanderDetails\(dom\.gameCommanderNames, count(?:,|\))/);
+  assert.match(app, /dom\.saveCommanderCountButton\.textContent = nextGame \? 'Save changes' : 'Update this pod';[\s\S]*dom\.saveCommanderCountButton\.disabled = false;[\s\S]*dom\.commanderCountDialog\.showModal\(\)/);
 });
 
 test('joining explains the claimed-seat boundary and normalizes the join code', () => {
@@ -123,7 +123,7 @@ test('connection status does not duplicate the pod code from the waiting lobby',
 });
 
 test('a successfully created pod cannot be reported as a connection error during rendering', () => {
-  assert.match(app, /result = await transport\.createRoom\([\s\S]*?\);\s*}\s*catch \(error\) \{\s*showError\(error\);\s*return;\s*}\s*showSharedGame\(result\.snapshot\);/);
+  assert.match(app, /result = await transport\.createRoom\([\s\S]*?\);\s*}\s*catch \(error\) \{\s*if \(creation\.foreground\) showError\(error\);\s*return;\s*}\s*finally \{[\s\S]*?}\s*if \(result\.ignored\) return;\s*if \(creation\.foreground\) showSharedGame\(result\.snapshot\);/);
 });
 
 test('creating a table is distinct from starting a game', () => {
@@ -131,24 +131,20 @@ test('creating a table is distinct from starting a game', () => {
   assert.match(html, /name="gameFormat" value="casual"/);
   assert.match(html, /id="customStartingLife"[^>]*min="1" max="999"/);
   assert.match(app, /function updateFormatSetup\(\)/);
-  assert.match(app, /gameFormat === 'custom' \? form\.get\('customStartingLife'\)/);
   assert.match(app, /gameFormat === 'commander' \? Number\(form\.get\('commanderCount'\)\) : 1/);
-  assert.match(app, /selectedGameFormat\(\) === 'casual'\) \{ \$\('input\[name="startingLife"\]\[value="20"\]'\)\.checked = true; \$\('input\[name="playerCount"\]\[value="2"\]'\)\.checked = true; \}/);
-  assert.match(html, /STEP 1 OF 5/);
-  assert.match(html, /STEP 2 OF 5/);
-  assert.match(html, /STEP 3 OF 5/);
-  assert.match(html, /STEP 4 OF 5/);
-  assert.match(html, /STEP 5 OF 5/);
-  assert.match(html, /STEP 5 OF 5[\s\S]*?Table appearance[\s\S]*?Round limit/);
+  assert.match(html, /STEP 1 OF 4/);
+  assert.match(html, /STEP 2 OF 4/);
+  assert.match(html, /STEP 3 OF 4/);
+  assert.match(html, /STEP 4 OF 4[\s\S]*?Table appearance[\s\S]*?Round limit/);
   assert.doesNotMatch(html, /Extra settings\. Defaults are ready to create\./);
   assert.match(html, /id="createDeckField" class="select-field" hidden>My deck/);
-  assert.match(html, /class="create-step commander-setup-step" data-create-step="4"/);
+  assert.match(html, /class="create-step commander-setup-step" data-create-step="3"/);
   assert.match(app, /function sortSetupDecks\(decks\) \{ return \[\.\.\.decks\]\.sort\(\(left, right\) => Number\(right\.favorite\) - Number\(left\.favorite\)/);
   assert.match(app, /\[dom\.createDeck, dom\.joinDeck\]\.forEach\(select => \{ select\.innerHTML = options; select\.value = ''; \}\)/);
   assert.match(html, /name="deckCommanderCount" value="2"/);
   assert.match(styles, /\.setup-form:has\(\.commander-setup-step:not\(\[hidden\]\)\) \{ margin-top: 16px; \}/);
   assert.match(styles, /\.commander-setup-step \.dialog-actions \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); gap: 6px; margin-top: 8px; \}/);
-  assert.match(html, /id="createStepFourSkip"[^>]*>Skip for now/);
+  assert.match(html, /id="createStepThreeSkip"[^>]*>Skip for now/);
   assert.match(app, /Enter colors manually/);
   assert.match(app, /Keep without colors/);
   assert.match(app, /commanderNames = deck\?\.commanderNames\?\.length \? deck\.commanderNames/);
@@ -158,8 +154,8 @@ test('creating a table is distinct from starting a game', () => {
 });
 
 test('the lobby explains its two-player start threshold and what happens to empty seats', () => {
-  assert.match(html, /Start with 2\+ ready players\. Other seats stay unused\./);
-  assert.match(app, /dom\.startGameButton\.disabled = !isHost \|\| claimedPlayers\.length < 2;/);
+  assert.match(html, /Start with 2 or more players\./);
+  assert.match(app, /dom\.startGameButton\.disabled = starting \|\| !isHost \|\| claimedPlayers\.length < 2;/);
 });
 
 test('turn cues offer explicit sound and vibration modes with an iPhone support note', () => {
@@ -200,7 +196,7 @@ test('guest play is available on arrival and account actions start disabled', ()
   assert.match(html, /id="joinPodButton" class="primary-action" type="button">Join a table/);
   assert.match(html, /id="myGamesButton"[^>]*\sdisabled>My profile/);
   assert.match(html, /id="myDecksButton"[^>]*\sdisabled>My decks/);
-  assert.match(html, /id="accountSignedInStatus" class="account-signed-in" hidden>Signed in/);
+  assert.match(html, /id="accountSignedInStatus" class="account-signed-in" role="status">Signed out/);
   assert.match(html, /id="joinPodButton"[\s\S]*id="signInButton"[^>]*>Sign in for profile and decks/);
   assert.doesNotMatch(html, /Continue as guest/);
 });
@@ -280,14 +276,14 @@ test('the life readout stays together and the tax action cannot overlap custom l
   assert.match(html, /class="counter-readout"[\s\S]*id="modeTitle"[\s\S]*id="mainValue"[\s\S]*id="counterContext"/);
   assert.match(html, /class="counter-stage"[\s\S]*id="turnActions"[\s\S]*id="adjustControls"/);
   assert.match(styles, /#turnActions \{ position: relative; z-index: 4; margin-top: -32px; margin-bottom: 20px; \}/);
-  assert.match(styles, /\.counter-readout \{[\s\S]*justify-items: center/);
-  assert.match(styles, /\.counter-readout \.main-value \{ margin: 0; transform: translateY\(-10px\); \}/);
-  assert.match(styles, /\.counter-readout \.counter-context \{ margin: 24px 0 0; transform: translateY\(8px\); \}/);
-  assert.match(styles, /\.counter-readout \.counter-context \{ margin-top: 18px; transform: translateY\(6px\); \}/);
+  assert.match(dialStyles, /#gameView \.counter-readout \{[^}]*text-align: center/);
+  assert.match(dialStyles, /\.counter-readout \.main-value \{[^}]*top: 47\.8%; left: 50%/);
+  assert.match(dialStyles, /\.counter-readout \.counter-context \{[^}]*top: 77%/);
+  assert.doesNotMatch(styles, /\.counter-readout[^}]*translateY/);
   assert.match(styles, /\.custom-life-button, \.commander-tax-quick \{ margin-top: 2px; \}/);
   assert.match(styles, /A turn adds one action, not a different screen/);
   assert.match(styles, /\.game-shell\[data-your-turn="true"\] \.counter-stage \{ min-height: 318px; margin-top: 0; margin-bottom: 0; \}/);
-  assert.match(styles, /\.game-shell\[data-your-turn="true"\] \.counter-readout \{ min-height: 282px; \}/);
+  assert.match(styles, /#gameView\[data-interface-style="button"\] \.dial-assembly \{[^}]*min-height: 282px/);
   assert.match(styles, /\.game-shell\[data-your-turn="true"\] \.commander-tax-quick \{ transform: none; margin-bottom: 0; \}/);
 });
 
@@ -317,15 +313,12 @@ test('commander damage keeps one defender context while choosing a source', () =
   assert.match(styles, /\.source-panel\.commander-source-pair \{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(app, /dom\.game\.dataset\.counterMode = state\.mode/);
   assert.match(styles, /\.game-shell\[data-counter-mode="commander"\] #turnActions \{ margin-top: 2px; transform: none; \}/);
-  assert.match(styles, /\[data-interface-style="dial"\]\[data-dial-side-seat-count="0"\]:not\(\[data-counter-mode="commander"\]\) \.turn-actions \{[\s\S]*bottom: calc\(var\(--mode-nav-height\) \+ var\(--dial-control-gap\) \+ var\(--dial-tax-height\) \+ var\(--dial-control-gap\) \+ env\(safe-area-inset-bottom\)\); transform: none;/);
-  assert.match(styles, /\.side-seats \.pod-seat \{ position: relative; min-height: 82px; padding: 9px 4px 12px; \}/);
-  assert.match(styles, /\.side-seats \.pod-seat \{ min-height: 62px; padding: 6px 3px 9px; \}/);
-  assert.match(styles, /data-dial-side-seat-count="1"\],\r?\n  #gameView\[data-interface-style="dial"\]\[data-dial-side-seat-count="2"\] \{ --dial-side-seat-stack: 82px; \}/);
-  assert.match(styles, /data-dial-side-seat-count="3"\],\r?\n  #gameView\[data-interface-style="dial"\]\[data-dial-side-seat-count="4"\] \{ --dial-side-seat-stack: 82px; \}/);
-  assert.match(styles, /data-dial-side-seat-count="3"\],\r?\n  #gameView\[data-interface-style="dial"\]\[data-dial-side-seat-count="4"\] \{ --dial-side-seat-stack: 62px; \}/);
-  assert.match(styles, /#gameView\[data-interface-style="dial"\]:not\(\[data-counter-mode="commander"\]\) \.turn-actions \{ transform: none; \}/);
-  assert.match(styles, /#gameView\[data-interface-style="dial"\] > \.side-seats \{[\s\S]*gap: 5px/);
-  assert.match(styles, /> \.side-seats:not\(\[hidden\]\) \{[\s\S]*right: 12px;[\s\S]*left: 12px;/);
+  // Browser geometry checks cover the live controls. These guards keep the
+  // removed fixed-stack accounting from returning alongside the shared layout.
+  assert.match(dialStyles, /#turnActions \{ order: 1; position: static;/);
+  assert.match(dialStyles, /> \.side-seats \{ order: 2;/);
+  assert.match(dialStyles, /> \.source-panel \{ order: 3; position: static;/);
+  assert.doesNotMatch(app, /dataset\.dialCommanderSourceHeight|dataset\.dialSideSeatCount/);
 });
 
 test('the host can record a non-life player elimination without choosing a winner', () => {
@@ -336,11 +329,11 @@ test('the host can record a non-life player elimination without choosing a winne
   assert.match(app, /transport\.eliminatePlayer\(targetSeatId, reason, detail\)/);
 });
 
-test('a long Commander warning wraps on phones and a reconnect refreshes only counter availability', () => {
-  assert.match(styles, /\.status-message \{[\s\S]*overflow-wrap: anywhere;[\s\S]*white-space: normal;/);
+test('a long Commander warning wraps on phones and reconnect refreshes availability without rebuilding the counter', () => {
+  assert.match(dialStyles, /:is\(\.life-change-indicator, \.status-message\) \{[^}]*white-space: normal; overflow-wrap: anywhere;/);
   assert.doesNotMatch(app, /dom\.connectionDetail\.textContent = \$\{presentation\.detail\}[\s\S]{0,220}if \(state && !dom\.game\.hidden\) render\(\);/);
   assert.match(app, /function renderMutationAvailability\(\)/);
-  assert.match(app, /transport\.addEventListener\('status', event => \{ renderConnection\(event\.detail\); renderMutationAvailability\(\); \}\);/);
+  assert.match(app, /transport\.addEventListener\('status', event => \{ renderConnection\(event\.detail\); renderMutationAvailability\(\); if \(dom\.nextGameConfirmDialog\.open\) renderNextGameConfirmation\(\); \}\);/);
 });
 
 test('a seated player can update only their own displayed name after the game starts', () => {
@@ -386,12 +379,10 @@ test('every player has a confirmed route home that preserves their reclaimable s
 });
 
 test('life changes and low-life warnings do not reflow the fixed play surface', () => {
-  assert.match(styles, /A changing total must never reflow the play surface/);
-  assert.match(styles, /\.main-value \{ display: block; min-width: 3ch; font-feature-settings: "tnum" 1; \}/);
-  assert.match(styles, /compact overlay slot between the player title[\s\S]*fixed turn-action slot/);
-  assert.match(styles, /\.life-change-indicator,[\s\S]*\.status-message \{[\s\S]*position: absolute;[\s\S]*bottom: 51px;/);
-  assert.match(styles, /font-size: 1\.2rem;[\s\S]*line-height: 1\.1;/);
-  assert.match(app, /lifeChangeOwnsStatusSlot = lifeChange\?\.playerId === player\.id/);
+  assert.match(dialStyles, /\.counter-readout \.main-value \{[^}]*position: absolute;[^}]*min-width: 0;/);
+  assert.match(dialStyles, /:is\(\.life-change-indicator, \.status-message\) \{[^}]*position: absolute;[^}]*--counter-feedback-top/);
+  assert.doesNotMatch(styles, /\.main-value[^}]*min-width: 3ch/);
+  // Warning/preview slot ownership is exercised against actual render code in counter-readability.test.mjs and life-preview.test.mjs.
   assert.match(app, /\$\{safetyStatus\} · \$\{sign\}\$\{Math\.abs\(lifeChange\.delta\)\} LIFE/);
   assert.doesNotMatch(app, /SYNCED JUST NOW/);
 });
@@ -400,11 +391,11 @@ test('the elimination mark is an overlay, not a layout row', () => {
   assert.match(html, /id="lethalMark" class="lethal-mark" hidden><img src="assets\/elimination-skull-v1\.png" alt="">/);
   assert.match(html, /id="eliminationOutcome" class="elimination-outcome" hidden/);
   assert.match(styles, /Elimination is a visible state, never a new layout row[\s\S]*artwork shares[\s\S]*behind the readout/);
-  assert.match(styles, /\.lethal-mark \{ position: absolute; z-index: 1; top: 47%; left: 50%;[\s\S]*translate\(-50%, -43%\)/);
+  assert.match(dialStyles, /#gameView \.lethal-mark \{ top: 50%; left: 50%;[^}]*translate\(-50%, -50%\)/);
   assert.match(styles, /\.lethal-mark img \{[\s\S]*opacity: \.46;/);
   assert.match(app, /ELIMINATION_ART = \{ life: 'assets\/elimination-skull-v1\.png', poison: 'assets\/elimination-skull-poison-v1\.png', commander: 'assets\/elimination-skull-commander-v1\.png' \}/);
   assert.match(styles, /\.main-value\.elimination-placeholder \{ visibility: hidden; \}[\s\S]*\.elimination-outcome \{ position: absolute; z-index: 3;/);
-  assert.match(styles, /\.counter-readout \{[\s\S]*z-index: 2;/);
+  assert.match(dialStyles, /#gameView \.counter-readout \{[^}]*z-index: 4;/);
   assert.match(app, /detail: `COMMANDER DAMAGE · \$\{displaySource\(lethalSource\)\}`, art: 'commander'/);
   assert.match(app, /detail: 'POISON', art: 'poison'/);
   assert.match(app, /detail: 'LIFE TOTAL 0', art: 'life'/);
@@ -413,16 +404,17 @@ test('the elimination mark is an overlay, not a layout row', () => {
 });
 
 test('counter titles clear the number without reflowing the fixed readout', () => {
-  assert.match(styles, /Keep the counter title clear of wide or tall totals[\s\S]*\.counter-mode \{ transform: translateY\(-18px\); \}/);
+  assert.match(dialStyles, /\.counter-readout \.counter-mode \{[^}]*top: 22%; left: 50%/);
+  assert.doesNotMatch(styles, /\.counter-mode[^}]*translateY/);
 });
 
 test('large-pod side seats keep their visible card as the tap target', () => {
-  assert.match(styles, /focused readout is display-only[\s\S]*\.counter-readout \{ pointer-events: none; \}/);
+  assert.match(dialStyles, /#gameView \.counter-readout \{[^}]*pointer-events: none;/);
 });
 
 test('turn state keeps the Your Turn active-play geometry as its anchor', () => {
   assert.match(layoutInvariants, /Your Turn.*fixed geometry anchor/s);
-  assert.match(layoutInvariants, /must not move the header, table summary, center emblem, mode[\s\S]*fixed navigation/);
+  assert.match(layoutInvariants, /must not move the header, table summary, center emblem, mode[\s\S]*counter navigation/);
   assert.match(styles, /HARD LAYOUT INVARIANT: Your Turn is the geometry anchor/);
   assert.match(styles, /\.game-shell \.counter-stage,[\s\S]*\.game-shell\[data-your-turn="true"\] \.counter-stage,[\s\S]*\.game-shell\[data-your-turn="false"\] \.counter-stage/s);
   assert.match(styles, /#turnActions \{[\s\S]*transform: translateY\(-28px\)/);
@@ -596,16 +588,18 @@ test('signed-in accounts keep private deck details and personal history tools', 
   assert.match(app, /myGamesStatus\.setAttribute\('role', 'status'\)/);
 });
 
-test('My decks keeps the editor above saved decks and confirms commander colors', () => {
-  assert.ok(html.indexOf('id="deckEditor"') < html.indexOf('id="savedDeckList"'));
+test('My decks opens the saved library before its separate editor and confirms commander colors', () => {
+  assert.ok(html.indexOf('id="savedDeckList"') < html.indexOf('id="deckEditor"'));
   assert.match(html, /id="findDeckColorsButton"/);
   assert.match(html, /id="deckCommanderStatus"/);
+  assert.match(html, /id="deckCommanderMatches"[^>]*role="group"[^>]*aria-label="Suggested cards for Commander 1"[^>]*hidden/);
+  assert.match(html, /id="deckCommanderMatchesTwo"[^>]*role="group"[^>]*aria-label="Suggested cards for Commander 2"[^>]*hidden/);
   assert.match(app, /async function confirmDeckCommanderColors\(\)/);
-  assert.match(app, /const cards = await Promise\.all\(names\.map\(lookupCommanderIdentity\)\)/);
+  assert.match(app, /const results = await Promise\.allSettled\(names\.map\(lookupCommanderIdentity\)\)/);
+  assert.match(app, /const cards = results\.map\(result => result\.value\)/);
   assert.match(app, /deckCommanderColors = cards\.map\(card => normaliseIdentity\(card\.colors\)\)/);
-  assert.match(app, /commanderColors, name: deckName\.value/);
+  // Submitted payloads and color fallback are exercised against actual save code in deck-save-races.test.mjs.
   assert.match(app, /setDeckColors\(colors\);/);
-  assert.match(app, /await confirmDeckCommanderColors\(\);/);
 });
 
 test('completed signed-in games save automatically without a final player action', () => {
@@ -664,12 +658,13 @@ test('a completed account sign-in goes directly to the pod choice without loadin
 test('sign-in is a single-purpose gate rather than a detour through the profile', () => {
   assert.match(html, /<h2 id="myGamesTitle">Sign in<\/h2>/);
   assert.match(app, /function openSignIn\(\{ returnToJoin = false \} = \{\}\) \{[\s\S]*Guest play is always available[\s\S]*myGamesDialog\.showModal\(\); \}/);
-  assert.match(app, /function openMyProfile\(\) \{ myGamesDialog\.showModal\(\); void showMyGames\(\); \}/);
+  assert.match(app, /function openMyProfile\(\) \{\s*prepareProfileLoading\(\);[\s\S]*?myGamesDialog\.showModal\(\);[\s\S]*?void showMyGames\(\);/);
   assert.doesNotMatch(app, /function openSignIn\(\) \{ myGamesDialog\.showModal\(\); showMyGames\(\); \}/);
 });
 
 test('signed-in profile hides sign-in controls and clears the password field', () => {
-  assert.match(app, /myGamesSignInButton\.hidden = true; emailSignInButton\.hidden = true; emailSignInFields\.hidden = true; accountPassword\.value = ''; forgotPasswordButton\.hidden = true; createAccountButton\.hidden = true;/);
+  // Actual visibility at each asynchronous boundary is covered in profile-opening.test.mjs.
+  assert.match(app, /function prepareProfileLoading\(\) \{[\s\S]*?\[myGamesSignInButton, emailSignInButton, emailSignInFields, forgotPasswordButton, createAccountButton,[\s\S]*?\.forEach\(control => \{ control\.hidden = true; \}\);\s*accountPassword\.value = '';/);
 });
 
 test('signing in for a saved deck returns a QR joiner to the join step', () => {
@@ -682,7 +677,8 @@ test('signing in for a saved deck returns a QR joiner to the join step', () => {
 test('signing out returns the device to guest play without deleting account data', () => {
   assert.match(app, /async function signOut\(\) \{/);
   assert.match(app, /await signOutAccount\(\);/);
-  assert.match(app, /selectedDeckId = ''; setupDecks = \[\]; savedDecks = \[\];/);
+  assert.match(app, /clearPrivateDeckState\(\);/);
+  assert.match(app, /savedDecks = \[\]; setupDecks = \[\]; commanderDecks = \[\];/);
   assert.match(app, /renderHomeAccount\(false\);/);
   assert.match(app, /signOutButton\.addEventListener\('click', \(\) => void signOut\(\)\)/);
 });

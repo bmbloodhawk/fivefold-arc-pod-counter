@@ -1,6 +1,6 @@
-# Pod invite QR scanner — limited public release
+# Pod invite QR scanner — staging trial
 
-Open **My Pods → Use an invite → Scan Pod QR**. Camera access starts
+On staging, open **My Pods → Use an invite → Scan Pod QR**. Camera access starts
 only after that button is pressed. **Choose QR photo** offers a photo fallback.
 The original paste-link/code form stays visible and keeps its current value.
 
@@ -19,8 +19,8 @@ stop live camera tracks. Late permission/playback/photo results cannot reopen a
 closed view. The native photo picker remains usable after temporarily hiding the
 page. No camera image or invite capability is added to logs or new storage.
 
-`podInviteScannerEnabled` is advertised when competitions are enabled in the
-supported production or staging environment. The existing Table QR scanner retains its
+`podInviteScannerEnabled` is advertised only when staging competitions are enabled.
+Production does not advertise this UI. The existing Table QR scanner retains its
 default parser and messages; the shared scanner additionally protects pending
 camera startup and overlapping sessions. Existing ownership/authentication rules,
 life updates, native storage and deferred Interface style work are unchanged.
@@ -28,5 +28,4 @@ life updates, native storage and deferred Interface style work are unchanged.
 Automated and phone-sized browser checks do not prove a physical phone camera.
 Verify rear-camera capture and photo selection on iPhone Safari and Android Chrome
 before claiming physical-device support. Retain paste-link entry if camera access
-is unavailable or blocked. Staging invites and Pod data stay on staging; a public
-Pod invite is created on the public site and is not a staging-data migration.
+is unavailable or blocked. Public deployment remains separately approval-gated.

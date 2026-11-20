@@ -56,3 +56,9 @@ export async function sendAccountPasswordReset(email) {
   const { sendPasswordResetEmail } = await import("https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js");
   await sendPasswordResetEmail(await firebaseAuth(), email);
 }
+
+// Read the existing project policy only to explain a rejected new password.
+export async function validateAccountPassword(password) {
+  const { validatePassword } = await import("https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js");
+  return validatePassword(await firebaseAuth(), password);
+}

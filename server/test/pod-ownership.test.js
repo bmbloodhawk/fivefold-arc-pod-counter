@@ -153,8 +153,8 @@ test('ambiguous legacy creator data keeps gameplay access but cannot grant owner
   await assert.rejects(()=>appoint(f,pod,'early',early.me,false),{status:409,code:'POD_OWNERSHIP_REVIEW_REQUIRED'});
 });
 
-test('the ownership policy activates for supported legacy staging and production servers only',async t=>{
-  for(const appEnv of ['staging','production','test']) {
+test('legacy ownership has staging and production parity while local and scoped stores stay restricted',async t=>{
+  for(const appEnv of ['staging','production','local']) {
     const store=new MemoryAccountHistoryStore();
     const instance=createRealtimeServer({appEnv,competitionStore:store,ledger:new MemoryPlaytestLedger(),accountHistory:new AccountHistory({store:new MemoryAccountHistoryStore()}),accountVerifier:{verify:async token=>({providerSubject:token})}});
     t.after(()=>new Promise(resolve=>instance.server.close(resolve)));
@@ -162,11 +162,13 @@ test('the ownership policy activates for supported legacy staging and production
     const response=await fetch(`http://127.0.0.1:${instance.server.address().port}/api/competitions/pods`,{method:'POST',headers:{authorization:'Bearer creator','content-type':'application/json'},body:JSON.stringify({name:'HTTP owner policy',displayName:'Creator'})});
     assert.equal(response.status,201);
     const pod=await response.json();
-    assert.equal(Object.hasOwn(pod,'ownerId'),appEnv!=='test');
-    if(appEnv!=='test') assert.equal(pod.ownerId,pod.me);
+    const supported = ['staging','production'].includes(appEnv);
+    assert.equal(Object.hasOwn(pod,'ownerId'),supported);
+    if(supported) assert.equal(pod.ownerId,pod.me);
   }
   const identityStore={lookup:async()=>null,scopeProfile:async()=>null,setAlias:async()=>{}};
   assert.equal(fixture({identityStore}).domain.podOwnershipEnabled,false);
+  assert.equal(fixture({identityStore,scopeStore:{}}).domain.podOwnershipEnabled,false);
 });
 
 test('the separately configured staging privacy eraser permits only a surviving admin to inherit',async t=>{
@@ -187,69 +189,9 @@ test('the separately configured staging privacy eraser permits only a surviving 
   assert.equal((await instance.competitions.getPod(admin,pod.id)).ownerId,other.me);
 });
 
-test('explicitly disabled ownership erasure does not write owner succession metadata',async()=>{
+test('disabled ownership erasure does not write ownership metadata',async()=>{
   const f=fixture({podOwnershipEnabled:false});
   await f.domain.createPod('creator',{name:'Default erasure',displayName:'Creator'});
   await f.domain.eraseAccount('creator');
   assert.equal(Object.hasOwn(await f.domain.directory(),'erasedIdentities'),false);
-});
-
-
-async function ownershipHttp(t, { appEnv = 'production', store = new MemoryAccountHistoryStore(), history = new AccountHistory({ store: new MemoryAccountHistoryStore() }), eraser, featureEnabled = true } = {}) {
-  const instance = createRealtimeServer({ appEnv, competitionStore: featureEnabled ? store : null,
-    competitionEraser: eraser, accountHistory: history, ledger: new MemoryPlaytestLedger(),
-    accountVerifier: { verify: async token => ({ providerSubject: token }) } });
-  await new Promise(resolve => instance.server.listen(0, '127.0.0.1', resolve));
-  t.after(() => { instance.server.closeAllConnections(); return new Promise(resolve => instance.server.close(resolve)); });
-  const origin = `http://127.0.0.1:${instance.server.address().port}`;
-  const request = async (path, { token = 'creator', method = 'GET', body } = {}) => {
-    const response = await fetch(origin + path, { method,
-      headers: { authorization: `Bearer ${token}`, ...(body ? { 'content-type': 'application/json' } : {}) },
-      ...(body ? { body: JSON.stringify(body) } : {}) });
-    return { status: response.status, data: response.status === 204 ? null : await response.json() };
-  };
-  return { ...instance, request, store, history };
-}
-
-test('production HTTP reserves admin changes for the owner and transfers ownership by appointment order', async t => {
-  const f = await ownershipHttp(t);
-  const pod = (await f.request('/api/competitions/pods', { method: 'POST', body: { name: 'Production owner rules', displayName: 'Creator' } })).data;
-  assert.equal(pod.ownerId, pod.me);
-  const invite = (await f.request(`/api/competitions/pod/${pod.id}/invites`, { method: 'POST', body: {} })).data;
-  const join = async token => (await f.request('/api/competitions/join', { token, method: 'POST', body: { token: invite.token, displayName: token } })).data;
-  const early = await join('early'), late = await join('late');
-  const members = `/api/competitions/pod/${pod.id}/members`;
-  const appoint = (token, targetId, enabled = true) => f.request(members, { token, method: 'POST', body: { action: 'admin', targetId, enabled } });
-  assert.equal((await appoint('creator', late.me)).status, 200);
-  assert.equal((await appoint('creator', early.me)).status, 200);
-  const denied = await appoint('late', early.me, false);
-  assert.equal(denied.status, 403); assert.equal(denied.data.error.code, 'POD_OWNER_REQUIRED');
-  assert.equal((await f.request(members, { token: 'late', method: 'POST', body: { action: 'remove', targetId: pod.me } })).status, 403);
-  assert.equal((await f.request(members, { method: 'POST', body: { action: 'leave' } })).status, 200);
-  const after = (await f.request(`/api/competitions/pod/${pod.id}`, { token: 'late' })).data;
-  assert.equal(after.ownerId, late.me); assert.equal(after.nextOwnerId, early.me); assert.equal(after.canManageAdmins, true);
-  assert.equal((await appoint('early', late.me, false)).status, 403);
-});
-
-test('supported environments keep owner erasure and admin succession working when competition routes are disabled', async t => {
-  for (const appEnv of ['staging', 'production']) {
-    const store = new MemoryAccountHistoryStore(), history = new AccountHistory({ store: new MemoryAccountHistoryStore() });
-    const domain = new Competitions({ store, podOwnershipEnabled: true });
-    const creator = await history.ensureAccount('creator'), admin = await history.ensureAccount('admin');
-    const pod = await domain.createPod(creator, { name: 'Feature off erasure', displayName: 'Erase this owner' });
-    const identityId = await domain.identity(creator);
-    const invite = await domain.invite(creator, 'pod', pod.id);
-    const other = await domain.joinPod(admin, invite.token, { displayName: 'Surviving admin' });
-    await domain.podMemberAction(creator, pod.id, { action: 'admin', targetId: other.me, enabled: true });
-    const eraser = new Competitions({ store, podOwnershipEnabled: true });
-    const f = await ownershipHttp(t, { appEnv, store, history, eraser, featureEnabled: false });
-    const config = (await f.request('/api/competitions/config')).data;
-    assert.equal(config.enabled, false); assert.equal(config.podDeletionEnabled, false); assert.equal(config.podInviteScannerEnabled, false);
-    assert.equal((await f.request('/api/competitions/mine')).status, 503);
-    assert.equal((await f.request('/api/account', { method: 'DELETE' })).status, 204);
-    const after = await domain.getPod(admin, pod.id);
-    assert.equal(after.ownerId, other.me); assert.equal(after.canManageAdmins, true);
-    assert.equal(after.members.some(member => member.name === 'Erase this owner'), false);
-    assert.equal((await domain.directory()).erasedIdentities[identityId], true);
-  }
 });

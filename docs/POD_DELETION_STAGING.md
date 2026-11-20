@@ -1,9 +1,9 @@
-# Delete Pod — limited public release
+# Delete Pod — staging trial
 
-- Available when the server environment is `production` or `staging`, competitions
-  are enabled, and the existing legacy competition store is active. Unfinished
-  scoped/native storage does not expose or accept this operation.
-- With the ownership policy active, only the active Pod owner can delete it.
+- Available only when the server environment is `staging`, competitions are enabled,
+  and the existing legacy competition store is active. Production and unfinished
+  scoped/native storage do not expose or accept this operation.
+- With the staging ownership policy active, only the active Pod owner can delete it.
   The owner types the current Pod name. The server checks that permission,
   name and absence of accepted/incomplete game captures inside one conditional Pod
   update. Running games must finish (or be explicitly reset) before deletion.

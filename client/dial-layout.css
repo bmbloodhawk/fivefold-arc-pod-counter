@@ -1,0 +1,154 @@
+/* One coordinate system for every Dial counter and the live Studio renderer.
+   The surrounding controls take their natural height; the dial gets the rest.
+   Short/zoomed views scroll rather than shrinking text or touch targets. */
+body.dial-layout { display: flex; flex-direction: column; height: var(--app-viewport-height); min-height: 0; overflow: visible; }
+body.dial-layout > main { display: flex; flex: 1; justify-content: center; min-height: 0; }
+body.dial-layout > .brand-bar { position: static; flex: none; min-height: 44px; padding: max(4px, env(safe-area-inset-top)) 12px 4px; gap: 8px; }
+body.dial-layout .brand { flex: 1; min-width: 0; gap: 0; }
+body.dial-layout .brand strong { min-width: 0; overflow: hidden; font-size: clamp(1rem, 4.6vw, 1.35rem); letter-spacing: .03em; text-overflow: ellipsis; }
+body.dial-layout .brand small { display: none; }
+body.dial-layout .connection-pill { flex: none; min-height: 34px; padding: 5px 8px; font-size: .625rem; }
+#gameView[data-interface-style="dial"] { --counter-seal-anchor-y: -50%; --appearance-life-number-transform-scale: 1; display: flex; flex: 1; flex-direction: column; gap: clamp(3px, .7dvh, 8px); max-width: 720px; min-height: 0; margin-inline: auto; padding: 0 12px; }
+#gameView[data-interface-style="dial"] > * { flex-shrink: 0; }
+#gameView[data-interface-style="dial"] .game-topline { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; min-height: 44px; margin: 0; padding: 0; }
+#gameView[data-interface-style="dial"] .game-identity { grid-column: 2; grid-row: 1; justify-self: stretch; min-width: 0; padding: 0; }
+#gameView[data-interface-style="dial"] .pod-label { font-size: .75rem; }
+#gameView[data-interface-style="dial"] .pod-label::before { left: 0; }
+#gameView[data-interface-style="dial"] .pod-label::after { right: 0; }
+#gameView[data-interface-style="dial"] .inspection-notice { margin: 0; padding: 6px 8px; font-size: .6875rem; }
+#gameView[data-interface-style="dial"] #moreButton { grid-column: 3; grid-row: 1; justify-self: end; position: static; inset: auto; width: 44px; min-height: 44px; margin: 0; transform: none; }
+#gameView[data-interface-style="dial"] :is(.pod-strip, .side-seats) { position: static; inset: auto; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; gap: 6px; margin: 0; padding: 0; pointer-events: auto; }
+#gameView[data-interface-style="dial"] .pod-strip[data-player-count="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#gameView[data-interface-style="dial"] .pod-strip[data-player-count="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+#gameView[data-interface-style="dial"] :is(.pod-strip, .side-seats) .pod-seat { min-height: clamp(48px, 9dvh, 76px); padding: 5px 3px 7px; }
+#gameView[data-interface-style="dial"] :is(.pod-strip, .side-seats) .pod-seat .seat-name { position: static; padding: 0; font-size: .6875rem; letter-spacing: 0; }
+#gameView[data-interface-style="dial"] :is(.pod-strip, .side-seats) .pod-seat .seat-life { position: static; display: block; margin: 4px 0 0; padding: 0; font-size: clamp(1.6rem, 6.8vw, 2rem); line-height: .9; }
+#gameView[data-interface-style="dial"] .pod-seat .seat-state { top: 3px; right: 3px; width: 8px; height: 8px; font-size: 0; }
+#gameView[data-interface-style="dial"] .pod-seat .identity-rail { bottom: 3px; height: 4px; }
+#gameView[data-interface-style="dial"] .turn-banner { min-height: 32px; margin: 0; padding: 4px 7px; gap: 1px 6px; }
+#gameView[data-interface-style="dial"] .turn-banner p { font-size: .625rem; }
+#gameView[data-interface-style="dial"] .turn-banner strong { font-size: .75rem; }
+#gameView[data-interface-style="dial"] .turn-banner span { font-size: .625rem; }
+#gameView[data-interface-style="dial"] .counter-stage { position: relative; flex: 1 1 0%; min-height: max(13.75rem, var(--counter-caption-min-height, 0px)); margin: 0; padding: 0; container-type: size; }
+#gameView[data-interface-style="dial"] .counter-stage::before,
+#gameView[data-interface-style="dial"] .counter-stage::after { content: none; }
+.dial-assembly, .dial-face { display: contents; }
+#gameView { --counter-seal-anchor-y: -50%; --appearance-life-number-transform-scale: 1; }
+#gameView .counter-stage::before, #gameView .counter-stage::after { content: none; }
+#gameView[data-interface-style="dial"] .dial-assembly { position: absolute; top: 50%; left: 50%; display: block; width: min(calc(100cqi - 12px), 100cqb, 400px); height: min(calc(100cqi - 12px), 100cqb, 400px); transform: translate(-50%, -50%); container-type: size; }
+/* A rotated square can enlarge a mobile viewport even when its visible art
+   is circular. Contain only decoration; text and controls keep full bounds. */
+#gameView .dial-face { position: absolute; inset: 0; display: block; overflow: clip; overflow-clip-margin: 6px; }
+#gameView .dial-face::before,
+#gameView .dial-face::after { content: ""; position: absolute; top: 50%; left: 50%; width: 100%; height: 100%; transform: translate(-50%, -50%) rotate(var(--counter-art-rotation, var(--dial-seal-rotation, 0deg))); transition: transform 180ms cubic-bezier(.2, .8, .2, 1); pointer-events: none; }
+#gameView .dial-face::before { z-index: 1; width: 90%; height: 90%; background: repeating-conic-gradient(from -45deg, transparent 0 42deg, #090909 42deg 72deg), var(--identity-seal, transparent); -webkit-mask: radial-gradient(circle, transparent 0 54%, #000 55% 57%, transparent 58% 64%, #000 65% 66.5%, transparent 67%); mask: radial-gradient(circle, transparent 0 54%, #000 55% 57%, transparent 58% 64%, #000 65% 66.5%, transparent 67%); filter: drop-shadow(0 0 4px rgb(255 255 255 / .18)); }
+#gameView .dial-face::after { z-index: 0; border: 1px solid rgb(211 185 132 / .28); border-radius: 50%; background: repeating-conic-gradient(from 18deg, rgb(205 185 147 / .09) 0 .55deg, transparent .55deg 36deg), radial-gradient(circle, transparent 0 61%, rgb(205 185 147 / .1) 61.4% 61.8%, transparent 62.2%); box-shadow: inset 0 0 0 5px rgb(5 5 5 / .94), inset 0 0 0 6px rgb(211 185 132 / .2), inset 0 0 0 29px rgb(3 3 3 / .38), 0 0 0 5px rgb(0 0 0 / .45); }
+#gameView .counter-sigil { position: absolute; z-index: 2; top: 50%; left: 50%; width: 82%; height: 82%; opacity: .68; transform: translate(-50%, -50%) rotate(var(--counter-art-rotation, var(--dial-seal-rotation, 0deg))); transition: transform 180ms cubic-bezier(.2, .8, .2, 1); }
+#gameView .counter-readout { position: absolute; z-index: 4; inset: 0; display: block; min-height: 0; margin: 0; padding: 0; text-align: center; transform: none; pointer-events: none; container-type: size; }
+#gameView :is(.counter-label-art-fade, .counter-mode-art-fade) { display: none; }
+/* Button retains its surrounding flow. Only decoration and the protected
+   readout use this same stage center; the artwork may extend behind cards. */
+#gameView[data-interface-style="button"] { --counter-art-rotation: 0deg; }
+#gameView[data-interface-style="button"] .dial-face { inset: auto; top: 50%; left: 50%; width: var(--counter-art-size, min(89vw, 354px)); height: var(--counter-art-size, min(89vw, 354px)); transform: translate(-50%, -50%); pointer-events: none; }
+#gameView[data-interface-style="button"] .turn-banner { position: relative; z-index: 2; }
+#gameView[data-interface-style="button"] .counter-readout { inset: auto; top: calc(50% - var(--counter-text-height, 166px) / 2); left: calc(50% - var(--counter-text-width, 100%) / 2); width: var(--counter-text-width, 100%); height: var(--counter-text-height, 166px); --counter-number-fluid: 50cqi; --counter-number-height: 55cqb; }
+/* Size the font itself for Studio scaling. Scaling the translate(-50%)
+   transform would also scale its centering translation and move the number. */
+#gameView .counter-readout .main-value { position: absolute; top: 47.8%; left: 50%; width: auto; margin: 0; min-width: 0; font-size: calc(min(clamp(calc(3rem / var(--dial-digit-factor, 1)), calc((1rem + var(--counter-number-fluid, 25cqi)) / var(--dial-digit-factor, 1)), calc(7.5rem / var(--dial-digit-factor, 1))), var(--counter-number-height, 1000px)) * var(--appearance-life-number-scale, 1) * var(--counter-ink-fit, 1)); font-variant-numeric: normal; font-feature-settings: normal; line-height: .68; text-align: center; transform: translate(calc(-50% + var(--dial-glyph-x, 0px)), calc(-50% + var(--dial-glyph-y, 0px))); }
+#gameView .counter-readout .counter-mode { position: absolute; display: flex; align-items: center; gap: 12px; top: 22%; left: 50%; width: max-content; max-width: 86%; margin: 0; font-size: clamp(.6875rem, calc(.4rem + 4cqi), 1rem); line-height: 1.1; white-space: nowrap; opacity: .88; transform: translate(-50%, -50%); }
+#gameView .counter-readout .counter-context { position: absolute; top: 77%; right: auto; left: 50%; width: max-content; max-width: 86%; margin: 0; overflow: hidden; font-size: clamp(.6875rem, calc(.35rem + 3cqi), .875rem); line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; opacity: .88; transform: translate(-50%, -50%); }
+/* The approved inset uses lettering, not a panel. Only the art is faded:
+   readout ink stays at z4 and controls at z5, above these z3 decorations. */
+#gameView[data-interface-style="dial"] {
+  --counter-label-color: #f6efdf;
+  --counter-info-color: #edd1a0;
+  --counter-label-edge: 0 1px 1px #080704, 1px 0 2px rgb(0 0 0 / .9), -1px 0 2px rgb(0 0 0 / .9);
+}
+#gameView[data-interface-style="dial"] .counter-mode {
+  top: calc(22% + .5rem); color: var(--brass); font-weight: 700;
+  letter-spacing: .08em; opacity: 1; text-shadow: var(--counter-label-edge);
+  -webkit-text-stroke: .02em rgb(7 6 4 / .9); paint-order: stroke fill;
+}
+#gameView[data-interface-style="dial"] .counter-context {
+  top: var(--counter-context-top, 66%); inline-size: calc(100% - .75rem); max-inline-size: 20rem;
+  min-block-size: 2.25rem; display: flex; align-items: center; justify-content: center;
+  overflow: visible; overflow-wrap: anywhere; white-space: normal; text-overflow: clip;
+  font: 700 .9375rem/1.2 Georgia, serif; letter-spacing: .02em;
+  color: var(--counter-label-color); opacity: 1; transform: translateX(-50%);
+  text-shadow: var(--counter-label-edge); -webkit-text-stroke: .02em rgb(7 6 4 / .9); paint-order: stroke fill;
+}
+#gameView[data-interface-style="dial"] :is(.life-change-indicator, .status-message) {
+  top: calc(var(--counter-label-top, 66%) + var(--counter-context-height, 2.25rem) + .125rem);
+  left: var(--counter-label-left, 50%);
+  inline-size: min(calc(100vw - 1.5rem), 20rem); max-inline-size: calc(100vw - 1.5rem);
+  min-block-size: 1.125rem; font: 700 .875rem/1.25 Georgia, serif; letter-spacing: .02em;
+  color: var(--counter-info-color); transform: translateX(-50%); pointer-events: none;
+  text-shadow: var(--counter-label-edge); box-shadow: none; background: none;
+  -webkit-text-stroke: .02em rgb(7 6 4 / .9); paint-order: stroke fill;
+}
+#gameView[data-interface-style="dial"] :is(.counter-label-art-fade, .counter-mode-art-fade) {
+  position: absolute; display: block; left: 50%; z-index: 3;
+  border: 0; border-radius: 0; box-shadow: none; pointer-events: none;
+  transform: translateX(-50%); filter: blur(2px);
+}
+#gameView[data-interface-style="dial"] .counter-label-art-fade {
+  top: calc(var(--counter-label-top, 66%) - .875rem); left: var(--counter-label-left, 50%);
+  inline-size: min(calc(var(--counter-label-width, 100%) + 3rem), calc(100vw - .25rem), 23rem);
+  block-size: calc(var(--counter-context-height, 2.25rem) + var(--counter-info-height, 1.125rem) + 2rem);
+  background: radial-gradient(ellipse at center, rgb(5 4 3 / .86) 0%, rgb(5 4 3 / .62) 36%, rgb(5 4 3 / .25) 59%, transparent 78%);
+  background: radial-gradient(ellipse at center in oklab, rgb(5 4 3 / .86) 0%, rgb(5 4 3 / .62) 36%, rgb(5 4 3 / .25) 59%, transparent 78%);
+}
+#gameView[data-interface-style="dial"] .counter-mode-art-fade {
+  top: var(--counter-mode-top, calc(22% + .5rem)); left: var(--counter-mode-left, 50%);
+  inline-size: min(65%, 13.75rem); block-size: 3.5rem; transform: translate(-50%, -50%);
+  background: radial-gradient(ellipse at center, rgb(5 4 3 / .7) 0%, rgb(5 4 3 / .4) 35%, rgb(5 4 3 / .12) 60%, transparent 80%);
+  background: radial-gradient(ellipse at center in oklab, rgb(5 4 3 / .7) 0%, rgb(5 4 3 / .4) 35%, rgb(5 4 3 / .12) 60%, transparent 80%);
+}
+#gameView[data-interface-style="button"] .counter-mode { gap: 0; white-space: normal; overflow-wrap: anywhere; text-align: center; }
+#gameView[data-interface-style="button"] .counter-mode::before, #gameView[data-interface-style="button"] .counter-mode::after { content: none; }
+#gameView[data-interface-style="button"] #modeTitle { min-width: 0; max-width: 100%; }
+#gameView[data-interface-style="dial"] .dial-controls { --dial-safe-left: env(safe-area-inset-left, 0px); --dial-safe-right: env(safe-area-inset-right, 0px); position: absolute; z-index: 5; inset: 0; width: 100%; height: 100%; min-height: 0; transform: none; pointer-events: none; }
+#gameView[data-interface-style="dial"] .dial-gesture { position: absolute; z-index: 0; inset: 0; width: 100%; height: 100%; min-height: 0; border-radius: 50%; background: transparent; transform: none; cursor: grab; pointer-events: auto; touch-action: none; user-select: none; }
+#gameView[data-interface-style="dial"] .dial-gesture::before { content: ""; position: absolute; inset: -6px; border-radius: 50%; pointer-events: auto; }
+#gameView[data-interface-style="dial"] .dial-gesture.dragging { cursor: grabbing; }
+#gameView[data-interface-style="dial"] .dial-gesture[aria-disabled="true"] { cursor: not-allowed; }
+#gameView[data-interface-style="dial"] .dial-step { position: absolute; z-index: 1; top: 0; width: 0; height: 0; min-width: 0; min-height: 0; visibility: hidden; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; cursor: pointer; pointer-events: auto; touch-action: manipulation; transform: none; }
+#gameView[data-interface-style="dial"] .dial-step-label { position: absolute; z-index: 3; visibility: hidden; pointer-events: none; transform: translate(-50%, -50%); color: var(--brass); font-family: Georgia, "Times New Roman", serif; font-size: min(1.5rem, var(--dial-side-label-gap)); font-weight: 500; line-height: 1; opacity: .48; transition: color 120ms ease, opacity 120ms ease, text-shadow 120ms ease; }
+#gameView[data-interface-style="dial"] .dial-step-minus:not(:disabled):active ~ .dial-step-minus-label,
+#gameView[data-interface-style="dial"] .dial-step-plus:not(:disabled):active ~ .dial-step-plus-label,
+#gameView[data-interface-style="dial"] .dial-step-minus:focus-visible ~ .dial-step-minus-label,
+#gameView[data-interface-style="dial"] .dial-step-plus:focus-visible ~ .dial-step-plus-label { color: var(--ink); opacity: 1; text-shadow: 0 0 12px rgb(216 174 97 / .6); }
+#gameView[data-interface-style="dial"] .dial-step-minus:focus-visible ~ .dial-step-minus-label,
+#gameView[data-interface-style="dial"] .dial-step-plus:focus-visible ~ .dial-step-plus-label { outline: 2px solid currentColor; outline-offset: 0; }
+#gameView :is(.life-change-indicator, .status-message) { position: absolute; z-index: 6; top: var(--counter-feedback-top, 92%); right: auto; bottom: auto; left: 50%; width: max-content; max-width: var(--counter-feedback-width, calc(min(100vw, 720px) - 24px)); min-width: 0; margin: 0; padding: 0; border: 0; font-size: .6875rem; line-height: 1.1; text-align: center; white-space: normal; overflow-wrap: anywhere; transform: translate(-50%, -50%); }
+/* Feedback can use the stage's width while staying on the dial's shared
+   centerline. Keep a warning in one wrapping phrase instead of stacking an
+   icon, source and detail into three competing rows on a small dial. */
+#gameView .status-message::before { content: none; }
+#gameView .status-message.commander-near-lethal > span { display: inline; }
+#gameView .status-message .status-warning-detail { margin: 0; font-size: 1em; letter-spacing: inherit; }
+#gameView .status-warning-detail::before { content: " · "; }
+#gameView .lethal-mark { top: 50%; left: 50%; width: 82%; height: 82%; transform: translate(-50%, -50%); }
+#gameView .elimination-outcome { top: 47.8%; width: max-content; max-width: var(--counter-text-width, calc(min(100vw, 720px) - 24px)); }
+#gameView .elimination-outcome > * { min-width: 0; overflow-wrap: anywhere; }
+#gameView .elimination-outcome strong { font-size: clamp(1rem, 6cqi, 1.85rem); }
+#gameView .elimination-outcome span { font-size: .6875rem; }
+#gameView[data-interface-style="dial"] #turnActions { order: 1; position: static; inset: auto; min-height: 44px; margin: 0; transform: none; }
+#gameView[data-interface-style="dial"] :is(.end-turn-button, .undo-turn-button) { min-height: 44px; padding: 6px; font-size: .75rem; }
+#gameView[data-interface-style="dial"] > .side-seats { order: 2; }
+#gameView[data-interface-style="dial"] > .source-panel { order: 3; position: static; inset: auto; width: 100%; margin: 0; }
+#gameView[data-interface-style="dial"] .source-panel > button { min-height: 44px; padding: 4px 8px; }
+#gameView[data-interface-style="dial"] .source-panel :is(strong, b, small) { letter-spacing: 0; }
+#gameView[data-interface-style="dial"] .commander-tax-quick { order: 4; position: static; inset: auto; width: 100%; margin: 0; transform: none; }
+#gameView[data-interface-style="dial"] #commanderTaxQuickButton { min-height: 44px; padding: 4px 8px; gap: 2px 8px; }
+#gameView[data-interface-style="dial"] .commander-tax-quick-title { font-size: .6875rem; line-height: 1.1; }
+#gameView[data-interface-style="dial"] .commander-tax-quick-name { font-size: 1rem; line-height: 1.1; }
+#gameView[data-interface-style="dial"] .commander-tax-quick-values { display: flex; align-items: center; }
+#gameView[data-interface-style="dial"] .commander-tax-quick-value { display: flex; align-items: center; min-height: 0; padding: 0; border: 0; background: transparent; clip-path: none; }
+#gameView[data-interface-style="dial"] .commander-tax-quick-value > span { font-size: 1.25rem; line-height: 1; }
+#gameView[data-interface-style="dial"] .mode-nav { order: 5; position: static; inset: auto; width: calc(100% + 24px); min-height: 0; margin: 0 -12px; padding: 0 0 var(--appearance-preview-safe-bottom, env(safe-area-inset-bottom)); transform: none; }
+#gameView[data-interface-style="dial"] .mode-nav button { grid-template-columns: minmax(0, 1fr); min-height: 56px; padding: 5px 1px; gap: 4px; }
+#gameView[data-interface-style="dial"] .mode-nav :is(svg, img) { width: 20px; height: 20px; }
+#gameView[data-interface-style="dial"] .mode-nav small { min-width: 0; max-width: 100%; overflow: hidden; font-size: .6875rem; letter-spacing: 0; text-overflow: ellipsis; }
+#gameView[data-interface-style="dial"] :is(.adjust-controls, .custom-life-button) { display: none; }
+body.dial-dragging { overscroll-behavior: none; }

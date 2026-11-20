@@ -130,7 +130,8 @@ test('a non-baseline skin can be deleted without allowing Neutral Arc to be remo
 });
 
 test('the Studio preview preserves the app seal as an absolutely centered layer', () => {
-  assert.match(app, /\.counter-readout\{translate:0 var\(--appearance-counter-offset,0\);position:relative;z-index:3\}/);
+  assert.match(app, /\.counter-readout\{translate:0 var\(--appearance-counter-offset,0\);z-index:3\}/);
+  assert.match(app, /translate\(-50%,var\(--counter-seal-anchor-y,-43%\)\)/);
   assert.doesNotMatch(app, /\.counter-stage>\*:not\(\.appearance-overlay\)/);
 });
 

@@ -1,4 +1,4 @@
-# Pod ownership — limited public release
+# Pod ownership — staging trial
 
 The creator is the initial owner and admin. Only the owner can appoint or demote
 admins, remove another admin, or permanently delete the Pod. Other admins retain
@@ -30,10 +30,10 @@ records or unproven missing identities also fail closed. Existing games remain
 available while sensitive owner actions are blocked. No bulk migration or hosted
 repair of existing Pod data is part of this change.
 
-The constructor's `podOwnershipEnabled` defaults off. The enabled legacy server
-selects this policy for `production` and `staging`; its separate privacy eraser
-keeps the same policy when competition routes are disabled. Native/scoped storage
-remains off for this policy. No existing Pod is bulk-migrated or assigned an owner
-by inference. The reported email sign-in issue was resolved by the user's private
-password reset without an authentication code change. The unrelated sign-in
-Interface style control remains deferred at the user's request.
+The constructor's `podOwnershipEnabled` defaults off and is enabled by the legacy
+staging server only. Native/scoped storage remains off for this policy. Production
+deployment, configuration and account data are outside this release. Production
+adoption requires separate approval and a legacy-ownership migration decision.
+The public deployment is not considered ready while the reported account sign-in
+problem remains unresolved. The unrelated sign-in Interface style control is
+confirmed but deferred at the user's request.

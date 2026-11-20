@@ -238,18 +238,53 @@ export class Competitions {
     };
   }
 
-  async createPod(accountId, { name, displayName } = {}) {
+  async createPod(accountId, { name, displayName, requestId } = {}) {
     const title = cleanText(name, 'Pod name'); const memberName = cleanText(displayName, 'Your name');
+    if (requestId !== undefined && (typeof requestId !== 'string' || !/^[\w-]{8,100}$/.test(requestId))) {
+      throw competitionError('Use a valid Pod creation request identifier.');
+    }
     const identityId = await this.identity(accountId, memberName);
-    const id = `pod_${this.createId()}`; const memberId = `member_${this.createId()}`;
-    await this.setAlias(identityId, id, memberId, memberName);
+    let id = `pod_${this.createId()}`; let memberId = `member_${this.createId()}`;
+    let receipt;
+    // The deployed legacy store reserves retries with aliases in one conditional
+    // directory write. Native creation keeps its existing path; keyed recovery
+    // must be implemented or explicitly rejected before enabling that rollout.
+    if (requestId !== undefined && !this.identityStore && !this.scopeStore) {
+      const key = digest(requestId), requestHash = digest({ name: title, displayName: memberName });
+      const candidate = { id, memberId, requestHash, createdAt: this.now(), creationId: digest([identityId, requestId]) };
+      const directory = await this.changeDirectory(current => {
+        const identity = current.identities[identityId];
+        if (!identity || current.closed[digest(accountId)] || current.accounts[digest(accountId)] !== identityId) {
+          throw competitionError('Account data was removed.', 403, 'IDENTITY_CLOSED');
+        }
+        const existing = identity.podCreations?.[key];
+        if (existing && existing.requestHash !== requestHash) {
+          throw competitionError('That creation request was already used with different Pod details.', 409, 'POD_CREATE_RETRY_CONFLICT');
+        }
+        if (existing) {
+          if (current.deletedScopes[existing.id]) throw competitionError('That Pod was deleted.', 404, 'POD_DELETED');
+          return current;
+        }
+        (identity.podCreations ??= {})[key] = candidate;
+        current.aliases[`${id}_${memberId}`] = { identityId, name: memberName };
+        (current.scopes[identityId] ??= {})[id] = true;
+        return current;
+      });
+      receipt = directory.identities[identityId].podCreations[key];
+      ({ id, memberId } = receipt);
+    } else {
+      await this.setAlias(identityId, id, memberId, memberName);
+    }
     await this.createScope('pod', id, current => {
+      if (current?.deleted) throw competitionError('That Pod was deleted.', 404, 'POD_DELETED');
+      if (current && receipt && current.creationId === receipt.creationId) return current;
       if (current) throw competitionError('Please try creating that Pod again.', 409);
       return {
-        schemaVersion: 1, id, kind: 'pod', name: title, createdAt: this.now(), version: 1,
+        schemaVersion: 1, id, kind: 'pod', name: title, createdAt: receipt?.createdAt ?? this.now(), version: 1,
+        ...(receipt ? { creationId: receipt.creationId } : {}),
         ...(this.podOwnershipEnabled ? { ownerId:memberId } : {}),
-        members: { [memberId]: { id: memberId, identityId, kind: 'member', role: 'admin', status: 'active', joinedAt: this.now(),
-          ...(this.podOwnershipEnabled ? { adminOrder:0, adminSince:this.now() } : {}) } },
+        members: { [memberId]: { id: memberId, identityId, kind: 'member', role: 'admin', status: 'active', joinedAt: receipt?.createdAt ?? this.now(),
+          ...(this.podOwnershipEnabled ? { adminOrder:0, adminSince:receipt?.createdAt ?? this.now() } : {}) } },
         invites: {}, tables: {}, games: {}, standings: {}, audit: [],
       };
     }, { actorIdentityId: identityId });

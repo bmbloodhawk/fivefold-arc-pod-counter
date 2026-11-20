@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { orderFromChoices, finishingChoices, localDateKey, parseCompetitionFragment, setupObservationKey, contextObservationKey } from './competition-model.mjs';
+import { orderFromChoices, finishingChoices, localDateKey, parseCompetitionFragment, setupObservationKey, contextObservationKey, tournamentAttendance, finishedTableTransition } from './competition-model.mjs';
 
 test('finishing order UI requires every starter; equal choices form explicit ordered ties', () => {
   assert.deepEqual(orderFromChoices(['a', 'b', 'c', 'd'], { a: 1, b: 1, c: 3, d: 4 }), [['a', 'b'], ['c'], ['d']]);
@@ -18,6 +18,24 @@ test('invite and event guest fragments are bounded private capabilities, never a
   assert.equal(parseCompetitionFragment('#event=../../private&guest=secret'), null);
   assert.equal(parseCompetitionFragment('#invite=' + 'a'.repeat(500)), null);
   assert.equal(parseCompetitionFragment('#unrelated'), null);
+  assert.deepEqual(parseCompetitionFragment('#watch=event_123&viewer=private_viewer_token'), { eventId: 'event_123', viewerToken: 'private_viewer_token' });
+  assert.equal(parseCompetitionFragment('#watch=event_123&viewer=short'), null);
+  assert.equal(parseCompetitionFragment('#watch=event_123&viewer=private_viewer_token&guest=guest_secret'), null);
+});
+
+test('tournament attendance separates attending, pending and withdrawn entrants from nonplaying hosts', () => {
+  assert.deepEqual(tournamentAttendance({ members: [
+    { participating: false, status: 'active' }, { participating: true, status: 'active' },
+    { participating: true, status: 'pending' }, { participating: true, status: 'left' },
+  ] }), { attending: 1, pending: 1, withdrawn: 1 });
+});
+
+test('changing assignment requires explicit release only from a finished Table', () => {
+  assert.equal(finishedTableTransition({ code: 'OLD', snapshot: { lifecycle: { status: 'intermission' } } }, 'NEW'), 'confirm');
+  assert.equal(finishedTableTransition({ code: 'OLD', snapshot: { gameResult: {}, lifecycle: { status: 'playing' } } }, 'NEW'), 'confirm');
+  assert.equal(finishedTableTransition({ code: 'OLD', snapshot: { turn: { gameStarted: true }, lifecycle: { status: 'playing' } } }, 'NEW'), 'blocked');
+  assert.equal(finishedTableTransition({ code: 'OLD', snapshot: { lifecycle: { status: 'intermission' } } }, 'OLD'), 'same');
+  assert.equal(finishedTableTransition({ code: null }, 'NEW'), 'available');
 });
 test('life changes never trigger setup observation requests; actual setup and reclaim transitions do', () => {
   const snapshot = { code: 'TABLE1', lifecycle: { status: 'lobby', seatIds: [0, 1] }, hostSeatId: 0,
@@ -36,4 +54,6 @@ test('a reclaimed live Table receives one context discovery, independent of all 
   assert.equal(contextObservationKey({ ...snapshot, version: 88, seats: [{ counters: { life: 1 } }] }, 0, 'reclaimed_connection', 1), key);
   assert.notEqual(contextObservationKey(snapshot, 0, 'another_connection', 1), key);
   assert.notEqual(contextObservationKey(snapshot, 0, 'reclaimed_connection', 2), key);
+  assert.notEqual(contextObservationKey({ ...snapshot, lifecycle: { status: 'lobby' } }, 0, 'reclaimed_connection', 1), key);
+  assert.notEqual(contextObservationKey({ ...snapshot, gameId: 'next_game' }, 0, 'reclaimed_connection', 1), key);
 });

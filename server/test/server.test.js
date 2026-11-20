@@ -1,3 +1,4 @@
+import { expireEliminationWindow } from '../test-support/expire-elimination-window.js';
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { createCardInteractionLookup, createCardLookup, createCommanderIdentityLookup, createRealtimeServer, RoomService } from "../src/app.js";
@@ -5,10 +6,11 @@ import { compatibleOperationId, LifeAdjustmentBatcher } from "../../client/life-
 import { MemoryPlaytestLedger } from "../src/playtest-ledger.js";
 
 let server;
+let httpService;
 let baseUrl;
 
 before(async () => {
-  ({ server } = createRealtimeServer({ connectionTtlMs: 60_000, lookupCommanderIdentity: async (name) => {
+  ({ server, service: httpService } = createRealtimeServer({ connectionTtlMs: 60_000, lookupCommanderIdentity: async (name) => {
     if (name === "Unknown Commander") throw Object.assign(new Error("Commander not found. Check the spelling and try again."), { status: 404, code: "COMMANDER_NOT_FOUND" });
     return { name: "Atraxa, Praetors' Voice", colors: ["W", "U", "B", "G"] };
   }, lookupCard: async (name) => {
@@ -364,6 +366,31 @@ describe("room configuration and claims", () => {
 });
 
 describe("authority and convergence", () => {
+  test("automatic return requires an existing reservation and preserves seat details", async () => {
+    const made = await room();
+    const code = made.snapshot.code;
+    const path = `/api/rooms/${code}/reclaim`;
+    const anonymous = await call(path, { method: "POST", body: { seatId: 0, reclaimToken: made.reclaimToken } });
+    assert.equal(anonymous.status, 401);
+    const unavailable = await call(path, { method: "POST", connectionId: await connection(), body: { seatId: 1, reclaimToken: "stale-token" } });
+    assert.equal(unavailable.status, 403);
+    assert.equal(unavailable.body.error.code, "RECLAIM_UNAVAILABLE");
+    const untouched = (await call(`/api/rooms/${code}`)).body.snapshot;
+    assert.equal(untouched.version, made.snapshot.version);
+    assert.equal(untouched.seats[1].claimed, false);
+    const claimed = await call(`/api/rooms/${code}/claim`, { method: "POST", connectionId: await connection(), body: { seatId: 1, name: "Jace", commanderCount: 2 } });
+    const wrong = await call(path, { method: "POST", connectionId: await connection(), body: { seatId: 1, reclaimToken: "wrong-token" } });
+    assert.equal(wrong.status, 403);
+    assert.equal(wrong.body.error.code, "SEAT_RESERVED");
+    assert.equal((await call(`/api/rooms/${code}`)).body.snapshot.version, claimed.body.snapshot.version);
+    const reclaimed = await call(path, { method: "POST", connectionId: await connection(), body: { seatId: 1, reclaimToken: claimed.body.reclaimToken, name: "Ignored rename", commanderCount: 1, counters: { life: 999 } } });
+    assert.equal(reclaimed.status, 200);
+    assert.equal(reclaimed.body.seatId, 1);
+    assert.equal(reclaimed.body.snapshot.seats[1].name, "Jace");
+    assert.equal(reclaimed.body.snapshot.seats[1].commanderCount, 2);
+    assert.equal(reclaimed.body.snapshot.seats[1].counters.life, 40);
+  });
+
   test("allows an exact-version owner rename and keeps duplicate names presentation-only", async () => {
     const made = await room({ name: "Alex" });
     const playerConnection = await connection();
@@ -1108,11 +1135,14 @@ describe("authority and convergence", () => {
     const eliminated = await call(`/api/rooms/${made.snapshot.code}/adjust`, {
       method: "POST", connectionId: playerConnection, body: { counter: "life", delta: -40 },
     });
-    assert.deepEqual(eliminated.body.snapshot.gameResult, {
-      winnerSeatId: 0, reason: "last_player_standing", finishingOrder: [0, 1], decidedAt: eliminated.body.snapshot.gameResult.decidedAt,
+    assert.equal(eliminated.body.snapshot.gameResult, null);
+    expireEliminationWindow(httpService, made.snapshot.code);
+    const finished = await call(`/api/rooms/${made.snapshot.code}`);
+    assert.deepEqual(finished.body.snapshot.gameResult, {
+      winnerSeatId: 0, reason: "last_player_standing", finishingOrder: [0, 1], decidedAt: finished.body.snapshot.gameResult.decidedAt,
     });
     const reset = await call(`/api/rooms/${made.snapshot.code}/reset`, {
-      method: "POST", connectionId: made.connectionId, body: { baseVersion: eliminated.body.snapshot.version },
+      method: "POST", connectionId: made.connectionId, body: { baseVersion: finished.body.snapshot.version },
     });
     assert.equal(reset.body.snapshot.gameResult, null);
     const restarted = await call(`/api/rooms/${made.snapshot.code}/start-game`, {
@@ -1145,6 +1175,8 @@ describe("authority and convergence", () => {
     snapshot = service.handoffTurn(made.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
     assert.equal(snapshot.turn.activeSeatId, 2);
     snapshot = service.eliminatePlayer(made.snapshot.code, host.connectionId, { baseVersion: snapshot.version, targetSeatId: 2, reason: "alternate_loss", detail: "Test card" }).snapshot;
+    assert.equal(snapshot.gameResult, null);
+    snapshot = expireEliminationWindow(service, made.snapshot.code);
     assert.deepEqual(snapshot.gameResult.finishingOrder, [0, 2, 1]);
     assert.equal(snapshot.gameResult.decisiveAlternateReason, "alternate_loss");
     assert.throws(() => service.eliminatePlayer(made.snapshot.code, second.connectionId, { baseVersion: snapshot.version, targetSeatId: 0, reason: "milled_out" }), { code: "HOST_ONLY" });
@@ -1155,6 +1187,8 @@ describe("authority and convergence", () => {
     let snapshot = service.claimSeat(made.snapshot.code, opponent.connectionId, { seatId: 1, name: "Jace" }).snapshot;
     snapshot = service.startGame(made.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
     snapshot = service.eliminatePlayer(made.snapshot.code, host.connectionId, { baseVersion: snapshot.version, targetSeatId: 1, reason: "milled_out" }).snapshot;
+    assert.equal(snapshot.gameResult, null);
+    snapshot = expireEliminationWindow(service, made.snapshot.code);
     assert.equal(snapshot.gameResult.decisiveAlternateReason, "milled_out");
     assert.equal(service.personalMatchMoment(made.snapshot.code, host.connectionId).achievementFacts.wonByFinalMillOut, 1);
     assert.equal(service.personalMatchMoment(made.snapshot.code, opponent.connectionId).achievementFacts.wasMilledOut, 1);
@@ -1367,7 +1401,8 @@ test("tracks self-commander damage without corruption and eliminates only at 21"
 
   result = service.adjustOwnSeat(made.snapshot.code, host.connectionId, { counter: "commanderDamage", commanderSourceId: "seat-0-commander-a", delta: 1 });
   assert.equal(result.snapshot.seats[0].commanderDamageReceived["seat-0-commander-a"], 21);
-  assert.equal(result.snapshot.gameResult?.winnerSeatId, 1);
+  assert.equal(result.snapshot.gameResult, null);
+  assert.equal(expireEliminationWindow(service, made.snapshot.code).gameResult.winnerSeatId, 1);
 });
 
 test("commander adjustment repairs a legacy seat missing its damage map", () => {
@@ -1645,7 +1680,7 @@ test("a pod can reserve later seats without treating them as game-one players", 
     let snapshot = service.claimSeat(created.snapshot.code, second.connectionId, { seatId: 1, name: "P2" }).snapshot;
     snapshot = service.claimSeat(created.snapshot.code, fourth.connectionId, { seatId: 3, name: "P4" }).snapshot;
     snapshot = service.claimSeat(created.snapshot.code, third.connectionId, { seatId: 2, name: "P3" }).snapshot;
-    assert.deepEqual(snapshot.lifecycle.seatIds, [0, 1, 3, 2]);
+    assert.deepEqual(snapshot.lifecycle.seatIds, [0, 1, 2, 3]);
 
     snapshot = service.startGame(created.snapshot.code, host.connectionId, { baseVersion: snapshot.version }).snapshot;
     assert.deepEqual(snapshot.lifecycle.seatIds, [0, 1, 2, 3]);
