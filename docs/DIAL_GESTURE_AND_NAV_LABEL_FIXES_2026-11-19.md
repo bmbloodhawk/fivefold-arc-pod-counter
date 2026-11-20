@@ -79,3 +79,11 @@ the browser decides native panning from the initial hit surface, so the rim
 must belong to the existing non-panning rotary surface before the gesture
 starts. Changing a scroll policy after native panning begins cannot take the
 gesture back.
+
+## Physical follow-up
+
+The user confirmed Rad is stable but reported that the iPhone still scrolls
+after this release. The native Chromium results above do not establish the
+remaining physical Safari behavior. The subsequent
+[touch scroll guard trial](DIAL_TOUCH_SCROLL_GUARD_2026-11-19.md) records the
+narrow compatibility approach and its separate physical confirmation gate.

@@ -14,6 +14,7 @@ test('dial taps and dragging keep separate accessible input routes', () => {
   assert.match(app, /event\.target\.closest\('\[data-delta\]'\)/);
   assert.match(app, /bindDialSideTaps\(dom\.dialControls, delta => \{ void adjust\(delta\); \}\)/);
   assert.match(app, /dom\.dialGesture\.addEventListener\('keydown'/);
+  assert.match(app, /bindDialTouchGuard\(dom\.dialGesture\)/);
 });
 
 test('side tap zones show restrained plus and minus affordances without changing their labels', () => {

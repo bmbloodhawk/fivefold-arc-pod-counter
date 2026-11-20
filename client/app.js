@@ -16,6 +16,7 @@ import { parseCompetitionFragment } from './competition-model.mjs?v=2';
 import { createAppearanceCatchUp } from './appearance-catch-up.js?v=2';
 import { createDialLayout } from './dial-layout.js?v=6';
 import { bindDialSideTaps } from './dial-side-zones.js?v=2';
+import { bindDialTouchGuard } from './dial-touch-guard.js?v=1';
 import { nextGameStarterPolicy } from './next-game-starter.js?v=1';
 import { tournamentTableFlow } from './tournament-table-flow.mjs?v=1';
 
@@ -3187,6 +3188,7 @@ dom.activeSeat.addEventListener('change', () => { state.activePlayerId = dom.act
 })); $$('.adjust-controls [data-delta]').forEach(button => button.addEventListener('click', () => adjust(Number(button.dataset.delta))));
 bindDialSideTaps(dom.dialControls, delta => { void adjust(delta); });
 dom.dialGesture.addEventListener('pointerdown', beginDialDrag); dom.dialGesture.addEventListener('pointermove', moveDialDrag); dom.dialGesture.addEventListener('pointerup', endDialDrag); dom.dialGesture.addEventListener('pointercancel', endDialDrag); dom.dialGesture.addEventListener('keydown', event => { if (event.key === 'ArrowUp' || event.key === 'ArrowRight') { event.preventDefault(); void adjust(1); } if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') { event.preventDefault(); void adjust(-1); } });
+bindDialTouchGuard(dom.dialGesture);
 accountInterfaceStyle.addEventListener('change', () => setInterfaceStyle(accountInterfaceStyle.value, { persistAccount: true }));
 dom.customLifeButton.addEventListener('click', () => { dom.customLifeAmount.value = ''; dom.customLifeDialog.showModal(); dom.customLifeAmount.focus(); }); dom.cancelCustomLifeButton.addEventListener('click', () => dom.customLifeDialog.close('cancel'));
 dom.customLifeForm.addEventListener('submit', event => { if (event.submitter?.value !== 'confirm') return; const form = new FormData(dom.customLifeForm); const amount = Number(form.get('amount')); if (!Number.isInteger(amount) || amount < 1 || amount > 999) { event.preventDefault(); dom.customLifeAmount.focus(); return; } const delta = form.get('direction') === 'subtract' ? -amount : amount; adjust(delta); });
