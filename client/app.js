@@ -14,8 +14,8 @@ import { applyCollectionVisual } from './collection-visual.js?v=4';
 import { createCompetitionHub } from './competition-ui.js?v=10';
 import { parseCompetitionFragment } from './competition-model.mjs?v=2';
 import { createAppearanceCatchUp } from './appearance-catch-up.js?v=2';
-import { createDialLayout } from './dial-layout.js?v=5';
-import { bindDialSideTaps } from './dial-side-zones.js?v=1';
+import { createDialLayout } from './dial-layout.js?v=6';
+import { bindDialSideTaps } from './dial-side-zones.js?v=2';
 import { nextGameStarterPolicy } from './next-game-starter.js?v=1';
 import { tournamentTableFlow } from './tournament-table-flow.mjs?v=1';
 

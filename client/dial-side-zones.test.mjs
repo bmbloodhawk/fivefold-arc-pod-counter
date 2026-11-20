@@ -31,19 +31,33 @@ test('zones follow viewport safe bounds and dynamically sized or offset circles'
   }
 });
 
-test('upper lobe symbols have a real 44px square outside the circle on normal phone widths', () => {
+test('upper lobes retain a real 44px tap square independently of the symbol positions', () => {
   for (const width of [320, 390]) {
     const diameter = width - 36, radius = diameter / 2;
     const circle = { left: 18, top: 200, width: diameter, height: diameter };
     const zones = dialSideZones(circle, { left: 0, right: width });
-    for (const zone of Object.values(zones)) {
-      for (const x of [zone.left + zone.labelX - 22, zone.left + zone.labelX + 22]) {
-        for (const y of [zone.top + zone.labelY - 22, zone.top + zone.labelY + 22]) {
+    for (const [side, zone] of Object.entries(zones)) {
+      const tapCenterX = side === 'minus' ? 22 : width - 22;
+      const tapCenterY = circle.top + 22;
+      for (const x of [tapCenterX - 22, tapCenterX + 22]) {
+        for (const y of [tapCenterY - 22, tapCenterY + 22]) {
           assert.ok(x >= 0 && x <= width && y >= circle.top && y <= circle.top + diameter);
           assert.ok(Math.hypot(x - width / 2, y - circle.top - radius) >= radius + 6 - 1e-8);
         }
       }
     }
+  }
+});
+
+test('symbols sit at dial mid-height and halfway from its actual edge to each safe screen edge', () => {
+  for (const [width, diameter, safeLeft, safeRight] of [[320, 284, 0, 320], [390, 354, 0, 390], [720, 400, 8, 708]]) {
+    const circle = { left: (width - diameter) / 2, top: 123, width: diameter, height: diameter };
+    const zones = dialSideZones(circle, { left: safeLeft, right: safeRight });
+    assert.equal(zones.minus.left + zones.minus.labelX, (safeLeft + circle.left) / 2);
+    assert.equal(zones.plus.left + zones.plus.labelX, (circle.left + diameter + safeRight) / 2);
+    for (const zone of Object.values(zones)) assert.equal(zone.top + zone.labelY, circle.top + diameter / 2);
+    assert.equal(zones.minus.gapWidth, circle.left - safeLeft);
+    assert.equal(zones.plus.gapWidth, safeRight - circle.left - diameter);
   }
 });
 

@@ -1,4 +1,4 @@
-import { dialSideZones } from './dial-side-zones.js?v=1';
+import { dialSideZones } from './dial-side-zones.js?v=2';
 
 // Canvas measures visible ink, rather than the font's advance/line box.
 // This keeps Georgia's descending numerals centered without per-digit nudges.
@@ -60,6 +60,7 @@ export function createDialLayout(game, value) {
   const readout = game.querySelector('.counter-readout');
   const controls = game.querySelector('#dialControls');
   const sideButtons = [game.querySelector('.dial-step-minus'), game.querySelector('.dial-step-plus')];
+  const sideLabels = [game.querySelector('.dial-step-minus-label'), game.querySelector('.dial-step-plus-label')];
   const feedback = [...game.querySelectorAll('#lifeChangeIndicator, #statusMessage')];
   const visibleRects = selector => [...game.querySelectorAll(selector)]
     .filter(node => node.getClientRects().length && getComputedStyle(node).visibility !== 'hidden')
@@ -173,8 +174,10 @@ export function createDialLayout(game, value) {
         const buttonStyle = sideButtons[index].style;
         Object.assign(buttonStyle, { left: `${zone.left - controlBox.left}px`, top: `${zone.top - controlBox.top}px`,
           width: `${zone.width}px`, height: `${zone.height}px`, clipPath: `path("${zone.path}")`, visibility: 'visible' });
-        buttonStyle.setProperty('--dial-side-label-x', `${zone.labelX}px`);
-        buttonStyle.setProperty('--dial-side-label-y', `${zone.labelY}px`);
+        const labelStyle = sideLabels[index].style;
+        Object.assign(labelStyle, { left: `${zone.left + zone.labelX - controlBox.left}px`,
+          top: `${zone.top + zone.labelY - controlBox.top}px`, visibility: 'visible' });
+        labelStyle.setProperty('--dial-side-label-gap', `${zone.gapWidth}px`);
       }
       const readoutBox = readout.getBoundingClientRect();
       const readoutScaleY = readoutBox.height / parseFloat(getComputedStyle(readout).height) || 1;

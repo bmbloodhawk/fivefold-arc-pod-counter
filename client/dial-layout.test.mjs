@@ -98,10 +98,12 @@ function withDialLayout(run, { warningHeight = 0, visualViewport } = {}) {
   const control = { getClientRects() { return [this.getBoundingClientRect()]; },
     getBoundingClientRect: () => rect(0, stage.getBoundingClientRect().bottom, 300, 44) };
   const minus = { style: style() }, plus = { style: style() };
+  const minusLabel = { style: style() }, plusLabel = { style: style() };
   const controls = { getBoundingClientRect: () => assembly.getBoundingClientRect() };
   const game = { hidden: false, dataset: { interfaceStyle: 'dial' },
     querySelector: selector => ({ '.counter-stage': stage, '.dial-assembly': assembly, '.counter-readout': readout,
-      '#dialControls': controls, '.dial-step-minus': minus, '.dial-step-plus': plus })[selector],
+      '#dialControls': controls, '.dial-step-minus': minus, '.dial-step-plus': plus,
+      '.dial-step-minus-label': minusLabel, '.dial-step-plus-label': plusLabel })[selector],
     querySelectorAll: selector => selector === '#lifeChangeIndicator, #statusMessage' ? feedback
       : selector === '#turnActions, #sourcePanel, .commander-tax-quick' && warningHeight ? [control] : [] };
   let frame;
@@ -128,7 +130,8 @@ function withDialLayout(run, { warningHeight = 0, visualViewport } = {}) {
     globalThis.ResizeObserver = class { observe() {} };
     globalThis.visualViewport = visualViewport;
     const layout = createDialLayout(game, value);
-    run({ value, readout, assembly, stage, feedback, control, minus, plus, update() { layout.update(); frame(); } });
+    run({ value, readout, assembly, stage, feedback, control, minus, plus, minusLabel, plusLabel,
+      update() { layout.update(); frame(); } });
   } finally {
     for (const [name, descriptor] of savedGlobals) {
       if (descriptor) Object.defineProperty(globalThis, name, descriptor); else delete globalThis[name];
@@ -186,4 +189,19 @@ test('a stale wider visual viewport never extends side zones beyond the layout v
     assert.equal(plus.style.left, '150px');
     assert.equal(plus.style.width, '170px');
   }, { visualViewport: { width: 390, offsetLeft: 0, addEventListener() {} } });
+});
+
+test('symbols are positioned as separate unclipped visuals without moving the curved buttons', () => {
+  withDialLayout(({ minus, plus, minusLabel, plusLabel, update }) => {
+    update();
+    assert.equal(minusLabel.style.left, '0px');
+    assert.equal(plusLabel.style.left, '310px');
+    assert.equal(minusLabel.style.top, '150px');
+    assert.equal(plusLabel.style.top, '150px');
+    assert.equal(plusLabel.style.getPropertyValue('--dial-side-label-gap'), '20px');
+    assert.equal(plus.style.left, '150px');
+    assert.equal(plus.style.width, '170px');
+    assert.match(minus.style.clipPath, /^path\("M /);
+    assert.equal(plusLabel.style.clipPath, undefined);
+  });
 });

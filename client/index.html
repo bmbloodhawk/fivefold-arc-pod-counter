@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="styles.css?v=252">
   <link rel="stylesheet" href="collection-visual.css?v=6">
   <link rel="stylesheet" href="competition.css?v=4">
-  <link rel="stylesheet" href="dial-layout.css?v=6">
+  <link rel="stylesheet" href="dial-layout.css?v=7">
 </head>
 <body>
   <header class="brand-bar">
@@ -356,9 +356,11 @@
             <p id="counterContext" class="counter-context">P1 · YOU</p>
           </div>
           <div id="dialControls" class="dial-controls" role="group" aria-label="Dial counter controls" hidden>
-            <button type="button" class="dial-step dial-step-minus" data-delta="-1" aria-label="Decrease counter by one"><span class="dial-step-label" aria-hidden="true">−</span></button>
+            <button type="button" class="dial-step dial-step-minus" data-delta="-1" aria-label="Decrease counter by one"></button>
             <div id="dialGesture" class="dial-gesture" role="slider" tabindex="0" aria-label="Counter dial. Drag clockwise to increase and counterclockwise to decrease." aria-valuemin="0" aria-valuenow="40" aria-valuetext="40"></div>
-            <button type="button" class="dial-step dial-step-plus" data-delta="1" aria-label="Increase counter by one"><span class="dial-step-label" aria-hidden="true">+</span></button>
+            <button type="button" class="dial-step dial-step-plus" data-delta="1" aria-label="Increase counter by one"></button>
+            <span class="dial-step-label dial-step-minus-label" aria-hidden="true">−</span>
+            <span class="dial-step-label dial-step-plus-label" aria-hidden="true">+</span>
           </div>
           <output id="lifeChangeIndicator" class="life-change-indicator" aria-live="polite" hidden></output>
           <p id="statusMessage" class="status-message" hidden></p>
@@ -812,6 +814,6 @@
   </dialog>
   <p id="competitionSetupStatus" role="status" hidden></p>
   <script src="vendor/jsqr.js?v=1"></script>
-  <script type="module" src="app.js?v=329"></script>
+  <script type="module" src="app.js?v=330"></script>
 </body>
 </html>

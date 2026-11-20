@@ -117,3 +117,10 @@ Primary references checked for this implementation: [CSS clipping and hit
 testing](https://www.w3.org/TR/css-masking-1/#clipping-paths), [implicit pointer
 capture](https://www.w3.org/TR/pointerevents3/#implicit-pointer-capture), and
 [pointer cancellation](https://www.w3.org/TR/pointerevents3/#the-pointercancel-event).
+
+## November 19 follow-up: symbol placement
+
+The user requested centring the symbols vertically and halfway across each
+outside horizontal gap. [The symbol-centering report](DIAL_SYMBOL_CENTERING_2026-11-19.md)
+supersedes this release's upper-lobe lettering placement. The curved touch
+regions and dial sizing described here are unchanged.

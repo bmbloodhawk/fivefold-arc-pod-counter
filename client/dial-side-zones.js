@@ -8,11 +8,10 @@ export function dialSideZones(circle, viewport, clearance = 6) {
     const centerX = center - left;
     const cut = centerX + side * edge(0);
     const outer = side < 0 ? 0 : width;
-    const clearWidth = side < 0 ? centerX - edge(44) : width - centerX - edge(44);
-    const inset = clearWidth >= 44 ? clearWidth - 22 : Math.max(0, clearWidth / 2);
+    const gapWidth = Math.max(0, side < 0 ? circle.left - left : left + width - circle.left - circle.width);
     return { left, top: circle.top, width, height: circle.height,
       path: `M ${outer} 0 L ${cut} 0 A ${radiusX} ${radiusY} 0 0 ${side < 0 ? 0 : 1} ${cut} ${circle.height} L ${outer} ${circle.height} Z`,
-      labelX: side < 0 ? inset : width - inset, labelY: Math.min(22, halfHeight),
+      labelX: side < 0 ? gapWidth / 2 : width - gapWidth / 2, labelY: halfHeight, gapWidth,
     };
   };
   return { minus: make(-1, viewport.left, Math.max(0, center - viewport.left)),
