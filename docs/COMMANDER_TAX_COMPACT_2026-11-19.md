@@ -1,6 +1,6 @@
-# Compact commander-tax popup — local restart checkpoint
+# Compact commander-tax popup — phone layout
 
-The phone user confirmed Krenko's initial cast count0/next tax+0, then requested less explanatory text and a two-commander popup that fits typical phone portrait screens. This change is local only; no staging push or production release occurred before the requested computer restart.
+The phone user confirmed Krenko's initial cast count0/next tax+0, then requested less explanatory text and a two-commander popup that fits typical phone portrait screens. The local change was committed before the requested computer restart. Remaining checks were completed after resuming; production is outside this release's scope.
 
 ## Change
 
@@ -23,7 +23,16 @@ Pins: App333 / styles253 / cache400. Dial CSS8 / dial JS6 / side zones2 / touch 
 
 Evidence directory: `C:/Users/nibay/.codex/visualizations/2026/11/20/01a1f7bd-07ac-75e2-b886-a2a265eb17f0/commander-tax-compact`.
 
-The user requested a computer restart during remaining browser checks. Pending: WebKit; single/unnamed/long-name commanders; SIMULATED/offline/completed states; short/landscape layouts. Resume from `report.json`; do not claim these checks passed. All owned disposable QA browsers and local server are closed; `cleanup.json` confirms port50993 has no listener. The persistent staging companion was untouched. Staging remains159740e; production/main remains52017e8. Before release, finish pending local checks, verify the exact remote refs, use the already authorized staging scope and verify served assets/health. Ordinary HTTP reads returned403 browser-verification pages during this chat; this is not proof of an application failure. No challenge bypass or service configuration change was attempted.
+## Verification after restart
+
+- `combined-report.json` records41 passing browser checks,3 corrected test expectations preserved, and0 unresolved failures/page errors. Coverage includes single/unnamed/valid60-character names, counts up to999/tax1998, inspected read-only context, SIMULATED casts/undo, disconnected controls, completed-game UI exclusion, and short/landscape scrolling with reachable Done.
+- Windows WebKit two-commander height408.06px at390×664 and416.19px at320×568, with no internal overflow and at least44px controls. Cast/Undo remain independent; ordinary counters stay unchanged. Root visually inspected WebKit320 and the long-name/high-count Chromium320 screenshots.
+- WebKit pointer-open/Done returning focus to BODY also occurs on the frozen159740e baseline. Keyboard-open Done/Escape restores the opener. This is preserved native behavior, not a new focus regression.
+- The local simulation check uses a staged saved-demo entry because the existing native demo entry is hidden by CSS; that entry's discoverability was not certified. An initial long-name fixture was rejected by existing60-character validation and corrected to valid input. Existing completion UI transitions to intermission and hides the tax entry; the original overstrict expectation was retained and qualified.
+- All disposable local Chrome/WebKit contexts and servers are closed; `cleanup-after-resume.json` confirms port50993 has no listener. The same normal persistent Browser Test/P2 profile was restored to ES7KUY with no gameplay actions, counters and commander values preserved, and remains alive. See `companion-recovery-after-restart.json`.
+- Independent release preflight confirmed source review, unchanged server/dependencies, and exact remote refs. `served-baseline.json` matches staging159740e15/15 and production52017e84/4; both health endpoints return200. PowerShell reads hit a browser-verification page, while ordinary Node fetch succeeds; no user-agent spoofing, challenge bypass or service configuration change was used.
+
+The authorized release targets only the existing feature and staging branches. `verify-served.mjs` records the immutable release SHA and exact served hashes in `served-postrelease.json`; it must pass before release completion is claimed. Physical iPhone fit remains pending. Cache400 does not prove worker activation; do not force activation or clear storage. Production/main remains52017e8.
 
 Rollback after any later staging release is a normal scoped revert of this commit, with exact served verification. No data migration, manual repair, guest seat replacement or gameplay action is part of this change.
 
