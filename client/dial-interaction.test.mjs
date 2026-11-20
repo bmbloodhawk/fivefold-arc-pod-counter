@@ -37,7 +37,7 @@ test('rendering a Dial simulation reads the saved interface style without invoki
 test('Dial uses one shared assembly and no screen-size or turn-specific positioning rules', () => {
   const assembly = index.slice(index.indexOf('<div class="dial-assembly">'), index.indexOf('<section id="sourcePanel"'));
   for (const part of ['counter-sigil', 'counter-readout', 'dialControls', 'lifeChangeIndicator', 'statusMessage', 'lethalMark']) assert.ok(assembly.includes(part), part);
-  assert.match(index, /href="dial-layout\.css\?v=7"/);
+  assert.match(index, /href="dial-layout\.css\?v=8"/);
   assert.match(app, /dialLayout\.update\(\)/);
   assert.doesNotMatch(dialStyles, /@media[^\{]*(?:width|height)|data-your-turn/);
   assert.doesNotMatch(styles, /--dial-center-y|--dial-tax-height|--dial-side-seat-stack|--dial-source-height/);
@@ -47,4 +47,10 @@ test('the tracked mode label is centered by its visible lettering', () => {
   assert.match(index, /<p class="counter-mode"><span id="modeTitle">LIFE<\/span><\/p>/);
   assert.match(styles, /\.counter-mode > #modeTitle \{ margin-right: -\.16em; margin-left: \.16em; \}/);
   assert.match(dialStyles, /\.counter-readout \.counter-mode \{[\s\S]*transform: translate\(-50%, -50%\)/);
+});
+
+test('the visible Dial rim belongs to the existing drag surface without locking page overflow', () => {
+  assert.match(dialStyles, /#gameView\[data-interface-style="dial"\] \.dial-gesture::before \{[^}]*inset: -6px;[^}]*border-radius: 50%;[^}]*pointer-events: auto;/);
+  const draggingRule = dialStyles.match(/body\.dial-dragging \{([^}]+)\}/)?.[1] || '';
+  assert.doesNotMatch(draggingRule, /overflow\s*:\s*hidden/);
 });
