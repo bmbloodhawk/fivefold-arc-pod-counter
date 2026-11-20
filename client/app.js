@@ -430,6 +430,17 @@ function localLastPlayerStanding() {
 function victoryKey(result) { return result ? result.gameId || `${result.winnerSeatId}:${result.reason}:${result.decidedAt}` : null; }
 function winnerFromResult() { return Number.isInteger(state?.gameResult?.winnerSeatId) ? state.players.find(player => player.id === `P${state.gameResult.winnerSeatId + 1}`) : null; }
 function accoladeArtUrl(title) { return `assets/accolades/${String(title || 'arc-complete').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}.png`; }
+function personalMatchArt(moment) {
+  if (moment.art) return moment.art;
+  // Older completed games retain the original text-only card, including null art.
+  const legacyArt = ['table-victor', 'pod-company', 'turn-order', 'table-chronicle', 'format-finish', 'starting-line',
+    'clock-record', 'result-recorded', 'finish-call', 'turn-logged', 'place-recorded', 'closing-total'];
+  for (const name of [moment.id, moment.category, moment.title]) {
+    const key = String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    if (legacyArt.includes(key)) return key;
+  }
+  return 'arc-complete';
+}
 function winnerArtUrl(winner, gameKey) { const variants = ['last-one-standing', 'table-monarch', 'arc-victor']; const seed = [...String(gameKey || winner?.id || '')].reduce((total, character) => total + character.codePointAt(0), 0); return `assets/accolades/${variants[seed % variants.length]}.png`; }
 const achievementRarityLabel = (rarity) => ({ common: 'Common', uncommon: 'Uncommon', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' })[rarity] || 'Common';
 const achievementRarityMark = (rarity) => ({ common: '◇', uncommon: '✦', rare: '✧', epic: '✹', legendary: '✪' })[rarity] || '◇';
@@ -489,7 +500,7 @@ function showPersonalMatchMoment(moment) {
   const card = !moment || moment.kind === 'recap'
     ? { title: 'Arc Complete', category: 'Arc Complete', line: 'You completed this game.', fact: 'Game finished', art: 'arc-complete' }
     : moment;
-  const art = card.art;
+  const art = personalMatchArt(card);
   dom.personalMatchMomentTitle.textContent = card.title;
   dom.personalMatchMoment.toggleAttribute('data-text-card', !art);
   dom.personalMatchArt.hidden = !art;

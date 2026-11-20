@@ -83,7 +83,8 @@ for (const { name, moment, earned, title } of [
     };
     const start = app.indexOf('function showPersonalMatchMoment(');
     const end = app.indexOf('async function loadSaveGameDecks(', start);
-    const flow = runInNewContext(app.slice(start, end) + '\n({ showPersonalMatchMoment, advanceEndGameFlow })', context);
+    const artResolver = app.slice(app.indexOf('function personalMatchArt('), app.indexOf('function winnerArtUrl('));
+    const flow = runInNewContext(artResolver + app.slice(start, end) + '\n({ showPersonalMatchMoment, advanceEndGameFlow })', context);
 
     if (moment) flow.showPersonalMatchMoment(moment);
     flow.advanceEndGameFlow(key);

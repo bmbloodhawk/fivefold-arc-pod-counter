@@ -141,7 +141,7 @@ function earnedMatchMoments({ seat, seats, winnerSeatId, context = {} }) {
     add(['Speedrunner', 'Lightning Round', 'No Notes'], 'You had the fastest average recorded turn.', `Average turn: ${Math.round(average / 1000)} sec`);
   }
   if (seat.seatId === winnerSeatId && context.finishReason === 'last_player_standing') add(['Last One Standing', 'Table Monarch', 'Arc Victor'], 'You were the final remaining player.', 'Last player standing');
-  if (seat.seatId === winnerSeatId && context.finishReason === 'declared_winner') add(['Table Victor'], 'Your table recorded the win.', 'Declared winner', null);
+  if (seat.seatId === winnerSeatId && context.finishReason === 'declared_winner') add(['Table Victor'], 'Your table recorded the win.', 'Declared winner', 'table-victor');
   // Expansion catalog: each condition is deliberately stricter or mixed so it
   // adds a new moment instead of duplicating an existing accolade.
   if (m.lostHalfLifeInOneTurn) add(['Turning Point'], 'One brutal turn changed the whole game.', `Lost ${m.largestLifeLossInTurn} life in one turn`, 'arc-turning-point-v1');
@@ -251,7 +251,7 @@ function completionChoices(seat, seats, winnerSeatId, context) {
   const seatLabel = 'Seat ' + (seat.seatId + 1);
   const m = seat.matchMoment;
   const options = [];
-  const add = (name, line, fact, art = null) => {
+  const add = (name, line, fact, art = accoladeId(COMPLETION_TITLES[name])) => {
     options.push({ titles: [COMPLETION_TITLES[name]], line, fact, art, completion: true });
   };
   add('complete', 'You finished this game at the table.', seatLabel + ' · Game finished', 'arc-complete');
