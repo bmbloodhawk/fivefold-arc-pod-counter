@@ -11,9 +11,10 @@ export async function competitionRoute({ req, url, readBody, account, domain, ta
   const spectatorRead = path[0] === 'tournament' && path[2] === 'spectator' && method === 'GET'
     && (path.length === 3 || (path.length === 4 && path[3] === 'table'));
   if (req.headers?.['x-event-viewer-token'] !== undefined && !spectatorRead) throw competitionError('Event viewing links only open the read-only event board.', 403, 'EVENT_VIEWER_ACCESS');
-  const podDeletionEnabled = Boolean(domain) && appEnv === 'staging' && !domain.identityStore && !domain.scopeStore;
+  const supportedPodEnvironment = ['staging', 'production'].includes(appEnv);
+  const podDeletionEnabled = Boolean(domain) && supportedPodEnvironment && !domain.identityStore && !domain.scopeStore;
   if (method === 'GET' && path[0] === 'config') return { status: 200, data: { enabled: Boolean(domain), podDeletionEnabled,
-    podInviteScannerEnabled: Boolean(domain) && appEnv === 'staging' } };
+    podInviteScannerEnabled: Boolean(domain) && supportedPodEnvironment } };
   if (!domain) throw competitionError('Pods and tournaments are not enabled on this server.', 503, 'COMPETITIONS_DISABLED');
   const signed = () => account(req);
   const auth = async () => req.headers['x-event-token'] ? { guestToken: String(req.headers['x-event-token']) }

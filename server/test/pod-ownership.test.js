@@ -153,8 +153,8 @@ test('ambiguous legacy creator data keeps gameplay access but cannot grant owner
   await assert.rejects(()=>appoint(f,pod,'early',early.me,false),{status:409,code:'POD_OWNERSHIP_REVIEW_REQUIRED'});
 });
 
-test('the ownership policy activates only for the legacy staging server, leaving production/default behavior intact',async t=>{
-  for(const appEnv of ['staging','production']) {
+test('legacy ownership has staging and production parity while local and scoped stores stay restricted',async t=>{
+  for(const appEnv of ['staging','production','local']) {
     const store=new MemoryAccountHistoryStore();
     const instance=createRealtimeServer({appEnv,competitionStore:store,ledger:new MemoryPlaytestLedger(),accountHistory:new AccountHistory({store:new MemoryAccountHistoryStore()}),accountVerifier:{verify:async token=>({providerSubject:token})}});
     t.after(()=>new Promise(resolve=>instance.server.close(resolve)));
@@ -162,11 +162,13 @@ test('the ownership policy activates only for the legacy staging server, leaving
     const response=await fetch(`http://127.0.0.1:${instance.server.address().port}/api/competitions/pods`,{method:'POST',headers:{authorization:'Bearer creator','content-type':'application/json'},body:JSON.stringify({name:'HTTP owner policy',displayName:'Creator'})});
     assert.equal(response.status,201);
     const pod=await response.json();
-    assert.equal(Object.hasOwn(pod,'ownerId'),appEnv==='staging');
-    if(appEnv==='staging') assert.equal(pod.ownerId,pod.me);
+    const supported = ['staging','production'].includes(appEnv);
+    assert.equal(Object.hasOwn(pod,'ownerId'),supported);
+    if(supported) assert.equal(pod.ownerId,pod.me);
   }
   const identityStore={lookup:async()=>null,scopeProfile:async()=>null,setAlias:async()=>{}};
   assert.equal(fixture({identityStore}).domain.podOwnershipEnabled,false);
+  assert.equal(fixture({identityStore,scopeStore:{}}).domain.podOwnershipEnabled,false);
 });
 
 test('the separately configured staging privacy eraser permits only a surviving admin to inherit',async t=>{
@@ -187,7 +189,7 @@ test('the separately configured staging privacy eraser permits only a surviving 
   assert.equal((await instance.competitions.getPod(admin,pod.id)).ownerId,other.me);
 });
 
-test('default and production-style erasure do not write staging ownership metadata',async()=>{
+test('disabled ownership erasure does not write ownership metadata',async()=>{
   const f=fixture({podOwnershipEnabled:false});
   await f.domain.createPod('creator',{name:'Default erasure',displayName:'Creator'});
   await f.domain.eraseAccount('creator');

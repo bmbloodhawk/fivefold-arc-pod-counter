@@ -5,6 +5,7 @@ import { MemoryAccountHistoryStore, AccountHistory } from '../src/account-histor
 import { createRealtimeServer } from '../src/app.js';
 import { MemoryPlaytestLedger } from '../src/playtest-ledger.js';
 import { CompetitionRecovery } from '../src/competition-recovery.js';
+import { competitionRoute } from '../src/competition-http.js';
 
 const directoryPath = 'competitions/directory.json';
 function fixture() {
@@ -141,8 +142,8 @@ async function http(t, appEnv = 'staging') {
   return { ...instance, store, personal, request };
 }
 
-test('staging advertises deletion and enforces auth, typed name, and idempotent HTTP deletion', async t => {
-  const f = await http(t);
+for (const appEnv of ['staging', 'production']) test(`${appEnv} advertises deletion and enforces auth, typed name, and idempotent HTTP deletion`, async t => {
+  const f = await http(t, appEnv);
   assert.equal((await f.request('config', { token: null })).data.podDeletionEnabled, true);
   const pod = (await f.request('pods', { method: 'POST', body: { name: 'HTTP delete', displayName: 'Owner' } })).data;
   const target = `pod/${pod.id}`, input = { method: 'DELETE', body: { confirmationName: pod.name } };
@@ -158,12 +159,20 @@ test('staging advertises deletion and enforces auth, typed name, and idempotent 
   assert.equal(JSON.stringify([...f.personal.values]), profilesBefore);
 });
 
-test('production does not advertise or accept Pod deletion even for an admin', async t => {
-  const f = await http(t, 'production');
+test('local does not advertise or accept Pod deletion even for an admin', async t => {
+  const f = await http(t, 'local');
   assert.equal((await f.request('config')).data.podDeletionEnabled, false);
   const pod = (await f.request('pods', { method: 'POST', body: { name: 'Keep production', displayName: 'Owner' } })).data;
   assert.equal((await f.request(`pod/${pod.id}`, { method: 'DELETE', body: { confirmationName: pod.name } })).status, 404);
   assert.equal((await f.request(`pod/${pod.id}`)).status, 200);
+});
+
+test('identity and scoped storage keep deletion unavailable in both supported service environments', async () => {
+  for (const appEnv of ['staging', 'production']) for (const mode of ['identityStore', 'scopeStore']) {
+    const response = await competitionRoute({ req: { method: 'GET' },
+      url: new URL('https://example.test/api/competitions/config'), appEnv, domain: { [mode]: {} } });
+    assert.equal(response.data.podDeletionEnabled, false, `${appEnv} ${mode}`);
+  }
 });
 
 test('running Pod games block deletion; completed and reconciled games permit deletion without changing the Table', async t => {
