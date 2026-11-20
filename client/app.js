@@ -2261,13 +2261,14 @@ function renderCommanderTaxDialog() {
   if (!state || !dom.commanderTaxDetail || !dom.commanderTaxList) return;
   const player = commanderTaxPlayer(); const canEdit = state.localSimulation || player.id === state.ownerPlayerId; const enabled = canEdit && commanderTaxEnabled(); const sources = ownCommanderSources(player.id);
   const playerLabel = displayPlayer(player);
+  dom.commanderTaxDetail.hidden = canEdit && !state.localSimulation;
   dom.commanderTaxDetail.textContent = state.localSimulation
-    ? (player.id === state.ownerPlayerId ? `Your commanders (${playerLabel}) for the active simulated seat.` : `Inspecting ${playerLabel}'s commanders. Local simulation lets this phone update ${displayName(player)}'s counts.`)
-    : canEdit ? `Your claimed seat (${playerLabel}) can change these counts. Changes sync live.` : `Viewing ${playerLabel}'s commanders. Cast counts and tax are read-only on your phone.`;
+    ? `SIMULATED · ${playerLabel}`
+    : canEdit ? '' : `${playerLabel} · Read only`;
   dom.commanderTaxList.innerHTML = sources.map(source => {
     const count = state.commanderCastCounts[source.id] || 0; const nextTax = count * 2;
-    const actions = canEdit ? `<button class="commander-tax-cast" data-commander-cast="${source.id}" type="button" ${enabled ? '' : 'disabled'}>Cast from command zone</button><button class="commander-tax-undo" data-commander-undo="${source.id}" type="button" ${enabled && count > 0 ? '' : 'disabled'}>Undo cast</button>` : '<p class="commander-tax-read-only">Read only</p>';
-    const label = displaySource(source); const heading = source.commanderName ? `<div><strong>${escapeHtml(sourceOwnerLabel(source))}</strong><p class="commander-tax-card-name">${escapeHtml(source.commanderName)}</p></div>` : `<strong>${escapeHtml(label)}</strong>`; return `<section class="commander-tax-row" aria-label="${escapeHtml(label)} commander tax"><div class="commander-tax-summary">${heading}<span>Cast count: ${count}</span></div><div class="commander-tax-next">Next tax +${nextTax}</div>${actions}</section>`;
+    const actions = canEdit ? `<div class="commander-tax-actions"><button class="commander-tax-cast" data-commander-cast="${source.id}" type="button" ${enabled ? '' : 'disabled'}>Cast from command zone</button><button class="commander-tax-undo" data-commander-undo="${source.id}" type="button" ${enabled && count > 0 ? '' : 'disabled'}>Undo cast</button></div>` : '';
+    const label = displaySource(source); return `<section class="commander-tax-row" aria-label="${escapeHtml(label)} commander tax"><strong class="commander-tax-card-name">${escapeHtml(source.commanderName || label)}</strong><div class="commander-tax-summary"><span>Cast count: ${count}</span><span class="commander-tax-next">Next tax +${nextTax}</span></div>${actions}</section>`;
   }).join('') || '<p class="field-help">No commanders are configured for this seat.</p>';
   $$('[data-commander-cast]').forEach(button => button.addEventListener('click', () => updateCommanderCastCount(button.dataset.commanderCast, 1)));
   $$('[data-commander-undo]').forEach(button => button.addEventListener('click', () => updateCommanderCastCount(button.dataset.commanderUndo, -1)));

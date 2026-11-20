@@ -9,7 +9,7 @@
   <title>Fivefold Arc — Table Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=252">
+  <link rel="stylesheet" href="styles.css?v=253">
   <link rel="stylesheet" href="collection-visual.css?v=6">
   <link rel="stylesheet" href="competition.css?v=4">
   <link rel="stylesheet" href="dial-layout.css?v=8">
@@ -562,10 +562,8 @@
 
   <dialog id="commanderTaxDialog" aria-labelledby="commanderTaxTitle">
     <form method="dialog">
-      <div class="dialog-mark" aria-hidden="true">♜</div>
       <h2 id="commanderTaxTitle">Commander tax</h2>
-      <p id="commanderTaxDetail">Track casts for your commander.</p>
-      <p class="field-help">Tax increases when cast from command zone, not merely when it dies.</p>
+      <p id="commanderTaxDetail" hidden></p>
       <div id="commanderTaxList" class="commander-tax-list" aria-live="polite"></div>
       <div class="dialog-actions commander-tax-close">
         <button value="close" class="secondary-action">Done</button>
@@ -814,6 +812,6 @@
   </dialog>
   <p id="competitionSetupStatus" role="status" hidden></p>
   <script src="vendor/jsqr.js?v=1"></script>
-  <script type="module" src="app.js?v=332"></script>
+  <script type="module" src="app.js?v=333"></script>
 </body>
 </html>
