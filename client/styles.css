@@ -244,9 +244,6 @@ select, input[type="text"] { width: 100%; padding: 10px 13px; border: 1px solid 
 .status-message.lethal { color: var(--danger); }
 /* Preserve Button seats and action positions while its inner artwork and text
    share a center. These are the existing outer flow-slot heights. */
-#gameView[data-interface-style="button"] .dial-assembly { display: block; position: static; z-index: auto; width: 100%; min-height: 282px; pointer-events: none; }
-@media (max-width: 599px) { #gameView[data-interface-style="button"] .dial-assembly { min-height: 246px; } }
-@media (max-width: 359px), (max-height: 740px) { #gameView[data-interface-style="button"] .dial-assembly { min-height: 222px; } }
 
 /* Elimination is a visible state, never a new layout row. The artwork shares
    the seal's center but stays behind the readout and every active control. */

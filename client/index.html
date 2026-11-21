@@ -9,10 +9,10 @@
   <title>Fivefold Arc — Table Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=253">
+  <link rel="stylesheet" href="styles.css?v=254">
   <link rel="stylesheet" href="collection-visual.css?v=6">
   <link rel="stylesheet" href="competition.css?v=4">
-  <link rel="stylesheet" href="dial-layout.css?v=9">
+  <link rel="stylesheet" href="dial-layout.css?v=10">
 </head>
 <body>
   <header class="brand-bar">
@@ -367,8 +367,6 @@
         </div>
       </div>
 
-      <section id="sourcePanel" class="source-panel" hidden aria-label="Commander damage sources"></section>
-
       <section id="turnActions" class="turn-actions" aria-label="Turn controls">
         <button id="endTurnButton" class="end-turn-button" type="button">End turn → Next player</button>
         <button id="undoTurnButton" class="undo-turn-button" type="button" hidden>Undo handoff</button>
@@ -376,6 +374,7 @@
         <p id="turnActionDetail" class="turn-action-detail">Only the active player can end this turn.</p>
       </section>
       <p id="eliminationUndoStatus" class="sr-only" role="status"></p>
+      <section id="sourcePanel" class="source-panel" hidden aria-label="Commander damage sources"></section>
       <div id="adjustControls" class="adjust-controls" aria-label="Adjust counter">
         <button type="button" data-delta="-5"><span>−5</span><small>decrease five</small></button>
         <button type="button" data-delta="-1"><span>−1</span><small>decrease one</small></button>
@@ -812,6 +811,6 @@
   </dialog>
   <p id="competitionSetupStatus" role="status" hidden></p>
   <script src="vendor/jsqr.js?v=1"></script>
-  <script type="module" src="app.js?v=334"></script>
+  <script type="module" src="app.js?v=335"></script>
 </body>
 </html>

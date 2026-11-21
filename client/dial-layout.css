@@ -1,34 +1,34 @@
 /* One coordinate system for every Dial counter and the live Studio renderer.
    The surrounding controls take their natural height; the dial gets the rest.
    Short/zoomed views scroll rather than shrinking text or touch targets. */
-body.dial-layout { display: flex; flex-direction: column; height: var(--app-viewport-height); min-height: 0; overflow: visible; }
-body.dial-layout > main { display: flex; flex: 1; justify-content: center; min-height: 0; }
-body.dial-layout > .brand-bar { position: static; flex: none; min-height: 44px; padding: max(4px, env(safe-area-inset-top)) 12px 4px; gap: 8px; }
-body.dial-layout .brand { flex: 1; min-width: 0; gap: 0; }
-body.dial-layout .brand strong { min-width: 0; overflow: hidden; font-size: clamp(1rem, 4.6vw, 1.35rem); letter-spacing: .03em; text-overflow: ellipsis; }
-body.dial-layout .brand small { display: none; }
-body.dial-layout .connection-pill { flex: none; min-height: 34px; padding: 5px 8px; font-size: .625rem; }
-#gameView[data-interface-style="dial"] { --dial-page-padding: 12px; --dial-safe-left: env(safe-area-inset-left, 0px); --dial-safe-right: env(safe-area-inset-right, 0px); --counter-seal-anchor-y: -50%; --appearance-life-number-transform-scale: 1; display: flex; flex: 1; flex-direction: column; gap: clamp(3px, .7dvh, 8px); max-width: 720px; min-height: 0; margin-inline: auto; padding: 0 var(--dial-page-padding); }
-#gameView[data-interface-style="dial"] > * { flex-shrink: 0; }
-#gameView[data-interface-style="dial"] .game-topline { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; min-height: 44px; margin: 0; padding: 0; }
-#gameView[data-interface-style="dial"] .game-identity { grid-column: 2; grid-row: 1; justify-self: stretch; min-width: 0; padding: 0; }
-#gameView[data-interface-style="dial"] .pod-label { font-size: .75rem; }
-#gameView[data-interface-style="dial"] .pod-label::before { left: 0; }
-#gameView[data-interface-style="dial"] .pod-label::after { right: 0; }
-#gameView[data-interface-style="dial"] .inspection-notice { margin: 0; padding: 6px 8px; font-size: .6875rem; }
-#gameView[data-interface-style="dial"] #moreButton { grid-column: 3; grid-row: 1; justify-self: end; position: static; inset: auto; width: 44px; min-height: 44px; margin: 0; transform: none; }
-#gameView[data-interface-style="dial"] :is(.pod-strip, .side-seats) { position: static; inset: auto; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; gap: 6px; margin: 0; padding: 0; pointer-events: auto; }
-#gameView[data-interface-style="dial"] .pod-strip[data-player-count="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-#gameView[data-interface-style="dial"] .pod-strip[data-player-count="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-#gameView[data-interface-style="dial"] :is(.pod-strip, .side-seats) .pod-seat { min-height: clamp(48px, 9dvh, 76px); padding: 5px 3px 7px; }
-#gameView[data-interface-style="dial"] :is(.pod-strip, .side-seats) .pod-seat .seat-name { position: static; padding: 0; font-size: .6875rem; letter-spacing: 0; }
-#gameView[data-interface-style="dial"] :is(.pod-strip, .side-seats) .pod-seat .seat-life { position: static; display: block; margin: 4px 0 0; padding: 0; font-size: clamp(1.6rem, 6.8vw, 2rem); line-height: .9; }
-#gameView[data-interface-style="dial"] .pod-seat .seat-state { top: 3px; right: 3px; width: 8px; height: 8px; font-size: 0; }
-#gameView[data-interface-style="dial"] .pod-seat .identity-rail { bottom: 3px; height: 4px; }
-#gameView[data-interface-style="dial"] .turn-banner { min-height: 32px; margin: 0; padding: 4px 7px; gap: 1px 6px; }
-#gameView[data-interface-style="dial"] .turn-banner p { font-size: .625rem; }
-#gameView[data-interface-style="dial"] .turn-banner strong { font-size: .75rem; }
-#gameView[data-interface-style="dial"] .turn-banner span { font-size: .625rem; }
+body:is(.dial-layout, .button-layout) { display: flex; flex-direction: column; height: var(--app-viewport-height); min-height: 0; overflow: visible; }
+body:is(.dial-layout, .button-layout) > main { display: flex; flex: 1; justify-content: center; min-height: 0; }
+body:is(.dial-layout, .button-layout) > .brand-bar { position: static; flex: none; min-height: 44px; padding: max(4px, env(safe-area-inset-top)) 12px 4px; gap: 8px; }
+body:is(.dial-layout, .button-layout) .brand { flex: 1; min-width: 0; gap: 0; }
+body:is(.dial-layout, .button-layout) .brand strong { min-width: 0; overflow: hidden; font-size: clamp(1rem, 4.6vw, 1.35rem); letter-spacing: .03em; text-overflow: ellipsis; }
+body:is(.dial-layout, .button-layout) .brand small { display: none; }
+body:is(.dial-layout, .button-layout) .connection-pill { flex: none; min-height: 34px; padding: 5px 8px; font-size: .625rem; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) { --dial-page-padding: 12px; --seat-gap: 6px; --game-region-gap: clamp(3px, .7dvh, 8px); --seat-min-height: clamp(48px, 9dvh, 76px); --dial-safe-left: env(safe-area-inset-left, 0px); --dial-safe-right: env(safe-area-inset-right, 0px); --counter-seal-anchor-y: -50%; --appearance-life-number-transform-scale: 1; display: flex; flex: 1; flex-direction: column; gap: var(--game-region-gap); max-width: 720px; min-height: 0; margin-inline: auto; padding: 0 var(--dial-page-padding); }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) > * { flex-shrink: 0; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) .game-topline { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; min-height: 44px; margin: 0; padding: 0; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) .game-identity { grid-column: 2; grid-row: 1; justify-self: stretch; min-width: 0; padding: 0; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) .pod-label { font-size: .75rem; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) .pod-label::before { left: 0; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) .pod-label::after { right: 0; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) .inspection-notice { margin: 0; padding: 6px 8px; font-size: .6875rem; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) #moreButton { grid-column: 3; grid-row: 1; justify-self: end; position: static; inset: auto; width: 44px; min-height: 44px; margin: 0; transform: none; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) :is(.pod-strip, .side-seats) { position: static; inset: auto; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; gap: var(--seat-gap); margin: 0; padding: 0; pointer-events: auto; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) .pod-strip[data-player-count="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) .pod-strip[data-player-count="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) :is(.pod-strip, .side-seats) .pod-seat { min-height: var(--seat-min-height); padding: 5px 3px 7px; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) :is(.pod-strip, .side-seats) .pod-seat .seat-name { position: static; padding: 0; font-size: .6875rem; letter-spacing: 0; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) :is(.pod-strip, .side-seats) .pod-seat .seat-life { position: static; display: block; margin: 4px 0 0; padding: 0; font-size: clamp(1.6rem, 6.8vw, 2rem); line-height: .9; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) .pod-seat .seat-state { top: 3px; right: 3px; width: 8px; height: 8px; font-size: 0; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) .pod-seat .identity-rail { bottom: 3px; height: 4px; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) .turn-banner { min-height: 32px; margin: 0; padding: 4px 7px; gap: 1px 6px; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) .turn-banner p { font-size: .625rem; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) .turn-banner strong { font-size: .75rem; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) .turn-banner span { font-size: .625rem; }
 #gameView[data-interface-style="dial"] .counter-stage { position: relative; flex: 1 1 0%; min-height: max(13.75rem, var(--counter-caption-min-height, 0px)); margin: 0; padding: 0; container-type: size; }
 #gameView[data-interface-style="dial"] .counter-stage::before,
 #gameView[data-interface-style="dial"] .counter-stage::after { content: none; }
@@ -54,12 +54,43 @@ body.dial-layout .connection-pill { flex: none; min-height: 34px; padding: 5px 8
 #gameView .counter-sigil { position: absolute; z-index: 2; top: 50%; left: 50%; width: 82%; height: 82%; opacity: .68; transform: translate(-50%, -50%) rotate(var(--counter-art-rotation, var(--dial-seal-rotation, 0deg))); transition: transform 180ms cubic-bezier(.2, .8, .2, 1); }
 #gameView .counter-readout { position: absolute; z-index: 4; inset: 0; display: block; min-height: 0; margin: 0; padding: 0; text-align: center; transform: none; pointer-events: none; container-type: size; }
 #gameView :is(.counter-label-art-fade, .counter-mode-art-fade) { display: none; }
-/* Button retains its surrounding flow. Only decoration and the protected
-   readout use this same stage center; the artwork may extend behind cards. */
-#gameView[data-interface-style="button"] { --counter-art-rotation: 0deg; }
-#gameView[data-interface-style="button"] .dial-face { inset: auto; top: 50%; left: 50%; width: var(--counter-art-size, min(89vw, 354px)); height: var(--counter-art-size, min(89vw, 354px)); transform: translate(-50%, -50%); pointer-events: none; }
-#gameView[data-interface-style="button"] .turn-banner { position: relative; z-index: 2; }
-#gameView[data-interface-style="button"] .counter-readout { inset: auto; top: calc(50% - var(--counter-text-height, 166px) / 2); left: calc(50% - var(--counter-text-width, 100%) / 2); width: var(--counter-text-width, 100%); height: var(--counter-text-height, 166px); --counter-number-fluid: 50cqi; --counter-number-height: 55cqb; }
+/* Button fits the artwork between the turn banner and adjustment row.
+   Extra cards share the top card width and can sit in front of the artwork. */
+#gameView[data-interface-style="button"] { --counter-art-rotation: 0deg; --game-region-gap: clamp(3px, .6dvh, 8px); --button-art-gutter: 6px; --button-turn-overlap: min(26px, 4dvh); }
+#gameView[data-interface-style="button"] .counter-stage {
+  position: relative; flex: 1 1 0%; min-height: 7.25rem;
+  margin: 0; padding: 0; container-type: size;
+}
+#gameView[data-interface-style="button"] .counter-stage.has-side-seats {
+  --side-card-width: calc((100% - 3 * var(--seat-gap)) / 4);
+  --side-card-height: max(var(--seat-min-height), 3.5rem);
+  --side-stack-height: var(--side-card-height);
+  min-height: max(7.25rem, calc(var(--side-stack-height) + var(--side-end-clearance, 0px)));
+}
+#gameView[data-interface-style="button"] .has-side-seats:has(.side-seats > :nth-child(3)) { --side-stack-height: calc(2 * var(--side-card-height) + var(--seat-gap)); }
+#gameView[data-interface-style="button"]:has(> #turnActions > #endTurnButton:not([hidden])) .has-side-seats {
+  --side-end-clearance: max(0px, calc(var(--button-turn-overlap) - var(--game-region-gap)));
+}
+#gameView[data-interface-style="button"] .side-seats {
+  position: absolute; inset: 0; inset-block-end: var(--side-end-clearance, 0px); z-index: 2; width: auto;
+  grid-template-columns: repeat(2, minmax(0, var(--side-card-width)));
+  align-content: center; justify-content: space-between; pointer-events: none;
+}
+#gameView[data-interface-style="button"] .dial-assembly {
+  --button-art-size: min(calc(100cqi - 2 * var(--button-art-gutter)),
+    calc(var(--button-art-room, 100cqb) - 2 * var(--button-art-gutter)));
+  position: absolute; top: calc(var(--button-art-room, 100cqb) / 2); left: 50%; display: block;
+  width: var(--button-art-size); height: var(--button-art-size);
+  transform: translate(-50%, -50%);
+}
+#gameView[data-interface-style="button"] .dial-face { pointer-events: none; }
+#gameView[data-interface-style="button"] .counter-readout {
+  inset: auto; top: var(--counter-text-center-y, 50%); left: 50%;
+  width: var(--counter-text-width, 100%); height: var(--counter-text-height, 100%);
+  --counter-number-fluid: 50cqi; --counter-number-height: 55cqb;
+  transform: translate(-50%, -50%);
+}
+#gameView[data-interface-style="button"] :is(.life-change-indicator, .status-message) { pointer-events: none; }
 /* Size the font itself for Studio scaling. Scaling the translate(-50%)
    transform would also scale its centering translation and move the number. */
 #gameView .counter-readout .main-value { position: absolute; top: 47.8%; left: 50%; width: auto; margin: 0; min-width: 0; font-size: calc(min(clamp(calc(3rem / var(--dial-digit-factor, 1)), calc((1rem + var(--counter-number-fluid, 25cqi)) / var(--dial-digit-factor, 1)), calc(7.5rem / var(--dial-digit-factor, 1))), var(--counter-number-height, 1000px)) * var(--appearance-life-number-scale, 1) * var(--counter-ink-fit, 1)); font-variant-numeric: normal; font-feature-settings: normal; line-height: .68; text-align: center; transform: translate(calc(-50% + var(--dial-glyph-x, 0px)), calc(-50% + var(--dial-glyph-y, 0px))); }
@@ -112,7 +143,8 @@ body.dial-layout .connection-pill { flex: none; min-height: 34px; padding: 5px 8
   background: radial-gradient(ellipse at center, rgb(5 4 3 / .7) 0%, rgb(5 4 3 / .4) 35%, rgb(5 4 3 / .12) 60%, transparent 80%);
   background: radial-gradient(ellipse at center in oklab, rgb(5 4 3 / .7) 0%, rgb(5 4 3 / .4) 35%, rgb(5 4 3 / .12) 60%, transparent 80%);
 }
-#gameView[data-interface-style="button"] .counter-mode { gap: 0; white-space: normal; overflow-wrap: anywhere; text-align: center; }
+#gameView[data-interface-style="button"] .counter-mode { top: min(15%, max(4px, calc(25% - 7px))); gap: 0; white-space: normal; overflow-wrap: anywhere; text-align: center; }
+#gameView[data-interface-style="button"] .counter-context { top: min(86%, calc(100% - .5em)); }
 #gameView[data-interface-style="button"] .counter-mode::before, #gameView[data-interface-style="button"] .counter-mode::after { content: none; }
 #gameView[data-interface-style="button"] #modeTitle { min-width: 0; max-width: 100%; }
 #gameView[data-interface-style="dial"] .dial-controls { position: absolute; z-index: 5; inset: 0; width: 100%; height: 100%; min-height: 0; transform: none; pointer-events: none; }
@@ -147,16 +179,33 @@ body.dial-layout .connection-pill { flex: none; min-height: 34px; padding: 5px 8
 #gameView[data-interface-style="dial"] > .source-panel { order: 3; position: static; inset: auto; width: 100%; margin: 0; }
 #gameView[data-interface-style="dial"] .source-panel > button { min-height: 44px; padding: 4px 8px; }
 #gameView[data-interface-style="dial"] .source-panel :is(strong, b, small) { letter-spacing: 0; }
-#gameView[data-interface-style="dial"] .commander-tax-quick { order: 4; position: static; inset: auto; width: 100%; margin: 0; transform: none; }
-#gameView[data-interface-style="dial"] #commanderTaxQuickButton { min-height: 44px; padding: 4px 8px; gap: 2px 8px; }
-#gameView[data-interface-style="dial"] .commander-tax-quick-title { font-size: .6875rem; line-height: 1.1; }
-#gameView[data-interface-style="dial"] .commander-tax-quick-name { font-size: 1rem; line-height: 1.1; }
-#gameView[data-interface-style="dial"] .commander-tax-quick-values { display: flex; align-items: center; }
-#gameView[data-interface-style="dial"] .commander-tax-quick-value { display: flex; align-items: center; min-height: 0; padding: 0; border: 0; background: transparent; clip-path: none; }
-#gameView[data-interface-style="dial"] .commander-tax-quick-value > span { font-size: 1.25rem; line-height: 1; }
-#gameView[data-interface-style="dial"] .mode-nav { order: 5; position: static; inset: auto; width: calc(100% + 24px); min-height: 0; margin: 0 -12px; padding: 0 0 var(--appearance-preview-safe-bottom, env(safe-area-inset-bottom)); transform: none; }
-#gameView[data-interface-style="dial"] .mode-nav button { grid-template-columns: minmax(0, 1fr); min-height: 56px; padding: 5px 1px; gap: 4px; }
-#gameView[data-interface-style="dial"] .mode-nav :is(svg, img) { width: 20px; height: 20px; }
-#gameView[data-interface-style="dial"] .mode-nav small { min-width: 0; max-width: 100%; overflow: hidden; font-size: .6875rem; letter-spacing: 0; text-overflow: ellipsis; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) .commander-tax-quick { order: 4; position: static; inset: auto; width: 100%; margin: 0; transform: none; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) #commanderTaxQuickButton { min-height: 44px; padding: 4px 8px; gap: 2px 8px; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) .commander-tax-quick-title { font-size: .6875rem; line-height: 1.1; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) .commander-tax-quick-name { font-size: 1rem; line-height: 1.1; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) .commander-tax-quick-values { display: flex; align-items: center; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) .commander-tax-quick-value { display: flex; align-items: center; min-height: 0; padding: 0; border: 0; background: transparent; clip-path: none; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) .commander-tax-quick-value > span { font-size: 1.25rem; line-height: 1; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) .mode-nav { order: 5; position: static; inset: auto; width: calc(100% + 24px); min-height: 0; margin: 0 -12px; padding: 0 0 var(--appearance-preview-safe-bottom, env(safe-area-inset-bottom)); transform: none; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) .mode-nav button { grid-template-columns: minmax(0, 1fr); min-height: 56px; padding: 5px 1px; gap: 4px; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) .mode-nav :is(svg, img) { width: 20px; height: 20px; }
+#gameView:is([data-interface-style="dial"], [data-interface-style="button"]) .mode-nav small { min-width: 0; max-width: 100%; overflow: hidden; font-size: .6875rem; letter-spacing: 0; text-overflow: ellipsis; }
 #gameView[data-interface-style="dial"] :is(.adjust-controls, .custom-life-button) { display: none; }
+/* Only the visible End Turn button can borrow decorative space. Undo and
+   the Commander source picker keep their own normal-flow rows. */
+#gameView[data-interface-style="button"] #turnActions {
+  position: relative; inset: auto; z-index: 4; min-height: 0; margin: 0; transform: none;
+}
+#gameView[data-interface-style="button"] #turnActions:not(:has(> button:not([hidden]))) { display: none; }
+#gameView[data-interface-style="button"] #turnActions:has(> #endTurnButton:not([hidden])) { margin-block-start: calc(-1 * var(--button-turn-overlap)); }
+#gameView[data-interface-style="button"] :is(.end-turn-button, .undo-turn-button) { min-height: 44px; padding: 6px; font-size: .75rem; }
+#gameView[data-interface-style="button"] > .source-panel { position: static; width: 100%; margin: 0; }
+#gameView[data-interface-style="button"] .source-panel :is(.selected-source-button, .inline-commander-choice) { min-height: 44px; padding-block: 4px; gap: 2px 6px; }
+#gameView[data-interface-style="button"] .source-panel .inline-commander-choice { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#gameView[data-interface-style="button"] .source-panel .inline-commander-choice b { white-space: normal; overflow-wrap: anywhere; }
+#gameView[data-interface-style="button"] .adjust-controls { grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; gap: 6px; }
+#gameView[data-interface-style="button"] .adjust-controls button { min-width: 0; min-height: clamp(44px, 7dvh, 64px); padding: 0; }
+#gameView[data-interface-style="button"] .adjust-controls span { font-size: clamp(1.25rem, 6vw, 2.1rem); line-height: 1; }
+#gameView[data-interface-style="button"] .custom-life-button { width: 100%; min-height: 44px; margin: 0; padding: 6px; }
+#gameView[data-interface-style="button"] .mode-nav small { font-size: clamp(.48rem, 2.05vw, .65rem); letter-spacing: 0; }
 body.dial-dragging { overscroll-behavior: none; }

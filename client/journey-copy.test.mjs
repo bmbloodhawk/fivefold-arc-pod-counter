@@ -274,7 +274,7 @@ test('custom-life cancellation bypasses an empty required amount', () => {
 
 test('the life readout stays together and the tax action cannot overlap custom life', () => {
   assert.match(html, /class="counter-readout"[\s\S]*id="modeTitle"[\s\S]*id="mainValue"[\s\S]*id="counterContext"/);
-  assert.match(html, /class="counter-stage"[\s\S]*id="turnActions"[\s\S]*id="adjustControls"/);
+  assert.match(html, /id="turnBanner"[\s\S]*class="counter-stage"[\s\S]*id="turnActions"[\s\S]*id="sourcePanel"[\s\S]*id="adjustControls"[\s\S]*id="customLifeButton"[\s\S]*id="commanderTaxQuickButton"[\s\S]*id="modeNav"/);
   assert.match(styles, /#turnActions \{ position: relative; z-index: 4; margin-top: -32px; margin-bottom: 20px; \}/);
   assert.match(dialStyles, /#gameView \.counter-readout \{[^}]*text-align: center/);
   assert.match(dialStyles, /\.counter-readout \.main-value \{[^}]*top: 47\.8%; left: 50%/);
@@ -283,7 +283,7 @@ test('the life readout stays together and the tax action cannot overlap custom l
   assert.match(styles, /\.custom-life-button, \.commander-tax-quick \{ margin-top: 2px; \}/);
   assert.match(styles, /A turn adds one action, not a different screen/);
   assert.match(styles, /\.game-shell\[data-your-turn="true"\] \.counter-stage \{ min-height: 318px; margin-top: 0; margin-bottom: 0; \}/);
-  assert.match(styles, /#gameView\[data-interface-style="button"\] \.dial-assembly \{[^}]*min-height: 282px/);
+  assert.match(dialStyles, /#gameView\[data-interface-style="button"\] \.dial-assembly \{[^}]*--button-art-size: min\(calc\(100cqi[^}]*var\(--button-art-room, 100cqb\)/);
   assert.match(styles, /\.game-shell\[data-your-turn="true"\] \.commander-tax-quick \{ transform: none; margin-bottom: 0; \}/);
 });
 

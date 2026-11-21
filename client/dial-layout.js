@@ -9,22 +9,18 @@ export function glyphCenterCorrection(metrics, baseline, height) {
   };
 }
 
-// Decorations may overlap the surrounding cards; visible text uses their
-// actual gap and stops above the first action, independent of viewport size.
-export function buttonReadoutBounds(stage, cards, controls, gutter = 8) {
-  const x = (stage.left + stage.right) / 2, y = (stage.top + stage.bottom) / 2;
-  let halfWidth = stage.width / 2 - gutter;
-  for (const card of cards) {
-    if (card.bottom <= stage.top || card.top >= stage.bottom) continue;
-    if (card.right <= x) halfWidth = Math.min(halfWidth, x - card.right - gutter);
-    if (card.left >= x) halfWidth = Math.min(halfWidth, card.left - x - gutter);
+// Decorative art can extend behind cards and control rows. Fit the visible
+// readout into the area that remains clear at the center of the artwork.
+export function buttonTextRegion(artwork, sideCards, controlTop = Infinity) {
+  const bottom = Math.min(artwork.bottom, controlTop - 4);
+  const centerX = (artwork.left + artwork.right) / 2;
+  let halfWidth = artwork.width / 2 - 4;
+  for (const card of sideCards) {
+    if (card.bottom <= artwork.top || card.top >= bottom) continue;
+    if (card.right <= centerX) halfWidth = Math.min(halfWidth, centerX - card.right - 4);
+    if (card.left >= centerX) halfWidth = Math.min(halfWidth, card.left - centerX - 4);
   }
-  let bottom = stage.bottom;
-  for (const control of controls) if (control.top > y) bottom = Math.min(bottom, control.top);
-  const diameter = Math.min(stage.width - 12, 400);
-  return { width: Math.max(1, Math.min(halfWidth * 2, diameter)),
-    height: Math.max(1, Math.min(diameter, 2 * Math.min(y - stage.top - gutter, bottom - y - gutter))),
-    diameter };
+  return { width: Math.max(1, halfWidth * 2), height: Math.max(1, bottom - artwork.top) };
 }
 
 export function inkFitScale(metrics, width, height) {
@@ -35,14 +31,6 @@ export function inkFitScale(metrics, width, height) {
 export function fitReadoutBounds(bounds, offsetX, offsetY, scale) {
   return { width: Math.max(1, (bounds.width - 2 * Math.abs(offsetX)) / scale),
     height: Math.max(1, (bounds.height - 2 * Math.abs(offsetY)) / scale) };
-}
-
-export function feedbackBands(stage, cards, bottom, gutter = 8) {
-  const width = Math.min(stage.width - 2 * gutter, 400);
-  return [
-    { top: Math.max(stage.top, ...cards.map(card => card.bottom)) + gutter, bottom, width },
-    { top: stage.top + gutter, bottom: Math.min(bottom + gutter, ...cards.map(card => card.top)) - gutter, width },
-  ];
 }
 
 // CSS owns dimensions and anchors. Runs in the game and live Studio renderer;
@@ -81,41 +69,32 @@ export function createDialLayout(game, value) {
       captionMinHeight = 0;
       stage.style.removeProperty('--counter-caption-min-height');
     }
+    const buttonTextProperties = ['--counter-text-width', '--counter-text-height', '--counter-text-center-y',
+      '--counter-feedback-width', '--counter-feedback-top'];
     if (button) {
       const stageBox = stage.getBoundingClientRect();
-      const cards = visibleRects('#sideSeats .pod-seat');
-      const bounds = buttonReadoutBounds(stageBox, cards,
-        visibleRects('#sourcePanel, #turnActions, #adjustControls, #customLifeButton'));
+      const adjust = visibleRects('#adjustControls')[0];
+      stage.style.setProperty('--button-art-room', `${Math.max(0, (adjust?.top ?? stageBox.bottom) - stageBox.top)}px`);
+      const art = assembly.getBoundingClientRect();
+      const controlTop = Math.min(...visibleRects('#turnActions, #sourcePanel, #adjustControls').map(rect => rect.top));
+      const region = buttonTextRegion(art, visibleRects('#sideSeats .pod-seat'), controlTop);
+      assembly.style.setProperty('--counter-feedback-width', `${region.width}px`);
+      const message = feedback.find(node => !node.hidden);
+      const feedbackHeight = Math.max(18, message?.getBoundingClientRect().height || 0);
+      const bounds = { width: region.width, height: Math.max(1, region.height - feedbackHeight) };
+      const textCenterY = bounds.height / 2;
+      const feedbackCenterY = Math.max(0, region.height - feedbackHeight / 2);
+      assembly.style.setProperty('--counter-text-center-y', `${textCenterY}px`);
       const text = readout.getBoundingClientRect();
       const scale = text.width / parseFloat(getComputedStyle(readout).width) || 1;
-      const fitted = fitReadoutBounds(bounds, (text.left + text.right - stageBox.left - stageBox.right) / 2,
-        (text.top + text.bottom - stageBox.top - stageBox.bottom) / 2, scale);
-      stage.style.setProperty('--counter-text-width', `${fitted.width}px`);
-      stage.style.setProperty('--counter-text-height', `${fitted.height}px`);
-      stage.style.setProperty('--counter-art-size', `${bounds.diameter}px`);
-      stage.style.setProperty('--counter-feedback-width', `${bounds.width}px`);
-      stage.style.setProperty('--counter-feedback-top', `${stageBox.height / 2 + bounds.height * .42}px`);
-      const message = feedback.find(node => !node.hidden);
-      if (message) {
-        const bottom = (stageBox.top + stageBox.bottom + bounds.height) / 2;
-        const title = readout.querySelector('.counter-mode').getBoundingClientRect();
-        const context = readout.querySelector('.counter-context').getBoundingClientRect();
-        for (const [index, band] of feedbackBands(stageBox, cards, bottom).entries()) {
-          stage.style.setProperty('--counter-feedback-width', `${band.width}px`);
-          const height = message.getBoundingClientRect().height;
-          const top = index === 0 ? Math.max(band.top, context.bottom + 8) : band.top;
-          const end = index === 0 ? band.bottom : Math.min(band.bottom, title.top - 8);
-          if (height <= end - top) {
-            const center = index === 0 ? end - height / 2 : top + height / 2;
-            stage.style.setProperty('--counter-feedback-top', `${center - stageBox.top}px`);
-            break;
-          }
-          stage.style.setProperty('--counter-feedback-width', `${bounds.width}px`);
-        }
-      }
+      const fitted = fitReadoutBounds(bounds, (text.left + text.right - art.left - art.right) / 2,
+        (text.top + text.bottom) / 2 - art.top - textCenterY, scale);
+      assembly.style.setProperty('--counter-text-width', `${fitted.width}px`);
+      assembly.style.setProperty('--counter-text-height', `${fitted.height}px`);
+      assembly.style.setProperty('--counter-feedback-top', `${feedbackCenterY}px`);
     } else {
-      for (const name of ['--counter-text-width', '--counter-text-height', '--counter-art-size',
-        '--counter-feedback-width', '--counter-feedback-top']) stage.style.removeProperty(name);
+      stage.style.removeProperty('--button-art-room');
+      for (const name of buttonTextProperties) assembly.style.removeProperty(name);
     }
     value.style.setProperty('--dial-glyph-x', '0px');
     value.style.setProperty('--dial-glyph-y', '0px');
@@ -132,8 +111,9 @@ export function createDialLayout(game, value) {
       // Authored offsets remain meaningful; fit the ink around that intended
       // center, rather than scaling or clearing the skin's translation.
       const width = Math.max(1, 2 * Math.min(x - text.left, text.right - x) - 4);
-      const height = Math.max(1, 2 * Math.min(y - title.bottom - 6, context.top - 6 - y));
-      const fit = inkFitScale(metrics, width / valueScale, Math.min(text.height * .36, height) / valueScale);
+      const captionGap = Math.max(2, Math.min(6, text.height * .05));
+      const height = Math.max(1, 2 * Math.min(y - title.bottom - captionGap, context.top - y - captionGap));
+      const fit = inkFitScale(metrics, width / valueScale, Math.min(text.height * .48, height) / valueScale);
       value.style.setProperty('--counter-ink-fit', String(fit));
       style = getComputedStyle(value);
       metrics = measure(style);
@@ -219,8 +199,8 @@ export function createDialLayout(game, value) {
     }
   };
   const update = () => {
-    const active = !game.hidden && game.dataset.interfaceStyle === 'dial';
-    document.body.classList.toggle('dial-layout', active);
+    document.body.classList.toggle('dial-layout', !game.hidden && game.dataset.interfaceStyle === 'dial');
+    document.body.classList.toggle('button-layout', !game.hidden && game.dataset.interfaceStyle === 'button');
     if (game.hidden) return;
     value.style.setProperty('--dial-digit-factor', String(Math.max(1, String(value.value).length / 2)));
     if (frame !== null) return;
