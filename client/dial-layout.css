@@ -8,7 +8,7 @@ body.dial-layout .brand { flex: 1; min-width: 0; gap: 0; }
 body.dial-layout .brand strong { min-width: 0; overflow: hidden; font-size: clamp(1rem, 4.6vw, 1.35rem); letter-spacing: .03em; text-overflow: ellipsis; }
 body.dial-layout .brand small { display: none; }
 body.dial-layout .connection-pill { flex: none; min-height: 34px; padding: 5px 8px; font-size: .625rem; }
-#gameView[data-interface-style="dial"] { --counter-seal-anchor-y: -50%; --appearance-life-number-transform-scale: 1; display: flex; flex: 1; flex-direction: column; gap: clamp(3px, .7dvh, 8px); max-width: 720px; min-height: 0; margin-inline: auto; padding: 0 12px; }
+#gameView[data-interface-style="dial"] { --dial-page-padding: 12px; --dial-safe-left: env(safe-area-inset-left, 0px); --dial-safe-right: env(safe-area-inset-right, 0px); --counter-seal-anchor-y: -50%; --appearance-life-number-transform-scale: 1; display: flex; flex: 1; flex-direction: column; gap: clamp(3px, .7dvh, 8px); max-width: 720px; min-height: 0; margin-inline: auto; padding: 0 var(--dial-page-padding); }
 #gameView[data-interface-style="dial"] > * { flex-shrink: 0; }
 #gameView[data-interface-style="dial"] .game-topline { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; min-height: 44px; margin: 0; padding: 0; }
 #gameView[data-interface-style="dial"] .game-identity { grid-column: 2; grid-row: 1; justify-self: stretch; min-width: 0; padding: 0; }
@@ -35,7 +35,15 @@ body.dial-layout .connection-pill { flex: none; min-height: 34px; padding: 5px 8
 .dial-assembly, .dial-face { display: contents; }
 #gameView { --counter-seal-anchor-y: -50%; --appearance-life-number-transform-scale: 1; }
 #gameView .counter-stage::before, #gameView .counter-stage::after { content: none; }
-#gameView[data-interface-style="dial"] .dial-assembly { position: absolute; top: 50%; left: 50%; display: block; width: min(calc(100cqi - 12px), 100cqb, 400px); height: min(calc(100cqi - 12px), 100cqb, 400px); transform: translate(-50%, -50%); container-type: size; }
+/* At the symbols' height, leave a 44px tap target beyond the 6px rotary rim.
+   Use the larger safe inset so the dial stays centered with space on both sides. */
+#gameView[data-interface-style="dial"] .dial-assembly {
+  --dial-side-gutter: calc(44px + 6px + max(var(--dial-safe-left), var(--dial-safe-right)));
+  --dial-diameter: min(calc(100cqi - 2 * (var(--dial-side-gutter) - var(--dial-page-padding))), 100cqb, 400px);
+  position: absolute; top: 50%; left: 50%; display: block;
+  width: var(--dial-diameter); height: var(--dial-diameter);
+  transform: translate(-50%, -50%); container-type: size;
+}
 /* A rotated square can enlarge a mobile viewport even when its visible art
    is circular. Contain only decoration; text and controls keep full bounds. */
 #gameView .dial-face { position: absolute; inset: 0; display: block; overflow: clip; overflow-clip-margin: 6px; }
@@ -107,7 +115,7 @@ body.dial-layout .connection-pill { flex: none; min-height: 34px; padding: 5px 8
 #gameView[data-interface-style="button"] .counter-mode { gap: 0; white-space: normal; overflow-wrap: anywhere; text-align: center; }
 #gameView[data-interface-style="button"] .counter-mode::before, #gameView[data-interface-style="button"] .counter-mode::after { content: none; }
 #gameView[data-interface-style="button"] #modeTitle { min-width: 0; max-width: 100%; }
-#gameView[data-interface-style="dial"] .dial-controls { --dial-safe-left: env(safe-area-inset-left, 0px); --dial-safe-right: env(safe-area-inset-right, 0px); position: absolute; z-index: 5; inset: 0; width: 100%; height: 100%; min-height: 0; transform: none; pointer-events: none; }
+#gameView[data-interface-style="dial"] .dial-controls { position: absolute; z-index: 5; inset: 0; width: 100%; height: 100%; min-height: 0; transform: none; pointer-events: none; }
 #gameView[data-interface-style="dial"] .dial-gesture { position: absolute; z-index: 0; inset: 0; width: 100%; height: 100%; min-height: 0; border-radius: 50%; background: transparent; transform: none; cursor: grab; pointer-events: auto; touch-action: none; user-select: none; }
 #gameView[data-interface-style="dial"] .dial-gesture::before { content: ""; position: absolute; inset: -6px; border-radius: 50%; pointer-events: auto; }
 #gameView[data-interface-style="dial"] .dial-gesture.dragging { cursor: grabbing; }
