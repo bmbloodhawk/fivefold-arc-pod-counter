@@ -25,10 +25,10 @@ export function buttonTextRegion(artwork, sideCards, controlTop = Infinity) {
 
 // Keep the circle near the middle of the corridor while preserving a
 // centered readout above the nearest control and any feedback.
-export function centeredButtonCircle(corridor, textHeight, feedbackHeight) {
+export function centeredButtonCircle(corridor, textHeight, feedbackHeight, preferredReadoutHeight = 64) {
   const { top, bottom, width } = corridor;
   const clearBottom = top + Math.max(1, textHeight - feedbackHeight);
-  const readoutHalf = Math.min(32, (clearBottom - top) / 2);
+  const readoutHalf = Math.min(preferredReadoutHeight, clearBottom - top) / 2;
   const centerY = Math.min((top + bottom) / 2, clearBottom - readoutHalf);
   const radius = Math.max(.5, Math.min(width / 2, centerY - top, bottom - centerY));
   return { centerY, diameter: radius * 2, readoutHeight: 2 * Math.min(radius, clearBottom - centerY) };
@@ -96,7 +96,11 @@ export function createDialLayout(game, value) {
       assembly.style.setProperty('--counter-feedback-width', region.width + 'px');
       const message = feedback.find(node => !node.hidden);
       const feedbackHeight = Math.max(18, message?.getBoundingClientRect().height || 0);
-      const circle = centeredButtonCircle(corridor, region.height, feedbackHeight);
+      // Commander gets a taller centered readout as room opens above the
+      // source and turn controls. The smallest layouts keep the usual minimum.
+      const preferredReadoutHeight = game.dataset.counterMode === 'commander'
+        ? Math.min(128, Math.max(64, region.height - feedbackHeight - 36)) : undefined;
+      const circle = centeredButtonCircle(corridor, region.height, feedbackHeight, preferredReadoutHeight);
       assembly.style.setProperty('--button-circle-center-y', (circle.centerY - stageBox.top) + 'px');
       assembly.style.setProperty('--button-circle-diameter', circle.diameter + 'px');
       const art = assembly.getBoundingClientRect();

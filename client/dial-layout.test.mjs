@@ -26,6 +26,11 @@ test('Button circle and readout share a center next to controls', () => {
     { centerY: 262, diameter: 124, readoutHeight: 64 });
 });
 
+test('a taller Button readout keeps the same center as the resized circle', () => {
+  assert.deepEqual(centeredButtonCircle({ top: 200, bottom: 510, width: 320 }, 197, 18, 128),
+    { centerY: 315, diameter: 230, readoutHeight: 128 });
+});
+
 test('ink fitting protects wide totals and tall or enlarged skin fonts without enlarging text', () => {
   assert.equal(inkFitScale({ actualBoundingBoxLeft: 0, actualBoundingBoxRight: 220,
     actualBoundingBoxAscent: 90, actualBoundingBoxDescent: 10 }, 110, 50), .5);

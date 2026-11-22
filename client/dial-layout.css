@@ -89,6 +89,7 @@ body:is(.dial-layout, .button-layout) .connection-pill { flex: none; min-height:
   --counter-number-fluid: 50cqi; --counter-number-height: 55cqb;
   transform: translate(-50%, -50%);
 }
+#gameView[data-interface-style="button"][data-counter-mode="commander"] .counter-readout { --counter-number-height: 75cqb; }
 #gameView[data-interface-style="button"] :is(.life-change-indicator, .status-message) { pointer-events: none; }
 /* Size the font itself for Studio scaling. Scaling the translate(-50%)
    transform would also scale its centering translation and move the number. */
