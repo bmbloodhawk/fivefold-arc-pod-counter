@@ -77,15 +77,14 @@ body:is(.dial-layout, .button-layout) .connection-pill { flex: none; min-height:
   align-content: center; justify-content: space-between; pointer-events: none;
 }
 #gameView[data-interface-style="button"] .dial-assembly {
-  --button-art-size: min(calc(100cqi - 2 * var(--button-art-gutter)),
-    calc(var(--button-art-room, 100cqb) - 2 * var(--button-art-gutter)));
-  position: absolute; top: calc(var(--button-art-room, 100cqb) / 2); left: 50%; display: block;
+  --button-art-size: var(--button-circle-diameter, min(100cqi, 100cqb));
+  position: absolute; top: var(--button-circle-center-y, 50%); left: 50%; display: block;
   width: var(--button-art-size); height: var(--button-art-size);
   transform: translate(-50%, -50%);
 }
 #gameView[data-interface-style="button"] .dial-face { pointer-events: none; }
 #gameView[data-interface-style="button"] .counter-readout {
-  inset: auto; top: var(--counter-text-center-y, 50%); left: 50%;
+  inset: auto; top: 50%; left: 50%;
   width: var(--counter-text-width, 100%); height: var(--counter-text-height, 100%);
   --counter-number-fluid: 50cqi; --counter-number-height: 55cqb;
   transform: translate(-50%, -50%);
@@ -144,6 +143,7 @@ body:is(.dial-layout, .button-layout) .connection-pill { flex: none; min-height:
   background: radial-gradient(ellipse at center in oklab, rgb(5 4 3 / .7) 0%, rgb(5 4 3 / .4) 35%, rgb(5 4 3 / .12) 60%, transparent 80%);
 }
 #gameView[data-interface-style="button"] .counter-mode { top: min(15%, max(4px, calc(25% - 7px))); gap: 0; white-space: normal; overflow-wrap: anywhere; text-align: center; }
+#gameView[data-interface-style="button"] .counter-readout .main-value { top: 50%; }
 #gameView[data-interface-style="button"] .counter-context { top: min(86%, calc(100% - .5em)); }
 #gameView[data-interface-style="button"] .counter-mode::before, #gameView[data-interface-style="button"] .counter-mode::after { content: none; }
 #gameView[data-interface-style="button"] #modeTitle { min-width: 0; max-width: 100%; }

@@ -112,9 +112,8 @@ try {
           assert.deepEqual(initialIssues, [], 'initial portrait view fits with readable text and reachable controls');
           const { ink, readout, face } = initial;
           const near = (a, b) => assert.ok(Math.abs(a - b) < .6, `${a} vs ${b}`);
-          near(ink.x + ink.width / 2, readout.x + readout.width / 2);
-          near(ink.y + ink.height / 2, readout.y + readout.height * .478);
-          near(readout.x + readout.width / 2, face.x + face.width / 2);
+          near(ink.x + ink.width / 2, face.x + face.width / 2);
+          near(ink.y + ink.height / 2, face.y + face.height / 2);
           assert.ok(readout.y >= face.y - 1 && readout.bottom <= face.bottom + 1,
             'readout stays in artwork while reserving space above End Turn');
           for (const box of await page.locator('#adjustControls button').evaluateAll(nodes =>

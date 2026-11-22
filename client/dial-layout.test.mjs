@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { glyphCenterCorrection, buttonTextRegion, fitReadoutBounds, inkFitScale, createDialLayout } from './dial-layout.js';
+import { glyphCenterCorrection, buttonTextRegion, centeredButtonCircle, fitReadoutBounds, inkFitScale, createDialLayout } from './dial-layout.js';
 
 test('an authored readout scale and offset retain their center inside the same protected gap', () => {
   const bounds = fitReadoutBounds({ width: 166, height: 226 }, 14, -14, 1.4);
@@ -14,6 +14,16 @@ test('Button readout uses the clear region even when artwork extends behind card
     { top: 286, bottom: 341, left: 239, right: 308 }];
   assert.deepEqual(buttonTextRegion(art, cards, 330), { width: 150, height: 126 });
   assert.deepEqual(buttonTextRegion(art, [], 400), { width: 182, height: 190 });
+});
+
+test('Button circle uses the full corridor when centered text fits', () => {
+  assert.deepEqual(centeredButtonCircle({ top: 200, bottom: 400, width: 180 }, 194, 18),
+    { centerY: 300, diameter: 180, readoutHeight: 152 });
+});
+
+test('Button circle and readout share a center next to controls', () => {
+  assert.deepEqual(centeredButtonCircle({ top: 200, bottom: 410, width: 284 }, 112, 18),
+    { centerY: 262, diameter: 124, readoutHeight: 64 });
 });
 
 test('ink fitting protects wide totals and tall or enlarged skin fonts without enlarging text', () => {

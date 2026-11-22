@@ -23,6 +23,17 @@ export function buttonTextRegion(artwork, sideCards, controlTop = Infinity) {
   return { width: Math.max(1, halfWidth * 2), height: Math.max(1, bottom - artwork.top) };
 }
 
+// Keep the circle near the middle of the corridor while preserving a
+// centered readout above the nearest control and any feedback.
+export function centeredButtonCircle(corridor, textHeight, feedbackHeight) {
+  const { top, bottom, width } = corridor;
+  const clearBottom = top + Math.max(1, textHeight - feedbackHeight);
+  const readoutHalf = Math.min(32, (clearBottom - top) / 2);
+  const centerY = Math.min((top + bottom) / 2, clearBottom - readoutHalf);
+  const radius = Math.max(.5, Math.min(width / 2, centerY - top, bottom - centerY));
+  return { centerY, diameter: radius * 2, readoutHeight: 2 * Math.min(radius, clearBottom - centerY) };
+}
+
 export function inkFitScale(metrics, width, height) {
   return Math.min(1, width / (metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight || 1),
     height / (metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent || 1));
@@ -50,6 +61,8 @@ export function createDialLayout(game, value) {
   const sideButtons = [game.querySelector('.dial-step-minus'), game.querySelector('.dial-step-plus')];
   const sideLabels = [game.querySelector('.dial-step-minus-label'), game.querySelector('.dial-step-plus-label')];
   const feedback = [...game.querySelectorAll('#lifeChangeIndicator, #statusMessage')];
+  const buttonGeometryProperties = ['--button-circle-center-y', '--button-circle-diameter',
+    '--counter-text-width', '--counter-text-height', '--counter-feedback-width', '--counter-feedback-top'];
   const visibleRects = selector => [...game.querySelectorAll(selector)]
     .filter(node => node.getClientRects().length && getComputedStyle(node).visibility !== 'hidden')
     .map(node => node.getBoundingClientRect());
@@ -69,32 +82,35 @@ export function createDialLayout(game, value) {
       captionMinHeight = 0;
       stage.style.removeProperty('--counter-caption-min-height');
     }
-    const buttonTextProperties = ['--counter-text-width', '--counter-text-height', '--counter-text-center-y',
-      '--counter-feedback-width', '--counter-feedback-top'];
     if (button) {
       const stageBox = stage.getBoundingClientRect();
-      const adjust = visibleRects('#adjustControls')[0];
-      stage.style.setProperty('--button-art-room', `${Math.max(0, (adjust?.top ?? stageBox.bottom) - stageBox.top)}px`);
-      const art = assembly.getBoundingClientRect();
+      const adjustment = visibleRects('#adjustControls')[0];
+      const gutter = parseFloat(getComputedStyle(stage).getPropertyValue('--button-art-gutter')) || 6;
+      const turnBanner = visibleRects('#turnBanner')[0];
+      const top = (turnBanner?.bottom ?? stageBox.top) + gutter;
+      const bottom = Math.max(top + 1, (adjustment?.top ?? stageBox.bottom) - gutter);
+      const corridor = { top, bottom, left: stageBox.left + gutter, right: stageBox.right - gutter,
+        width: Math.max(1, stageBox.width - 2 * gutter) };
       const controlTop = Math.min(...visibleRects('#turnActions, #sourcePanel, #adjustControls').map(rect => rect.top));
-      const region = buttonTextRegion(art, visibleRects('#sideSeats .pod-seat'), controlTop);
-      assembly.style.setProperty('--counter-feedback-width', `${region.width}px`);
+      const region = buttonTextRegion(corridor, visibleRects('#sideSeats .pod-seat'), controlTop);
+      assembly.style.setProperty('--counter-feedback-width', region.width + 'px');
       const message = feedback.find(node => !node.hidden);
       const feedbackHeight = Math.max(18, message?.getBoundingClientRect().height || 0);
-      const bounds = { width: region.width, height: Math.max(1, region.height - feedbackHeight) };
-      const textCenterY = bounds.height / 2;
-      const feedbackCenterY = Math.max(0, region.height - feedbackHeight / 2);
-      assembly.style.setProperty('--counter-text-center-y', `${textCenterY}px`);
+      const circle = centeredButtonCircle(corridor, region.height, feedbackHeight);
+      assembly.style.setProperty('--button-circle-center-y', (circle.centerY - stageBox.top) + 'px');
+      assembly.style.setProperty('--button-circle-diameter', circle.diameter + 'px');
+      const art = assembly.getBoundingClientRect();
+      const bounds = { width: region.width, height: circle.readoutHeight };
       const text = readout.getBoundingClientRect();
       const scale = text.width / parseFloat(getComputedStyle(readout).width) || 1;
       const fitted = fitReadoutBounds(bounds, (text.left + text.right - art.left - art.right) / 2,
-        (text.top + text.bottom) / 2 - art.top - textCenterY, scale);
-      assembly.style.setProperty('--counter-text-width', `${fitted.width}px`);
-      assembly.style.setProperty('--counter-text-height', `${fitted.height}px`);
-      assembly.style.setProperty('--counter-feedback-top', `${feedbackCenterY}px`);
+        (text.top + text.bottom - art.top - art.bottom) / 2, scale);
+      assembly.style.setProperty('--counter-text-width', fitted.width + 'px');
+      assembly.style.setProperty('--counter-text-height', fitted.height + 'px');
+      const feedbackCenterY = top + region.height - feedbackHeight / 2 - art.top;
+      assembly.style.setProperty('--counter-feedback-top', feedbackCenterY + 'px');
     } else {
-      stage.style.removeProperty('--button-art-room');
-      for (const name of buttonTextProperties) assembly.style.removeProperty(name);
+      for (const property of buttonGeometryProperties) assembly.style.removeProperty(property);
     }
     value.style.setProperty('--dial-glyph-x', '0px');
     value.style.setProperty('--dial-glyph-y', '0px');
@@ -113,7 +129,8 @@ export function createDialLayout(game, value) {
       const width = Math.max(1, 2 * Math.min(x - text.left, text.right - x) - 4);
       const captionGap = Math.max(2, Math.min(6, text.height * .05));
       const height = Math.max(1, 2 * Math.min(y - title.bottom - captionGap, context.top - y - captionGap));
-      const fit = inkFitScale(metrics, width / valueScale, Math.min(text.height * .48, height) / valueScale);
+      const circleWidth = Math.max(1, assembly.getBoundingClientRect().width - 8);
+      const fit = inkFitScale(metrics, Math.min(width, circleWidth) / valueScale, Math.min(text.height * .48, height) / valueScale);
       value.style.setProperty('--counter-ink-fit', String(fit));
       style = getComputedStyle(value);
       metrics = measure(style);

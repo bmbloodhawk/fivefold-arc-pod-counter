@@ -283,7 +283,7 @@ test('the life readout stays together and the tax action cannot overlap custom l
   assert.match(styles, /\.custom-life-button, \.commander-tax-quick \{ margin-top: 2px; \}/);
   assert.match(styles, /A turn adds one action, not a different screen/);
   assert.match(styles, /\.game-shell\[data-your-turn="true"\] \.counter-stage \{ min-height: 318px; margin-top: 0; margin-bottom: 0; \}/);
-  assert.match(dialStyles, /#gameView\[data-interface-style="button"\] \.dial-assembly \{[^}]*--button-art-size: min\(calc\(100cqi[^}]*var\(--button-art-room, 100cqb\)/);
+  assert.match(dialStyles, /#gameView\[data-interface-style="button"\] \.dial-assembly \{[^}]*--button-art-size: var\(--button-circle-diameter[^}]*top: var\(--button-circle-center-y, 50%\)/);
   assert.match(styles, /\.game-shell\[data-your-turn="true"\] \.commander-tax-quick \{ transform: none; margin-bottom: 0; \}/);
 });
 
