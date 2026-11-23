@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { runInNewContext } from 'node:vm';
 import { tournamentTableFlow } from './tournament-table-flow.mjs';
+import { renderSeatOrder } from './seat-order.js';
 
 const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
 
@@ -27,7 +28,7 @@ function intermission({ capacity = 8, claimed = 2, host = true, local = false, t
     tournamentRoundButton: element('tournamentRoundButton'), returnToTournamentButton: element('returnToTournamentButton'),
     dom, state, commanderSetupDraft: null, pendingNextGameSetup: false, nextGameConfirmation: null, transport: { seatId: host ? 0 : 1, status: 'connected' },
     turnPlayer: () => state.players[0], renderEliminationUndo: () => ({}),
-    syncTableOrderControls() {},
+    syncTableOrderControls() {}, renderSeatOrder, skipNextGameSeat() {}, moveNextGameSeat() {},
     displayName: player => player.name, escapeHtml: value => value,
     $: element, interfaceStyle: 'dial', cueMode: () => 'off',
     deviceTurnCuesEnabled: () => false, turnSound: () => 'single-ding', touchFeedbackEnabled: () => false,

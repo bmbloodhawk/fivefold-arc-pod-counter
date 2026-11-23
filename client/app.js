@@ -19,6 +19,7 @@ import { bindDialSideTaps } from './dial-side-zones.js?v=2';
 import { bindDialTouchGuard } from './dial-touch-guard.js?v=1';
 import { nextGameStarterPolicy } from './next-game-starter.js?v=1';
 import { tournamentTableFlow } from './tournament-table-flow.mjs?v=1';
+import { renderSeatOrder } from './seat-order.js?v=1';
 
 const appearancePreviewMode = new URLSearchParams(location.search).get('appearance-preview') === '1';
 const appearanceParams = new URLSearchParams(location.search);
@@ -1693,23 +1694,14 @@ function renderTurnFlow() {
   dom.lobbyControls.hidden = isStarted || isIntermission || isComplete;
   dom.intermissionPanel.hidden = !showPostgame;
   if (!showPostgame) dom.intermissionInvite.open = false;
-  const renderSeatOrder = (container, rosterIds, { intermission = false } = {}) => {
-    const readyIds = state.lifecycle?.readySeatIds || [];
-    const isHost = state.localSimulation || transport.seatId === state.hostSeatId;
-    container.innerHTML = rosterIds.map((seatId, position) => {
-      const player = state.players.find(item => item.id === `P${seatId + 1}`);
-      const ready = readyIds.includes(seatId);
-      const skip = intermission && isHost && seatId !== state.hostSeatId ? `<button type="button" class="text-action" data-skip-next-seat="${seatId}">Remove</button>` : '';
-      const move = isHost ? `<span class="intermission-move"><button type="button" class="text-action" data-move-seat="${seatId}" data-direction="-1" ${position === 0 ? 'disabled' : ''} aria-label="Move ${escapeHtml(displayName(player))} earlier">↑</button><button type="button" class="text-action" data-move-seat="${seatId}" data-direction="1" ${position === rosterIds.length - 1 ? 'disabled' : ''} aria-label="Move ${escapeHtml(displayName(player))} later">↓</button></span>` : '';
-      const status = intermission ? (ready ? 'Ready' : 'Waiting for ready') : 'Table order';
-      return `<div class="intermission-seat"><span><strong>P${seatId + 1} · ${escapeHtml(displayName(player))}</strong><small>${status}</small></span><span class="intermission-actions">${move}${skip}</span></div>`;
-    }).join('');
-    container.querySelectorAll('[data-skip-next-seat]').forEach(button => button.addEventListener('click', () => void skipNextGameSeat(Number(button.dataset.skipNextSeat))));
-    container.querySelectorAll('[data-move-seat]').forEach(button => button.addEventListener('click', () => void moveNextGameSeat(Number(button.dataset.moveSeat), Number(button.dataset.direction))));
+  const seatOrderOptions = {
+    players: state.players, readyIds: state.lifecycle?.readySeatIds || [],
+    isHost, hostSeatId: state.hostSeatId, displayName, escapeHtml,
+    onSkipSeat: skipNextGameSeat, onMoveSeat: moveNextGameSeat,
   };
   const lobbyRosterIds = state.lifecycle?.seatIds || [];
   dom.lobbyRoster.hidden = lobbyRosterIds.length < 2 || isIntermission || isComplete;
-  if (!dom.lobbyRoster.hidden) renderSeatOrder(dom.lobbyRoster, lobbyRosterIds);
+  if (!dom.lobbyRoster.hidden) renderSeatOrder(dom.lobbyRoster, lobbyRosterIds, seatOrderOptions);
   if (showPostgame) {
     const rosterIds = state.lifecycle?.seatIds || [];
     const readyIds = state.lifecycle?.readySeatIds || [];
@@ -1723,7 +1715,7 @@ function renderTurnFlow() {
     dom.intermissionInvite.hidden = !isHost || !canAddPlayer || !canShareJoin;
     if (dom.intermissionInvite.hidden) dom.intermissionInvite.open = false;
     dom.intermissionInviteCode.textContent = state.podCode;
-    renderSeatOrder(dom.intermissionRoster, rosterIds, { intermission: true });
+    renderSeatOrder(dom.intermissionRoster, rosterIds, { ...seatOrderOptions, intermission: true });
     dom.intermissionReadyButton.hidden = !rosterIds.includes(ownSeatId);
     dom.intermissionSetupButton.hidden = !rosterIds.includes(ownSeatId) || youAreReady;
     dom.intermissionSetupButton.disabled = pendingNextGameSetup || (!state.localSimulation && transport.status !== 'connected');

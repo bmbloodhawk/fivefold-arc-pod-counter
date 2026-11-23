@@ -3,10 +3,11 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { runInNewContext } from 'node:vm';
 
-const [app, page, transport] = await Promise.all([
+const [app, page, transport, seatOrder] = await Promise.all([
   readFile(new URL('./app.js', import.meta.url), 'utf8'),
   readFile(new URL('./index.html', import.meta.url), 'utf8'),
   readFile(new URL('./realtime.js', import.meta.url), 'utf8'),
+  readFile(new URL('./seat-order.js', import.meta.url), 'utf8'),
 ]);
 
 test('next-game setup is a distinct ready state with host start controls', () => {
@@ -16,7 +17,9 @@ test('next-game setup is a distinct ready state with host start controls', () =>
   assert.match(app, /dom\.intermissionReadyButton\.addEventListener\('click', \(\) => void setNextGameReady\(\)\)/);
   assert.match(page, /id="nextGameConfirmDialog"/);
   assert.match(page, /id="lobbyRoster"/);
-  assert.match(app, /data-move-seat/);
+  assert.match(seatOrder, /data-move-seat/);
+  assert.match(app, /renderSeatOrder\(dom\.lobbyRoster, lobbyRosterIds, seatOrderOptions\)/);
+  assert.match(app, /renderSeatOrder\(dom\.intermissionRoster, rosterIds, \{ \.\.\.seatOrderOptions, intermission: true \}\)/);
   assert.match(app, /async function moveNextGameSeat\(seatId, direction\)/);
   assert.match(app, /async function confirmNextGameStart\(\)/);
   assert.match(app, /await transport\.refreshRoom\(\)/);
