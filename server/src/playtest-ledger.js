@@ -200,17 +200,35 @@ export class FirebasePlaytestLedger {
     const notes = new Map();
     for (const item of Object.values(playtests)) {
       const recap = item?.recap || {};
-      const reviews = item?.feedback || {};
       for (const note of Object.values(item?.notes || {})) {
         if (!note?.noteId) continue;
-        notes.set(note.noteId, { ...note, ...(reviews[note.noteId] || {}), roomCode: note.roomCode || recap.roomCode, authorName: note.authorName || recap.players?.find((player) => player.seatId === note.authorSeatId)?.name || `P${Number(note.authorSeatId) + 1}` });
+        notes.set(note.noteId, { ...note, roomCode: note.roomCode || recap.roomCode, authorName: note.authorName || recap.players?.find((player) => player.seatId === note.authorSeatId)?.name || `P${Number(note.authorSeatId) + 1}` });
       }
       for (const note of recap.notes || []) {
         if (!note?.noteId) continue;
-        notes.set(note.noteId, { ...note, ...(reviews[note.noteId] || {}), roomCode: note.roomCode || recap.roomCode, authorName: note.authorName || recap.players?.find((player) => player.seatId === note.authorSeatId)?.name || `P${Number(note.authorSeatId) + 1}` });
+        notes.set(note.noteId, { ...note, roomCode: note.roomCode || recap.roomCode, authorName: note.authorName || recap.players?.find((player) => player.seatId === note.authorSeatId)?.name || `P${Number(note.authorSeatId) + 1}` });
       }
     }
-    return [...notes.values()].sort((a, b) => b.createdAt - a.createdAt);
+    // A later game recap can carry the original note. Apply its latest review
+    // once, after deduplication, without replacing the note's original context.
+    const reviews = new Map();
+    for (const [gameId, item] of Object.entries(playtests)) {
+      for (const [noteId, review] of Object.entries(item?.feedback || {})) {
+        const note = notes.get(noteId);
+        if (!note || !review || typeof review !== 'object' || (review.noteId && review.noteId !== noteId)) continue;
+        const updatedAt = Number.isFinite(review.updatedAt) ? review.updatedAt : 0;
+        const originalGame = gameId === note.gameId;
+        const previous = reviews.get(noteId);
+        if (!previous || updatedAt > previous.updatedAt || (updatedAt === previous.updatedAt
+          && (originalGame && !previous.originalGame || originalGame === previous.originalGame && gameId < previous.gameId))) {
+          reviews.set(noteId, { review, updatedAt, originalGame, gameId });
+        }
+      }
+    }
+    return [...notes.values()].map(note => {
+      const review = reviews.get(note.noteId)?.review;
+      return review ? { ...note, status: review.status, ownerNote: review.ownerNote, updatedAt: review.updatedAt } : note;
+    }).sort((a, b) => b.createdAt - a.createdAt);
   }
   async listFieldTests() {
     const records = await this.read("field-tests.json") || {};
@@ -227,7 +245,7 @@ export class FirebasePlaytestLedger {
     if (!playtest) return null;
     return diagnosticDetail(gameId, playtest);
   }
-  async updateFeedback(review) { this.enqueue(`playtests/${encodeURIComponent(review.gameId)}/feedback/${encodeURIComponent(review.noteId)}.json`, review); await this.flush(); }
+  async updateFeedback(review) { await this.enqueue(`playtests/${encodeURIComponent(review.gameId)}/feedback/${encodeURIComponent(review.noteId)}.json`, review); }
 
   enqueue(path, body, key = path) {
     const reportFailure = (error) => this.logger.error("Fivefold Arc playtest ledger write failed", error);
