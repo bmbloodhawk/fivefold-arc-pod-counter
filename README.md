@@ -16,7 +16,14 @@ An installable phone-first web prototype for synced Commander pods. Each phone o
 
 ## Run on this computer
 
-Requires Node.js 20 or newer.
+Requires Node.js 24.x, matching the package engines and automated test check.
+
+On a fresh checkout, install both locked dependency sets. Browser assets are checked in, so installation scripts are unnecessary; skipping them also avoids the dice package's interactive postinstall.
+
+```text
+npm ci --ignore-scripts
+npm ci --prefix server --ignore-scripts
+```
 
 ```text
 npm start
@@ -24,7 +31,13 @@ npm start
 
 Open `http://localhost:8787`. Phones on the same Wi-Fi can use the computer's LAN address while the server is running and the firewall permits it. The app and API are served from one origin.
 
-Run automated server tests with `npm test`. Run the adversarial live suite using the instructions in `qa/README.md`.
+Run automated server and client tests with `npm test`. Run the adversarial live suite using the instructions in `qa/README.md`.
+
+## Automated test check
+
+`.github/workflows/tests.yml` defines a Node 24 test job on Ubuntu for pull requests targeting `main` or `staging`, pushes to `main`, `staging`, or `codex/**`, and manual runs. It installs both lockfiles and runs the existing `npm test` command with read-only repository permissions, no configured secrets, and no deployment steps. The check has no path filters, and newer runs cancel obsolete runs for the same event and ref.
+
+The workflow reports test results. Making the check required before merging needs separate branch-protection or ruleset settings. Making Render wait for it also needs a separate deployment setting; this workflow does not configure either. The existing card-index refresh remains unchanged: its `GITHUB_TOKEN` commits do not trigger a second push workflow automatically. See [GitHub's workflow trigger rules](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
 
 ## Local card identity lookup
 
