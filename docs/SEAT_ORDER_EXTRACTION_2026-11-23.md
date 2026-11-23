@@ -10,4 +10,4 @@ Validation:
 - Direct renderer coverage replaces the copied-function harness. All 48 independent baseline/output comparisons matched; inverting the host-removal guard failed two tests.
 - Disposable localhost host/guest browser checks passed lobby/intermission reordering, readiness, permissions and the numeric removal callback. Browser error logs were empty. This is desktop browser evidence, not a new physical-phone certification.
 
-The change remains local until a separately authorized push/release.
+The extraction was published to staging as `2a3cfdb` on November 23. The production release was not advanced in that step.
