@@ -1,0 +1,22 @@
+/* Artwork is clipped inside a decorative child. Parent focus outlines and the
+   existing state/award layers remain intact, and no control geometry changes. */
+html[data-renderer-version="2"] [data-surface-art] { isolation: isolate; }
+html[data-renderer-version="2"] :is([data-surface-art="turnBar"], [data-surface-art="gameDialog"], [data-surface-art="resultHeader"]) { position: relative; }
+html[data-renderer-version="2"] [data-surface-art] > .appearance-surface-art {
+  position: absolute; inset: 0; z-index: -1;
+  display: block; overflow: hidden; border-radius: inherit;
+  pointer-events: none; user-select: none;
+}
+/* The existing winner-copy element fills the result screen. Decorate only its
+   heading band, leaving the winner scene and collection award panels visible. */
+html[data-renderer-version="2"] [data-surface-art="resultHeader"] > .appearance-surface-art { inset-block: 29%; }
+html[data-renderer-version="2"] .appearance-surface-art > img {
+  position: absolute; inset: 0; display: block;
+  inline-size: 100%; block-size: 100%; max-inline-size: none;
+  object-fit: var(--surface-art-fit, cover);
+  object-position: var(--surface-art-position, 50% 50%);
+  transform: scale(var(--surface-art-scale, 1));
+  opacity: var(--surface-art-opacity, .2);
+  pointer-events: none;
+}
+@media (forced-colors: active) { .appearance-surface-art { display: none !important; } }

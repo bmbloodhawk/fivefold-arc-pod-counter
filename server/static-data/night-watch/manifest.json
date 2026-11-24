@@ -1,0 +1,848 @@
+{
+  "skin": {
+    "id": "skin-8d464cbe-0dd5-4010-87eb-937dcced76eb",
+    "name": "Aurora Observatory · Night Watch",
+    "edited": "Nov 23",
+    "background": "#081528",
+    "surface": "#102a40",
+    "accent": "#c9ffea",
+    "secondary": "#aab6ff",
+    "text": "#f2faf8",
+    "muted": "#c0d6e2",
+    "atmosphere": "dark",
+    "atmosphereColor": "#70a97a",
+    "atmosphereStrength": 35,
+    "atmospherePosition": "top",
+    "backgroundTreatment": "plain",
+    "backgroundAsset": "asset-21a727dc-d09c-409f-a2d3-f704c913702e",
+    "backgroundScale": 100,
+    "backgroundPositionX": 50,
+    "backgroundPositionY": 50,
+    "ring": "arc",
+    "sealAsset": "",
+    "buttonTreatment": "solid",
+    "buttonOpacity": 100,
+    "buttonBlur": 0,
+    "buttonBorder": 70,
+    "lifeButtonOpacity": 100,
+    "lifeButtonBlur": 0,
+    "lifeButtonBorder": 70,
+    "customLifeOpacity": 100,
+    "customLifeBlur": 0,
+    "customLifeBorder": 70,
+    "commanderTaxOpacity": 100,
+    "commanderTaxBlur": 0,
+    "commanderTaxBorder": 70,
+    "commanderDamageOpacity": 100,
+    "commanderDamageBlur": 0,
+    "commanderDamageBorder": 70,
+    "seatTreatment": "glass",
+    "seatOpacity": 100,
+    "seatBlur": 0,
+    "seatBorder": 70,
+    "symbols": {
+      "life": "♥",
+      "commander": "♜",
+      "radiation": "☢",
+      "poison": "☠",
+      "energy": "ϟ",
+      "generic": "◇"
+    },
+    "symbolAssets": {},
+    "symbolScale": {
+      "life": 100,
+      "commander": 100,
+      "radiation": 100,
+      "poison": 100,
+      "energy": 100,
+      "generic": 100
+    },
+    "interfaceStyle": "dial",
+    "fontFamily": "robotoCondensed",
+    "labelTextScale": 100,
+    "seatTextScale": 100,
+    "seatRadius": 8,
+    "buttonRadius": 8,
+    "counterOffsetY": 0,
+    "turnOffsetY": 0,
+    "controlsOffsetY": 0,
+    "centerSealScale": 100,
+    "centerSealOffsetX": 0,
+    "centerSealOffsetY": 0,
+    "lifeNumberScale": 100,
+    "lifeNumberOffsetX": 0,
+    "lifeNumberOffsetY": 0,
+    "dialArtSpin": false,
+    "componentLayout": {
+      "podStrip": {
+        "x": 0,
+        "y": 0,
+        "scale": 100
+      },
+      "counterReadout": {
+        "x": 0,
+        "y": 0,
+        "scale": 100
+      },
+      "dialSurface": {
+        "x": 0,
+        "y": 0,
+        "scale": 100
+      },
+      "turnActions": {
+        "x": 0,
+        "y": 0,
+        "scale": 100
+      },
+      "adjustControls": {
+        "x": 0,
+        "y": 0,
+        "scale": 100
+      },
+      "customLife": {
+        "x": 0,
+        "y": 0,
+        "scale": 100
+      },
+      "commanderTax": {
+        "x": 0,
+        "y": 0,
+        "scale": 100
+      },
+      "commanderDamage": {
+        "x": 0,
+        "y": 0,
+        "scale": 100
+      },
+      "modeNav": {
+        "x": 0,
+        "y": 0,
+        "scale": 100
+      }
+    },
+    "overlays": {
+      "seat": "",
+      "counter": "",
+      "dial": ""
+    },
+    "overlayOpacity": {
+      "seat": 35,
+      "counter": 28,
+      "dial": 30
+    },
+    "overlayScale": {
+      "seat": 100,
+      "counter": 100,
+      "dial": 100
+    },
+    "overlayBlend": {
+      "seat": "normal",
+      "counter": "screen",
+      "dial": "screen"
+    },
+    "modeLayouts": {
+      "button": {
+        "labelTextScale": 100,
+        "seatTextScale": 100,
+        "seatRadius": 8,
+        "buttonRadius": 8,
+        "counterOffsetY": 0,
+        "turnOffsetY": 0,
+        "controlsOffsetY": 0,
+        "centerSealScale": 100,
+        "centerSealOffsetX": 0,
+        "centerSealOffsetY": 0,
+        "dialArtSpin": false,
+        "componentLayout": {
+          "podStrip": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "counterReadout": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "dialSurface": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "turnActions": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "adjustControls": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "customLife": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "commanderTax": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "commanderDamage": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "modeNav": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          }
+        },
+        "overlays": {
+          "seat": "",
+          "counter": "",
+          "dial": ""
+        },
+        "overlayOpacity": {
+          "seat": 35,
+          "counter": 28,
+          "dial": 30
+        },
+        "overlayScale": {
+          "seat": 100,
+          "counter": 100,
+          "dial": 100
+        },
+        "overlayBlend": {
+          "seat": "normal",
+          "counter": "screen",
+          "dial": "screen"
+        },
+        "lifeNumberScale": 100,
+        "lifeNumberOffsetX": 0,
+        "lifeNumberOffsetY": 0,
+        "seatGap": 8
+      },
+      "dial": {
+        "labelTextScale": 100,
+        "seatTextScale": 100,
+        "seatRadius": 8,
+        "buttonRadius": 8,
+        "counterOffsetY": 0,
+        "turnOffsetY": 0,
+        "controlsOffsetY": 0,
+        "centerSealScale": 100,
+        "centerSealOffsetX": 0,
+        "centerSealOffsetY": 0,
+        "dialArtSpin": false,
+        "componentLayout": {
+          "podStrip": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "counterReadout": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "dialSurface": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "turnActions": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "adjustControls": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "customLife": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "commanderTax": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "commanderDamage": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "modeNav": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          }
+        },
+        "overlays": {
+          "seat": "",
+          "counter": "",
+          "dial": ""
+        },
+        "overlayOpacity": {
+          "seat": 35,
+          "counter": 28,
+          "dial": 30
+        },
+        "overlayScale": {
+          "seat": 100,
+          "counter": 100,
+          "dial": 100
+        },
+        "overlayBlend": {
+          "seat": "normal",
+          "counter": "screen",
+          "dial": "screen"
+        },
+        "lifeNumberScale": 100,
+        "lifeNumberOffsetX": 0,
+        "lifeNumberOffsetY": 0,
+        "seatGap": 8
+      }
+    },
+    "tokens": {
+      "schemaVersion": 1,
+      "color": {
+        "canvas": "#081528",
+        "surface": "#102a40",
+        "text": "#f2faf8",
+        "textMuted": "#c0d6e2",
+        "accentPrimary": "#c9ffea",
+        "accentSecondary": "#aab6ff",
+        "atmosphere": "#70a97a",
+        "success": "#89e9ba",
+        "warning": "#ffdc94",
+        "danger": "#ffb0ae",
+        "focus": "#f9da9c",
+        "border": "#61869a"
+      },
+      "typography": {
+        "family": "robotoCondensed",
+        "weight": 600,
+        "lineHeight": 1.2,
+        "letterSpacing": 0,
+        "textTransform": "none",
+        "labelAlignment": "inherit",
+        "textEffect": "none"
+      },
+      "effects": {
+        "backgroundTreatment": "plain",
+        "buttonTreatment": "solid",
+        "seatTreatment": "glass"
+      },
+      "components": {
+        "button": {
+          "opacity": 100,
+          "blur": 0,
+          "border": 70
+        },
+        "lifeButton": {
+          "opacity": 100,
+          "blur": 0,
+          "border": 70
+        },
+        "customLife": {
+          "opacity": 100,
+          "blur": 0,
+          "border": 70
+        },
+        "commanderTax": {
+          "opacity": 100,
+          "blur": 0,
+          "border": 70
+        },
+        "commanderDamage": {
+          "opacity": 100,
+          "blur": 0,
+          "border": 70
+        },
+        "seat": {
+          "opacity": 100,
+          "blur": 0,
+          "border": 70
+        }
+      }
+    },
+    "fontWeight": 600,
+    "lineHeight": 1.2,
+    "letterSpacing": 0,
+    "textTransform": "none",
+    "labelAlignment": "inherit",
+    "textEffect": "none",
+    "stateSuccess": "#89e9ba",
+    "stateWarning": "#ffdc94",
+    "stateDanger": "#ffb0ae",
+    "focusColor": "#f9da9c",
+    "componentColors": {
+      "endTurn": {
+        "background": "#17494f",
+        "text": "#e6fff3",
+        "border": "#94d9c7"
+      },
+      "lifeButtons": {
+        "background": "#153549",
+        "text": "#f2faf8",
+        "border": "#567e8f"
+      },
+      "playerCards": {
+        "background": "#19374b",
+        "text": "#f2faf8",
+        "border": "#588799"
+      },
+      "navigation": {
+        "background": "#0d2338",
+        "text": "#c0d6e2",
+        "border": "#486477",
+        "selectedText": "#9bf1d7",
+        "selectedBorder": "#e3ba81"
+      }
+    },
+    "rendererVersion": 2,
+    "counterDesign": {
+      "navigationIcons": "native",
+      "modes": {
+        "life": {
+          "accent": "#a1f5d6",
+          "surface": "#0f2d39",
+          "text": "#f6faf2",
+          "face": "rings",
+          "markings": "ticks",
+          "seal": "none",
+          "artAsset": "asset-f4d9d41e-ebe5-44d1-b0a9-796cb2d819e3",
+          "artOpacity": 55,
+          "artScale": 100
+        },
+        "commander": {
+          "accent": "#f0c183",
+          "surface": "#302a37",
+          "text": "#f6faf2",
+          "face": "rings",
+          "markings": "none",
+          "seal": "none",
+          "artAsset": "asset-3896a84f-2a18-4206-8591-7501358cb559",
+          "artOpacity": 55,
+          "artScale": 100
+        },
+        "radiation": {
+          "accent": "#e9ee96",
+          "surface": "#24323c",
+          "text": "#f6faf2",
+          "face": "rings",
+          "markings": "none",
+          "seal": "none",
+          "artAsset": "asset-4c1011e6-4176-4adb-b856-bfcb5a7857e1",
+          "artOpacity": 55,
+          "artScale": 100
+        },
+        "poison": {
+          "accent": "#b2ed9b",
+          "surface": "#133530",
+          "text": "#f6faf2",
+          "face": "rings",
+          "markings": "none",
+          "seal": "none",
+          "artAsset": "asset-6ff4613a-6039-459b-809b-9ca651fa11c5",
+          "artOpacity": 55,
+          "artScale": 100
+        },
+        "energy": {
+          "accent": "#8ce0ff",
+          "surface": "#0f2c49",
+          "text": "#f6faf2",
+          "face": "rings",
+          "markings": "none",
+          "seal": "none",
+          "artAsset": "asset-b96d50db-8c95-4f1a-a82e-ebef8fce2263",
+          "artOpacity": 55,
+          "artScale": 100
+        },
+        "generic": {
+          "accent": "#d7bbfc",
+          "surface": "#272841",
+          "text": "#f6faf2",
+          "face": "rings",
+          "markings": "none",
+          "seal": "none",
+          "artAsset": "asset-cc1d61ff-047e-4c6f-b215-77c55ca6f5e9",
+          "artOpacity": 55,
+          "artScale": 100
+        }
+      }
+    },
+    "variants": {
+      "numerals": "tabular",
+      "dial": "native",
+      "counterMode": "underlined",
+      "navigation": "framed",
+      "commander": "accent",
+      "panels": "native"
+    },
+    "borderColor": "#61869a",
+    "canvasDesign": {
+      "fill": "radial",
+      "endColor": "#162944",
+      "lightX": 72,
+      "lightY": 23,
+      "pattern": "stars",
+      "patternColor": "#fce0ad",
+      "strength": 10,
+      "spacing": 54,
+      "frame": "corners",
+      "frameColor": "#e8bf85",
+      "frameStrength": 54,
+      "flourish": "glints",
+      "flourishColor": "#98f6da",
+      "flourishStrength": 16,
+      "flourishPeriod": 48,
+      "artShade": 20
+    },
+    "sceneDesign": {
+      "ownTurn": {
+        "tint": "#63b39f",
+        "strength": 4
+      },
+      "otherTurn": {
+        "tint": "#8574bd",
+        "strength": 7
+      },
+      "lobby": {
+        "tint": "#36799e",
+        "strength": 6
+      },
+      "warning": {
+        "tint": "#9d6a39",
+        "strength": 6
+      },
+      "eliminated": {
+        "tint": "#9a5266",
+        "strength": 5
+      },
+      "complete": {
+        "tint": "#dca965",
+        "strength": 9,
+        "edge": "double",
+        "edgeColor": "#efd299"
+      },
+      "offline": {
+        "tint": "#53677e",
+        "strength": 7
+      }
+    },
+    "surfaceDesign": {
+      "surfaces": {
+        "playerCards": {
+          "fill": {
+            "kind": "linear",
+            "color": "#183e51",
+            "color2": "#10283d",
+            "angle": 142
+          },
+          "ink": "#f0faf7",
+          "accent": "#a6f3d9",
+          "border": {
+            "color": "#7ea5af",
+            "width": 1
+          },
+          "radii": {
+            "topLeft": 14,
+            "topRight": 3,
+            "bottomRight": 14,
+            "bottomLeft": 3
+          },
+          "shadow": "soft",
+          "typography": {
+            "label": {
+              "family": "robotoCondensed",
+              "weight": 600
+            },
+            "value": {
+              "family": "literata",
+              "weight": 600,
+              "shadow": "none"
+            }
+          }
+        },
+        "gameHeader": {
+          "fill": {
+            "kind": "solid",
+            "color": "#0b1b2c"
+          },
+          "ink": "#f4dab0",
+          "typography": {
+            "heading": {
+              "family": "cinzel",
+              "weight": 600
+            }
+          }
+        },
+        "turnBar": {
+          "fill": {
+            "kind": "linear",
+            "color": "#103b48",
+            "color2": "#10293e"
+          },
+          "ink": "#effaf7",
+          "muted": "#d1e1e9",
+          "accent": "#a3eed9",
+          "border": {
+            "color": "#99a995",
+            "width": 1
+          }
+        },
+        "readout": {
+          "typography": {
+            "value": {
+              "family": "literata",
+              "weight": 600,
+              "shadow": "none"
+            },
+            "label": {
+              "family": "cinzel",
+              "weight": 600
+            }
+          }
+        },
+        "navigation": {
+          "fill": {
+            "kind": "solid",
+            "color": "#0c2337"
+          },
+          "ink": "#c6d9e4",
+          "accent": "#a9f8d8",
+          "border": {
+            "color": "#7ea5af",
+            "width": 1
+          },
+          "typography": {
+            "label": {
+              "family": "robotoCondensed",
+              "weight": 600
+            }
+          }
+        },
+        "commanderTools": {
+          "fill": {
+            "kind": "linear",
+            "color": "#213345",
+            "color2": "#11263a",
+            "angle": 145
+          },
+          "ink": "#f0f9f5",
+          "border": {
+            "color": "#7ea5af",
+            "width": 1
+          },
+          "muted": "#c4d6e2"
+        },
+        "lifeControls": {
+          "fill": {
+            "kind": "linear",
+            "color": "#154151",
+            "color2": "#122c42",
+            "angle": 145
+          },
+          "ink": "#f0f9f5",
+          "border": {
+            "color": "#7ea5af",
+            "width": 1
+          },
+          "muted": "#c4d6e2"
+        },
+        "gameMenu": {
+          "fill": {
+            "kind": "linear",
+            "color": "#173246",
+            "color2": "#102338",
+            "angle": 145
+          },
+          "ink": "#f0f9f5",
+          "border": {
+            "color": "#7ea5af",
+            "width": 1
+          }
+        },
+        "dialogs": {
+          "fill": {
+            "kind": "linear",
+            "color": "#1c3547",
+            "color2": "#102239",
+            "angle": 145
+          },
+          "ink": "#f0f9f5",
+          "border": {
+            "color": "#7ea5af",
+            "width": 1
+          },
+          "muted": "#c4d6e2"
+        },
+        "inputs": {
+          "fill": {
+            "kind": "linear",
+            "color": "#193448",
+            "color2": "#0c1e31",
+            "angle": 145
+          },
+          "ink": "#f0f9f5",
+          "border": {
+            "color": "#7ea5af",
+            "width": 1
+          }
+        },
+        "lobby": {
+          "fill": {
+            "kind": "linear",
+            "color": "#173447",
+            "color2": "#122337",
+            "angle": 145
+          },
+          "ink": "#f0f9f5",
+          "border": {
+            "color": "#7ea5af",
+            "width": 1
+          },
+          "muted": "#c4d6e2",
+          "accent": "#a7efd7"
+        },
+        "results": {
+          "fill": {
+            "kind": "linear",
+            "color": "#283349",
+            "color2": "#12263c",
+            "angle": 145
+          },
+          "ink": "#f0f9f5",
+          "border": {
+            "color": "#7ea5af",
+            "width": 1
+          },
+          "muted": "#c4d6e2",
+          "accent": "#a7efd7"
+        }
+      }
+    },
+    "tableDesign": {
+      "seatArrangement": "nameFirst",
+      "seatAlign": "center",
+      "turnMarker": "inset",
+      "ownerMarker": "dot",
+      "titleRule": "short",
+      "bannerMark": "double",
+      "navMark": "bar",
+      "stepMark": "rail",
+      "feedbackMark": "rail",
+      "turnAccent": "#9df5d9",
+      "ownerAccent": "#f0ca94"
+    },
+    "thumbnailAsset": "asset-dcafac13-ca5b-46a4-9074-6076c3670954",
+    "seatGap": 8,
+    "status": "Approved"
+  },
+  "assets": [
+    {
+      "id": "asset-21a727dc-d09c-409f-a2d3-f704c913702e",
+      "name": "Aurora Observatory — Polar Night",
+      "source": "Original generated artwork for Aurora Observatory. Local design review.",
+      "placement": "background",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 844,
+      "height": 1500,
+      "bytes": 177736,
+      "file": "polar-night.webp"
+    },
+    {
+      "id": "asset-dcafac13-ca5b-46a4-9074-6076c3670954",
+      "name": "Aurora Observatory — Summit",
+      "source": "Original generated artwork for Aurora Observatory. Local design review.",
+      "placement": "thumbnail",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 320,
+      "height": 320,
+      "bytes": 20046,
+      "file": "observatory.webp"
+    },
+    {
+      "id": "asset-f4d9d41e-ebe5-44d1-b0a9-796cb2d819e3",
+      "name": "Aurora Observatory — Polar Planisphere",
+      "source": "Original generated artwork for Aurora Observatory. Local design review.",
+      "placement": "dial",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 80510,
+      "file": "polar-planisphere.webp"
+    },
+    {
+      "id": "asset-3896a84f-2a18-4206-8591-7501358cb559",
+      "name": "Night Watch · Brass Compass",
+      "source": "Original generated engraving for Aurora Observatory Night Watch.",
+      "placement": "dial",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 492,
+      "height": 492,
+      "bytes": 59700,
+      "file": "brass-compass.webp"
+    },
+    {
+      "id": "asset-4c1011e6-4176-4adb-b856-bfcb5a7857e1",
+      "name": "Night Watch · Ion Orbits",
+      "source": "Original generated engraving for Aurora Observatory Night Watch.",
+      "placement": "dial",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 492,
+      "height": 492,
+      "bytes": 51458,
+      "file": "ion-orbits.webp"
+    },
+    {
+      "id": "asset-6ff4613a-6039-459b-809b-9ca651fa11c5",
+      "name": "Night Watch · Serpens",
+      "source": "Original generated engraving for Aurora Observatory Night Watch.",
+      "placement": "dial",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 492,
+      "height": 492,
+      "bytes": 57512,
+      "file": "serpens.webp"
+    },
+    {
+      "id": "asset-b96d50db-8c95-4f1a-a82e-ebef8fce2263",
+      "name": "Night Watch · Storm Collector",
+      "source": "Original generated engraving for Aurora Observatory Night Watch.",
+      "placement": "dial",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 492,
+      "height": 492,
+      "bytes": 52892,
+      "file": "storm-collector.webp"
+    },
+    {
+      "id": "asset-cc1d61ff-047e-4c6f-b215-77c55ca6f5e9",
+      "name": "Night Watch · Lunar Phases",
+      "source": "Original generated engraving for Aurora Observatory Night Watch.",
+      "placement": "dial",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 492,
+      "height": 492,
+      "bytes": 40976,
+      "file": "lunar-phases.webp"
+    }
+  ]
+}

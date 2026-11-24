@@ -51,7 +51,7 @@ function fixture({ active = 'P1', mode = 'life', format = 'commander', local = f
     selectedSourceFor: () => ({ ownerPlayerId: 'P1', commanderName: 'Krenko, Mob Boss' }),
     tablePositionLabel: player => player.id, currentValue: player => player.life,
     playerIdentity: () => ['R'], identityBackground: () => '', canReturnToSetup: () => false,
-    unlockedSkinChoices: () => [], tableSkinOptions: () => '', dialLayout: { update() {} },
+    unlockedSkinChoices: () => [], tableSkinOptions: () => '', dialLayout: { update() {} }, productionSkinRenderer: { refreshArt() {} },
     ...Object.fromEntries(['renderDeveloperTools', 'evaluatePlayer', 'localLastPlayerStanding', 'renderPodStrip',
       'renderSources', 'renderModeNav', 'renderSeatPicker', 'renderCoinTossNotice', 'renderVictory', 'syncGameWakeLock',
       'renderDeviceAppearanceChoice', 'renderCommanderTaxQuick', 'renderTurnFlow', 'renderCommanderTaxDialog', 'saveLocal'].map(name => [name, () => {}])),

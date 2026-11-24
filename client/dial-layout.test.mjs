@@ -107,9 +107,10 @@ function withDialLayout(run, { warningHeight = 0, visualViewport } = {}) {
     const factor = Number(value.style.getPropertyValue('--dial-digit-factor')) || 1;
     return rect(0, value.getBoundingClientRect().top + 52 / factor, 0, 0);
   } };
+  const fontEvents={};
   try {
     globalThis.document = { documentElement: { clientWidth: 320 }, createElement: tag => tag === 'canvas' ? { getContext: () => canvas } : probe,
-      body: { classList: { toggle() {} } }, fonts: { ready: { then() {} }, addEventListener() {} } };
+      body: { classList: { toggle() {} } }, fonts: { ready: { then(callback) { fontEvents.ready=callback; } }, addEventListener(name,callback) { fontEvents[name]=callback; } } };
     globalThis.getComputedStyle = node => node === value
       ? { fontStyle: 'normal', fontWeight: '400', fontSize: `${100 / (Number(value.style.getPropertyValue('--dial-digit-factor')) || 1)}px`,
         fontFamily: 'Georgia', fontKerning: 'auto', letterSpacing: 'normal', height: `${60 / (Number(value.style.getPropertyValue('--dial-digit-factor')) || 1)}px`,
@@ -120,7 +121,7 @@ function withDialLayout(run, { warningHeight = 0, visualViewport } = {}) {
     globalThis.ResizeObserver = class { observe() {} };
     globalThis.visualViewport = visualViewport;
     const layout = createDialLayout(game, value);
-    run({ value, readout, assembly, stage, feedback, control, minus, plus, minusLabel, plusLabel,
+    run({ game,fontEvents,value, readout, assembly, stage, feedback, control, minus, plus, minusLabel, plusLabel,
       update() { layout.update(); frame(); } });
   } finally {
     for (const [name, descriptor] of savedGlobals) {
@@ -143,6 +144,15 @@ test('changing digit shapes or digit count keeps the caption and feedback anchor
       assert.ok(Math.abs(sample.feedback - samples[0].feedback) < 1e-6, `${sample.total} keeps the same feedback/fade anchor`);
     }
   });
+});
+
+test('font events preserve old caption reserves and reset only selected new local readout fonts', () => {
+  for(const dataset of [{},{localFont:'serif'},{localFont:'cinzel'},{surfaceReadoutBodyFamily:'literata'}])withDialLayout(({game,fontEvents,stage,feedback,update})=>{
+    Object.assign(game.dataset,dataset);update();update();const reserve=stage.getBoundingClientRect().height;
+    feedback[0].hidden=true;fontEvents.loadingdone();update();
+    if(dataset.localFont==='cinzel'||dataset.surfaceReadoutBodyFamily==='literata')assert.ok(stage.getBoundingClientRect().height<reserve);
+    else assert.equal(stage.getBoundingClientRect().height,reserve);
+  },{warningHeight:120});
 });
 
 test('a tall warning stays clear of the following action and keeps its space after expiry', () => {

@@ -8,14 +8,14 @@ import { MemoryPlaytestLedger } from '../src/playtest-ledger.js';
 
 const HOUR = 3_600_000;
 
-async function fixture(t) {
+async function fixture(t, appearanceSkins = []) {
   let now = Date.UTC(2026, 10, 7, 12);
   const clock = () => now;
   const store = new MemoryAccountHistoryStore();
   const ledger = new MemoryPlaytestLedger();
   const accountHistory = new AccountHistory({ store, now: clock });
   const { server, service } = createRealtimeServer({
-    now: clock, connectionTtlMs: 24 * HOUR, ledger, accountHistory,
+    now: clock, connectionTtlMs: 24 * HOUR, ledger, accountHistory, appearanceSkins,
     accountVerifier: { async verify(token) {
       if (!token) throw Object.assign(new Error('Sign in'), { status: 401 });
       return { providerSubject: token };
@@ -66,6 +66,68 @@ async function fixture(t) {
   const history = async (token) => (await request('history', { token })).data.history;
   return { request, start, save, history, accountHistory, store, service, ledger, clock };
 }
+
+const nightWatch = { id: 'skin-8d464cbe-0dd5-4010-87eb-937dcced76eb', name: 'Aurora Observatory · Night Watch' };
+const nightShift = 'long-endurance-4';
+
+async function nightWatchChoice(f, token) {
+  const { status, data } = await f.request('preferences', { token });
+  assert.equal(status, 200);
+  const choice = data.skins?.find(skin => skin.id === nightWatch.id);
+  assert.equal(choice?.achievement.id, nightShift);
+  return choice;
+}
+
+test('Night Watch unlocks on the verified Night Shift award and announces it once', async t => {
+  const f = await fixture(t, [nightWatch]);
+  const equip = { personalSkinId: nightWatch.id, usePersonalSkin: true };
+  const game = f.start({ gameFormat: 'custom' });
+  for (let count = 1; count <= 20; count++) {
+    game.finish(count === 20 ? HOUR - 1 : HOUR);
+    const saved = await f.save(game);
+    assert.equal(saved.status, 201);
+    assert.ok(!saved.data.unlockedAchievements.some(award => award.id === nightShift));
+    game.startAgain();
+  }
+  assert.equal((await nightWatchChoice(f)).state, 'locked');
+  assert.equal((await f.request('preferences', { method: 'PUT', body: equip })).status, 403);
+
+  game.finish(HOUR);
+  const saved = await f.save(game);
+  assert.equal(saved.status, 201);
+  assert.deepEqual(saved.data.unlockedAchievements.filter(award => award.unlockedSkinName)
+    .map(award => [award.id, award.title, award.unlockedSkinName]), [[nightShift, 'Night Shift', nightWatch.name]]);
+  assert.deepEqual((await f.save(game)).data.unlockedAchievements, []);
+  assert.equal((await nightWatchChoice(f)).state, 'new');
+  assert.equal((await f.history()).achievements.filter(award => award.id === nightShift).length, 1);
+  assert.equal((await f.request('achievements/viewed', { body: { rarity: 'rare' } })).status, 200);
+  assert.equal((await nightWatchChoice(f)).state, 'unlocked');
+  assert.equal((await f.request('preferences', { method: 'PUT', body: equip })).status, 200);
+  assert.equal((await nightWatchChoice(f, 'another-player')).state, 'locked');
+});
+
+test('Night Watch is usable on the first collection read for both historical Night Shift record formats', async t => {
+  const f = await fixture(t, [nightWatch]);
+  const legacy = await f.accountHistory.ensureAccount('legacy-earner');
+  const legacyPath = 'account-history/accounts/' + legacy + '.json';
+  await f.store.update(legacyPath, account => ({
+    ...account, longTermAchievementIds: [nightShift], seenAchievementIds: [nightShift],
+  }));
+  const modern = await f.accountHistory.ensureAccount('verified-earner');
+  await f.store.write('account-history/verified-progress/' + modern + '.json', {
+    awards: { [nightShift]: { evidenceRemoved: true } },
+  });
+  for (const [token, state] of [['legacy-earner', 'unlocked'], ['verified-earner', 'new']]) {
+    assert.equal((await nightWatchChoice(f, token)).state, state);
+    assert.equal((await f.history(token)).gamesPlayed, 0);
+    const equipped = await f.request('preferences', {
+      token, method: 'PUT', body: { personalSkinId: nightWatch.id, usePersonalSkin: true },
+    });
+    assert.equal(equipped.status, 200);
+    assert.equal(equipped.data.preferences.personalSkinId, nightWatch.id);
+    assert.equal((await nightWatchChoice(f, token)).state, state);
+  }
+});
 
 test('only the server-recorded completed seat can create profile progression', async (t) => {
   const f = await fixture(t);

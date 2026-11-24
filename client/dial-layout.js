@@ -1,4 +1,5 @@
 import { dialSideZones } from './dial-side-zones.js?v=2';
+import { localFontKeys } from './appearance-fonts.js';
 
 // Canvas measures visible ink, rather than the font's advance/line box.
 // This keeps Georgia's descending numerals centered without per-digit nudges.
@@ -240,7 +241,13 @@ export function createDialLayout(game, value) {
   resizeObserver.observe(value);
   globalThis.visualViewport?.addEventListener('resize', update);
   globalThis.visualViewport?.addEventListener('scroll', update);
-  document.fonts.ready.then(update);
-  document.fonts.addEventListener('loadingdone', update);
+  // A late local face can change metrics while every CSS font property stays
+  // identical. Reset the caption reserve before measuring the actual glyphs.
+  const fontsChanged = () => {
+    if ([game.dataset.localFont,game.dataset.surfaceReadoutValueFamily,game.dataset.surfaceReadoutLabelFamily,game.dataset.surfaceReadoutBodyFamily].some(key=>localFontKeys.includes(key))) captionLayoutKey = null;
+    update();
+  };
+  document.fonts.ready.then(fontsChanged);
+  document.fonts.addEventListener('loadingdone', fontsChanged);
   return { update };
 }

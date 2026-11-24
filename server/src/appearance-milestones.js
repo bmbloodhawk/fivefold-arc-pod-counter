@@ -1,3 +1,5 @@
+export const NIGHT_WATCH_SKIN_ID = 'skin-8d464cbe-0dd5-4010-87eb-937dcced76eb';
+
 const milestones = [
   ["field-notes", "Field Journal", 10, "common"],
   ["rosewood", "Kitchen Table Regular", 20, "uncommon",

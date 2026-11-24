@@ -8,8 +8,7 @@ import { Tournaments } from './tournaments.js';
 import { competitionRoute } from './competition-http.js';
 import { extname, resolve, sep } from "node:path";
 import QRCode from "qrcode";
-import { APPEARANCE_ACHIEVEMENTS } from "./appearance-milestones.js";
-import { isAchievementSkin, isInvitationSkin } from "./appearance-collection.js";
+import { SKIN_ACHIEVEMENTS, isAchievementSkin, isInvitationSkin } from "./appearance-collection.js";
 import { activeGameDurationMs, NullPlaytestLedger, recapFromRoom } from "./playtest-ledger.js";
 import { TableDeviceActivity, normalizedTableDeviceId } from "./table-device-activity.js";
 import { ProductMeasurement } from "./product-measurement.js";
@@ -2192,7 +2191,7 @@ export function createRealtimeServer(options = {}) {
   };
   const earnedSkins = new Map((options.appearanceSkins ?? [])
     .filter(skin => isAchievementSkin(skin.id))
-    .map(skin => [skin.id, { ...skin, achievement: APPEARANCE_ACHIEVEMENTS[skin.id] }]));
+    .map(skin => [skin.id, { ...skin, achievement: SKIN_ACHIEVEMENTS[skin.id] }]));
   const skinNamesByAchievement = new Map([...earnedSkins.values()].map(skin => [skin.achievement.id, skin.name]));
   const appearanceAchievementIds = [...skinNamesByAchievement.keys()];
   const profileSkinChoices = async (accountId) => {

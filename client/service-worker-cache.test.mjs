@@ -9,6 +9,10 @@ const currentName = source.match(/const CACHE = '([^']+)'/)[1];
 const shell = [...source.match(/const APP_SHELL = \[([\s\S]*?)\];/)[1].matchAll(/'([^']+)'/g)].map(match => new URL(match[1], origin).href);
 const url = path => new URL(path, origin).href;
 
+test('the offline shell includes the shared production appearance renderer and validator', () => {
+  for (const path of ['./renderer-bridge.js?v=2','./appearance-validation.js','./renderer-theme.css?v=1']) assert.ok(shell.includes(url(path)), `${path} is available offline`);
+});
+
 function worker({ offline = false, quota = false, stores = new Map() } = {}) {
   const listeners = new Map();
   const requests = [];

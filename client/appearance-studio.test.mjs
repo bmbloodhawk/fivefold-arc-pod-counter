@@ -6,6 +6,7 @@ const root = new URL('./', import.meta.url);
 const studio = await readFile(new URL('appearance-studio.js', root), 'utf8');
 const devicePreview = await readFile(new URL('device-preview.js', root), 'utf8');
 const app = await readFile(new URL('app.js', root), 'utf8');
+const rendererCss = await readFile(new URL('renderer-theme.css', root), 'utf8');
 const html = await readFile(new URL('appearance-studio.html', root), 'utf8');
 
 test('Appearance Studio uses the isolated live renderer and recovers blocked embeds with an exact phone session', () => {
@@ -88,7 +89,7 @@ test('dial artwork can rotate with the dial and the Studio can open a shared pho
   assert.match(studio, /layout\.dialArtSpin = true/);
   assert.match(studio, /Spin this art with the dial/);
   assert.match(app, /appearance-dial-art/);
-  assert.match(app, /dial-gesture>\.skin-overlay/);
+  assert.match(rendererCss, /dial-gesture>\.skin-overlay/);
   assert.match(app, /dial-gesture>\.appearance-overlay/);
   assert.match(app, /transform-origin:50% 50%/);
   assert.match(app, /object-position:center/);
@@ -98,10 +99,10 @@ test('dial artwork can rotate with the dial and the Studio can open a shared pho
 });
 
 test('dial artwork keeps its full canvas for the overlay to frame', () => {
-  assert.match(app, /skin-overlay\{position:absolute;inset:0;z-index:2;[\s\S]*pointer-events:none;/);
+  assert.match(rendererCss, /skin-overlay\{position:absolute;inset:0;z-index:2;[\s\S]*pointer-events:none;/);
   assert.match(app, /appearance-overlay\{position:absolute;inset:0;z-index:2;[\s\S]*pointer-events:none;/);
   assert.match(app, /dial-gesture\{position:relative;overflow:visible;transform-origin:50% 50%\}/);
-  assert.match(app, /dial-gesture>\.skin-overlay\{border-radius:0;object-fit:contain;object-position:center;/);
+  assert.match(rendererCss, /dial-gesture>\.skin-overlay\{border-radius:0;object-fit:contain;object-position:center;/);
   assert.match(app, /dial-gesture>\.appearance-overlay\{border-radius:0;object-fit:contain;object-position:center;/);
 });
 

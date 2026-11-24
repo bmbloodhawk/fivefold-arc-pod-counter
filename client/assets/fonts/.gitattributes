@@ -1,0 +1,3 @@
+# Preserve the upstream notices, including their original line endings and spacing.
+*-OFL.txt -text whitespace=-blank-at-eol
+*-FONTLOG.txt -text whitespace=-blank-at-eol

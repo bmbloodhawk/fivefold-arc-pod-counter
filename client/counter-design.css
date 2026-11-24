@@ -1,0 +1,35 @@
+/* Opt-in decoration on the real game face. No target or layout dimensions. */
+html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-design="true"] .dial-face {
+  --counter-face-accent:var(--counter-design-accent,var(--brass));
+  --counter-face-surface:var(--counter-design-surface,transparent);
+}
+#gameView[data-counter-design="true"] :is(.counter-design-face,.counter-design-markings,.counter-design-emblem) {
+  position:absolute;inset:0;pointer-events:none;border-radius:50%;color:var(--counter-face-accent);
+  transform:rotate(var(--counter-art-rotation,var(--dial-seal-rotation,0deg)));
+  transition:transform 180ms cubic-bezier(.2,.8,.2,1);
+}
+#gameView[data-counter-design="true"] .counter-design-face {z-index:1;overflow:clip;background-color:var(--counter-face-surface)}
+#gameView[data-counter-face="rings"] .counter-design-face {background-image:radial-gradient(circle,transparent 0 28%,color-mix(in srgb,var(--counter-face-accent) 30%,transparent) 28.5% 29%,transparent 29.5% 43%,color-mix(in srgb,var(--counter-face-accent) 40%,transparent) 43.5% 44%,transparent 44.5% 60%,color-mix(in srgb,var(--counter-face-accent) 25%,transparent) 60.5% 61%,transparent 61.5%)}
+#gameView[data-counter-face="radial"] .counter-design-face {background-image:repeating-conic-gradient(from 30deg,color-mix(in srgb,var(--counter-face-accent) 14%,transparent) 0 28deg,transparent 28deg 60deg);box-shadow:inset 0 0 0 1px var(--counter-face-accent),inset 0 0 32px color-mix(in srgb,var(--counter-face-accent) 20%,transparent)}
+#gameView[data-counter-face="faceted"] .counter-design-face {background-image:repeating-conic-gradient(from 30deg,color-mix(in srgb,var(--counter-face-accent) 18%,transparent) 0 30deg,transparent 30deg 60deg),radial-gradient(circle,transparent 48%,color-mix(in srgb,var(--counter-face-accent) 20%,transparent) 49% 51%,transparent 52%);clip-path:polygon(50% 0,93.3% 25%,93.3% 75%,50% 100%,6.7% 75%,6.7% 25%)}
+#gameView[data-counter-design="true"] .counter-design-face img {width:100%;height:100%;object-fit:contain;opacity:var(--counter-design-art-opacity,.28);transform:scale(var(--counter-design-art-scale,1));pointer-events:none}
+#gameView[data-counter-design="true"] .counter-design-markings {z-index:3}
+#gameView[data-counter-markings="ticks"] .counter-design-markings {background:repeating-conic-gradient(from -1deg,currentColor 0 2deg,transparent 2deg 30deg);-webkit-mask:radial-gradient(circle,transparent 60%,#000 60.5% 63%,transparent 63.5%);mask:radial-gradient(circle,transparent 60%,#000 60.5% 63%,transparent 63.5%);opacity:.65}
+#gameView[data-counter-markings="runes"] .counter-design-markings span {position:absolute;top:50%;left:50%;font:clamp(.65rem,4cqi,1.1rem)/1 Georgia,serif;transform:translate(-50%,-50%) rotate(calc(var(--counter-rune-index) * 30deg)) translateY(-40cqi);opacity:.7}
+#gameView[data-counter-design="true"] .counter-design-emblem {inset:17%;z-index:2;opacity:.23}
+#gameView[data-counter-design="true"] .counter-design-emblem svg {width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:.65;stroke-linecap:round;stroke-linejoin:round}
+#gameView:is([data-counter-seal="mode"],[data-counter-seal="none"]) .counter-sigil {visibility:hidden}
+html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-design="true"][data-counter-accent="true"] .counter-mode {color:var(--counter-design-accent)}
+html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-design="true"][data-counter-text="true"] .main-value {color:var(--counter-design-text)}
+/* Replace the native dark scrim without changing its measured anchors or size.
+   Text itself gets an opaque plate so bright artwork cannot wash out the ink. */
+html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-caption-backing="surface"] :is(.counter-label-art-fade,.counter-mode-art-fade) {
+  background:radial-gradient(ellipse at center,var(--counter-design-caption-surface) 0 38%,color-mix(in srgb,var(--counter-design-caption-surface) 80%,transparent) 62%,transparent 84%);
+  filter:none;
+}
+html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-design="true"][data-counter-caption-backing="surface"] :is(.counter-mode,.counter-context) {
+  background:var(--counter-design-caption-surface);color:var(--counter-design-caption-text);
+  text-shadow:none;-webkit-text-stroke:0 transparent;box-shadow:0 0 0 2px var(--counter-design-caption-surface);opacity:1;
+}
+html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-design="true"][data-counter-caption-backing="surface"] .counter-mode {color:var(--counter-design-caption-accent)}
+@media (prefers-reduced-motion:reduce) {#gameView[data-counter-design="true"] :is(.counter-design-face,.counter-design-markings,.counter-design-emblem){transition:none}}

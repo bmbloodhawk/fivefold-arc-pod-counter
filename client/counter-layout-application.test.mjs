@@ -2,18 +2,17 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { runInNewContext } from 'node:vm';
+import { createRendererBridge } from './renderer-bridge.js';
+import { rendererDocument } from './test-support/renderer-document.mjs';
 
 const app = readFileSync(new URL('./app.js', import.meta.url), 'utf8');
 const functionSource = (name, next) => app.slice(app.indexOf(`function ${name}(`), app.indexOf(next, app.indexOf(`function ${name}(`)));
 
 function environment() {
-  const properties = new Map();
-  const root = { dataset: {}, classList: { add() {}, remove() {} }, hasAttribute: () => false,
-    removeAttribute() {}, style: { setProperty: (name, value) => properties.set(name, value),
-      removeProperty: name => properties.delete(name) } };
+  const { document,properties,game } = rendererDocument();
   const updates = [];
-  return { properties, updates, globals: { document: { documentElement: root, body: { style: {} }, querySelectorAll: () => [] },
-    dom: { game: { dataset: {}, removeAttribute() {} } }, $: () => null, baseModeNavMarkup: new Map(),
+  return { properties, updates, globals: { document,
+    dom: { game }, productionSkinRenderer: createRendererBridge(document),
     interfaceStyle: 'button', dialLayout: { update: () => updates.push(new Map(properties)) } } };
 }
 

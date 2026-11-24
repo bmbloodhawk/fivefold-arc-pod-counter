@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { createContext, runInContext, Script } from 'node:vm';
+import { createRendererBridge } from './renderer-bridge.js';
+import { rendererDocument } from './test-support/renderer-document.mjs';
 
 const app = (await readFile(new URL('./app.js', import.meta.url), 'utf8')).replace(/\r\n/g, '\n');
 const index = await readFile(new URL('./index.html', import.meta.url), 'utf8');
@@ -18,32 +20,17 @@ const source = ['counterModeLabel', 'renderModeNav', 'clearPublishedSkin', 'appl
   .map(sourceFunction).join('\n');
 
 function fixture({ style = 'dial', state = { mode: 'life', tableSkinId: '', localSimulation: false }, choice = '' } = {}) {
-  const buttons = new Map(), baseModeNavMarkup = new Map();
-  for (const match of index.matchAll(/<button\b[^>]*data-mode="([^"]+)"[^>]*>([\s\S]*?)<\/button>/g)) {
-    const [, mode, markup] = match;
-    baseModeNavMarkup.set(mode, markup);
-    let html = markup, label = { textContent: markup.match(/<small[^>]*>(.*?)<\/small>/)?.[1] || '' };
-    const attributes = new Map([...match[0].matchAll(/([\w-]+)="([^"]*)"/g)].map(([, key, value]) => [key, value]));
-    buttons.set(mode, { dataset: { mode }, classList: { toggle() {} },
-      setAttribute(name, value) { attributes.set(name, value); },
-      getAttribute(name) { return attributes.get(name); },
-      querySelector(selector) { return selector === 'small' ? label : null; },
-      get innerHTML() { return html.replace(/(<small[^>]*>).*?(<\/small>)/, `$1${label.textContent}$2`); },
-      set innerHTML(value) { html = value; label = { textContent: value.match(/<small[^>]*>(.*?)<\/small>/)?.[1] || '' }; },
-    });
-  }
-  const noOp = () => {}, seal = { innerHTML: '<svg>old skin</svg>' };
-  const context = createContext({ state, interfaceStyle: style, baseModeNavMarkup, baseSealMarkup: '<svg>base seal</svg>',
-    document: { documentElement: { hasAttribute: () => false, classList: { remove: noOp }, removeAttribute: noOp,
-      style: { removeProperty: noOp } }, body: { style: {} }, querySelectorAll: () => [] },
-    dom: { game: { removeAttribute: noOp } }, dialLayout: { update: noOp },
-    $: selector => selector === '.counter-sigil' ? seal : buttons.get(selector.match(/data-mode="([^"]+)"/)?.[1]),
-    $$: () => [...buttons.values()], activeGameSkinId: '', pendingGameSkinId: '', appearanceRequestGeneration: 0,
+  const rendered = rendererDocument(index);
+  const context = createContext({ state, interfaceStyle: style, document: rendered.document,
+    dom: { game: rendered.game }, dialLayout: { update() {} },
+    $: selector => rendered.document.querySelector(selector), $$: () => [...rendered.buttons.values()],
+    activeGameSkinId: '', pendingGameSkinId: '', appearanceRequestGeneration: 0,
     publishedSkins: [], unlockedSkinChoices: () => [], accountPreferences: null, stagingReviewSkins: [],
     deviceAppearanceChoice: () => choice,
   });
+  context.productionSkinRenderer = createRendererBridge(rendered.document,{ modeLabel: mode => context.counterModeLabel(mode) });
   runInContext(source, context);
-  return { context, buttons, seal, label: mode => buttons.get(mode).querySelector('small').textContent };
+  return { context, buttons:rendered.buttons, seal:rendered.seal, label: mode => rendered.buttons.get(mode).querySelector('small').textContent };
 }
 
 test('normal shared-state appearance clearing preserves Dial Rad after the preceding navigation render', async () => {

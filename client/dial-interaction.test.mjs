@@ -4,13 +4,17 @@ import test from 'node:test';
 
 const styles = fs.readFileSync(new URL('./styles.css', import.meta.url), 'utf8');
 const dialStyles = fs.readFileSync(new URL('./dial-layout.css', import.meta.url), 'utf8');
+const skinStyles = fs.readFileSync(new URL('./renderer-theme.css', import.meta.url), 'utf8');
+const enhancedSkinStyles = skinStyles.split('/* Released v1 production CSS.')[0];
 const app = fs.readFileSync(new URL('./app.js', import.meta.url), 'utf8');
 const index = fs.readFileSync(new URL('./index.html', import.meta.url), 'utf8');
 
 test('dial taps and dragging keep separate accessible input routes', () => {
   assert.match(index, /id="dialControls"[^>]*role="group"[^>]*aria-label="Dial counter controls"/);
   assert.match(index, /id="dialGesture"[^>]*role="slider"[^>]*tabindex="0"/);
-  assert.match(app, /#gameView \.dial-gesture\{position:absolute;z-index:1;overflow:visible;transform-origin:50% 50%\}/);
+  assert.match(dialStyles, /#gameView\[data-interface-style="dial"\] \.dial-gesture\s*\{[^}]*position: absolute/);
+  assert.doesNotMatch(enhancedSkinStyles, /\.dial-gesture\s*\{[^}]*position:/);
+  assert.match(skinStyles, /data-renderer-version="1"\] #gameView \.dial-gesture\{position:absolute/);
   assert.match(app, /event\.target\.closest\('\[data-delta\]'\)/);
   assert.match(app, /bindDialSideTaps\(dom\.dialControls, delta => \{ void adjust\(delta\); \}\)/);
   assert.match(app, /dom\.dialGesture\.addEventListener\('keydown'/);

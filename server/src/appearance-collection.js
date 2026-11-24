@@ -1,8 +1,16 @@
 import { readFile } from "node:fs/promises";
 import { decodeStagingAppearancePack } from "../../client/staging-appearance-review.js";
-import { APPEARANCE_ACHIEVEMENTS } from "./appearance-milestones.js";
+import { APPEARANCE_ACHIEVEMENTS, NIGHT_WATCH_SKIN_ID } from "./appearance-milestones.js";
+import { NIGHT_SHIFT_ACHIEVEMENT } from "./account-history.js";
 
-export const isAchievementSkin = id => Object.hasOwn(APPEARANCE_ACHIEVEMENTS, id);
+// Night Shift is already awarded by the endurance track. Both old and new
+// earners use that recorded award directly when opening their skin collection.
+export const SKIN_ACHIEVEMENTS = Object.freeze({
+  ...APPEARANCE_ACHIEVEMENTS,
+  [NIGHT_WATCH_SKIN_ID]: NIGHT_SHIFT_ACHIEVEMENT,
+});
+
+export const isAchievementSkin = id => Object.hasOwn(SKIN_ACHIEVEMENTS, id);
 
 export const isInvitationSkin = id => [
   "skin-1790476356864", // Fractured
@@ -15,5 +23,5 @@ export async function loadAppearanceSkins({ path, key }) {
   // Browser review links expire separately. Released art is served only
   // after the account's achievement or the table's authorized share is checked.
   const { skins } = await decodeStagingAppearancePack(await readFile(path), key);
-  return skins.filter(skin => isAchievementSkin(skin.id));
+  return skins.filter(skin => Object.hasOwn(APPEARANCE_ACHIEVEMENTS, skin.id));
 }

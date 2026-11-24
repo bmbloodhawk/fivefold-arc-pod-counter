@@ -1,0 +1,108 @@
+/* Each selector requires a validated, explicitly selected cosmetic option. */
+html.game-skin-active:has(#gameView[data-canvas-layers]) body {
+  /* Old background art is inline. The compiled list includes that same vetted
+     image along with the new fill, pattern, position and shade. */
+  background-image: var(--design-canvas-images) !important;
+  background-size: var(--design-canvas-sizes) !important;
+  background-position: var(--design-canvas-positions) !important;
+  background-repeat: var(--design-canvas-repeats);
+}
+html.game-skin-active:has(#gameView[data-canvas-pattern]) body::before { content: none; }
+html.game-skin-active #gameView[data-canvas-frame]::before {
+  content: ''; position: absolute; pointer-events: none; inset: 0 1px; z-index: 0;
+  color: var(--design-frame-color);
+}
+#gameView[data-canvas-frame="ruled"]::before { border-inline: 1px solid currentColor; }
+#gameView[data-canvas-frame="double"]::before { border-inline: 3px double currentColor; }
+#gameView[data-canvas-frame="corners"]::before {
+  --frame-side: linear-gradient(currentColor,currentColor);
+  background: var(--frame-side) left top / 22px 1px, var(--frame-side) right top / 22px 1px,
+    var(--frame-side) left bottom / 22px 1px, var(--frame-side) right bottom / 22px 1px,
+    var(--frame-side) left top / 1px 22px, var(--frame-side) right top / 1px 22px,
+    var(--frame-side) left bottom / 1px 22px, var(--frame-side) right bottom / 1px 22px;
+  background-repeat: no-repeat;
+}
+html.game-skin-active #gameView[data-design-table-width] { max-width: var(--design-width); }
+html.game-skin-active #gameView[data-design-side-gutter] { --dial-page-padding: var(--design-gutter); }
+html.game-skin-active #gameView[data-design-row-gap] { --game-region-gap: var(--design-row-gap); }
+html.game-skin-active #gameView[data-design-seat-arrangement] .pod-seat { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+html.game-skin-active #gameView[data-design-seat-arrangement="numberFirst"] .pod-seat .seat-name { order: 2; }
+html.game-skin-active #gameView[data-design-seat-arrangement="numberFirst"] .pod-seat .seat-life { margin: 0 0 3px; }
+html.game-skin-active #gameView[data-design-seat-align] .pod-seat :is(.seat-name,.seat-life) { width: 100%; }
+html.game-skin-active #gameView[data-design-seat-align="start"] .pod-seat :is(.seat-name,.seat-life) { text-align: start; padding-inline-start: 3px; }
+html.game-skin-active #gameView[data-design-seat-align="end"] .pod-seat :is(.seat-name,.seat-life) { text-align: end; padding-inline-end: 3px; }
+html.game-skin-active #gameView[data-design-seat-align="center"] .pod-seat :is(.seat-name,.seat-life) { text-align: center; }
+html.game-skin-active #gameView[data-design-turn-marker="edge"] .pod-seat.turn-active { box-shadow: inset 3px 0 var(--design-turn-accent,var(--brass)); }
+html.game-skin-active #gameView[data-design-turn-marker="double"] .pod-seat.turn-active:not(:focus-visible) { outline: 3px double var(--design-turn-accent,var(--brass)); outline-offset: -4px; }
+html.game-skin-active #gameView[data-design-turn-marker="inset"] .pod-seat.turn-active { box-shadow: inset 0 0 0 2px var(--design-turn-accent,var(--brass)); }
+html.game-skin-active #gameView[data-design-owner-marker="underline"] .pod-seat.is-owner .seat-name { text-decoration: underline 2px var(--design-owner-accent,var(--brass)); text-underline-offset: 2px; }
+html.game-skin-active #gameView[data-design-owner-marker="dot"] .pod-seat.is-owner .seat-name::before { content:''; display:inline-block; width:.38em; height:.38em; border-radius:50%; background:var(--design-owner-accent,var(--brass)); vertical-align:middle; margin-inline-end:.25em; }
+html.game-skin-active #gameView[data-design-banner-mark="rail"] .turn-banner { box-shadow:inset 3px 0 var(--design-turn-accent,var(--brass)); }
+html.game-skin-active #gameView[data-design-banner-mark="double"] .turn-banner { outline:3px double var(--design-turn-accent,var(--brass)); outline-offset:-3px; }
+html.game-skin-active #gameView[data-design-banner-mark="ticket"] .turn-banner { border-inline:3px dotted var(--design-turn-accent,var(--brass)); }
+html.game-skin-active #gameView[data-design-nav-mark="bar"] .mode-nav button.active { box-shadow: inset 0 -3px currentColor; }
+html.game-skin-active #gameView[data-design-nav-mark="keyline"] .mode-nav button.active { box-shadow:inset 0 0 0 1px currentColor; }
+html.game-skin-active #gameView[data-design-nav-mark="pill"] .mode-nav button.active small { border:1px solid currentColor; border-radius:12px; padding-inline:3px; }
+html.game-skin-active #gameView[data-design-step-mark="rail"] .adjust-controls button { box-shadow: inset 0 -2px currentColor; }
+html.game-skin-active #gameView[data-design-step-mark="dotted"] .adjust-controls button { border-bottom:2px dotted currentColor; }
+html.game-skin-active #gameView[data-design-feedback-mark="rail"] :is(#statusMessage,#disconnectBanner,#syncBanner,#inspectionNotice) { box-shadow:inset 3px 0 currentColor; }
+html.game-skin-active #gameView[data-design-feedback-mark="double"] :is(#statusMessage,#disconnectBanner,#syncBanner,#inspectionNotice) { outline:3px double currentColor; outline-offset:-3px; }
+html.game-skin-active #gameView[data-design-feedback-mark="dashed"] :is(#statusMessage,#disconnectBanner,#syncBanner,#inspectionNotice) { outline:1px dashed currentColor; outline-offset:-1px; }
+html.game-skin-active #gameView[data-design-title-rule="plain"] .pod-label::before,
+html.game-skin-active #gameView[data-design-title-rule="plain"] .pod-label::after { opacity:0; }
+html.game-skin-active #gameView[data-design-title-rule="short"] .pod-label::before,
+html.game-skin-active #gameView[data-design-title-rule="short"] .pod-label::after { max-width:18%; }
+html.game-skin-active #gameView[data-design-title-rule="double"] .pod-label::before,
+html.game-skin-active #gameView[data-design-title-rule="double"] .pod-label::after { height:4px; background:none; border-block:1px solid var(--brass); }
+/* Small decorative edge marks stay outside the controls and never receive input. */
+html.game-skin-active #gameView[data-canvas-flourish]::after {
+  content:'';position:absolute;inset:2px 1px;z-index:0;pointer-events:none;
+  color:var(--design-flourish-color);opacity:var(--design-flourish-opacity);
+  background-repeat:no-repeat;
+}
+#gameView[data-canvas-flourish="pulse"]::after {
+  background-image:radial-gradient(ellipse at top left,currentColor,transparent 68%),radial-gradient(ellipse at bottom right,currentColor,transparent 68%);
+  background-size:42px 18px;background-position:left top,right bottom;
+}
+#gameView[data-canvas-flourish="runners"]::after {
+  background-image:linear-gradient(transparent,currentColor,transparent),linear-gradient(transparent,currentColor,transparent);
+  background-size:2px 54px;background-position:left 18%,right 82%;
+}
+#gameView[data-canvas-flourish="glints"]::after {
+  background-image:radial-gradient(ellipse,currentColor,transparent 65%),radial-gradient(ellipse,currentColor,transparent 65%);
+  background-size:16px 4px;background-position:left 12% top,right 12% bottom;
+}
+@media (prefers-reduced-motion:no-preference) {
+  #gameView[data-canvas-flourish="pulse"]::after,#gameView[data-canvas-flourish="glints"]::after {animation:studio-edge-breathe var(--design-flourish-period) ease-in-out infinite alternate;}
+  #gameView[data-canvas-flourish="runners"]::after {animation:studio-edge-travel var(--design-flourish-period) ease-in-out infinite alternate;}
+}
+@keyframes studio-edge-breathe {from{opacity:calc(var(--design-flourish-opacity)*.35)}to{opacity:var(--design-flourish-opacity)}}
+@keyframes studio-edge-travel {from{background-position:left 12%,right 88%}to{background-position:left 88%,right 12%}}
+/* Later matches take priority when a warning or offline message accompanies a turn. */
+:where(html.game-skin-active:has(#gameView[data-moment-own-turn]):has(#gameView[data-your-turn="true"]:not([hidden]))) {
+  --scene-wash:var(--moment-own-turn-wash); --scene-edge:var(--moment-own-turn-edge);
+}
+:where(html.game-skin-active:has(#gameView[data-moment-other-turn]):has(#gameView[data-your-turn="false"]:not([hidden]))) {
+  --scene-wash:var(--moment-other-turn-wash); --scene-edge:var(--moment-other-turn-edge);
+}
+:where(html.game-skin-active:has(#gameView[data-moment-lobby]):has(#lobbyView:not([hidden]), #gameView:not([hidden]) #lobbyControls:not([hidden]))) {
+  --scene-wash:var(--moment-lobby-wash); --scene-edge:var(--moment-lobby-edge);
+}
+:where(html.game-skin-active:has(#gameView[data-moment-warning]):has(#gameView:not([hidden]) #statusMessage:not([hidden]))) {
+  --scene-wash:var(--moment-warning-wash); --scene-edge:var(--moment-warning-edge);
+}
+:where(html.game-skin-active:has(#gameView[data-moment-eliminated]):has(#gameView:not([hidden]) #lethalMark:not([hidden]))) {
+  --scene-wash:var(--moment-eliminated-wash); --scene-edge:var(--moment-eliminated-edge);
+}
+:where(html.game-skin-active:has(#gameView[data-moment-complete]):has(#victoryDialog[open],#intermissionView:not([hidden]))) {
+  --scene-wash:var(--moment-complete-wash); --scene-edge:var(--moment-complete-edge);
+}
+:where(html.game-skin-active:has(#gameView[data-moment-offline]):has(#gameView:not([hidden]) #disconnectBanner:not([hidden]))) {
+  --scene-wash:var(--moment-offline-wash); --scene-edge:var(--moment-offline-edge);
+}
+html.game-skin-active:has(#gameView[data-scene-design]) :is(#gameView,#lobbyView,#intermissionPanel) { outline:var(--scene-edge,0 solid transparent); outline-offset:-2px; }
+@media (forced-colors: active) {
+  html.game-skin-active:has(#gameView[data-canvas-layers]) body { background-image:none !important; }
+  html.game-skin-active #gameView[data-canvas-frame]::before, html.game-skin-active #gameView[data-canvas-flourish]::after { display:none; }
+  #gameView[data-design-turn-marker] .pod-seat.turn-active, #gameView[data-design-nav-mark] .mode-nav button.active { border:2px solid Highlight; }
+}

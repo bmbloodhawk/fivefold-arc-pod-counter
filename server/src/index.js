@@ -6,6 +6,7 @@ import { monitorCounterWrites } from './counter-write-monitor.js';
 import { createAppearanceCatalogFromEnv } from "./appearance-catalog.js";
 import { AccountHistory, accountHistoryStoreForEnvironment } from "./account-history.js";
 import { loadAppearanceSkins } from "./appearance-collection.js";
+import { loadNightWatchSkin } from "./night-watch-skin.js";
 import { createFirebaseIdTokenVerifierFromEnv } from "./firebase-id-token.js";
 import { createLocalCommanderIdentityLookup, loadCardIdentityIndex } from "./card-identity-index.js";
 import { Competitions, competitionStoreForEnvironment } from './competitions.js';
@@ -43,6 +44,12 @@ const appearanceSkins = await loadAppearanceSkins({
   console.warn("Appearance pack could not be loaded");
   return [];
 });
+try {
+  appearanceSkins.push(await loadNightWatchSkin());
+  console.info(`Loaded Night Watch for Night Shift (${appearanceSkins.length} achievement skins available).`);
+} catch (error) {
+  console.warn("Night Watch could not be loaded:", error.message);
+}
 const { server, service, competitions, competitionTables } = createRealtimeServer({
   ...streamLimits, appEnv, staticDir, ledger, appearanceCatalog, accountVerifier, accountHistory, appearanceSkins,
   durableRecoveryEnabled, competitionStore, competitionEraser, lookupCommanderIdentity: createLocalCommanderIdentityLookup(cardIdentityIndex),

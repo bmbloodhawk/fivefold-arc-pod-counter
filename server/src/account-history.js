@@ -64,6 +64,8 @@ const longTermContext = (games) => {
   return { games, wins, deckGames, deckWins, completionDays };
 };
 const longTermRarity = (tier) => tier >= 8 ? 'legendary' : tier >= 6 ? 'epic' : tier >= 3 ? 'rare' : 'uncommon';
+const longTermAward = ({ id, title, detail, tier }) => ({ id, title, detail, rarity: longTermRarity(tier) });
+export const NIGHT_SHIFT_ACHIEVEMENT = Object.freeze(longTermAward(longTermDefinitions().find(item => item.id === 'long-endurance-4')));
 function trackMeasurement(track, context, triggeringGame) {
   if (!triggeringGame) return track.metric(context);
   switch (track.id) {
@@ -223,7 +225,7 @@ const achievementsFor = ({ games, bestWinStreak, monthCount, playedColors, longT
     ]),
   ];
   const legacy = definitions.filter(([id, , , reached]) => storedLegacyIds ? storedLegacyIds.has(id) : reached).map(([id, title, detail]) => ({ id, title, detail, rarity: achievementRarity(id) }));
-  const longTerm = longTermDefinitions().filter(item => longTermAchievementIds.includes(item.id)).map(item => ({ id: item.id, title: item.title, detail: item.detail, rarity: longTermRarity(item.tier) }));
+  const longTerm = longTermDefinitions().filter(item => longTermAchievementIds.includes(item.id)).map(longTermAward);
   const appearance = Object.values(APPEARANCE_ACHIEVEMENTS).filter(item => storedLegacyIds?.has(item.id));
   return [...legacy, ...longTerm, ...appearance];
 };
@@ -512,9 +514,9 @@ export class AccountHistory {
       const earnedIds = longTermIds(account, progress);
       const next = nextLongTermAchievement({ accountId, gameId, games: afterGames, earnedIds, triggeringGame: game });
       if (next) {
-        const { id, title, detail, tier, target, measured } = next;
+        const { id, target, measured } = next;
         awards[id] = { ...evidence, target, measured };
-        unlockedAchievements.push({ id, title, detail, rarity: longTermRarity(tier) });
+        unlockedAchievements.push(longTermAward(next));
       }
       if (appearanceAchievementIds.length && game.gameFormat === "commander") {
         const commanderGames = [...appearanceCommanderGames(progress, legacyGames), game];
