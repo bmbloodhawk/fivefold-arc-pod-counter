@@ -374,37 +374,72 @@ async function nightWatchChoice(f, token) {
   const { status, data } = await f.request('preferences', { token });
   assert.equal(status, 200);
   const choice = data.skins?.find(skin => skin.id === nightWatch.id);
-  assert.equal(choice?.achievement.id, nightShift);
+  assert.equal(choice?.achievement.id, 'appearance-night-watch');
+  assert.deepEqual(choice.progress.map(step => step.id), [nightShift, 'deep-into-the-night']);
   return choice;
 }
 
-test('Night Watch unlocks on the verified Night Shift award and announces it once', async t => {
-  const f = await fixture(t, [nightWatch]);
-  const equip = { personalSkinId: nightWatch.id, usePersonalSkin: true };
-  const game = f.start({ gameFormat: 'custom' });
-  for (let count = 1; count <= 20; count++) {
-    game.finish(count === 20 ? HOUR - 1 : HOUR);
-    const saved = await f.save(game);
-    assert.equal(saved.status, 201);
-    assert.ok(!saved.data.unlockedAchievements.some(award => award.id === nightShift));
-    game.startAgain();
+function reachTwentyTurns(f, game) {
+  const room = f.service.room(game.code);
+  for (let i = 0; i < 42 && room.turn.turnNumber < 20; i++) {
+    const active = room.turn.activeSeatId === 0 ? game.host : game.guest;
+    f.service.handoffTurn(game.code, active, { baseVersion: room.version });
   }
-  assert.equal((await nightWatchChoice(f)).state, 'locked');
-  assert.equal((await f.request('preferences', { method: 'PUT', body: equip })).status, 403);
+  assert.equal(room.turn.turnNumber, 20);
+}
 
-  game.finish(HOUR);
-  const saved = await f.save(game);
-  assert.equal(saved.status, 201);
-  assert.deepEqual(saved.data.unlockedAchievements.filter(award => award.unlockedSkinName)
-    .map(award => [award.id, award.title, award.unlockedSkinName]), [[nightShift, 'Night Shift', nightWatch.name]]);
-  assert.deepEqual((await f.save(game)).data.unlockedAchievements, []);
-  assert.equal((await nightWatchChoice(f)).state, 'new');
-  assert.equal((await f.history()).achievements.filter(award => award.id === nightShift).length, 1);
-  assert.equal((await f.request('achievements/viewed', { body: { rarity: 'rare' } })).status, 200);
-  assert.equal((await nightWatchChoice(f)).state, 'unlocked');
-  assert.equal((await f.request('preferences', { method: 'PUT', body: equip })).status, 200);
-  assert.equal((await nightWatchChoice(f, 'another-player')).state, 'locked');
-});
+for (const order of ['shift-first', 'deep-first', 'together']) {
+  test('Night Watch requires both verified achievements and announces the skin once: ' + order, async t => {
+    const f = await fixture(t, [nightWatch, confluence]);
+    const deep = 'deep-into-the-night';
+    const id = await legacyAccount(f, 'player-a');
+    const equip = { method: 'PUT', body: { personalSkinId: nightWatch.id, usePersonalSkin: true } };
+    // Nineteen prior qualifying finishes and the three preceding Endurance awards put the next verified hour at Night Shift.
+    await f.store.write('account-history/games/' + id + '.json', Object.fromEntries(Array.from({ length: order === 'together' ? 24 : 19 }, (_, n) => [
+      'game_old' + n, { gameId: 'game_old' + n, tableSize: 2, savedAt: f.clock() - n * HOUR, achievementFacts: { durationMs: n < 19 ? HOUR : 1000 } },
+    ])));
+    await f.store.write('account-history/verified-progress/' + id + '.json', { awards: {
+      'long-endurance-1': { historical: true }, 'long-endurance-2': { historical: true }, 'long-endurance-3': { historical: true },
+      [nightShift]: { gameId: 'broken' }, [deep]: { gameId: 'broken' },
+      ...(order === 'together' ? Object.fromEntries(prerequisites.filter(key => key !== 'seasoned').map(key => [key, {historical:true}])) : {}),
+    } });
+    assert.equal((await nightWatchChoice(f)).state, 'locked');
+    const first = f.start();
+    if (order !== 'shift-first') reachTwentyTurns(f, first);
+    first.finish(order === 'deep-first' ? HOUR - 1 : HOUR);
+    let last = await f.save(first);
+    assert.equal(last.status, 201);
+    let game = first;
+    if (order !== 'together') {
+      const partial = await nightWatchChoice(f);
+      assert.equal(partial.state, 'locked');
+      assert.deepEqual(partial.progress.filter(p => p.earned).map(p => p.id), [order === 'shift-first' ? nightShift : deep]);
+      assert.ok(!last.data.unlockedAchievements.some(a => a.unlockedSkinName));
+      assert.equal((await f.request('preferences', equip)).status, 403);
+      assert.equal((await fetch(f.base + '/api/game-skins/' + nightWatch.id, {headers:{authorization:'Bearer player-a'}})).status,404);
+      if (order === 'shift-first') {
+        assert.equal((await f.request('games/' + last.data.game.gameId, {method:'DELETE'})).status,204);
+        assert.equal((await nightWatchChoice(f)).state, 'locked');
+      }
+      game = f.start();
+      if (order === 'shift-first') reachTwentyTurns(f, game);
+      game.finish(order === 'deep-first' ? HOUR : HOUR - 1);
+      last = await f.save(game);
+    }
+    const earningBadge = order === 'shift-first' ? deep : nightShift;
+    const expectedSkins = [[earningBadge, nightWatch.name]];
+    if (order === 'together') expectedSkins.push([prismaticPath, confluence.name]);
+    assert.deepEqual(last.data.unlockedAchievements.filter(a => a.unlockedSkinName).map(a => [a.id, a.unlockedSkinName]).sort(), expectedSkins.sort());
+    assert.deepEqual((await f.save(game)).data.unlockedAchievements, []);
+    const complete = await nightWatchChoice(f);
+    assert.ok(complete.progress.every(p => p.earned));
+    assert.equal(complete.state, 'new');
+    assert.equal((await f.request('preferences', equip)).status, 200);
+    assert.equal((await f.request('achievements/viewed', { body: { rarity: 'rare' } })).status, 200);
+    assert.equal((await nightWatchChoice(f)).state, 'unlocked');
+    assert.equal((await nightWatchChoice(f, 'another-player')).state, 'locked');
+  });
+}
 
 test('Night Watch is usable on the first collection read for both historical Night Shift record formats', async t => {
   const f = await fixture(t, [nightWatch]);
@@ -417,7 +452,14 @@ test('Night Watch is usable on the first collection read for both historical Nig
   await f.store.write('account-history/verified-progress/' + modern + '.json', {
     awards: { [nightShift]: { evidenceRemoved: true } },
   });
-  for (const [token, state] of [['legacy-earner', 'unlocked'], ['verified-earner', 'new']]) {
+  const historical = await legacyAccount(f, 'earlier-deep');
+  await f.store.write('account-history/games/' + historical + '.json', { archive: {
+    gameId: 'game_archived', savedAt: f.clock(), tableSize:4, achievementFacts: { tableTurnNumber:20 },
+  } });
+  const earlier = await nightWatchChoice(f, 'earlier-deep');
+  assert.equal(earlier.state, 'locked');
+  assert.deepEqual(earlier.progress.map(p => p.earned), [false, true]);
+  for (const [token, state] of [['legacy-earner', 'unlocked'], ['verified-earner', 'unlocked']]) {
     assert.equal((await nightWatchChoice(f, token)).state, state);
     assert.equal((await f.history(token)).gamesPlayed, 0);
     const equipped = await f.request('preferences', {
@@ -426,6 +468,47 @@ test('Night Watch is usable on the first collection read for both historical Nig
     assert.equal(equipped.status, 200);
     assert.equal(equipped.data.preferences.personalSkinId, nightWatch.id);
     assert.equal((await nightWatchChoice(f, token)).state, state);
+  }
+});
+
+test('Night Watch honors genuine grants and old notices while ignoring preferences and malformed records', async t => {
+  const f = await fixture(t, [nightWatch]);
+  const equip = { method:'PUT', body:{personalSkinId:nightWatch.id,usePersonalSkin:true} };
+  const token = 'existing-grant';
+  const id = await f.accountHistory.ensureAccount(token);
+  await f.accountHistory.grantSkin(id, nightWatch.id);
+  assert.equal((await nightWatchChoice(f,token)).state, 'unlocked');
+  assert.ok((await nightWatchChoice(f,token)).progress.every(part => !part.earned));
+  assert.equal((await f.request('preferences', {...equip,token})).status,200);
+  await f.store.write('account-history/verified-progress/' + id + '.json', {awards:{[nightShift]:{historical:true,nightWatchRuleVersion:2}}});
+  const game = f.start();
+  reachTwentyTurns(f,game);
+  game.finish(HOUR);
+  const result = await f.save(game,{token});
+  assert.ok(result.data.unlockedAchievements.some(a => a.id === 'deep-into-the-night'));
+  assert.ok(!result.data.unlockedAchievements.some(a => a.unlockedSkinName));
+  const old = await legacyAccount(f,'notice');
+  await f.store.write('account-history/verified-progress/' + old + '.json', {
+    awards:{[nightShift]:{gameId:'game_old',earnedAt:f.clock(),ruleVersion:1}},
+    appearanceCatchUp:{id:'legacy_notice',achievementIds:[nightShift],createdAt:f.clock()},
+  });
+  const notice = (await f.request('appearance-catch-up',{token:'notice'})).data.notice;
+  assert.deepEqual(notice.skins.map(skin => skin.id),[nightWatch.id]);
+  await f.request('appearance-catch-up/viewed',{token:'notice',body:{id:notice.id}});
+  assert.equal((await f.request('appearance-catch-up',{token:'notice'})).data.notice,null);
+  for (const [index, legacyIds] of ['prefix-' + nightShift, { 0: nightShift }, ['deep-into-the-night']].entries()) {
+    const bad = 'bad-' + index;
+    const other = await legacyAccount(f,bad);
+    await f.store.update('account-history/accounts/' + other + '.json', row => ({
+      ...row, longTermAchievementIds:legacyIds, seenAchievementIds:[nightShift,'deep-into-the-night'],
+      preferences:{personalSkinId:nightWatch.id,usePersonalSkin:true},
+    }));
+    await f.store.write('account-history/verified-progress/' + other + '.json',{awards:{[nightShift]:{gameId:'bad'},'deep-into-the-night':{gameId:'bad'}}});
+    const choice = await nightWatchChoice(f,bad);
+    assert.equal(choice.state,'locked');
+    assert.ok(choice.progress.every(step => !step.earned));
+    assert.equal((await f.request('preferences',{...equip,token:bad})).status,403);
+    assert.ok(!(await f.history(bad)).achievements.some(a => a.id === nightShift || a.id === 'deep-into-the-night'));
   }
 });
 

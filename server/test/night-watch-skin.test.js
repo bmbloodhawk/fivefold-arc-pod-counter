@@ -10,7 +10,7 @@ import { loadNightWatchSkin } from "../src/night-watch-skin.js";
 test("the Night Shift release contains the reviewed sky and six dial faces in order", async () => {
   const skin = await loadNightWatchSkin();
   assert.equal(skin.id, NIGHT_WATCH_SKIN_ID);
-  assert.equal(SKIN_ACHIEVEMENTS[skin.id].id, "long-endurance-4");
+  assert.equal(SKIN_ACHIEVEMENTS[skin.id].id, "appearance-night-watch");
   assert.equal(skin.name, "Aurora Observatory · Night Watch");
   assert.equal(skin.rendererVersion, 2);
   assert.equal(skin.counterDesign.navigationIcons, "native");

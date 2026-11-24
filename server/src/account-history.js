@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { chooseMatchMoment, RECENT_ACCOLADE_LIMIT } from "./match-moments.js";
-import { APPEARANCE_ACHIEVEMENTS, nextAppearanceAchievement, PRISMATIC_CONFLUENCE_SKIN_ID, PRISMATIC_PATH_ACHIEVEMENT, PRISMATIC_PREREQUISITES } from "./appearance-milestones.js";
+import { APPEARANCE_ACHIEVEMENTS, DEEP_NIGHT_ACHIEVEMENT, NIGHT_SHIFT_ID, NIGHT_WATCH_REWARD, NIGHT_WATCH_SKIN_ID, nextAppearanceAchievement, PRISMATIC_CONFLUENCE_SKIN_ID, PRISMATIC_PATH_ACHIEVEMENT, PRISMATIC_PREREQUISITES } from "./appearance-milestones.js";
 import { appearanceCommanderGames, legacyAppearanceGames } from './appearance-history-recovery.js';
 
 const accountPath = (accountId) => `account-history/accounts/${encodeURIComponent(accountId)}.json`;
@@ -65,7 +65,7 @@ const longTermContext = (games) => {
 };
 const longTermRarity = (tier) => tier >= 8 ? 'legendary' : tier >= 6 ? 'epic' : tier >= 3 ? 'rare' : 'uncommon';
 const longTermAward = ({ id, title, detail, tier }) => ({ id, title, detail, rarity: longTermRarity(tier) });
-export const NIGHT_SHIFT_ACHIEVEMENT = Object.freeze(longTermAward(longTermDefinitions().find(item => item.id === 'long-endurance-4')));
+export const NIGHT_SHIFT_ACHIEVEMENT = Object.freeze(longTermAward(longTermDefinitions().find(item => item.id === NIGHT_SHIFT_ID)));
 function trackMeasurement(track, context, triggeringGame) {
   if (!triggeringGame) return track.metric(context);
   switch (track.id) {
@@ -175,7 +175,7 @@ const achievementsFor = ({ games, bestWinStreak, monthCount, playedColors, longT
       return facts?.tableTurnNumber > 0 && facts.tableTurnNumber <= 5
         && (game.completionVerified !== true || facts.handoffCount > 0);
     })],
-    ['deep-into-the-night', 'Deep Into the Night', 'Completed a Commander game that reached 20 table turns.', games.some(game => game.achievementFacts?.tableTurnNumber >= 20)],
+    [DEEP_NIGHT_ACHIEVEMENT.id, DEEP_NIGHT_ACHIEVEMENT.title, DEEP_NIGHT_ACHIEVEMENT.detail, games.some(game => game.achievementFacts?.tableTurnNumber >= 20)],
     ['saga-at-the-table', 'Saga at the Table', 'Completed a four-player-or-larger Commander game that reached 25 table turns.', games.some(game => game.tableSize >= 4 && game.achievementFacts?.tableTurnNumber >= 25)],
     ['the-long-goodbye', 'The Long Goodbye', 'Completed a four-player-or-larger Commander game that reached 30 table turns.', games.some(game => game.tableSize >= 4 && game.achievementFacts?.tableTurnNumber >= 30)],
     ['account-awakened', 'Account Awakened', 'Created your Fivefold Arc profile.', true],
@@ -295,7 +295,11 @@ function awardsAfterGameRemoval(awards, gameId) {
   for (const [id, evidence] of Object.entries(retained)) {
     if (evidence?.gameId !== gameId) continue;
     if (recordedAward(evidence)) {
-      retained[id] = { evidenceRemoved: true, ...(evidence.recoveryRunId ? { recoveryRunId: evidence.recoveryRunId } : {}) };
+      retained[id] = {
+        evidenceRemoved: true,
+        ...(id === NIGHT_SHIFT_ID && Object.hasOwn(evidence, "nightWatchRuleVersion") ? { nightWatchRuleVersion: 2 } : {}),
+        ...(evidence.recoveryRunId ? { recoveryRunId: evidence.recoveryRunId } : {}),
+      };
     } else {
       // An incomplete record cannot become an earned award by losing its source.
       delete retained[id];
@@ -308,9 +312,20 @@ function completedPrismaticPath(awards) {
   return PRISMATIC_PREREQUISITES.every(({ id }) => recordedAward(awards?.[id]));
 }
 
-function grantedPrismaticSkin(account) {
+function hasSkinGrant(account, skinId) {
   return Array.isArray(account.skinEntitlements) && account.skinEntitlements.some(grant =>
-    grant?.skinId === PRISMATIC_CONFLUENCE_SKIN_ID && ['grant', 'payment', 'achievement'].includes(grant.source) && Number.isFinite(grant.grantedAt));
+    grant?.skinId === skinId && ['grant', 'payment', 'achievement'].includes(grant.source) && Number.isFinite(grant.grantedAt));
+}
+
+// Before Night Watch required two achievements, any recorded Night Shift earned it.
+function nightWatchAccess(account, awards) {
+  const legacyShift = Array.isArray(account.longTermAchievementIds) && account.longTermAchievementIds.includes(NIGHT_SHIFT_ID);
+  const shift = awards?.[NIGHT_SHIFT_ID];
+  const earnedShift = recordedAward(shift);
+  const previousOwner = (earnedShift && !Object.hasOwn(shift, "nightWatchRuleVersion"))
+    || (legacyShift && !Object.hasOwn(account, "nightWatchRuleVersion")) || hasSkinGrant(account, NIGHT_WATCH_SKIN_ID);
+  if (previousOwner) return 'owned';
+  return (earnedShift || legacyShift) && recordedAward(awards?.[DEEP_NIGHT_ACHIEVEMENT.id]) ? 'earned' : null;
 }
 
 function recentAccolades(games) {
@@ -321,7 +336,7 @@ function recentAccolades(games) {
 function longTermIds(account, progress) {
   return [...new Set([
     ...(Array.isArray(account.longTermAchievementIds) ? account.longTermAchievementIds : []),
-    ...Object.keys(progress?.awards || {}).filter(id => id.startsWith("long-")),
+    ...Object.keys(progress?.awards || {}).filter(id => id.startsWith("long-") && (id !== NIGHT_SHIFT_ID || recordedAward(progress.awards[id]))),
   ])];
 }
 
@@ -382,7 +397,8 @@ export class AccountHistory {
     const seen = new Set(Array.isArray(account.seenAchievementIds) ? account.seenAchievementIds : []);
     const olderEarned = new Set(longTermIds(account));
     let progress = storedProgress;
-    if (!progress && achievementIds.some(id => prismaticRequirements.has(id) || id === PRISMATIC_PATH_ACHIEVEMENT.id)) {
+    if (!progress && achievementIds.some(id => prismaticRequirements.has(id) || id === PRISMATIC_PATH_ACHIEVEMENT.id
+      || id === NIGHT_WATCH_REWARD.id || id === DEEP_NIGHT_ACHIEVEMENT.id)) {
       // Pre-ledger achievements used saved games and the decks actually attached to them.
       const [games, decks] = await Promise.all([
         this.store.read(gamesPath(accountId)), this.store.read(decksPath(accountId)),
@@ -391,11 +407,15 @@ export class AccountHistory {
     }
     const states = {};
     for (const id of achievementIds) {
-      if (id === PRISMATIC_PATH_ACHIEVEMENT.id) {
+      if (id === NIGHT_WATCH_REWARD.id) {
+        const access = nightWatchAccess(account, progress?.awards);
+        if (access === 'owned') states[id] = 'unlocked';
+        if (access === 'earned') states[id] = seen.has(NIGHT_SHIFT_ID) && seen.has(DEEP_NIGHT_ACHIEVEMENT.id) ? 'unlocked' : 'new';
+      } else if (id === PRISMATIC_PATH_ACHIEVEMENT.id) {
         // Hosted rewards debuted with the full path. Earlier Color Wheel awards count as one step.
-        if (grantedPrismaticSkin(account)) states[id] = 'unlocked';
+        if (hasSkinGrant(account, PRISMATIC_CONFLUENCE_SKIN_ID)) states[id] = 'unlocked';
         else if (completedPrismaticPath(progress?.awards)) states[id] = seen.has(id) ? 'unlocked' : 'new';
-      } else if (recordedAward(progress?.awards?.[id]) || (!prismaticRequirements.has(id) && olderEarned.has(id))) {
+      } else if (recordedAward(progress?.awards?.[id]) || (!prismaticRequirements.has(id) && id !== DEEP_NIGHT_ACHIEVEMENT.id && olderEarned.has(id))) {
         states[id] = seen.has(id) ? 'unlocked' : 'new';
       }
     }
@@ -560,8 +580,10 @@ export class AccountHistory {
       const before = new Set(achievementsFor(rewardInputs(beforeGames, savedAt, previousColors, true)).map(item => item.id));
       const after = achievementsFor(rewardInputs(afterGames, savedAt, [...previousColors, ...(game.playedColors || [])], true));
       const awards = { ...progress.awards };
-      const unlockedAchievements = after.filter(item => !before.has(item.id)
-        && (prismaticRequirements.has(item.id) ? !recordedAward(awards[item.id]) : !awards[item.id]));
+      const unlockedAchievements = after.filter(item => {
+        if (item.id === DEEP_NIGHT_ACHIEVEMENT.id) return !recordedAward(awards[item.id]) && game.achievementFacts?.tableTurnNumber >= 20;
+        return !before.has(item.id) && (prismaticRequirements.has(item.id) ? !recordedAward(awards[item.id]) : !awards[item.id]);
+      });
       const evidence = { gameId, earnedAt: savedAt, ruleVersion: AWARD_RULE_VERSION };
       for (const award of unlockedAchievements) awards[award.id] = evidence;
 
@@ -570,7 +592,7 @@ export class AccountHistory {
         if (!completedPrismaticPath(progress.awards)) {
           awards[PRISMATIC_PATH_ACHIEVEMENT.id] = evidence;
           unlockedAchievements.push(PRISMATIC_PATH_ACHIEVEMENT);
-          if (grantedPrismaticSkin(account)) alreadyOwnedSkinAward = PRISMATIC_PATH_ACHIEVEMENT.id;
+          if (hasSkinGrant(account, PRISMATIC_CONFLUENCE_SKIN_ID)) alreadyOwnedSkinAward = PRISMATIC_PATH_ACHIEVEMENT.id;
         } else if (!awards[PRISMATIC_PATH_ACHIEVEMENT.id]) {
           awards[PRISMATIC_PATH_ACHIEVEMENT.id] = { historical: true };
         }
@@ -579,8 +601,13 @@ export class AccountHistory {
       const next = nextLongTermAchievement({ accountId, gameId, games: afterGames, earnedIds, triggeringGame: game });
       if (next) {
         const { id, target, measured } = next;
-        awards[id] = { ...evidence, target, measured };
+        awards[id] = { ...evidence, target, measured, ...(id === NIGHT_SHIFT_ID ? { nightWatchRuleVersion: 2 } : {}) };
         unlockedAchievements.push(longTermAward(next));
+      }
+      let nightWatchAwardId;
+      if (appearanceAchievementIds.includes(NIGHT_WATCH_REWARD.id) && !nightWatchAccess(account, progress.awards)
+        && nightWatchAccess(account, awards) === 'earned') {
+        nightWatchAwardId = unlockedAchievements.findLast(award => award.id === NIGHT_SHIFT_ID || award.id === DEEP_NIGHT_ACHIEVEMENT.id)?.id;
       }
       if (appearanceAchievementIds.length && game.gameFormat === "commander") {
         const commanderGames = [...appearanceCommanderGames(progress, legacyGames), game];
@@ -590,7 +617,7 @@ export class AccountHistory {
           unlockedAchievements.push(appearance);
         }
       }
-      result = { game, moment, unlockedAchievements, ...(alreadyOwnedSkinAward ? { alreadyOwnedSkinAward } : {}) };
+      result = { game, moment, unlockedAchievements, ...(alreadyOwnedSkinAward ? { alreadyOwnedSkinAward } : {}), ...(nightWatchAwardId ? { nightWatchAwardId } : {}) };
       return { ...progress, awards, games: { ...progress.games, [key]: game }, seats: { ...progress.seats, [key]: seatKey } };
     });
     if (savedForAnotherSeat) {
@@ -643,7 +670,8 @@ export class AccountHistory {
     const account = (await this.store.read(accountPath(accountId))) || { accountId, createdAt: this.now(), consentVersion: null };
     const longTermAchievementIds = Array.isArray(account.longTermAchievementIds) ? account.longTermAchievementIds : [];
     const nextAchievement = nextLongTermAchievement({ accountId, gameId, games: Object.values(savedGames), earnedIds: longTermAchievementIds });
-    if (nextAchievement) await this.store.write(accountPath(accountId), { ...account, longTermAchievementIds: [...longTermAchievementIds, nextAchievement.id] });
+    if (nextAchievement) await this.store.write(accountPath(accountId), { ...account, longTermAchievementIds: [...longTermAchievementIds, nextAchievement.id],
+      ...(nextAchievement.id === NIGHT_SHIFT_ID ? { nightWatchRuleVersion: 2 } : {}) });
     return game;
   }
 
@@ -769,7 +797,7 @@ export class AccountHistory {
     const monthGames = gamesInCurrentMonth(games, now);
     const seen = new Set(Array.isArray(account.seenAchievementIds) ? account.seenAchievementIds : []);
     const storedLegacyIds = progress && !progress.closed ? new Set(Object.entries(progress.awards || {})
-      .filter(([id, award]) => !prismaticRequirements.has(id) || recordedAward(award)).map(([id]) => id)) : undefined;
+      .filter(([id, award]) => (!prismaticRequirements.has(id) && id !== DEEP_NIGHT_ACHIEVEMENT.id) || recordedAward(award)).map(([id]) => id)) : undefined;
     const inputs = rewardInputs(legacyGames, now, storedLegacyIds ? [] : legacyDeckColors(legacyGames, decks));
     const earned = achievementsFor({
       ...inputs, storedLegacyIds, longTermAchievementIds: longTermIds(account, progress),

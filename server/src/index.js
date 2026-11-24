@@ -45,7 +45,7 @@ const appearanceSkins = await loadAppearanceSkins({
   return [];
 });
 const rewards = [
-  ["Night Watch", "Night Shift", loadNightWatchSkin],
+  ["Night Watch", "Night Shift and Deep Into the Night", loadNightWatchSkin],
   ["Prismatic Confluence", "The Prismatic Path", loadPrismaticConfluenceSkin],
 ];
 for (const [name, achievement, load] of rewards) {
