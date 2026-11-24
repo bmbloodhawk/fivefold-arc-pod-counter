@@ -6,6 +6,7 @@ import { Competitions } from './competitions.js';
 import { CompetitionTables } from './competition-tables.js';
 import { Tournaments } from './tournaments.js';
 import { competitionRoute } from './competition-http.js';
+import { accountDeckRoute } from './account-decks-http.js';
 import { extname, resolve, sep } from "node:path";
 import QRCode from "qrcode";
 import { SKIN_ACHIEVEMENTS, SKIN_PREREQUISITES, isAchievementSkin, isInvitationSkin } from "./appearance-collection.js";
@@ -2336,11 +2337,9 @@ export function createRealtimeServer(options = {}) {
         });
         return json(res, 201, { ...saved, unlockedAchievements });
       }
-      if (req.method === "POST" && url.pathname === "/api/account/decks") { const accountId = await account(req); return json(res, 201, { deck: await accountHistory.createDeck(accountId, await readJson(req)) }); }
-      if (req.method === "GET" && url.pathname === "/api/account/decks") { const accountId = await account(req); return json(res, 200, { decks: await accountHistory.decks(accountId, { includeArchived: url.searchParams.get("archived") === "all" }) }); }
-      if (req.method === "PATCH" && parts[0] === "api" && parts[1] === "account" && parts[2] === "decks" && parts[3]) { const accountId = await account(req); return json(res, 200, { deck: await accountHistory.updateDeck(accountId, parts[3], await readJson(req)) }); }
+      const deckResponse = await accountDeckRoute({ req, url, parts, readBody: () => readJson(req), account, accountHistory });
+      if (deckResponse) return json(res, deckResponse.status, deckResponse.data);
       if (req.method === "DELETE" && parts[0] === "api" && parts[1] === "account" && parts[2] === "games" && parts[3]) { const accountId = await account(req); await accountHistory.removeGame(accountId, parts[3]); return json(res, 204, {}); }
-      if (req.method === "DELETE" && parts[0] === "api" && parts[1] === "account" && parts[2] === "decks" && parts[3]) { const accountId = await account(req); await accountHistory.removeDeck(accountId, parts[3]); return json(res, 204, {}); }
       if (req.method === "GET" && url.pathname === "/api/developer/access") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { ok: true }); }
       if (req.method === "POST" && url.pathname === "/api/developer/skins/grant") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); const input = await readJson(req); const catalog = await appearanceCatalog.read(); if (isAchievementSkin(input.skinId) || !(catalog.skins || []).some(skin => skin?.id === input.skinId && skin.status === "Approved")) throw Object.assign(new Error("Choose a published skin."), { status: 400, code: "INVALID_INPUT" }); return json(res, 200, { grants: await accountHistory.grantSkin(String(input.accountId || ''), String(input.skinId || ''), input.source === 'payment' ? 'payment' : input.source === 'achievement' ? 'achievement' : 'grant') }); }
       if (req.method === "GET" && url.pathname === "/api/appearance-studio/catalog") { feedbackKeyMatches(req.headers["x-feedback-portal-key"]); return json(res, 200, { catalog: await appearanceCatalog.read() }); }
