@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { createContext, runInContext } from 'node:vm';
+import { renderDeckLibrary as renderSavedDeckLibrary } from './deck-library-view.js';
 
 const app = (await readFile(new URL('./app.js', import.meta.url), 'utf8')).replace(/\r\n/g, '\n');
 const start = app.indexOf('function setDeckColors(');
@@ -27,6 +28,7 @@ function fixture({ delayedToken = false, delayedLookup = false, delayedSave = fa
   const count = element('1'), colorInputs = ['W', 'U', 'B', 'R', 'G'].map(element);
   colorInputs.find(input => input.value === 'R').checked = true;
   const context = createContext({
+    renderSavedDeckLibrary,
     awardProfileEpoch: 0, editingDeckId: editId, deckCommanderColors: [['R']],
     deckCommanderName: element('Commander A'), deckCommanderNameTwo: element(''), deckCommanderNameTwoField: element(''),
     deckName: element('A deck'), deckNotes: element('A private notes'), deckFavorite: { ...element(''), checked: true },

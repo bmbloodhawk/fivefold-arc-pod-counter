@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { createContext, runInContext } from 'node:vm';
+import { renderDeckLibrary as renderSavedDeckLibrary } from './deck-library-view.js';
 
 const app = (await readFile(new URL('./app.js', import.meta.url), 'utf8')).replace(/\r\n/g, '\n');
 const extract = (from, to) => app.slice(app.indexOf(from), app.indexOf(to, app.indexOf(from)));
@@ -70,7 +71,7 @@ function fixture({ failSignOut = false, pendingLookup = false, pendingWrite = fa
       if (failSignOut) throw new Error('Provider sign-out unavailable');
       if (token === retiringToken) token = null;
     },
-    normaliseIdentity: values => [...new Set(values)], escapeHtml: value => String(value),
+    normaliseIdentity: values => [...new Set(values)], escapeHtml: value => String(value), renderSavedDeckLibrary,
     $(selector) {
       if (selector.includes('input[name="deckCommanderCount"]')) {
         const value = /\[value=["']?([12])/.exec(selector)?.[1];

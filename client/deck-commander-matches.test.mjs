@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { createContext, runInContext, Script } from 'node:vm';
+import { renderDeckLibrary as renderSavedDeckLibrary } from './deck-library-view.js';
 
 const app = (await readFile(new URL('./app.js', import.meta.url), 'utf8')).replace(/\r\n/g, '\n');
 function sourceFunction(name) {
@@ -74,6 +75,7 @@ function fixture({ count = '1', names = ['kranko mob boss', ''], replies = {} } 
   const dialog = Object.assign(element('DIALOG'), { open: true,
     showModal() { this.open = true; }, close() { this.open = false; this.dispatch('close'); } });
   context = createContext({ ...Object.fromEntries(fields.map(name => [name, node(name)])),
+    renderSavedDeckLibrary,
     deckCommanderMatches: [node('deckCommanderMatches'), node('deckCommanderMatchesTwo')],
     awardProfileEpoch: 0, editingDeckId: null, deckCommanderColors: [], selectedDeckId: '', savedDecks: [deck], setupDecks: [], commanderDecks: [],
     myDecksDialog: dialog,

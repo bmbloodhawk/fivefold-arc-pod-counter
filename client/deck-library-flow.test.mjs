@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { createContext, runInContext, Script } from 'node:vm';
+import { deckMatchesSearch, renderDeckLibrary as renderSavedDeckLibrary } from './deck-library-view.js';
 
 const app = (await readFile(new URL('./app.js', import.meta.url), 'utf8')).replace(/\r\n/g, '\n');
 const page = await readFile(new URL('./index.html', import.meta.url), 'utf8');
@@ -23,7 +24,7 @@ function sourceStatement(prefix) {
   }
   assert.fail(`Complete event binding ${prefix} was not found.`);
 }
-const matches = (deck, query) => runInContext(`(${sourceFunction('deckMatchesSearch')})(deck, query)`, createContext({ deck, query }));
+const matches = deckMatchesSearch;
 const single = Object.freeze({ deckId: 'single', name: 'Phone Test Deck', commanderName: 'Krenko, Mob Boss',
   commanderNames: Object.freeze(['Krenko, Mob Boss']), notes: 'PRIVATE_NOTES_SENTINEL', colors: Object.freeze(['R']) });
 const partners = Object.freeze({ deckId: 'partners', name: 'Connected Engines', commanderName: 'Partner commanders',
@@ -54,6 +55,17 @@ test('matching treats HTML-like names as literal text without modifying the save
   const deck = Object.freeze({ name: '<script>literal deck</script>', commanderName: 'Commander' });
   assert.equal(matches(deck, '<script>'), true);
   assert.equal(deck.name, '<script>literal deck</script>');
+});
+
+test('search requires every term even when matching across deck and commander names', () => {
+  assert.equal(matches(single, 'phone krenko'), true);
+  assert.equal(matches(single, 'phone atraxa'), false);
+  assert.equal(matches(partners, 'tyMNa triton'), true);
+});
+
+test('search normalizes compatibility characters in both names and query', () => {
+  assert.equal(matches(single, 'ＰＨＯＮＥ　ＴＥＳＴ'), true);
+  assert.equal(matches({ name: 'Ａｔｒａｘａ', commanderName: 'Commander' }, 'atraxa'), true);
 });
 
 test('the deck editor is hidden in the initial HTML before the library opens', () => {
@@ -116,6 +128,7 @@ function fixture({ waitForToken = false, waitForWrite = false, waitForLookup = f
     node('deckFavorite').checked = false; colors.forEach(input => { input.checked = false; }); count = '1';
   };
   context = createContext({ ...Object.fromEntries(fieldNames.map(name => [name, node(name)])), myDecksDialog: dialog,
+    renderSavedDeckLibrary,
     deckCommanderMatches: [0, 1].map(() => ({ hidden: true, replaceChildren() {} })),
     awardProfileEpoch: 0, deckEditorOpen: false, deckLibraryRequest: 0,
     editingDeckId: null, deckCommanderColors: [], selectedDeckId: '',

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { createContext, runInContext } from 'node:vm';
+import { renderDeckLibrary as renderSavedDeckLibrary } from './deck-library-view.js';
 
 const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
 const extract = (start, next) => app.slice(app.indexOf(start), app.indexOf(next, app.indexOf(start)));
@@ -15,6 +16,7 @@ function fixture({ waitForToken = false } = {}) {
   const element = () => ({ hidden: false, disabled: false, textContent: '', innerHTML: '', value: '', open: false, focus() {}, reset() {} });
   const button = element();
   const context = createContext({
+    renderSavedDeckLibrary,
     currentAccountToken: () => waitForToken ? token.promise : Promise.resolve('account_token'),
     googleAccountToken: () => waitForToken ? token.promise : Promise.resolve('account_token'),
     fetchCalls: 0, fetch() { context.fetchCalls++; fetched.resolve(); return response.promise; },

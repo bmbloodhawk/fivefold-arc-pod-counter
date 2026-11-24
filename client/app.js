@@ -21,6 +21,7 @@ import { nextGameStarterPolicy } from './next-game-starter.js?v=1';
 import { tournamentTableFlow } from './tournament-table-flow.mjs?v=1';
 import { renderSeatOrder } from './seat-order.js?v=1';
 import { renderIntermissionPanel } from './intermission-panel.js?v=1';
+import { renderDeckLibrary as renderSavedDeckLibrary } from './deck-library-view.js?v=1';
 
 const appearancePreviewMode = new URLSearchParams(location.search).get('appearance-preview') === '1';
 const appearanceParams = new URLSearchParams(location.search);
@@ -930,20 +931,10 @@ async function showMyGames() {
 }
 let deckEditorOpen = false;
 let deckLibraryRequest = 0;
-function deckMatchesSearch(deck, query) {
-  const terms = String(query || '').normalize('NFKC').trim().toLowerCase().split(/\s+/u).filter(Boolean);
-  const names = [deck.name || '', deck.commanderName || '', ...(deck.commanderNames || [])]
-    .join(' ').normalize('NFKC').toLowerCase();
-  return terms.every(term => names.includes(term));
-}
 function renderDeckLibrary() {
-  const query = deckSearch.value.trim();
-  const decks = savedDecks.filter(deck => deckMatchesSearch(deck, query));
-  myDecksContent.innerHTML = decks.length ? `<ul>${decks.map(deck => `<li><strong>${deck.favorite ? '★ ' : ''}${escapeHtml(deck.commanderName)}</strong>${deck.archived ? ' <small>Archived</small>' : ''}${deck.name ? `<br><small>${escapeHtml(deck.name)}</small>` : ''}${deck.colors?.length ? `<br><small>${escapeHtml(deck.colors.join(' '))}</small>` : ''}${deck.notes ? `<br><small>${escapeHtml(deck.notes)}</small>` : ''}<br><button type="button" class="text-action" data-edit-deck="${escapeHtml(deck.deckId)}">Edit</button> <button type="button" class="text-action" data-toggle-favorite="${escapeHtml(deck.deckId)}">${deck.favorite ? 'Unfavorite' : 'Favorite'}</button> <button type="button" class="text-action" data-toggle-archive="${escapeHtml(deck.deckId)}">${deck.archived ? 'Restore' : 'Archive'}</button> <button type="button" class="text-action" data-export-deck="${escapeHtml(deck.deckId)}">Export deck</button> <button type="button" class="text-action" data-remove-deck="${escapeHtml(deck.deckId)}">Remove</button></li>`).join('')}</ul>` : '';
-  myDecksContent.hidden = !decks.length;
-  if (!deckEditorOpen) myDecksStatus.textContent = !savedDecks.length ? 'No saved decks yet. Choose Add deck to save your first deck.'
-    : !decks.length ? `No decks match “${query}”. Try a deck or commander name.`
-      : query ? `${decks.length} of ${savedDecks.length} saved decks` : `${decks.length} saved deck${decks.length === 1 ? '' : 's'}`;
+  renderSavedDeckLibrary({ content: myDecksContent, status: myDecksStatus }, {
+    decks: savedDecks, query: deckSearch.value, editorOpen: deckEditorOpen, escapeHtml,
+  });
 }
 function showDeckLibrary({ focus = true } = {}) {
   deckEditorOpen = false; deckEditor.hidden = true; deckLibraryView.hidden = false;
