@@ -39,9 +39,11 @@ export function compileTableDesign(skin,result) {
   if (result.native || result.version !== 2) return;
   const { variables, datasets } = result;
   const hasMoments = compileSceneDesign(skin,result);
-  if (skin.canvasDesign || hasMoments) {
+  const glass = skin.commanderTreatment === 'prismatic-glass';
+  if (glass) datasets.commanderTreatment = 'prismatic-glass';
+  if (skin.canvasDesign || hasMoments || glass) {
     const canvas = skin.canvasDesign || {};
-    const hasLayers = hasMoments || Object.keys(canvas).some(key => !key.startsWith('frame') && !key.startsWith('flourish'));
+    const hasLayers = glass || hasMoments || Object.keys(canvas).some(key => !key.startsWith('frame') && !key.startsWith('flourish'));
     if (hasLayers) {
       const images = [], sizes = [], positions = [], repeats = [];
       const layer = (image,size = 'cover',position = 'center',repeat = 'no-repeat') => {
@@ -59,7 +61,16 @@ export function compileTableDesign(skin,result) {
       if (result.assets.background) {
         const shade = bounded(canvas.artShade,32,0,85);
         layer(`linear-gradient(rgb(0 0 0 / ${shade}%),rgb(0 0 0 / ${shade}%))`);
-        layer(`url("${result.assets.background}")`,result.assets.backgroundSize,result.assets.backgroundPosition);
+        const zoom = bounded(skin.backgroundScale,100,50,200);
+        let size = glass && zoom === 100 ? 'cover' : result.assets.backgroundSize;
+        if (glass && result.assets.backgroundAspect) {
+          // In landscape the whole painting fits within 92% of viewport height
+          // at authored 100%. Portrait retains its usual width/cover framing.
+          variables['--prism-fitted-size'] = `min(${zoom}%,${(result.assets.backgroundAspect * .92 * zoom).toFixed(2)}dvh) auto`;
+          size = `var(--prism-landscape-size,${size})`;
+        }
+        const image = glass ? 'var(--prism-hall-art,none)' : `url("${result.assets.background}")`;
+        layer(image,size,result.assets.backgroundPosition);
       }
       const end = cssColor(canvas.endColor,'var(--surface)');
       if (canvas.fill === 'linear') layer(`linear-gradient(${bounded(canvas.angle,145,0,360)}deg,var(--bg),${end})`);

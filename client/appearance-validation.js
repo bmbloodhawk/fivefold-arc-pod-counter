@@ -7,7 +7,7 @@ import { sceneDesignSpec } from './appearance-scene-design.js';
 import { surfaceDesignSpec } from './appearance-surface-design.js';
 import { surfaceArtSpec, surfaceArtDataSpec } from './appearance-surface-art.js';
 import { canvasDesignSpec, tableDesignSpec } from './appearance-table-design.js';
-import { counterDesignSpec, counterArtDataSpec } from './counter-design.js';
+import { counterDesignSpecFor, counterArtDataSpec } from './counter-design.js';
 export const APPEARANCE_SCHEMA_VERSION = 1;
 export const APPEARANCE_ASSET_ROLES = Object.freeze(['background', 'symbol', 'overlay', 'seal', 'dial', 'thumbnail', 'button', 'panel']);
 const ID = /^[A-Za-z0-9_-]{1,80}$/;
@@ -42,7 +42,7 @@ const typography = { family: choice(...appearanceFontKeys), weight: choice(400, 
 const tokenColors = ['canvas', 'surface', 'text', 'textMuted', 'accentPrimary', 'accentSecondary', 'atmosphere', 'success', 'warning', 'danger', 'focus', 'border', 'disabled'];
 const componentColors = record({ ...map(['background', 'text', 'border', 'selectedText', 'selectedBorder'], color) });
 const visualFields = {
-  rendererVersion: choice(1, 2), canvasDesign: canvasDesignSpec, sceneDesign: sceneDesignSpec, tableDesign: tableDesignSpec, surfaceArt: surfaceArtSpec, surfaceDesign: surfaceDesignSpec, counterDesign: counterDesignSpec,
+  rendererVersion: choice(1, 2), commanderTreatment: choice('prismatic-glass'), canvasDesign: canvasDesignSpec, sceneDesign: sceneDesignSpec, tableDesign: tableDesignSpec, surfaceArt: surfaceArtSpec, surfaceDesign: surfaceDesignSpec, counterDesign: counterDesignSpecFor(),
   ...map(['background', 'surface', 'accent', 'secondary', 'text', 'muted', 'atmosphereColor', 'stateSuccess', 'stateWarning', 'stateDanger', 'focusColor', 'borderColor', 'disabledColor'], color),
   variants: record({ dial: choice('native', 'engraved', 'plain'), seal: choice('native', 'etched', 'medallion'), counterMode: choice('native', 'badge', 'underlined'), navigation: choice('native', 'underline', 'framed'), commander: choice('native', 'accent', 'quiet'), panels: choice('native', 'outlined', 'raised'), numerals: choice('native', 'tabular', 'proportional') }),
   ...effects, atmosphere: choice('dark', 'light', 'custom'), atmospherePosition: choice('top', 'center', 'bottom'), atmosphereStrength: number(0, 80),
@@ -61,6 +61,11 @@ const previewFields = {
   backgroundData: image, sealData: image, buttonData: image, symbolData: record(map(modes, image)), overlayData: record(map(slots, image)),
 };
 const privateFields = map(['access', 'invitation', 'achievement', 'provenance', 'grants'], { type: 'metadata' });
+const fixtureIdentities = map(['previewCommanderColors', 'previewPartnerColors', 'previewInspectedColors'], { type: 'commanderColors' });
+function validCommanderColors(value) {
+  return Array.isArray(value) && value.length <= 5 && new Set(value).size === value.length
+    && value.every(code => ['W','U','B','R','G'].includes(code));
+}
 const skinFields = { id, name: text(80), status: choice('Draft', 'Approved'), edited: text(80), schemaVersion: choice(1), sourceSkinId: id, ...visualFields, ...privateFields };
 const issue = (path, message, fix) => ({ path, message, fix });
 const result = () => ({ errors: [], warnings: [] });
@@ -76,6 +81,7 @@ function check(value, spec, path, report) {
   } else if (spec.type === 'color') { if (typeof value !== 'string' || !/^#[\da-f]{6}$/i.test(value)) fail('Use a six-digit color such as #f4ecd9.'); }
   else if (spec.type === 'number') { if (!['number', 'string'].includes(typeof value) || value === '' || !Number.isFinite(Number(value)) || Number(value) < spec.min || Number(value) > spec.max) fail(`Value must be between ${spec.min} and ${spec.max}.`); }
   else if (spec.type === 'enum') { if (!spec.values.includes(value)) fail(`Choose one of: ${spec.values.join(', ')}.`); }
+  else if (spec.type === 'commanderColors') { if (!validCommanderColors(value)) fail('Choose up to five distinct commander colors.'); }
   else if (spec.type === 'boolean') { if (typeof value !== 'boolean') fail('This setting must be true or false.'); }
   else if (spec.type === 'id') { if (value !== '' && (typeof value !== 'string' || !ID.test(value))) fail('Use a stable ID containing letters, numbers, underscores or hyphens.'); }
   else if (spec.type === 'text') { if (typeof value !== 'string' || value.length > spec.max || /[\p{Cc}\p{Cf}]/u.test(value)) fail(`Use plain text up to ${spec.max} characters.`); }
@@ -162,16 +168,16 @@ export function appearanceAssetReferences(skin) {
 
 export function validateAppearanceSkin(skin, { assets, preview = false, requireApprovedAssets = false, publish = false, sourceSkin } = {}) {
   const report = result();
-  check(skin, record({ ...skinFields, ...(preview ? previewFields : {}), versions: { type: 'versions' } }), 'skin', report);
+  check(skin, record({ ...skinFields, counterDesign: counterDesignSpecFor(skin), ...(preview ? { ...previewFields, ...fixtureIdentities } : {}), versions: { type: 'versions' } }), 'skin', report);
   // Resolve geometry, references and contrast only after the input shape checks.
   if (!object(skin) || report.errors.length) return report;
-  if (!preview && skin.rendererVersion !== 2 && ['surfaceDesign','surfaceArt','counterDesign','tableDesign','canvasDesign','sceneDesign'].some(key => Object.hasOwn(skin,key))) report.errors.push(issue('skin.rendererVersion','These design controls need the expanded renderer.','Open the source skin and choose Use expanded controls before adding these settings.'));
+  if (!preview && skin.rendererVersion !== 2 && ['surfaceDesign','surfaceArt','counterDesign','tableDesign','canvasDesign','sceneDesign','commanderTreatment'].some(key => Object.hasOwn(skin,key))) report.errors.push(issue('skin.rendererVersion','These design controls need the expanded renderer.','Open the source skin and choose Use expanded controls before adding these settings.'));
   if (!preview && Object.values(skin.modeLayouts || {}).some(layout => layout?.overlayData)) report.errors.push(issue('skin.modeLayouts.overlayData', 'Store asset IDs instead of embedded renderer image data.', 'Choose artwork through the asset library.'));
   if (!preview && (typeof skin.id !== 'string' || !ID.test(skin.id))) report.errors.push(issue('skin.id', 'A skin needs a stable ID.', 'Create a new draft.'));
   if (skin.versions !== undefined) {
     if (!Array.isArray(skin.versions) || skin.versions.length > 12) report.errors.push(issue('skin.versions', 'Saved history must contain at most 12 versions.', 'Export the catalog and keep the latest 12 saved versions.'));
     else for (const version of skin.versions) {
-      check(version, record({ id, label: text(80), savedAt: text(40), appearance: record(skinFields) }), 'skin.versions', report);
+      check(version, record({ id, label: text(80), savedAt: text(40), appearance: record({ ...skinFields, counterDesign: counterDesignSpecFor(version?.appearance) }) }), 'skin.versions', report);
     }
   }
   if (report.errors.length) return report;
@@ -238,6 +244,7 @@ function project(value, spec) {
     if (!object(value)) return undefined;
     return Object.fromEntries(Object.entries(value).filter(([key]) => Object.hasOwn(spec.fields, key)).map(([key, item]) => [key, project(item, spec.fields[key])]).filter(([, item]) => item !== undefined));
   }
+  if (spec.type === 'commanderColors') return validCommanderColors(value) ? [...value] : undefined;
   if (value === null || typeof value === 'object') return undefined;
   if (spec.type === 'boolean') return typeof value === 'boolean' ? value : undefined;
   if (spec.type === 'number') return (typeof value === 'number' || (typeof value === 'string' && value !== '')) && Number.isFinite(Number(value)) ? value : undefined;
@@ -249,4 +256,4 @@ function project(value, spec) {
   if (spec.type === 'text') return value.length <= spec.max && !/[\p{Cc}\p{Cf}]/u.test(value) ? value : undefined;
   return undefined;
 }
-export function publicAppearanceSkin(skin) { return project(skin, record({ id, name: text(80), edited: text(80), ...visualFields, ...previewFields })); }
+export function publicAppearanceSkin(skin, { preview = false } = {}) { return project(skin, record({ id, name: text(80), edited: text(80), ...visualFields, counterDesign: counterDesignSpecFor(skin), ...previewFields, ...(preview ? fixtureIdentities : {}) })); }

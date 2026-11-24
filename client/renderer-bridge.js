@@ -5,6 +5,7 @@ import { compileSurfaceDesign } from './appearance-surface-design.js';
 import { appearanceFonts, fontFamily, localFontKeys, prepareAppearanceFonts } from './appearance-fonts.js';
 import { createSurfaceArtRenderer } from './appearance-surface-art.js';
 import { compileTableDesign, hasCustomGeometry } from './appearance-table-design.js';
+import { createCommanderGlass } from './commander-glass.js';
 // Cosmetic projection shared by the real game and isolated Studio fixtures.
 // No transport, rules, account preferences, selectors or executable content.
 export const RENDERER_MODES = ['life', 'commander', 'radiation', 'poison', 'energy', 'generic'];
@@ -48,18 +49,19 @@ export function rendererComponentDefaults(value) {
 // from a message; the catalog resolves approved asset IDs into inert raster data.
 // Repeated edits send the same roster of raster strings. Cache only successful
 // byte inspections by exact value, with a fixed bound for large art libraries.
-const vettedImages = new Set();
+const vettedImages = new Map();
 const imageCacheLimit = 12_000_000;
 let cachedImageCharacters = 0;
 function safeImage(value) {
   if (!value || typeof value !== 'string') return '';
   if (vettedImages.has(value)) return value;
-  try { inspectImageData(value); } catch { return ''; }
+  let info;
+  try { info = inspectImageData(value); } catch { return ''; }
   while (cachedImageCharacters + value.length > imageCacheLimit && vettedImages.size) {
-    const oldest = vettedImages.values().next().value;
+    const oldest = vettedImages.keys().next().value;
     vettedImages.delete(oldest); cachedImageCharacters -= oldest.length;
   }
-  vettedImages.add(value); cachedImageCharacters += value.length;
+  vettedImages.set(value, info); cachedImageCharacters += value.length;
   return value;
 }
 
@@ -214,6 +216,10 @@ export function buildRendererTheme(value, interfaceStyle = 'button') {
   const buttonImage = safeImage(skin.buttonData);
   if (buttonImage) { vars['--skin-button-image'] = 'url("' + buttonImage + '")'; result.datasets.buttonArt = 'true'; }
   result.assets.background = safeImage(skin.backgroundData);
+  if (skin.commanderTreatment === 'prismatic-glass' && result.assets.background) {
+    const { width, height } = vettedImages.get(result.assets.background);
+    result.assets.backgroundAspect = width / height;
+  }
   result.assets.seal = safeImage(skin.sealData);
   for (const mode of RENDERER_MODES) result.assets.symbols[mode] = safeImage(record(skin.symbolData)[mode]);
   for (const slot of ['seat','counter','dial']) result.assets.overlays[slot] = { data: safeImage(record(layout.overlayData)[slot]), opacity: number(record(layout.overlayOpacity)[slot], {seat:35,counter:28,dial:30}[slot], 0, 70) / 100, scale: number(record(layout.overlayScale)[slot],100,50,160) / 100, blend: named(record(layout.overlayBlend)[slot],['normal','screen','multiply','overlay'],slot === 'seat' ? 'normal' : 'screen') };
@@ -228,18 +234,20 @@ export function buildRendererTheme(value, interfaceStyle = 'button') {
   return result;
 }
 
-export function createRendererBridge(document, { modeLabel = mode => mode } = {}) {
+export function createRendererBridge(document, { modeLabel = mode => mode, getCommanderTable = () => null } = {}) {
   if (!document.querySelector('link[data-renderer-theme]')) { const stylesheet = document.createElement('link'); stylesheet.rel = 'stylesheet'; stylesheet.href = new URL('./renderer-theme.css?v=1', import.meta.url).href; stylesheet.dataset.rendererTheme = ''; document.head.append(stylesheet); }
   const root = document.documentElement, game = document.querySelector('#gameView');
   const seal = document.querySelector('.counter-sigil');
   const baseSeal = seal ? [...seal.childNodes].map(node => node.cloneNode(true)) : [];
   const baseNav = new Map(RENDERER_MODES.map(mode => [mode, [...(document.querySelector(`[data-mode="${mode}"]`)?.childNodes || [])].map(node => node.cloneNode(true))]));
   const counterDesignRenderer = createCounterDesignRenderer(document,{safeImage});
+  const commanderGlass = createCommanderGlass(document, getCommanderTable);
   let applied = new Set(), theme = null, selectedSkin = null, selectedStyle = null, artRevision = 0;
   const surfaceArtwork = createSurfaceArtRenderer(document,{safeImage});
   const renderedArt = new WeakMap();
   const image = data => { const node = document.createElement('img'); node.alt = ''; node.src = data; return node; };
-  function clear() {
+  function clear(preserveGlass = false) {
+    if (!preserveGlass) commanderGlass.clear();
     surfaceArtwork.clear();
     counterDesignRenderer.clear();
     for (const property of applied) root.style.removeProperty(property);
@@ -252,7 +260,9 @@ export function createRendererBridge(document, { modeLabel = mode => mode } = {}
     theme = null; selectedSkin = null; selectedStyle = null;
   }
   function apply(skin, interfaceStyle) {
-    clear(); selectedSkin = skin; selectedStyle = interfaceStyle; theme = buildRendererTheme(skin, interfaceStyle); artRevision += 1;
+    const next = buildRendererTheme(skin, interfaceStyle);
+    clear(theme?.datasets.commanderTreatment && next.datasets.commanderTreatment && selectedSkin?.id === skin?.id);
+    selectedSkin = skin; selectedStyle = interfaceStyle; theme = next; artRevision += 1;
     if (theme.native) return;
     void prepareAppearanceFonts(document,publicAppearanceSkin(record(skin)));
     surfaceArtwork.apply(skin);
@@ -260,7 +270,8 @@ export function createRendererBridge(document, { modeLabel = mode => mode } = {}
     root.dataset.rendererVersion=String(theme.version);
     for (const [name,value] of Object.entries(theme.variables)) { root.style.setProperty(name,value); applied.add(name); }
     Object.assign(game.dataset, theme.datasets);
-    if (theme.assets.background) { document.body.style.backgroundImage = `linear-gradient(rgb(0 0 0 / .32),rgb(0 0 0 / .32)),url("${theme.assets.background}")`; document.body.style.backgroundSize = theme.assets.backgroundSize; document.body.style.backgroundPosition = theme.assets.backgroundPosition; }
+    if (theme.datasets.commanderTreatment) commanderGlass.refresh(theme.assets.background, counterDesignRenderer.refresh(skin, game.dataset.counterMode));
+    if (theme.assets.background && !theme.datasets.commanderTreatment) { document.body.style.backgroundImage = `linear-gradient(rgb(0 0 0 / .32),rgb(0 0 0 / .32)),url("${theme.assets.background}")`; document.body.style.backgroundSize = theme.assets.backgroundSize; document.body.style.backgroundPosition = theme.assets.backgroundPosition; }
   }
   function refreshArt(interfaceStyle = selectedStyle) {
     // Released skins compiled placement only when selected. Preserve that v1
@@ -314,7 +325,8 @@ export function createRendererBridge(document, { modeLabel = mode => mode } = {}
     document.querySelectorAll('.pod-seat').forEach(node => addOverlay(node, 'seat'));
     addOverlay(document.querySelector('.counter-stage'), 'counter');
     addOverlay(document.querySelector('.dial-gesture'), 'dial');
-    counterDesignRenderer.refresh(selectedSkin,game.dataset.counterMode);
+    const counterArtwork = counterDesignRenderer.refresh(selectedSkin,game.dataset.counterMode);
+    if (theme.datasets.commanderTreatment) commanderGlass.refresh(theme.assets.background, counterArtwork);
   }
   return { apply, clear, refreshArt };
 }

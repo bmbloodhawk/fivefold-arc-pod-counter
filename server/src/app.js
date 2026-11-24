@@ -9,6 +9,7 @@ import { competitionRoute } from './competition-http.js';
 import { extname, resolve, sep } from "node:path";
 import QRCode from "qrcode";
 import { SKIN_ACHIEVEMENTS, isAchievementSkin, isInvitationSkin } from "./appearance-collection.js";
+import { PRISMATIC_CONFLUENCE_SKIN_ID, PRISMATIC_PREREQUISITES } from "./appearance-milestones.js";
 import { activeGameDurationMs, NullPlaytestLedger, recapFromRoom } from "./playtest-ledger.js";
 import { TableDeviceActivity, normalizedTableDeviceId } from "./table-device-activity.js";
 import { ProductMeasurement } from "./product-measurement.js";
@@ -2194,11 +2195,14 @@ export function createRealtimeServer(options = {}) {
     .map(skin => [skin.id, { ...skin, achievement: SKIN_ACHIEVEMENTS[skin.id] }]));
   const skinNamesByAchievement = new Map([...earnedSkins.values()].map(skin => [skin.achievement.id, skin.name]));
   const appearanceAchievementIds = [...skinNamesByAchievement.keys()];
+  const collectionAwardIds = earnedSkins.has(PRISMATIC_CONFLUENCE_SKIN_ID)
+    ? [...appearanceAchievementIds, ...PRISMATIC_PREREQUISITES.map(({ id }) => id)] : appearanceAchievementIds;
   const profileSkinChoices = async (accountId) => {
     if (!earnedSkins.size) return {};
-    const awards = await accountHistory.earnedSkinAwards(accountId, appearanceAchievementIds);
+    const awards = await accountHistory.earnedSkinAwards(accountId, collectionAwardIds);
     return { skins: [...earnedSkins.values()].map(({ id, name, achievement }) => ({
       id, name, achievement, state: awards[achievement.id] ?? "locked",
+      ...(id === PRISMATIC_CONFLUENCE_SKIN_ID ? { progress: PRISMATIC_PREREQUISITES.map(item => ({ ...item, earned: Boolean(awards[item.id]) })) } : {}),
     })) };
   };
   const requireEarnedSkin = async (req, skin) => {
@@ -2321,9 +2325,9 @@ export function createRealtimeServer(options = {}) {
         await service.ensureRoom(input.roomCode);
         const completion = service.completedSeat(input.roomCode, connectionId, input.gameId);
         const legacySourceGameId = [input.roomCode, completion.completedAt, completion.seatId].join(":");
-        const saved = await accountHistory.saveCompletedGame(accountId, { ...completion, legacySourceGameId }, input.deckId, appearanceAchievementIds);
+        const { alreadyOwnedSkinAward, ...saved } = await accountHistory.saveCompletedGame(accountId, { ...completion, legacySourceGameId }, input.deckId, appearanceAchievementIds);
         const unlockedAchievements = saved.unlockedAchievements.map(achievement => {
-          const unlockedSkinName = skinNamesByAchievement.get(achievement.id);
+          const unlockedSkinName = achievement.id !== alreadyOwnedSkinAward && skinNamesByAchievement.get(achievement.id);
           return unlockedSkinName ? { ...achievement, unlockedSkinName } : achievement;
         });
         return json(res, 201, { ...saved, unlockedAchievements });

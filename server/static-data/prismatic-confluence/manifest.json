@@ -1,0 +1,663 @@
+{
+  "skin": {
+    "id": "skin-8dcb5aaa-565f-459b-8cb7-5091b023abe0",
+    "name": "Prismatic Confluence",
+    "edited": "Nov 24",
+    "background": "#131722",
+    "surface": "#1c2330",
+    "accent": "#e6dbbc",
+    "secondary": "#b0d4e2",
+    "text": "#f7f4eb",
+    "muted": "#c1cad6",
+    "atmosphere": "custom",
+    "atmosphereColor": "#70a97a",
+    "atmosphereStrength": 0,
+    "atmospherePosition": "top",
+    "backgroundTreatment": "plain",
+    "backgroundAsset": "asset-78d47fa9-3ef2-4382-befd-8fa10b3cd28a",
+    "backgroundScale": 100,
+    "backgroundPositionX": 50,
+    "backgroundPositionY": 85,
+    "ring": "arc",
+    "sealAsset": "",
+    "buttonTreatment": "glass",
+    "buttonOpacity": 100,
+    "buttonBlur": 0,
+    "buttonBorder": 70,
+    "lifeButtonOpacity": 100,
+    "lifeButtonBlur": 0,
+    "lifeButtonBorder": 70,
+    "customLifeOpacity": 100,
+    "customLifeBlur": 0,
+    "customLifeBorder": 70,
+    "commanderTaxOpacity": 100,
+    "commanderTaxBlur": 0,
+    "commanderTaxBorder": 70,
+    "commanderDamageOpacity": 100,
+    "commanderDamageBlur": 0,
+    "commanderDamageBorder": 70,
+    "seatTreatment": "glass",
+    "seatOpacity": 65,
+    "seatBlur": 0,
+    "seatBorder": 70,
+    "symbols": {
+      "life": "♥",
+      "commander": "♜",
+      "radiation": "☢",
+      "poison": "☠",
+      "energy": "ϟ",
+      "generic": "◇"
+    },
+    "symbolAssets": {
+      "life": "asset-cb462437-0c97-4d3d-b398-63933e4ea16f",
+      "commander": "asset-711201de-fe11-46b4-a04e-0cfcead6e901",
+      "radiation": "asset-0b8032ee-e017-4979-ba71-b28a44ef7572",
+      "poison": "asset-924b3939-eb93-4344-8298-cfdf59f6e6e6",
+      "energy": "asset-8d875a59-c521-4780-a637-a77f0a871783",
+      "generic": "asset-3aacfe80-cf93-4a46-a99e-dbee1b89e821"
+    },
+    "symbolScale": {
+      "life": 130,
+      "commander": 130,
+      "radiation": 130,
+      "poison": 130,
+      "energy": 130,
+      "generic": 130
+    },
+    "interfaceStyle": "dial",
+    "fontFamily": "cinzel",
+    "labelTextScale": 100,
+    "seatTextScale": 100,
+    "seatRadius": 8,
+    "buttonRadius": 8,
+    "counterOffsetY": 0,
+    "turnOffsetY": 0,
+    "controlsOffsetY": 0,
+    "centerSealScale": 100,
+    "centerSealOffsetX": 0,
+    "centerSealOffsetY": 0,
+    "lifeNumberScale": 100,
+    "lifeNumberOffsetX": 0,
+    "lifeNumberOffsetY": 0,
+    "dialArtSpin": false,
+    "componentLayout": {
+      "podStrip": {
+        "x": 0,
+        "y": 0,
+        "scale": 100
+      },
+      "counterReadout": {
+        "x": 0,
+        "y": 0,
+        "scale": 100
+      },
+      "dialSurface": {
+        "x": 0,
+        "y": 0,
+        "scale": 100
+      },
+      "turnActions": {
+        "x": 0,
+        "y": 0,
+        "scale": 100
+      },
+      "adjustControls": {
+        "x": 0,
+        "y": 0,
+        "scale": 100
+      },
+      "customLife": {
+        "x": 0,
+        "y": 0,
+        "scale": 100
+      },
+      "commanderTax": {
+        "x": 0,
+        "y": 0,
+        "scale": 100
+      },
+      "commanderDamage": {
+        "x": 0,
+        "y": 0,
+        "scale": 100
+      },
+      "modeNav": {
+        "x": 0,
+        "y": 0,
+        "scale": 100
+      }
+    },
+    "overlays": {
+      "seat": "",
+      "counter": "",
+      "dial": ""
+    },
+    "overlayOpacity": {
+      "seat": 35,
+      "counter": 28,
+      "dial": 30
+    },
+    "overlayScale": {
+      "seat": 100,
+      "counter": 100,
+      "dial": 100
+    },
+    "overlayBlend": {
+      "seat": "normal",
+      "counter": "screen",
+      "dial": "screen"
+    },
+    "modeLayouts": {
+      "button": {
+        "labelTextScale": 100,
+        "seatTextScale": 100,
+        "seatRadius": 8,
+        "buttonRadius": 8,
+        "counterOffsetY": 0,
+        "turnOffsetY": 0,
+        "controlsOffsetY": 0,
+        "centerSealScale": 100,
+        "centerSealOffsetX": 0,
+        "centerSealOffsetY": 0,
+        "dialArtSpin": false,
+        "componentLayout": {
+          "podStrip": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "counterReadout": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "dialSurface": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "turnActions": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "adjustControls": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "customLife": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "commanderTax": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "commanderDamage": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "modeNav": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          }
+        },
+        "overlays": {
+          "seat": "",
+          "counter": "",
+          "dial": ""
+        },
+        "overlayOpacity": {
+          "seat": 35,
+          "counter": 28,
+          "dial": 30
+        },
+        "overlayScale": {
+          "seat": 100,
+          "counter": 100,
+          "dial": 100
+        },
+        "overlayBlend": {
+          "seat": "normal",
+          "counter": "screen",
+          "dial": "screen"
+        },
+        "lifeNumberScale": 95,
+        "lifeNumberOffsetX": 0,
+        "lifeNumberOffsetY": 0,
+        "seatGap": 8
+      },
+      "dial": {
+        "labelTextScale": 100,
+        "seatTextScale": 100,
+        "seatRadius": 8,
+        "buttonRadius": 8,
+        "counterOffsetY": 0,
+        "turnOffsetY": 0,
+        "controlsOffsetY": 0,
+        "centerSealScale": 100,
+        "centerSealOffsetX": 0,
+        "centerSealOffsetY": 0,
+        "dialArtSpin": false,
+        "componentLayout": {
+          "podStrip": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "counterReadout": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "dialSurface": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "turnActions": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "adjustControls": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "customLife": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "commanderTax": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "commanderDamage": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "modeNav": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          }
+        },
+        "overlays": {
+          "seat": "",
+          "counter": "",
+          "dial": ""
+        },
+        "overlayOpacity": {
+          "seat": 35,
+          "counter": 28,
+          "dial": 30
+        },
+        "overlayScale": {
+          "seat": 100,
+          "counter": 100,
+          "dial": 100
+        },
+        "overlayBlend": {
+          "seat": "normal",
+          "counter": "screen",
+          "dial": "screen"
+        },
+        "lifeNumberScale": 100,
+        "lifeNumberOffsetX": 0,
+        "lifeNumberOffsetY": 0,
+        "seatGap": 8
+      }
+    },
+    "tokens": {
+      "schemaVersion": 1,
+      "color": {
+        "canvas": "#131722",
+        "surface": "#1c2330",
+        "text": "#f7f4eb",
+        "textMuted": "#c1cad6",
+        "accentPrimary": "#e6dbbc",
+        "accentSecondary": "#b0d4e2",
+        "atmosphere": "#70a97a",
+        "success": "#85c799",
+        "warning": "#efc968",
+        "danger": "#ed866f",
+        "focus": "#d8ae61"
+      },
+      "typography": {
+        "family": "cinzel",
+        "weight": 700,
+        "lineHeight": 1.2,
+        "letterSpacing": 0,
+        "textTransform": "none",
+        "labelAlignment": "inherit",
+        "textEffect": "none"
+      },
+      "effects": {
+        "backgroundTreatment": "plain",
+        "buttonTreatment": "glass",
+        "seatTreatment": "glass"
+      },
+      "components": {
+        "button": {
+          "opacity": 100,
+          "blur": 0,
+          "border": 70
+        },
+        "lifeButton": {
+          "opacity": 100,
+          "blur": 0,
+          "border": 70
+        },
+        "customLife": {
+          "opacity": 100,
+          "blur": 0,
+          "border": 70
+        },
+        "commanderTax": {
+          "opacity": 100,
+          "blur": 0,
+          "border": 70
+        },
+        "commanderDamage": {
+          "opacity": 100,
+          "blur": 0,
+          "border": 70
+        },
+        "seat": {
+          "opacity": 65,
+          "blur": 0,
+          "border": 70
+        }
+      }
+    },
+    "fontWeight": 700,
+    "lineHeight": 1.2,
+    "letterSpacing": 0,
+    "textTransform": "none",
+    "labelAlignment": "inherit",
+    "textEffect": "none",
+    "stateSuccess": "#85c799",
+    "stateWarning": "#efc968",
+    "stateDanger": "#ed866f",
+    "focusColor": "#d8ae61",
+    "componentColors": {
+      "endTurn": {
+        "background": "#263545",
+        "text": "#fff5d8",
+        "border": "#bdced8"
+      },
+      "lifeButtons": {
+        "background": "#161616",
+        "text": "#f4ecd9",
+        "border": "#62583f"
+      },
+      "playerCards": {
+        "background": "#161616",
+        "text": "#f4ecd9",
+        "border": "#5b594f"
+      },
+      "navigation": {
+        "background": "#161616",
+        "text": "#afa590",
+        "border": "#4b4b44",
+        "selectedText": "#d8ae61",
+        "selectedBorder": "#d8ae61"
+      }
+    },
+    "rendererVersion": 2,
+    "counterDesign": {
+      "navigationIcons": "native",
+      "modes": {
+        "life": {
+          "markings": "none",
+          "seal": "none",
+          "artAsset": "asset-57103d64-5a21-4635-a0b1-c947a5305937",
+          "artOpacity": 100,
+          "icon": "configured",
+          "uprightCenter": true
+        },
+        "commander": {
+          "markings": "none",
+          "seal": "none",
+          "artAsset": "asset-2bc4521d-8864-4000-a5b1-83b851e00106",
+          "artOpacity": 100,
+          "icon": "configured",
+          "uprightCenter": true
+        },
+        "radiation": {
+          "markings": "none",
+          "seal": "none",
+          "artAsset": "asset-56a4532c-8a84-48c7-b26a-afe0943a2c16",
+          "artOpacity": 100,
+          "icon": "configured",
+          "uprightCenter": true
+        },
+        "poison": {
+          "markings": "none",
+          "seal": "none",
+          "artAsset": "asset-16bcda99-d22a-4025-89ca-8c2622de75dc",
+          "artOpacity": 100,
+          "icon": "configured",
+          "uprightCenter": true
+        },
+        "energy": {
+          "markings": "none",
+          "seal": "none",
+          "artAsset": "asset-f9c9a209-c147-4753-94d9-7262c34e20d6",
+          "artOpacity": 100,
+          "icon": "configured",
+          "uprightCenter": true
+        },
+        "generic": {
+          "markings": "none",
+          "seal": "none",
+          "artAsset": "asset-b8571adc-0843-4d1b-b69f-7e8d9ea38467",
+          "artOpacity": 100,
+          "icon": "configured",
+          "uprightCenter": true
+        }
+      }
+    },
+    "thumbnailAsset": "asset-c8e9e19c-b754-4607-87c4-fadaf44174d3",
+    "variants": {
+      "numerals": "tabular"
+    },
+    "commanderTreatment": "prismatic-glass",
+    "canvasDesign": {
+      "artShade": 4
+    },
+    "surfaceDesign": {
+      "surfaces": {
+        "turnBar": {
+          "fill": {
+            "kind": "solid",
+            "color": "#101722",
+            "opacity": 88
+          },
+          "ink": "#f7f4eb",
+          "muted": "#d8e1e9"
+        }
+      }
+    },
+    "status": "Approved"
+  },
+  "assets": [
+    {
+      "id": "asset-78d47fa9-3ef2-4382-befd-8fa10b3cd28a",
+      "name": "Confluence · Unbroken Window",
+      "source": "Original Prismatic Confluence illustration, edited for Fivefold Arc to continue the glass through the center.",
+      "placement": "background",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 844,
+      "height": 1500,
+      "bytes": 560524,
+      "file": "heralds-window.webp"
+    },
+    {
+      "id": "asset-c8e9e19c-b754-4607-87c4-fadaf44174d3",
+      "name": "Confluence · Onyx Heralds",
+      "source": "Collection thumbnail rendered from the five-color onyx edition of the original heralds window.",
+      "placement": "thumbnail",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 320,
+      "height": 320,
+      "bytes": 61860,
+      "file": "heralds-detail.webp"
+    },
+    {
+      "id": "asset-cb462437-0c97-4d3d-b398-63933e4ea16f",
+      "name": "Confluence · Heartwood Miniature",
+      "source": "Prismatic Confluence original engraved art sheet. Handset-sized crop of the matching counter face.",
+      "placement": "symbol",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 128,
+      "height": 128,
+      "bytes": 12478,
+      "file": "tab-life.webp"
+    },
+    {
+      "id": "asset-57103d64-5a21-4635-a0b1-c947a5305937",
+      "name": "Confluence · Heartwood Seal",
+      "source": "Original generated graphite relief fitted to the Prismatic Confluence Votive Seal.",
+      "placement": "dial",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 544,
+      "height": 544,
+      "bytes": 117156,
+      "file": "seal-life.webp"
+    },
+    {
+      "id": "asset-711201de-fe11-46b4-a04e-0cfcead6e901",
+      "name": "Confluence · Crowned Helm Miniature",
+      "source": "Prismatic Confluence original engraved art sheet. Handset-sized crop of the matching counter face.",
+      "placement": "symbol",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 128,
+      "height": 128,
+      "bytes": 10576,
+      "file": "tab-commander.webp"
+    },
+    {
+      "id": "asset-2bc4521d-8864-4000-a5b1-83b851e00106",
+      "name": "Confluence · Crowned Helm Seal",
+      "source": "Original generated graphite relief fitted to the Prismatic Confluence Votive Seal.",
+      "placement": "dial",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 544,
+      "height": 544,
+      "bytes": 113318,
+      "file": "seal-commander.webp"
+    },
+    {
+      "id": "asset-0b8032ee-e017-4979-ba71-b28a44ef7572",
+      "name": "Confluence · Isotope Core Miniature",
+      "source": "Prismatic Confluence original engraved art sheet. Handset-sized crop of the matching counter face.",
+      "placement": "symbol",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 128,
+      "height": 128,
+      "bytes": 6766,
+      "file": "tab-radiation.webp"
+    },
+    {
+      "id": "asset-56a4532c-8a84-48c7-b26a-afe0943a2c16",
+      "name": "Confluence · Isotope Core Seal",
+      "source": "Original engraved isotope chamber from the six-piece Prismatic Confluence art sheet, set in the Votive Seal.",
+      "placement": "dial",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 544,
+      "height": 544,
+      "bytes": 113344,
+      "file": "seal-radiation.webp"
+    },
+    {
+      "id": "asset-924b3939-eb93-4344-8298-cfdf59f6e6e6",
+      "name": "Confluence · Viper Skull Miniature",
+      "source": "Prismatic Confluence original engraved art sheet. Handset-sized crop of the matching counter face.",
+      "placement": "symbol",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 128,
+      "height": 128,
+      "bytes": 14800,
+      "file": "tab-poison.webp"
+    },
+    {
+      "id": "asset-16bcda99-d22a-4025-89ca-8c2622de75dc",
+      "name": "Confluence · Viper Skull Seal",
+      "source": "Original generated graphite relief fitted to the Prismatic Confluence Votive Seal.",
+      "placement": "dial",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 544,
+      "height": 544,
+      "bytes": 117966,
+      "file": "seal-poison.webp"
+    },
+    {
+      "id": "asset-8d875a59-c521-4780-a637-a77f0a871783",
+      "name": "Confluence · Storm Crystal Miniature",
+      "source": "Prismatic Confluence original engraved art sheet. Handset-sized crop of the matching counter face.",
+      "placement": "symbol",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 128,
+      "height": 128,
+      "bytes": 11770,
+      "file": "tab-energy.webp"
+    },
+    {
+      "id": "asset-f9c9a209-c147-4753-94d9-7262c34e20d6",
+      "name": "Confluence · Storm Crystal Seal",
+      "source": "Original generated graphite relief fitted to the Prismatic Confluence Votive Seal.",
+      "placement": "dial",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 544,
+      "height": 544,
+      "bytes": 116200,
+      "file": "seal-energy.webp"
+    },
+    {
+      "id": "asset-3aacfe80-cf93-4a46-a99e-dbee1b89e821",
+      "name": "Confluence · Counting Stones Miniature",
+      "source": "Prismatic Confluence original engraved art sheet. Handset-sized crop of the matching counter face.",
+      "placement": "symbol",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 128,
+      "height": 128,
+      "bytes": 10750,
+      "file": "tab-generic.webp"
+    },
+    {
+      "id": "asset-b8571adc-0843-4d1b-b69f-7e8d9ea38467",
+      "name": "Confluence · Counting Stones Seal",
+      "source": "Original generated graphite relief fitted to the Prismatic Confluence Votive Seal.",
+      "placement": "dial",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 544,
+      "height": 544,
+      "bytes": 113818,
+      "file": "seal-generic.webp"
+    }
+  ]
+}

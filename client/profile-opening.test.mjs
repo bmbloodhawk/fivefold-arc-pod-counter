@@ -30,6 +30,22 @@ const settingsNames = ['accountPreferredNameField', 'accountDefaultPlayerCountFi
   'exportAccountButton', 'deleteAccountButton', 'signOutButton'];
 const authNames = ['myGamesSignInButton', 'emailSignInButton', 'emailSignInFields', 'forgotPasswordButton', 'createAccountButton'];
 
+test('the profile shows individual achievement progress without relocking a previously owned skin', () => {
+  const context = createContext();
+  runInContext(sourceFunction('escapeHtml') + '\n' + sourceFunction('skinRewardRowHtml'), context);
+  const skin = { name: 'Prismatic Confluence', state: 'locked', achievement: { detail: 'One achievement' } };
+  assert.match(context.skinRewardRowHtml(skin), /One achievement/);
+  const progress = ['Color Wheel', 'Trusted Blade', 'Full Armory', 'Ten Crowns', 'Seasoned']
+    .map((title, index) => ({ title, earned: index < 2 }));
+  const row = context.skinRewardRowHtml({ ...skin, progress });
+  assert.match(row, /2 of 5 achievements/);
+  assert.equal((row.match(/class="earned"/g) || []).length, 2);
+  assert.equal((row.match(/Still to earn/g) || []).length, 3);
+  const priorOwner = context.skinRewardRowHtml({ ...skin, state: 'unlocked', progress });
+  assert.match(priorOwner, /Unlocked/);
+  assert.doesNotMatch(priorOwner, /of 5|Still to earn/);
+});
+
 function fixture({ holdTokens = false } = {}) {
   const tokens = [], histories = [], preferences = [], modalFrames = [];
   const fields = {};

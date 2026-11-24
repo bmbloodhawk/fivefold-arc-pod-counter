@@ -15,7 +15,7 @@ import { createCompetitionHub } from './competition-ui.js?v=10';
 import { parseCompetitionFragment } from './competition-model.mjs?v=2';
 import { createAppearanceCatchUp } from './appearance-catch-up.js?v=2';
 import { createDialLayout } from './dial-layout.js?v=10';
-import { createRendererBridge } from './renderer-bridge.js?v=2';
+import { createRendererBridge } from './renderer-bridge.js?v=6';
 import { bindDialSideTaps } from './dial-side-zones.js?v=2';
 import { bindDialTouchGuard } from './dial-touch-guard.js?v=1';
 import { nextGameStarterPolicy } from './next-game-starter.js?v=1';
@@ -634,7 +634,14 @@ function setInterfaceStyle(style, { persistAccount = false } = {}) {
 const gameDefaultLayoutStyle = document.createElement('style'); gameDefaultLayoutStyle.textContent = 'html.game-layout-active #gameView .pod-strip{translate:var(--game-layout-pod-strip-x,0) var(--game-layout-pod-strip-y,0);scale:var(--game-layout-pod-strip-scale,1);transform-origin:center}html.game-layout-active #gameView .counter-readout{translate:var(--game-layout-counter-readout-x,0) var(--game-layout-counter-readout-y,0);scale:var(--game-layout-counter-readout-scale,1);transform-origin:center}html.game-layout-active #gameView .dial-gesture{translate:var(--game-layout-dial-surface-x,0) var(--game-layout-dial-surface-y,0);scale:var(--game-layout-dial-surface-scale,1);transform-origin:center}html.game-layout-active #gameView .source-panel{translate:var(--game-layout-commander-damage-x,0) var(--game-layout-commander-damage-y,0);scale:var(--game-layout-commander-damage-scale,1);transform-origin:center}html.game-layout-active #gameView #turnActions{translate:var(--game-layout-turn-actions-x,0) var(--game-layout-turn-actions-y,0);scale:var(--game-layout-turn-actions-scale,1);transform-origin:center}html.game-layout-active #gameView .adjust-controls{translate:var(--game-layout-adjust-controls-x,0) var(--game-layout-adjust-controls-y,0);scale:var(--game-layout-adjust-controls-scale,1);transform-origin:center}html.game-layout-active #gameView .custom-life-button{translate:var(--game-layout-custom-life-x,0) var(--game-layout-custom-life-y,0);scale:var(--game-layout-custom-life-scale,1);transform-origin:center}html.game-layout-active #gameView .commander-tax-quick{translate:var(--game-layout-commander-tax-x,0) var(--game-layout-commander-tax-y,0);scale:var(--game-layout-commander-tax-scale,1);transform-origin:center}html.game-layout-active #gameView .mode-nav{translate:var(--game-layout-mode-nav-x,0) var(--game-layout-mode-nav-y,0);scale:var(--game-layout-mode-nav-scale,1);transform-origin:center}'; document.head.append(gameDefaultLayoutStyle);
 function applyGameDefaultLayout() { const layout = gameDefaultLayout?.modeLayouts?.[interfaceStyle]; if (!layout) return; document.documentElement.classList.add('game-layout-active'); const regions = { podStrip: 'pod-strip', counterReadout: 'counter-readout', dialSurface: 'dial-surface', commanderDamage: 'commander-damage', turnActions: 'turn-actions', adjustControls: 'adjust-controls', customLife: 'custom-life', commanderTax: 'commander-tax', modeNav: 'mode-nav' }; Object.entries(regions).forEach(([key, css]) => { const placement = layout.componentLayout?.[key] || {}; document.documentElement.style.setProperty(`--game-layout-${css}-x`, `${Math.min(100, Math.max(-100, Number(placement.x) || 0))}px`); document.documentElement.style.setProperty(`--game-layout-${css}-y`, `${Math.min(140, Math.max(-140, Number(placement.y) || 0))}px`); document.documentElement.style.setProperty(`--game-layout-${css}-scale`, String(Math.min(140, Math.max(70, Number(placement.scale) || 100)) / 100)); }); dialLayout.update(); }
 async function loadGameDefaultLayout() { try { const response = await fetch('/api/game-layout', { cache: 'no-store' }); if (!response.ok) return; gameDefaultLayout = (await response.json()).layout; applyGameDefaultLayout(); } catch { /* Game play remains available if the optional layout cannot load. */ } }
-const productionSkinRenderer = createRendererBridge(document, { modeLabel: counterModeLabel });
+const productionSkinRenderer = createRendererBridge(document, {
+  modeLabel: counterModeLabel,
+  getCommanderTable: () => state && ({
+    owner: state.ownerPlayerId,
+    viewed: state.activePlayerId,
+    seats: Object.fromEntries(state.players.map(player => [player.id, playerIdentity(player)])),
+  }),
+});
 function deviceAppearanceChoice() {
   if (stagingReviewChoice !== undefined) return stagingReviewChoice;
   try { return localStorage.getItem(DEVICE_APPEARANCE_KEY) || ''; } catch { return ''; }
@@ -654,13 +661,28 @@ function setDeviceAppearanceChoice(choice) {
 function unlockedSkinChoices() {
   return accountSkinChoices.filter(skin => skin.state === 'unlocked' || skin.state === 'new');
 }
+function skinRewardRowHtml(skin) {
+  const locked = skin.state === 'locked';
+  const heading = '<strong>' + escapeHtml(skin.name) + '</strong> <span>' + (locked ? 'Locked' : 'Unlocked') + '</span>';
+  if (!Array.isArray(skin.progress) || !skin.progress.length) {
+    return '<li>' + heading + '<small>' + escapeHtml(skin.achievement.detail) + '</small></li>';
+  }
+  const earned = skin.progress.filter(part => part.earned === true).length;
+  // Prior owners keep the skin even if their five-achievement path is unfinished.
+  if (!locked && earned < skin.progress.length) return '<li>' + heading + '</li>';
+  const panes = skin.progress.map(part => '<i' + (part.earned ? ' class="earned"' : '') + '></i>').join('');
+  const parts = skin.progress.map(part => '<li><div>' + escapeHtml(part.title) +
+    (part.detail ? '<small>' + escapeHtml(part.detail) + '</small>' : '') + '</div><small>' +
+    (part.earned ? 'Earned' : 'Still to earn') + '</small></li>').join('');
+  return '<li>' + heading + '<details class="skin-achievement-path"><summary>' + earned + ' of ' +
+    skin.progress.length + ' achievements <b class="skin-achievement-panes" aria-hidden="true">' +
+    panes + '</b></summary><ul>' + parts + '</ul></details></li>';
+}
 function renderProfileSkinChoices(selectedId = accountPreferences?.personalSkinId || '') {
   const choices = [...publishedSkins, ...unlockedSkinChoices()];
   accountPersonalSkin.innerHTML = '<option value="">Standard shared appearance</option>' + choices.map(skinOption).join('');
   accountPersonalSkin.value = choices.some(skin => skin.id === selectedId) ? selectedId : '';
-  accountSkinRewards.querySelector('ul').innerHTML = accountSkinChoices.map(skin =>
-    '<li><strong>' + escapeHtml(skin.name) + '</strong> <span>' + (skin.state === 'locked' ? 'Locked' : 'Unlocked') +
-    '</span><small>' + escapeHtml(skin.achievement.detail) + '</small></li>').join('');
+  accountSkinRewards.querySelector('ul').innerHTML = accountSkinChoices.map(skinRewardRowHtml).join('');
   accountSkinRewards.hidden = accountPersonalSkinField.hidden || !accountSkinChoices.length;
   const tableSkin = $('#tableSkin');
   const oldChoice = tableSkin.value;
@@ -1427,7 +1449,9 @@ async function saveGameToHistory({ automatic = false, gameKey = victoryKey(state
     if (!automatic && dom.victoryDialog.open) showPersonalMatchMoment(saved.moment);
     const { unlockedAchievements = [] } = saved;
     if (unlockedAchievements.length) {
-      if (unlockedAchievements.some(award => award.unlockedSkinName)) void refreshAccountSkinChoices(token, profileEpoch);
+      const updatesSkin = unlockedAchievements.some(award => award.unlockedSkinName ||
+        accountSkinChoices.some(skin => skin.progress?.some(part => !part.earned && part.id === award.id)));
+      if (updatesSkin) void refreshAccountSkinChoices(token, profileEpoch);
       unlockedAchievementsByGame.set(gameKey, unlockedAchievements);
       if (dismissedVictoryKeys.has(gameKey) && !dom.victoryDialog.open) showAchievementUnlocks(gameKey);
     }

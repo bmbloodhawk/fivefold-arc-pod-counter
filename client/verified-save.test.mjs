@@ -26,6 +26,7 @@ function browserFixture({ accountToken = async () => 'test-profile' } = {}) {
     currentAccountToken: accountToken,
     googleAccountToken: async () => 'test-profile',
     savedGameKey: null, savingGameKey: null, savedGameMoment: null, awardProfileEpoch: 0,
+    accountSkinChoices: [], refreshAccountSkinChoices() { context.skinRefreshes++; }, skinRefreshes: 0,
     findDeckColorsButton: { disabled: false },
     unlockedAchievementsByGame: unlocked, dismissedVictoryKeys: new Set(),
     appearanceCatchUp: { reset() { context.catchUpReset = true; } },
@@ -47,6 +48,14 @@ test('an automatic save sends the pinned completion reference and seat credentia
   assert.equal(request.headers['x-connection-id'], 'seat-connection');
   assert.deepEqual(request.body, { roomCode: 'ABC123', gameId: 'completed-first', deckId: 'deck-first' });
   assert.equal(browser.unlocked.get('completed-first')[0].id, 'settling-in');
+  assert.equal(browser.context.skinRefreshes, 0);
+});
+
+test('a newly earned step refreshes the private skin choices before the full skin unlock', async () => {
+  const browser = browserFixture();
+  browser.context.accountSkinChoices = [{ progress: [{ id: 'settling-in', earned: false }] }];
+  await browser.save();
+  assert.equal(browser.context.skinRefreshes, 1);
 });
 
 test('switching rooms while the account token resolves cancels that save', async () => {

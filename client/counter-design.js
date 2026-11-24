@@ -11,9 +11,18 @@ const modeFields = {
   markings:choice('native','ticks','runes','none'),
   captionBacking:choice('native','surface'),
   seal:choice('native','mode','none'),icon:choice('native','configured'),
-  artAsset:{type:'id'},artOpacity:number(0,55),artScale:number(70,130),
+  artAsset:{type:'id'},artScale:number(70,130),
 };
-export const counterDesignSpec = record({navigationIcons:choice('native','configured'),modes:record(Object.fromEntries(COUNTER_DESIGN_MODES.map(mode=>[mode,record(modeFields)])))});
+export function counterArtStrengthLimit(skin) {
+  return skin?.rendererVersion === 2 && skin.commanderTreatment === 'prismatic-glass' ? 100 : 55;
+}
+function schema(maxStrength, extraFields = {}) {
+  const mode = record({ ...modeFields, artOpacity: number(0,maxStrength), ...extraFields });
+  return record({ navigationIcons:choice('native','configured'), modes:record(Object.fromEntries(COUNTER_DESIGN_MODES.map(key => [key,mode]))) });
+}
+export const counterDesignSpec = schema(55);
+const glassSpec = schema(100, { uprightCenter: {type:'boolean'} });
+export function counterDesignSpecFor(skin) { return counterArtStrengthLimit(skin) === 100 ? glassSpec : counterDesignSpec; }
 export const counterArtDataSpec = record(Object.fromEntries(COUNTER_DESIGN_MODES.map(mode=>[mode,{type:'image'}])));
 
 export function nativeDraftIcons(skin) {
@@ -42,7 +51,8 @@ export function counterDesignFor(skin,mode,safeImage = ()=>'') {
     result.captionAccent=color(source.accent,color(skin.accent,color(tokens.accentPrimary,'#d8ae61')));
   }
   result.art = safeImage(object(skin.counterArtData)[mode]);
-  result.artOpacity = Number.isFinite(Number(source.artOpacity)) ? Math.min(55,Math.max(0,Number(source.artOpacity))) / 100 : .28;
+  if (result.art && skin.commanderTreatment === 'prismatic-glass' && source.uprightCenter === true) result.uprightCenter = true;
+  result.artOpacity = Number.isFinite(Number(source.artOpacity)) ? Math.min(counterArtStrengthLimit(skin),Math.max(0,Number(source.artOpacity))) / 100 : .28;
   result.artScale = Number.isFinite(Number(source.artScale)) ? Math.min(130,Math.max(70,Number(source.artScale))) / 100 : 1;
   return Object.keys(result).some(key=>!['art','artOpacity','artScale'].includes(key)) || result.art ? result : null;
 }
@@ -54,10 +64,10 @@ export function createCounterDesignRenderer(document,{safeImage}) {
   const nativeIcons = new Map(COUNTER_DESIGN_MODES.map(mode=>[mode,document.querySelector('[data-mode="'+mode+'"]')?.querySelector('svg')?.cloneNode(true)]));
   const variables = ['accent','surface','text','art-opacity','art-scale','caption-surface','caption-text','caption-accent'];
   const datasets = ['counterDesign','counterFace','counterMarkings','counterSeal','counterAccent','counterSurface','counterText','counterCaptionBacking'];
-  let nodes = [], source = null, activeMode = null;
+  let nodes = [], source = null, activeMode = null, artwork = null;
   function clear() {
     for (const node of nodes) node.remove();
-    nodes = []; source = null; activeMode = null;
+    nodes = []; source = null; activeMode = null; artwork = null;
     if (!game) return;
     for (const field of datasets) delete game.dataset[field];
     for (const field of variables) game.style.removeProperty('--counter-design-'+field);
@@ -69,7 +79,7 @@ export function createCounterDesignRenderer(document,{safeImage}) {
     return node;
   }
   function refresh(skin,mode) {
-    if (source === skin && activeMode === mode) return;
+    if (source === skin && activeMode === mode) return artwork;
     clear(); source = skin; activeMode = mode;
     const design = counterDesignFor(skin,mode,safeImage);
     if (!design || !face || !game) return;
@@ -84,8 +94,21 @@ export function createCounterDesignRenderer(document,{safeImage}) {
     }
     const surface = decoration('counter-design-face');
     if (design.art) {
-      const image = document.createElement('img'); image.alt = ''; image.src = design.art;
+      const image = document.createElement('img'); image.alt = '';
+      // The glass renderer sets a processed source after it resolves the
+      // inspected player's identity. The keyed master is never visible.
+      if (skin.commanderTreatment === 'prismatic-glass') image.hidden = true;
+      else image.src = design.art;
+      artwork = { node: image, source: design.art };
       surface.append(image);
+      if (design.uprightCenter) {
+        surface.classList.add('counter-design-ring');
+        const engraving = decoration('counter-design-engraving');
+        const center = document.createElement('img');
+        center.alt = ''; center.hidden = true;
+        engraving.append(center);
+        artwork.engraving = center;
+      }
       game.style.setProperty('--counter-design-art-opacity',String(design.artOpacity));
       game.style.setProperty('--counter-design-art-scale',String(design.artScale));
     }
@@ -100,6 +123,7 @@ export function createCounterDesignRenderer(document,{safeImage}) {
       const emblem = decoration('counter-design-emblem');
       emblem.append(nativeIcons.get(mode).cloneNode(true));
     }
+    return artwork;
   }
   return {clear,refresh};
 }

@@ -1,13 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { decodeStagingAppearancePack } from "../../client/staging-appearance-review.js";
-import { APPEARANCE_ACHIEVEMENTS, NIGHT_WATCH_SKIN_ID } from "./appearance-milestones.js";
+import { APPEARANCE_ACHIEVEMENTS, NIGHT_WATCH_SKIN_ID, PRISMATIC_CONFLUENCE_SKIN_ID, PRISMATIC_PATH_ACHIEVEMENT } from "./appearance-milestones.js";
 import { NIGHT_SHIFT_ACHIEVEMENT } from "./account-history.js";
 
-// Night Shift is already awarded by the endurance track. Both old and new
-// earners use that recorded award directly when opening their skin collection.
 export const SKIN_ACHIEVEMENTS = Object.freeze({
   ...APPEARANCE_ACHIEVEMENTS,
   [NIGHT_WATCH_SKIN_ID]: NIGHT_SHIFT_ACHIEVEMENT,
+  [PRISMATIC_CONFLUENCE_SKIN_ID]: PRISMATIC_PATH_ACHIEVEMENT,
 });
 
 export const isAchievementSkin = id => Object.hasOwn(SKIN_ACHIEVEMENTS, id);

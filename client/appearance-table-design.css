@@ -54,6 +54,184 @@ html.game-skin-active #gameView[data-design-title-rule="short"] .pod-label::befo
 html.game-skin-active #gameView[data-design-title-rule="short"] .pod-label::after { max-width:18%; }
 html.game-skin-active #gameView[data-design-title-rule="double"] .pod-label::before,
 html.game-skin-active #gameView[data-design-title-rule="double"] .pod-label::after { height:4px; background:none; border-block:1px solid var(--brass); }
+/* Pigment changes are baked into the illustrated panes. The same approved
+   image layer keeps its crop and falls back to the untouched painting. */
+.commander-dial-jewels, .commander-jewel { display: none; }
+.counter-design-engraving { display: none; }
+@media (orientation: landscape) {
+  html.game-skin-active:has(#gameView[data-commander-treatment="prismatic-glass"]:not([hidden])) {
+    --prism-landscape-size: var(--prism-fitted-size);
+  }
+}
+@media not (forced-colors: active) {
+  html.game-skin-active:has(#gameView[data-commander-treatment="prismatic-glass"]:not([hidden])) {
+    --prism-hall-art: var(--prism-rendered-hall);
+  }
+  html.game-skin-active:has(#gameView[data-commander-treatment="prismatic-glass"]:not([hidden])) body::before { content: none; }
+  /* Glass uses the Studio's translucent seat fill over the one table painting. */
+  #gameView[data-commander-treatment="prismatic-glass"][data-appearance-seat="glass"] {
+    --prism-seat-infill: none;
+    --prism-seat-ink-shadow: 0 -1px 1px #080b10, -1px 0 1px #080b10, 1px 0 1px #080b10, 0 1px 2px #080b10;
+  }
+  #gameView[data-commander-treatment="prismatic-glass"][data-appearance-seat="glass"] .pod-label,
+  #gameView[data-commander-treatment="prismatic-glass"][data-appearance-seat="glass"] .pod-seat.turn-active:not(.active,.eliminated)::before {
+    text-shadow: 0 0 2px #080b10, var(--prism-seat-ink-shadow);
+  }
+  html.game-skin-active #gameView[data-commander-treatment="prismatic-glass"][data-appearance-seat="glass"] .pod-seat .seat-name {
+    text-shadow: var(--sd-player-cards-label-shadow, var(--prism-seat-ink-shadow));
+  }
+  html.game-skin-active #gameView[data-commander-treatment="prismatic-glass"][data-appearance-seat="glass"] .pod-seat:not(.eliminated) .seat-life {
+    text-shadow: var(--sd-player-cards-value-shadow, var(--prism-seat-ink-shadow));
+  }
+  html.game-skin-active[data-renderer-version="2"] #gameView[data-commander-treatment="prismatic-glass"] .pod-seat:not(.eliminated) {
+    background-image:
+      linear-gradient(148deg,#b0a99a 0%,#393a3a 2%,transparent 3.5% 94%,#04080c 95.5%,#7c786c 99%),
+      var(--prism-seat-infill, linear-gradient(158deg,#38404b,#202832 35%,#171c25 80%,#30363e));
+    background-size: cover;
+  }
+  #gameView[data-commander-treatment="prismatic-glass"][data-interface-style] .pod-seat .identity-rail {
+    display: flex; justify-content: center; align-items: center; gap: 2px;
+    inset: auto 3px 4px; height: 7px; pointer-events: none;
+    background: none; border: 0; box-shadow: none;
+  }
+  #gameView[data-commander-treatment="prismatic-glass"] .commander-jewel {
+    display: block; flex: 0 1 12px; height: 7px; position: relative; pointer-events: none;
+    clip-path: polygon(20% 0,80% 0,100% 50%,80% 100%,20% 100%,0 50%);
+    background: linear-gradient(155deg,#fcf3d9,#827d70 31%,#28262a 52%,#b4b0a3 84%,#554d43);
+  }
+  .commander-jewel[data-mana="W"] { --gem: #f7ce75; }
+  .commander-jewel[data-mana="U"] { --gem: #429fdd; }
+  .commander-jewel[data-mana="B"] { --gem: #232323; }
+  .commander-jewel[data-mana="R"] { --gem: #e65e4c; }
+  .commander-jewel[data-mana="G"] { --gem: #43ac79; }
+  .commander-jewel::before {
+    content: ''; position: absolute; inset: 1px; clip-path: inherit;
+    background: conic-gradient(from 30deg at 38% 30%,#fff2 0 57deg,#160e233b 58deg 120deg,#0608198c 121deg 173deg,#fff2 174deg 236deg,#ffffff8c 237deg 282deg,transparent 283deg),var(--gem,#c9d5d9);
+  }
+  .commander-jewel[data-mana="B"]::before {
+    background: conic-gradient(from 30deg at 38% 30%,#363636 0 57deg,#202020 58deg 120deg,#101010 121deg 173deg,#383838 174deg 236deg,#858585 237deg 252deg,#272727 253deg),var(--gem);
+  }
+  #gameView[data-commander-treatment="prismatic-glass"] .commander-dial-jewels {
+    display: block; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  }
+  #gameView[data-commander-treatment="prismatic-glass"] .commander-dial-jewels .commander-jewel {
+    position: absolute; left: var(--jewel-x); top: var(--jewel-y); width: 9%; height: 5.4%;
+    transform: translate(-50%,-50%) rotate(var(--jewel-angle));
+  }
+  .commander-dial-jewels .commander-jewel::before { inset: 12% 8%; }
+  html.game-skin-active[data-renderer-version="2"] #gameView[data-commander-treatment="prismatic-glass"] .dial-face {
+    border-radius: 50%;
+    background: radial-gradient(closest-side,#111620 0 51%,#242a30 61%,#797568 62%,#141a21 64%,transparent 66% 80%,#77766f 81%,#202329 83%,#34383d 87%,#a29c8c 88%,#15181d 90%,transparent 91%);
+    box-shadow: none;
+  }
+  html.game-skin-active[data-renderer-version="2"] #gameView[data-commander-treatment="prismatic-glass"] .dial-face::before,
+  html.game-skin-active[data-renderer-version="2"] #gameView[data-commander-treatment="prismatic-glass"] .dial-face::after { content: none; }
+  html.game-skin-active[data-renderer-version="2"] #gameView[data-commander-treatment="prismatic-glass"] .counter-design-face {
+    background-color: transparent;
+  }
+  /* The cut belongs to the fitted disk, independent of the camera behind it.
+     Scale the whole mounting for a reduced face; oversized art zooms inside it. */
+  html.game-skin-active[data-renderer-version="2"] #gameView[data-glass-medallion] .dial-assembly {
+    --socket-offset: max(0%, calc(50% - 50% * var(--counter-design-art-scale, 1)));
+    --socket-lip: calc(var(--socket-offset) + clamp(2px, 2.1%, 8px));
+    --socket-opening: calc(var(--socket-offset) + clamp(4px, 4%, 14px));
+    --medallion-image-scale: max(1, var(--counter-design-art-scale, 1));
+  }
+  html.game-skin-active[data-renderer-version="2"] #gameView[data-glass-medallion] .dial-face {
+    background: none; box-shadow: none;
+  }
+  html.game-skin-active[data-renderer-version="2"] #gameView[data-glass-medallion] .dial-face::before,
+  html.game-skin-active[data-renderer-version="2"] #gameView[data-glass-medallion] .dial-face::after,
+  html.game-skin-active[data-renderer-version="2"] #gameView[data-glass-medallion] .dial-assembly::after {
+    content: ''; position: absolute; box-sizing: border-box; width: auto; height: auto;
+    border: 0; border-radius: 50%; transform: none; transition: none;
+    -webkit-mask: none; mask: none; filter: none; pointer-events: none;
+    opacity: clamp(0, calc(var(--counter-design-art-opacity, 1) * 100), 1);
+  }
+  /* Dressed limestone. Fine pores and sparse joints break up its broad bevel. */
+  html.game-skin-active[data-renderer-version="2"] #gameView[data-glass-medallion] .dial-face::before {
+    inset: var(--socket-offset); z-index: 0;
+    background:
+      radial-gradient(ellipse at 29% 35%,#302c265c 0 .55px,transparent 1.1px) 0 0 / 5px 7px,
+      radial-gradient(ellipse at 61% 22%,#f4eadb62 0 .8px,transparent 1.4px) 2px 3px / 9px 6px,
+      repeating-conic-gradient(from 14deg,transparent 0 38deg,#423e376e 38.2deg 38.6deg,#e3d6c361 38.9deg 39.2deg,transparent 39.5deg 71deg),
+      conic-gradient(from -45deg,#c0b7a6,#9c9382 62deg,#8e8576 125deg,#70695f 185deg,#969083 261deg,#b1a997 322deg,#c0b7a6);
+    box-shadow: inset 1px 1.5px 1px #eee3d0bd, inset -1px -2px 2px #292722b8;
+  }
+  /* With light from upper left, the near cut is dark and the opposite cut catches light. */
+  html.game-skin-active[data-renderer-version="2"] #gameView[data-glass-medallion] .dial-face::after {
+    inset: var(--socket-lip); z-index: 0;
+    background: conic-gradient(from -45deg,#25221f,#4b463e 80deg,#a79c88 140deg,#c1b6a1 180deg,#8c8273 232deg,#514b42 278deg,#25221f);
+    box-shadow: inset 1px 2px 2px #080807b8, inset -1px -1px 1px #f2e7cd80;
+  }
+  html.game-skin-active[data-renderer-version="2"] #gameView[data-glass-medallion] .counter-design-face {
+    inset: var(--socket-opening); background: #11151b; box-shadow: none;
+  }
+  html.game-skin-active[data-renderer-version="2"] #gameView[data-glass-medallion] .counter-design-face img {
+    transform: scale(var(--medallion-image-scale));
+  }
+  html.game-skin-active[data-renderer-version="2"] #gameView[data-glass-medallion] .dial-assembly::after {
+    inset: var(--socket-opening); z-index: 3;
+    box-shadow: inset 1px 2px 2px #090908bd, inset -.5px -1px 1px #e1d5bb39;
+  }
+}
+/* Both slices use the same processed painting. Cut them inside the neutral
+   slate, so only the outer metal and jewels follow the counter rotation. */
+#gameView[data-glass-medallion] .counter-design-ring img {
+  -webkit-mask-image: radial-gradient(circle closest-side, transparent 60%, #000 60%);
+  mask-image: radial-gradient(circle closest-side, transparent 60%, #000 60%);
+}
+#gameView[data-glass-medallion] .counter-design-engraving {
+  display: block; position: absolute; inset: var(--socket-opening, 0); z-index: 1;
+  overflow: clip; border-radius: 50%; pointer-events: none;
+}
+#gameView[data-glass-medallion] .counter-design-engraving img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain;
+  opacity: var(--counter-design-art-opacity, .28); clip-path: circle(30%);
+  transform: scale(var(--medallion-image-scale, var(--counter-design-art-scale, 1)));
+}
+/* The fitter owns each side label's anchor and size. Paint its backing
+   independently so the existing hit zones and measured boxes stay intact. */
+#gameView[data-commander-treatment="prismatic-glass"][data-interface-style="dial"] {
+  --prism-step-fill: #121925;
+  --prism-step-ink: #fff2d7;
+  --prism-step-edge: #a99d83;
+  --prism-step-focus: #ffe299;
+}
+#gameView[data-commander-treatment="prismatic-glass"][data-interface-style="dial"] .dial-step-label {
+  color: var(--prism-step-ink);
+  opacity: 1;
+}
+#gameView[data-commander-treatment="prismatic-glass"][data-interface-style="dial"] .dial-step-label::before {
+  content: ''; position: absolute; z-index: -1; pointer-events: none;
+  left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(28px, var(--dial-side-label-gap)); aspect-ratio: 1; box-sizing: border-box;
+  border-radius: 50%; border: 1px solid var(--prism-step-edge);
+  background-color: var(--prism-step-fill);
+}
+#gameView[data-commander-treatment="prismatic-glass"][data-interface-style="dial"] .dial-step-minus:not(:disabled):active ~ .dial-step-minus-label,
+#gameView[data-commander-treatment="prismatic-glass"][data-interface-style="dial"] .dial-step-plus:not(:disabled):active ~ .dial-step-plus-label {
+  color: var(--prism-step-fill); text-shadow: none;
+}
+#gameView[data-commander-treatment="prismatic-glass"][data-interface-style="dial"] .dial-step-minus:not(:disabled):active ~ .dial-step-minus-label::before,
+#gameView[data-commander-treatment="prismatic-glass"][data-interface-style="dial"] .dial-step-plus:not(:disabled):active ~ .dial-step-plus-label::before {
+  background-color: var(--prism-step-ink);
+}
+#gameView[data-commander-treatment="prismatic-glass"][data-interface-style="dial"] .dial-step-minus:focus-visible ~ .dial-step-minus-label,
+#gameView[data-commander-treatment="prismatic-glass"][data-interface-style="dial"] .dial-step-plus:focus-visible ~ .dial-step-plus-label {
+  color: var(--prism-step-ink); outline: none; text-shadow: none;
+}
+#gameView[data-commander-treatment="prismatic-glass"][data-interface-style="dial"] .dial-step-minus:focus-visible ~ .dial-step-minus-label::before,
+#gameView[data-commander-treatment="prismatic-glass"][data-interface-style="dial"] .dial-step-plus:focus-visible ~ .dial-step-plus-label::before {
+  outline: 2px solid var(--prism-step-focus); outline-offset: 1px;
+}
+@media (forced-colors: active) {
+  #gameView[data-commander-treatment="prismatic-glass"][data-interface-style="dial"] {
+    --prism-step-fill: ButtonFace; --prism-step-ink: ButtonText;
+    --prism-step-edge: ButtonText; --prism-step-focus: Highlight;
+  }
+  #gameView[data-commander-treatment="prismatic-glass"][data-interface-style="dial"] .dial-step-label { forced-color-adjust: none; }
+}
 /* Small decorative edge marks stay outside the controls and never receive input. */
 html.game-skin-active #gameView[data-canvas-flourish]::after {
   content:'';position:absolute;inset:2px 1px;z-index:0;pointer-events:none;

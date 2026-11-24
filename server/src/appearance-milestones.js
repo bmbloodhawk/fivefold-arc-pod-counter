@@ -1,4 +1,18 @@
 export const NIGHT_WATCH_SKIN_ID = 'skin-8d464cbe-0dd5-4010-87eb-937dcced76eb';
+export const PRISMATIC_CONFLUENCE_SKIN_ID = 'skin-8dcb5aaa-565f-459b-8cb7-5091b023abe0';
+
+export const PRISMATIC_PREREQUISITES = Object.freeze([
+  ['color-wheel', 'Color Wheel', 'Played commanders whose color identities cover all five colors across saved games.'],
+  ['trusted-blade', 'Trusted Blade', 'Saved ten games with the same deck.'],
+  ['armory', 'Full Armory', 'Won with three different saved decks.'],
+  ['ten-crowns', 'Ten Crowns', 'Recorded ten victories.'],
+  ['seasoned', 'Seasoned', 'Saved twenty-five completed games.'],
+].map(([id, title, detail]) => Object.freeze({ id, title, detail })));
+
+export const PRISMATIC_PATH_ACHIEVEMENT = Object.freeze({
+  id: 'appearance-prismatic-confluence', title: 'The Prismatic Path', rarity: 'legendary',
+  detail: 'Earn Color Wheel, Trusted Blade, Full Armory, Ten Crowns, and Seasoned.',
+});
 
 const milestones = [
   ["field-notes", "Field Journal", 10, "common"],

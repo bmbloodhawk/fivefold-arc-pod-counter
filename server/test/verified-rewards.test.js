@@ -1,8 +1,11 @@
 import { expireEliminationWindow } from '../test-support/expire-elimination-window.js';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { AccountHistory, MemoryAccountHistoryStore } from '../src/account-history.js';
+import { PRISMATIC_CONFLUENCE_SKIN_ID } from '../src/appearance-milestones.js';
+import { loadPrismaticConfluenceSkin } from '../src/bundled-reward-skins.js';
 import { createRealtimeServer, RoomService } from '../src/app.js';
 import { MemoryPlaytestLedger } from '../src/playtest-ledger.js';
 
@@ -37,22 +40,22 @@ async function fixture(t, appearanceSkins = []) {
     });
     return { status: response.status, data: response.status === 204 ? null : await response.json() };
   }
-  function start({ sessionKind = 'standard', gameFormat = 'commander', startingLife = 40 } = {}) {
+  function start({ sessionKind = 'standard', gameFormat = 'commander', startingLife = 40, guestCommanderColors = [[]] } = {}) {
     now += 1000;
     const host = service.createConnection().connectionId;
     const guest = service.createConnection().connectionId;
     const made = service.createRoom(host, { playerCount: 2, startingLife, gameFormat });
     const code = made.snapshot.code;
-    const join = service.claimSeat(code, guest, { seatId: 1 });
+    const join = service.claimSeat(code, guest, { seatId: 1, commanderCount: guestCommanderColors.length, commanderColors: guestCommanderColors });
     if (sessionKind !== 'standard') service.setSessionKind(code, host, { baseVersion: join.snapshot.version, sessionKind });
     const version = () => service.room(code).version;
     service.startGame(code, host, { baseVersion: version() });
     return {
       host, guest, code, made, join,
       get reference() { return { roomCode: code, gameId: service.room(code).gameId }; },
-      finish(duration) {
+      finish(duration, winnerSeatId = 0) {
         now += duration;
-        return service.declareWinner(code, host, { baseVersion: version(), winnerSeatId: 0 }).snapshot;
+        return service.declareWinner(code, host, { baseVersion: version(), winnerSeatId }).snapshot;
       },
       nextGameSetup() { return service.beginIntermission(code, host, { baseVersion: version() }); },
       startAgain() {
@@ -64,11 +67,296 @@ async function fixture(t, appearanceSkins = []) {
   }
   const save = (game, options = {}) => request('games', { body: game.reference, connectionId: game.guest, ...options });
   const history = async (token) => (await request('history', { token })).data.history;
-  return { request, start, save, history, accountHistory, store, service, ledger, clock };
+  return { request, start, save, history, accountHistory, store, service, ledger, clock, base };
 }
 
 const nightWatch = { id: 'skin-8d464cbe-0dd5-4010-87eb-937dcced76eb', name: 'Aurora Observatory · Night Watch' };
 const nightShift = 'long-endurance-4';
+const confluence = { id: PRISMATIC_CONFLUENCE_SKIN_ID, name: 'Prismatic Confluence' };
+
+const prismaticPath = 'appearance-prismatic-confluence';
+const prerequisites = ['color-wheel', 'trusted-blade', 'armory', 'ten-crowns', 'seasoned'];
+const equipConfluence = { method: 'PUT', body: { personalSkinId: confluence.id, usePersonalSkin: true } };
+
+async function prismaticChoice(f, token) {
+  const { status, data } = await f.request('preferences', { token });
+  assert.equal(status, 200);
+  return data.skins.find(skin => skin.id === confluence.id);
+}
+
+async function legacyAccount(f, token) {
+  const id = await f.accountHistory.ensureAccount(token);
+  await f.store.update('account-history/accounts/' + id + '.json', account => {
+    const { prismaticRuleVersion, ...priorSchema } = account;
+    return priorSchema;
+  });
+  return id;
+}
+
+async function shareConfluence(f, game, token) {
+  return fetch(f.base + '/api/rooms/' + game.code + '/table-skin', {
+    method: 'POST',
+    headers: { authorization: 'Bearer ' + token, 'x-connection-id': game.host, 'content-type': 'application/json' },
+    body: JSON.stringify({ baseVersion: f.service.room(game.code).version, tableSkinId: confluence.id }),
+  });
+}
+
+test('the fifth earned achievement awards Prismatic Confluence once, even when the final save is retried', async t => {
+  const f = await fixture(t, [await loadPrismaticConfluenceSkin(), nightWatch]);
+  const skinUrl = f.base + '/api/game-skins/' + confluence.id;
+  const headers = { authorization: 'Bearer player-a' };
+  const publicSkins = await (await fetch(f.base + '/api/game-skins')).json();
+  assert.ok(!publicSkins.skins.some(skin => skin.id === confluence.id));
+  const deckIds = [];
+  let finalGameId;
+  for (const commanderName of ['Meren', 'Veyran', 'Yoshimaru']) {
+    const created = await f.request('decks', { body: { commanderName } });
+    assert.equal(created.status, 201);
+    deckIds.push(created.data.deck.deckId);
+  }
+  for (let gameNumber = 1; gameNumber <= 25; gameNumber++) {
+    const guestCommanderColors = gameNumber === 1 ? [['W', 'U'], ['B', 'R']] : [['G']];
+    const game = f.start({ guestCommanderColors });
+    game.finish(HOUR / 2, gameNumber <= 10 ? 1 : 0);
+    const deckId = deckIds[gameNumber - 1] ?? deckIds[0];
+    const save = () => f.save(game, { body: { ...game.reference, deckId } });
+    if (gameNumber < 25) {
+      const result = await save();
+      assert.equal(result.status, 201);
+      assert.ok(!result.data.unlockedAchievements.some(award => award.id === prismaticPath || award.unlockedSkinName === confluence.name));
+      if (gameNumber === 2) {
+        assert.ok(result.data.unlockedAchievements.some(award => award.id === 'color-wheel'));
+        assert.equal((await fetch(skinUrl, { headers })).status, 404);
+        assert.equal((await f.request('preferences', equipConfluence)).status, 403);
+        assert.equal((await shareConfluence(f, game, 'player-a')).status, 403);
+      }
+      if (gameNumber === 24) {
+        const choice = await prismaticChoice(f);
+        assert.equal(choice.state, 'locked');
+        assert.deepEqual(choice.progress.filter(item => !item.earned).map(item => item.id), ['seasoned']);
+      }
+      continue;
+    }
+    const retries = await Promise.all([save(), save(), save()]);
+    assert.ok(retries.every(result => result.status === 201));
+    finalGameId = retries[0].data.game.gameId;
+    const awards = retries.flatMap(result => result.data.unlockedAchievements);
+    assert.ok(awards.some(award => award.id === 'seasoned'));
+    assert.deepEqual(awards.filter(award => award.unlockedSkinName === confluence.name)
+      .map(award => [award.id, award.title, award.rarity]), [[prismaticPath, 'The Prismatic Path', 'legendary']]);
+    assert.deepEqual((await save()).data.unlockedAchievements, []);
+  }
+  assert.equal((await prismaticChoice(f)).state, 'new');
+  assert.equal((await f.request('preferences', equipConfluence)).status, 200);
+  assert.ok((await prismaticChoice(f)).progress.every(item => item.earned));
+  assert.equal((await f.history()).achievements.filter(award => award.id === prismaticPath).length, 1);
+  assert.equal((await f.request('achievements/viewed', { body: { rarity: 'legendary' } })).status, 200);
+  assert.equal((await prismaticChoice(f)).state, 'unlocked');
+
+  const response = await fetch(skinUrl, { headers });
+  assert.equal(response.status, 200);
+  const { skin } = await response.json();
+  assert.equal(skin.name, confluence.name);
+  assert.equal(skin.commanderTreatment, 'prismatic-glass');
+  assert.equal(skin.achievement.id, prismaticPath);
+  assert.match(skin.backgroundData, /^data:image\/webp;base64,/);
+  const modes = ['life', 'commander', 'radiation', 'poison', 'energy', 'generic'];
+  const images = new Set();
+  for (const mode of modes) {
+    assert.equal(skin.counterDesign.modes[mode].icon, 'configured', mode);
+    assert.equal(skin.counterDesign.modes[mode].uprightCenter, true, mode);
+    for (const [role, data] of [['tab', skin.symbolData[mode]], ['seal', skin.counterArtData[mode]]]) {
+      const file = `${role}-${mode}.webp`;
+      const bytes = await readFile(new URL('../static-data/prismatic-confluence/' + file, import.meta.url));
+      assert.ok(data === 'data:image/webp;base64,' + bytes.toString('base64'), file + ' is hydrated in its own renderer slot');
+      images.add(data);
+    }
+  }
+  assert.equal(images.size, 12, 'Each counter has its own symbol and face');
+  assert.ok(!Object.keys(skin).some(key => key.startsWith('preview')));
+  assert.equal((await nightWatchChoice(f)).state, 'locked');
+  const room = f.start();
+  assert.equal((await shareConfluence(f, room, 'player-a')).status, 200);
+  const shared = await fetch(f.base + '/api/rooms/' + room.code + '/table-skin', { headers: { 'x-connection-id': room.guest } });
+  assert.equal(shared.status, 200);
+  assert.equal((await shared.json()).skin.id, confluence.id);
+  assert.equal((await fetch(skinUrl, { headers: { authorization: 'Bearer different-account' } })).status, 404);
+  assert.equal((await f.request('preferences', { ...equipConfluence, token: 'different-account' })).status, 403);
+  assert.equal((await shareConfluence(f, f.start(), 'different-account')).status, 403);
+  assert.equal((await f.request('games/' + finalGameId, { method: 'DELETE' })).status, 204);
+  assert.equal((await prismaticChoice(f)).state, 'unlocked');
+  assert.ok((await f.history()).achievements.some(award => award.id === prismaticPath));
+});
+
+test('each of the five achievements is required and the collection reports the missing one', async t => {
+  const f = await fixture(t, [confluence]);
+  for (const missing of prerequisites) {
+    const token = 'missing-' + missing;
+    const game = f.start({ guestCommanderColors: missing === 'color-wheel' ? [[]] : [['W', 'U', 'B', 'R', 'G']] });
+    game.finish(HOUR);
+    assert.equal((await f.save(game, { token })).status, 201);
+    const id = await f.accountHistory.ensureAccount(token);
+    await f.store.update('account-history/verified-progress/' + id + '.json', progress => {
+      const awards = { ...progress.awards };
+      for (const key of prerequisites.filter(key => key !== missing && key !== 'color-wheel')) awards[key] = { historical: true };
+      return { ...progress, awards };
+    });
+    const choice = await prismaticChoice(f, token);
+    assert.deepEqual([choice.achievement.id, choice.state], [prismaticPath, 'locked']);
+    assert.deepEqual(choice.progress.map(item => item.id), prerequisites);
+    assert.deepEqual(choice.progress.filter(item => !item.earned).map(item => item.id), [missing]);
+    assert.ok(choice.progress.every(item => item.title && item.detail && typeof item.earned === 'boolean'));
+    assert.equal((await f.request('preferences', { ...equipConfluence, token })).status, 403);
+  }
+});
+
+test('deleting a new Color Wheel result retains that achievement without granting the five-achievement skin', async t => {
+  const f = await fixture(t, [confluence]);
+  const game = f.start({ guestCommanderColors: [['W', 'U', 'B', 'R', 'G']] });
+  game.finish(HOUR);
+  const saved = await f.save(game);
+  assert.ok(saved.data.unlockedAchievements.some(a => a.id === 'color-wheel'));
+  assert.equal((await f.request('games/' + saved.data.game.gameId, { method: 'DELETE' })).status, 204);
+  assert.ok((await f.history()).achievements.some(a => a.id === 'color-wheel'));
+  const choice = await prismaticChoice(f);
+  assert.equal(choice.state, 'locked');
+  assert.deepEqual(choice.progress.filter(item => item.earned).map(item => item.id), ['color-wheel']);
+  assert.equal((await f.request('preferences', equipConfluence)).status, 403);
+});
+
+test('deleting an incomplete historical award source grants neither Color Wheel nor its old skin', async t => {
+  const f = await fixture(t, [confluence]);
+  for (const format of ['legacy', 'verified']) {
+    const token = 'incomplete-' + format;
+    const id = await legacyAccount(f, token);
+    const game = { gameId: 'game_incomplete', sourceGameId: 'old-record', savedAt: f.clock(), tableSize: 4 };
+    const awards = Object.fromEntries(prerequisites.map(key => [key, key === 'color-wheel' ? { gameId: game.gameId } : { historical: true }]));
+    await f.store.write('account-history/verified-progress/' + id + '.json', {
+      awards, games: format === 'verified' ? { source: game } : {},
+    });
+    if (format === 'legacy') await f.store.write('account-history/games/' + id + '.json', { [game.gameId]: game });
+    assert.equal((await prismaticChoice(f, token)).state, 'locked');
+    assert.equal((await f.request('games/' + game.gameId, { method: 'DELETE', token })).status, 204);
+    const choice = await prismaticChoice(f, token);
+    assert.equal(choice.state, 'locked');
+    assert.equal(choice.progress.find(item => item.id === 'color-wheel').earned, false);
+    assert.ok(!(await f.history(token)).achievements.some(item => item.id === prismaticPath));
+  }
+});
+
+test('verified old awards satisfy the path on the first collection read and stay visible in the profile', async t => {
+  const f = await fixture(t, [confluence]);
+  const id = await f.accountHistory.ensureAccount('recorded');
+  const evidence = [{ historical: true }, { gameId: 'game_archived', earnedAt: f.clock(), ruleVersion: 1 }, { evidenceRemoved: true }];
+  await f.store.write('account-history/verified-progress/' + id + '.json', {
+    awards: Object.fromEntries(prerequisites.map((key, i) => [key, evidence[i % evidence.length]])),
+  });
+  const choice = await prismaticChoice(f, 'recorded');
+  assert.equal(choice.state, 'new');
+  assert.ok(choice.progress.every(item => item.earned));
+  const history = await f.history('recorded');
+  assert.equal(history.gamesPlayed, 0);
+  assert.equal(history.achievements.filter(a => a.id === prismaticPath).length, 1);
+  assert.equal((await f.request('preferences', { ...equipConfluence, token: 'recorded' })).status, 200);
+  assert.equal((await f.request('achievements/viewed', { token: 'recorded', body: { rarity: 'legendary' } })).status, 200);
+  assert.equal((await prismaticChoice(f, 'recorded')).state, 'unlocked');
+});
+
+test('old Color Wheel ownership and explicit skin grants continue working without awarding a new path', async t => {
+  const f = await fixture(t, [confluence]);
+  for (const [token, award] of [
+    ['old-verified', { gameId: 'game_old', earnedAt: f.clock(), ruleVersion: 1 }],
+    ['old-historical', { historical: true }],
+    ['old-removed', { evidenceRemoved: true }],
+  ]) {
+    const id = await legacyAccount(f, token);
+    await f.store.write('account-history/verified-progress/' + id + '.json', { awards: { 'color-wheel': award } });
+  }
+  for (const token of ['old-deck-earner', 'old-unplayed-deck']) {
+    const id = await legacyAccount(f, token);
+    await f.store.write('account-history/decks/' + id + '.json', {
+      a: { deckId: 'a', colors: ['W', 'U', 'B', 'R'] }, b: { deckId: 'b', colors: ['G'] },
+    });
+    const played = token === 'old-deck-earner' ? ['a', 'b'] : ['a'];
+    await f.store.write('account-history/games/' + id + '.json', Object.fromEntries(
+      played.map(deckId => [deckId, { deckId, gameId: deckId, savedAt: f.clock() }])
+    ));
+  }
+  const grant = await f.accountHistory.ensureAccount('granted');
+  await f.accountHistory.grantSkin(grant, confluence.id);
+  const unearned = await f.accountHistory.ensureAccount('stale-preference');
+  await f.store.update('account-history/accounts/' + unearned + '.json', account => ({
+    ...account, seenAchievementIds: ['color-wheel', prismaticPath], preferences: { personalSkinId: confluence.id, usePersonalSkin: true },
+  }));
+  for (const [token, owns] of [
+    ['old-verified', true], ['old-historical', true], ['old-removed', true], ['old-deck-earner', true],
+    ['granted', true], ['old-unplayed-deck', false], ['stale-preference', false], ['different-account', false],
+  ]) {
+    const choice = await prismaticChoice(f, token);
+    assert.equal(choice.state, owns ? 'unlocked' : 'locked', token);
+    assert.equal((await f.request('preferences', { ...equipConfluence, token })).status, owns ? 200 : 403, token);
+    assert.ok(!(await f.history(token)).achievements.some(a => a.id === prismaticPath), token);
+  }
+});
+
+
+test('an existing skin owner earns the Path badge later without a duplicate skin notification', async t => {
+  const f = await fixture(t, [confluence]);
+  for (const token of ['grandfather-owner', 'granted-owner']) {
+    const id = token === 'grandfather-owner' ? await legacyAccount(f, token) : await f.accountHistory.ensureAccount(token);
+    if (token === 'granted-owner') await f.accountHistory.grantSkin(id, confluence.id);
+    await f.store.write('account-history/verified-progress/' + id + '.json', {
+      awards: Object.fromEntries(prerequisites.filter(key => key !== 'seasoned').map(key => [key, { historical: true }])),
+    });
+    await f.store.write('account-history/games/' + id + '.json', Object.fromEntries(Array.from({ length: 24 }, (_, i) => {
+      const gameId = 'game_' + i;
+      return [gameId, { gameId, tableSize: 4, savedAt: f.clock() + i }];
+    })));
+    assert.equal((await prismaticChoice(f, token)).state, 'unlocked');
+    const game = f.start();
+    game.finish(HOUR);
+    const result = await f.save(game, { token });
+    assert.ok(result.data.unlockedAchievements.some(a => a.id === 'seasoned'));
+    assert.ok(result.data.unlockedAchievements.some(a => a.id === prismaticPath));
+    assert.ok(!result.data.unlockedAchievements.some(a => a.unlockedSkinName === confluence.name));
+    assert.equal((await prismaticChoice(f, token)).state, 'unlocked');
+    assert.equal((await f.history(token)).achievements.find(a => a.id === prismaticPath).isNew, true);
+    assert.deepEqual((await f.save(game, { token })).data.unlockedAchievements, []);
+  }
+});
+
+test('pre-ledger games retroactively complete the five-achievement path without requiring another save', async t => {
+  const f = await fixture(t, [confluence]);
+  const token = 'legacy-full-path';
+  const id = await legacyAccount(f, token);
+  const decks = { a: ['W', 'U', 'B'], b: ['R'], c: ['G'] };
+  await f.store.write('account-history/decks/' + id + '.json', Object.fromEntries(
+    Object.entries(decks).map(([deckId, colors]) => [deckId, { deckId, colors }])
+  ));
+  const games = Array.from({ length: 25 }, (_, i) => {
+    const gameId = 'old_' + i;
+    const deckId = i < 2 ? ['b', 'c'][i] : 'a';
+    return [gameId, { gameId, deckId, won: i < 10, tableSize: 4, savedAt: f.clock() + i }];
+  });
+  await f.store.write('account-history/games/' + id + '.json', Object.fromEntries(games));
+  assert.equal((await prismaticChoice(f, token)).state, 'unlocked');
+  assert.equal((await f.history(token)).gamesPlayed, 25);
+  assert.ok((await f.history(token)).achievements.some(a => a.id === prismaticPath));
+  assert.equal((await f.request('preferences', { ...equipConfluence, token })).status, 200);
+});
+
+test('an old account that first earns Color Wheel under the new rule stays on the new path', async t => {
+  const f = await fixture(t, [confluence]);
+  const token = 'old-account-new-earner';
+  await legacyAccount(f, token);
+  const game = f.start({ guestCommanderColors: [['W', 'U', 'B', 'R', 'G']] });
+  game.finish(HOUR);
+  const saved = await f.save(game, { token });
+  assert.ok(saved.data.unlockedAchievements.some(a => a.id === 'color-wheel'));
+  assert.equal((await prismaticChoice(f, token)).state, 'locked');
+  assert.equal((await f.request('games/' + saved.data.game.gameId, { method: 'DELETE', token })).status, 204);
+  assert.equal((await prismaticChoice(f, token)).state, 'locked');
+});
 
 async function nightWatchChoice(f, token) {
   const { status, data } = await f.request('preferences', { token });

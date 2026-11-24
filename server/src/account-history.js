@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { chooseMatchMoment, RECENT_ACCOLADE_LIMIT } from "./match-moments.js";
-import { APPEARANCE_ACHIEVEMENTS, nextAppearanceAchievement } from "./appearance-milestones.js";
+import { APPEARANCE_ACHIEVEMENTS, nextAppearanceAchievement, PRISMATIC_CONFLUENCE_SKIN_ID, PRISMATIC_PATH_ACHIEVEMENT, PRISMATIC_PREREQUISITES } from "./appearance-milestones.js";
 import { appearanceCommanderGames, legacyAppearanceGames } from './appearance-history-recovery.js';
 
 const accountPath = (accountId) => `account-history/accounts/${encodeURIComponent(accountId)}.json`;
@@ -9,6 +9,7 @@ const decksPath = (accountId) => `account-history/decks/${encodeURIComponent(acc
 const progressPath = (accountId) => `account-history/verified-progress/${encodeURIComponent(accountId)}.json`;
 const completionClaimPath = (key) => `account-history/completion-claims/${key}.json`;
 const AWARD_RULE_VERSION = 1;
+const PRISMATIC_RULE_VERSION = 2;
 const subjectKey = (subject) => createHash("sha256").update(String(subject)).digest("hex");
 const text = (value, max) => {
   if (value == null || value === "") return null;
@@ -111,6 +112,14 @@ const achievementRarity = (id) => {
   return 'common';
 };
 
+const prismaticRequirements = new Map(PRISMATIC_PREREQUISITES.map(achievement => [achievement.id, achievement]));
+export const COLOR_WHEEL_ACHIEVEMENT = Object.freeze({ ...prismaticRequirements.get('color-wheel'), rarity: achievementRarity('color-wheel') });
+function prismaticRequirement(id, reached) {
+  const { title, detail } = prismaticRequirements.get(id);
+  return [id, title, detail, reached];
+}
+const playedEveryColor = colors => ['W', 'U', 'B', 'R', 'G'].every(color => colors.has(color));
+
 const achievementsFor = ({ games, bestWinStreak, monthCount, playedColors, longTermAchievementIds = [], storedLegacyIds }) => {
   const wins = games.filter(game => game.won);
   const tableSizes = new Set(games.map(game => game.tableSize));
@@ -185,19 +194,19 @@ const achievementsFor = ({ games, bestWinStreak, monthCount, playedColors, longT
     ['seven-wonders', 'Seven Wonders', 'Completed a seven-player game.', games.some(game => game.tableSize === 7)],
     ['eightfold-assembly', 'Eightfold Assembly', 'Completed an eight-player game.', games.some(game => game.tableSize === 8)],
     ['table-regular', 'Table Regular', 'Saved five completed games.', games.length >= 5],
-    ['seasoned', 'Seasoned', 'Saved twenty-five completed games.', games.length >= 25],
+    prismaticRequirement('seasoned', games.length >= 25),
     ['pod-pillar', 'Pod Pillar', 'Saved seventy-five completed games.', games.length >= 75],
     ['enduring-legend', 'Enduring Legend', 'Saved one hundred fifty completed games.', games.length >= 150],
     ['hot-streak', 'Hot Streak', 'Won three games in a row.', bestWinStreak >= 3],
     ['unstoppable', 'Unstoppable', 'Won five games in a row.', bestWinStreak >= 5],
     ['mythic-run', 'Mythic Run', 'Won eight games in a row.', bestWinStreak >= 8],
-    ['trusted-blade', 'Trusted Blade', 'Saved ten games with the same deck.', [...deckGames.values()].some(count => count >= 10)],
-    ['armory', 'Full Armory', 'Won with three different saved decks.', deckWins.size >= 3],
-    ['color-wheel', 'Color Wheel', 'Played every color identity.', ['W', 'U', 'B', 'R', 'G'].every(color => playedColors.has(color))],
+    prismaticRequirement('trusted-blade', [...deckGames.values()].some(count => count >= 10)),
+    prismaticRequirement('armory', deckWins.size >= 3),
+    prismaticRequirement('color-wheel', playedEveryColor(playedColors)),
     ['wide-table', 'Many Hands, One Table', 'Completed games at every table size from two through eight.', [2, 3, 4, 5, 6, 7, 8].every(size => tableSizes.has(size))],
     ['month-regular', 'Monthly Ritual', 'Saved three games in one month.', monthCount >= 3],
     ['near-crown', 'Near Crown', 'Recorded second place five times.', games.filter(game => game.place === 2).length >= 5],
-    ['ten-crowns', 'Ten Crowns', 'Recorded ten victories.', wins.length >= 10],
+    prismaticRequirement('ten-crowns', wins.length >= 10),
     ['fifty-crowns', 'Fifty Crowns', 'Recorded fifty victories.', wins.length >= 50],
     ...counterChain('poison', [
       ['first-dose', 'First Dose', 'Received 25 poison counters across saved games.', 25],
@@ -260,14 +269,64 @@ function rewardInputs(games, now, playedColors, verified = false) {
   return { games, bestWinStreak, monthCount, playedColors: new Set(playedColors) };
 }
 
-function initialProgress(games, decks, now) {
+function initialProgress(games, decks, now, account) {
   const legacyColors = [...new Set(legacyDeckColors(games, decks))];
   const existing = achievementsFor(rewardInputs(games, now, legacyColors));
+  const formerGames = games.filter(game => !(game.prismaticRuleVersion >= PRISMATIC_RULE_VERSION));
+  const formerColors = formerGames.length === games.length ? legacyColors : legacyDeckColors(formerGames, decks);
   return {
+    prismaticRuleVersion: PRISMATIC_RULE_VERSION,
+    prismaticLegacyUnlock: !(account.prismaticRuleVersion >= PRISMATIC_RULE_VERSION) && playedEveryColor(new Set(formerColors)),
     legacyColors,
     awards: Object.fromEntries(existing.map(award => [award.id, { historical: true }])),
     games: {},
   };
+}
+
+function gameForProfile(game) {
+  if (!Object.hasOwn(game, 'prismaticRuleVersion')) return game;
+  const { prismaticRuleVersion, ...fields } = game;
+  return fields;
+}
+
+function recordedAward(award) {
+  return award?.historical === true || award?.evidenceRemoved === true
+    || (typeof award?.gameId === 'string' && award.gameId.length > 0
+      && Number.isFinite(award.earnedAt) && Number.isInteger(award.ruleVersion) && award.ruleVersion > 0);
+}
+
+function awardsAfterGameRemoval(awards, gameId) {
+  const retained = { ...awards };
+  for (const [id, evidence] of Object.entries(retained)) {
+    if (evidence?.gameId !== gameId) continue;
+    if (recordedAward(evidence)) {
+      retained[id] = { evidenceRemoved: true, ...(evidence.recoveryRunId ? { recoveryRunId: evidence.recoveryRunId } : {}) };
+    } else {
+      // An incomplete record cannot become an earned award by losing its source.
+      delete retained[id];
+    }
+  }
+  return retained;
+}
+
+function completedPrismaticPath(awards) {
+  return PRISMATIC_PREREQUISITES.every(({ id }) => recordedAward(awards?.[id]));
+}
+
+function legacyPrismaticUnlock(account, progress) {
+  if (progress?.prismaticRuleVersion >= PRISMATIC_RULE_VERSION) return progress.prismaticLegacyUnlock === true;
+  return !(account?.prismaticRuleVersion >= PRISMATIC_RULE_VERSION) && recordedAward(progress?.awards?.['color-wheel']);
+}
+
+function underPrismaticRule(account, progress) {
+  if (progress.prismaticRuleVersion >= PRISMATIC_RULE_VERSION) return progress;
+  // Capture the old owner's eligibility before this transaction can award a new Color Wheel.
+  return { ...progress, prismaticRuleVersion: PRISMATIC_RULE_VERSION, prismaticLegacyUnlock: legacyPrismaticUnlock(account, progress) };
+}
+
+function grantedPrismaticSkin(account) {
+  return Array.isArray(account.skinEntitlements) && account.skinEntitlements.some(grant =>
+    grant?.skinId === PRISMATIC_CONFLUENCE_SKIN_ID && ['grant', 'payment', 'achievement'].includes(grant.source) && Number.isFinite(grant.grantedAt));
 }
 
 function recentAccolades(games) {
@@ -318,7 +377,7 @@ export class AccountHistory {
     const existing = await this.store.read(mappingPath);
     if (existing?.accountId) return existing.accountId;
     const accountId = `acct_${this.createId()}`;
-    await this.store.write(accountPath(accountId), { accountId, createdAt: this.now(), consentVersion: null });
+    await this.store.write(accountPath(accountId), { accountId, createdAt: this.now(), consentVersion: null, prismaticRuleVersion: PRISMATIC_RULE_VERSION });
     const mapping = await this.store.update(mappingPath, current => current || { accountId });
     if (mapping.accountId !== accountId) await this.store.write(accountPath(accountId), null);
     return mapping.accountId;
@@ -332,21 +391,30 @@ export class AccountHistory {
   }
 
   async earnedSkinAwards(accountId, achievementIds) {
-    const [account, progress] = await Promise.all([
+    const [account, storedProgress] = await Promise.all([
       this.store.read(accountPath(accountId)), this.store.read(progressPath(accountId)),
     ]);
-    if (!account || progress?.closed) return {};
+    if (!account || storedProgress?.closed) return {};
     const seen = new Set(Array.isArray(account.seenAchievementIds) ? account.seenAchievementIds : []);
-    // The verified reward ledger and older persisted long-term awards survive
-    // reconnects and game removal. A client preference never grants a skin.
     const olderEarned = new Set(longTermIds(account));
-    const isRecorded = id => {
-      const award = progress?.awards?.[id];
-      return olderEarned.has(id) || award?.historical === true || award?.evidenceRemoved === true
-        || (typeof award?.gameId === "string" && award.gameId.length > 0
-          && Number.isFinite(award.earnedAt) && Number.isInteger(award.ruleVersion) && award.ruleVersion > 0);
-    };
-    return Object.fromEntries(achievementIds.filter(isRecorded).map(id => [id, seen.has(id) ? "unlocked" : "new"]));
+    let progress = storedProgress;
+    if (!progress && achievementIds.some(id => prismaticRequirements.has(id) || id === PRISMATIC_PATH_ACHIEVEMENT.id)) {
+      // Pre-ledger achievements used saved games and the decks actually attached to them.
+      const [games, decks] = await Promise.all([
+        this.store.read(gamesPath(accountId)), this.store.read(decksPath(accountId)),
+      ]);
+      progress = initialProgress(Object.values(games || {}), Object.values(decks || {}), this.now(), account);
+    }
+    const states = {};
+    for (const id of achievementIds) {
+      if (id === PRISMATIC_PATH_ACHIEVEMENT.id) {
+        if (legacyPrismaticUnlock(account, progress) || grantedPrismaticSkin(account)) states[id] = 'unlocked';
+        else if (completedPrismaticPath(progress?.awards)) states[id] = seen.has(id) ? 'unlocked' : 'new';
+      } else if (recordedAward(progress?.awards?.[id]) || (!prismaticRequirements.has(id) && olderEarned.has(id))) {
+        states[id] = seen.has(id) ? 'unlocked' : 'new';
+      }
+    }
+    return states;
   }
 
   async grantSkin(accountId, skinId, source = 'grant') {
@@ -371,7 +439,7 @@ export class AccountHistory {
     let report;
     const change = current => {
       if (current?.closed) throw unavailable();
-      const progress = current || initialProgress(legacyGames, Object.values(deckRecords || {}), now);
+      const progress = current ? underPrismaticRule(account, current) : initialProgress(legacyGames, Object.values(deckRecords || {}), now, account);
       if (progress.appearanceRecovery) {
         if (progress.appearanceRecovery.runId !== runId) throw Object.assign(new Error('A different appearance recovery is already recorded'), { status: 409 });
         report = { accountId, runId, recoveredGames: Object.keys(progress.appearanceRecovery.games || {}).length,
@@ -466,7 +534,7 @@ export class AccountHistory {
     let savedForAnotherSeat = false;
     await this.store.update(path, current => {
       if (current?.closed) throw Object.assign(new Error("This profile is unavailable"), { status: 409, code: "PROFILE_UNAVAILABLE" });
-      const progress = current || initialProgress(legacyGames, decks, savedAt);
+      const progress = current ? underPrismaticRule(account, current) : initialProgress(legacyGames, decks, savedAt, account);
       const savedSeat = progress.seats?.[key];
       if (savedSeat && savedSeat !== seatKey) {
         savedForAnotherSeat = true;
@@ -478,7 +546,7 @@ export class AccountHistory {
       const existing = progress.games?.[key] || legacyGames.find(game => game.sourceGameId && game.sourceGameId === completion.legacySourceGameId);
       if (existing) {
         const moment = completion.moments.find(item => item?.id && item.id === existing.accoladeId) || null;
-        result = { game: existing, moment, unlockedAchievements: [] };
+        result = { game: gameForProfile(existing), moment, unlockedAchievements: [] };
         return current;
       }
 
@@ -507,10 +575,21 @@ export class AccountHistory {
       const before = new Set(achievementsFor(rewardInputs(beforeGames, savedAt, previousColors, true)).map(item => item.id));
       const after = achievementsFor(rewardInputs(afterGames, savedAt, [...previousColors, ...(game.playedColors || [])], true));
       const awards = { ...progress.awards };
-      const unlockedAchievements = after.filter(item => !before.has(item.id) && !awards[item.id]);
+      const unlockedAchievements = after.filter(item => !before.has(item.id)
+        && (prismaticRequirements.has(item.id) ? !recordedAward(awards[item.id]) : !awards[item.id]));
       const evidence = { gameId, earnedAt: savedAt, ruleVersion: AWARD_RULE_VERSION };
       for (const award of unlockedAchievements) awards[award.id] = evidence;
 
+      let alreadyOwnedSkinAward;
+      if (appearanceAchievementIds.includes(PRISMATIC_PATH_ACHIEVEMENT.id) && completedPrismaticPath(awards)) {
+        if (!completedPrismaticPath(progress.awards)) {
+          awards[PRISMATIC_PATH_ACHIEVEMENT.id] = evidence;
+          unlockedAchievements.push(PRISMATIC_PATH_ACHIEVEMENT);
+          if (legacyPrismaticUnlock(account, progress) || grantedPrismaticSkin(account)) alreadyOwnedSkinAward = PRISMATIC_PATH_ACHIEVEMENT.id;
+        } else if (!awards[PRISMATIC_PATH_ACHIEVEMENT.id]) {
+          awards[PRISMATIC_PATH_ACHIEVEMENT.id] = { historical: true };
+        }
+      }
       const earnedIds = longTermIds(account, progress);
       const next = nextLongTermAchievement({ accountId, gameId, games: afterGames, earnedIds, triggeringGame: game });
       if (next) {
@@ -526,7 +605,7 @@ export class AccountHistory {
           unlockedAchievements.push(appearance);
         }
       }
-      result = { game, moment, unlockedAchievements };
+      result = { game, moment, unlockedAchievements, ...(alreadyOwnedSkinAward ? { alreadyOwnedSkinAward } : {}) };
       return { ...progress, awards, games: { ...progress.games, [key]: game }, seats: { ...progress.seats, [key]: seatKey } };
     });
     if (savedForAnotherSeat) {
@@ -538,11 +617,11 @@ export class AccountHistory {
   }
 
   async preserveLegacyAwards(accountId) {
-    const [current, legacyRecords, deckRecords] = await Promise.all([
-      this.store.read(progressPath(accountId)), this.store.read(gamesPath(accountId)), this.store.read(decksPath(accountId)),
+    const [current, legacyRecords, deckRecords, account] = await Promise.all([
+      this.store.read(progressPath(accountId)), this.store.read(gamesPath(accountId)), this.store.read(decksPath(accountId)), this.store.read(accountPath(accountId)),
     ]);
-    if (current || !Object.keys(legacyRecords || {}).length) return;
-    const initial = initialProgress(Object.values(legacyRecords), Object.values(deckRecords || {}), this.now());
+    if (current || !account || !Object.keys(legacyRecords || {}).length) return;
+    const initial = initialProgress(Object.values(legacyRecords), Object.values(deckRecords || {}), this.now(), account);
     await this.store.update(progressPath(accountId), progress => progress || initial);
   }
 
@@ -558,7 +637,7 @@ export class AccountHistory {
     const sourceGameId = text(input.sourceGameId, 120);
     if (sourceGameId) {
       const existing = Object.values(games).find((game) => game.sourceGameId === sourceGameId);
-      if (existing) return existing;
+      if (existing) return gameForProfile(existing);
     }
     const gameId = `game_${this.createId()}`;
     const rawCounterTotals = input.counterTotals === undefined ? { poison: input.poisonCounters ?? 0 } : input.counterTotals;
@@ -574,9 +653,9 @@ export class AccountHistory {
     const accoladeId = input.accoladeId == null ? null : text(input.accoladeId, 80);
     if (accoladeId && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(accoladeId)) throw new TypeError("Accolade is invalid");
     const game = { gameId, savedAt: this.now(), tableSize, won, place, outcomeDescription: text(input.outcomeDescription, 160), commanderName: text(input.commanderName, 120), deckId: input.deckId || null, counterTotals, achievementFacts, ...(accoladeId ? { accoladeId } : {}), ...(sourceGameId ? { sourceGameId } : {}) };
-    const savedGames = { ...games, [gameId]: game };
+    const savedGames = { ...games, [gameId]: { ...game, prismaticRuleVersion: PRISMATIC_RULE_VERSION } };
     await this.store.write(gamesPath(accountId), savedGames);
-    const account = (await this.store.read(accountPath(accountId))) || { accountId, createdAt: this.now(), consentVersion: null };
+    const account = (await this.store.read(accountPath(accountId))) || { accountId, createdAt: this.now(), consentVersion: null, prismaticRuleVersion: PRISMATIC_RULE_VERSION };
     const longTermAchievementIds = Array.isArray(account.longTermAchievementIds) ? account.longTermAchievementIds : [];
     const nextAchievement = nextLongTermAchievement({ accountId, gameId, games: Object.values(savedGames), earnedIds: longTermAchievementIds });
     if (nextAchievement) await this.store.write(accountPath(accountId), { ...account, longTermAchievementIds: [...longTermAchievementIds, nextAchievement.id] });
@@ -622,7 +701,7 @@ export class AccountHistory {
 
   async savePreferences(accountId, input = {}) {
     const extra = Object.keys(input).find((key) => !["preferredName", "defaultPlayerCount", "defaultRoundLimitMinutes", "interfaceStyle", "personalSkinId", "usePersonalSkin"].includes(key)); if (extra) throw new TypeError(`Preference is not allowed: ${extra}`);
-    const account = (await this.store.read(accountPath(accountId))) || { accountId, createdAt: this.now(), consentVersion: null };
+    const account = (await this.store.read(accountPath(accountId))) || { accountId, createdAt: this.now(), consentVersion: null, prismaticRuleVersion: PRISMATIC_RULE_VERSION };
     const defaultPlayerCount = input.defaultPlayerCount == null ? 4 : Number(input.defaultPlayerCount); const defaultRoundLimitMinutes = input.defaultRoundLimitMinutes == null || input.defaultRoundLimitMinutes === "" ? null : Number(input.defaultRoundLimitMinutes);
     if (!Number.isInteger(defaultPlayerCount) || defaultPlayerCount < 2 || defaultPlayerCount > 8) throw new TypeError("Default player count is invalid");
     if (defaultRoundLimitMinutes !== null && (!Number.isInteger(defaultRoundLimitMinutes) || defaultRoundLimitMinutes < 1 || defaultRoundLimitMinutes > 999)) throw new TypeError("Default round limit is invalid");
@@ -643,9 +722,7 @@ export class AccountHistory {
       removed = Boolean(entry);
       if (!entry) {
         if (!legacy?.sourceGameId || progress?.closed) return progress;
-        const awards = Object.fromEntries(Object.entries(progress?.awards || {}).map(([id, evidence]) => [
-          id, evidence.gameId === gameId ? { evidenceRemoved: true, ...(evidence.recoveryRunId ? { recoveryRunId: evidence.recoveryRunId } : {}) } : evidence,
-        ]));
+        const awards = awardsAfterGameRemoval(progress?.awards, gameId);
         const recovery = progress?.appearanceRecovery;
         return { ...progress, awards, removedLegacy: { ...progress?.removedLegacy, [subjectKey(legacy.sourceGameId)]: true },
           ...(recovery ? { appearanceRecovery: { ...recovery, games: Object.fromEntries(Object.entries(recovery.games || {}).filter(([, game]) => game.gameId !== gameId)) } } : {}),
@@ -654,9 +731,7 @@ export class AccountHistory {
       const [key] = entry;
       const games = { ...progress.games };
       delete games[key];
-      const awards = Object.fromEntries(Object.entries(progress.awards || {}).map(([id, evidence]) => [
-        id, evidence.gameId === gameId ? { evidenceRemoved: true } : evidence,
-      ]));
+      const awards = awardsAfterGameRemoval(progress.awards, gameId);
       return { ...progress, games, awards, removed: { ...progress.removed, [key]: true } };
     });
     if (removed) return true;
@@ -696,7 +771,7 @@ export class AccountHistory {
     ]);
     const account = record || { accountId };
     const legacyGames = Object.values(legacyRecords || {});
-    const allGames = [...legacyGames, ...Object.values(progress?.games || {})];
+    const allGames = [...legacyGames.map(gameForProfile), ...Object.values(progress?.games || {})];
     const games = [...allGames].sort((a, b) => b.savedAt - a.savedAt);
     const wins = games.filter(game => game.won).length;
     const decks = Object.values(deckRecords || {});
@@ -708,11 +783,14 @@ export class AccountHistory {
     const now = this.now();
     const monthGames = gamesInCurrentMonth(games, now);
     const seen = new Set(Array.isArray(account.seenAchievementIds) ? account.seenAchievementIds : []);
-    const storedLegacyIds = progress && !progress.closed ? new Set(Object.keys(progress.awards || {})) : undefined;
+    const storedLegacyIds = progress && !progress.closed ? new Set(Object.entries(progress.awards || {})
+      .filter(([id, award]) => !prismaticRequirements.has(id) || recordedAward(award)).map(([id]) => id)) : undefined;
     const inputs = rewardInputs(legacyGames, now, storedLegacyIds ? [] : legacyDeckColors(legacyGames, decks));
-    const achievements = achievementsFor({
+    const earned = achievementsFor({
       ...inputs, storedLegacyIds, longTermAchievementIds: longTermIds(account, progress),
-    }).map(achievement => ({ ...achievement, isNew: !seen.has(achievement.id) }));
+    });
+    if (!progress?.closed && PRISMATIC_PREREQUISITES.every(({ id }) => earned.some(award => award.id === id))) earned.push(PRISMATIC_PATH_ACHIEVEMENT);
+    const achievements = earned.map(achievement => ({ ...achievement, isNew: !seen.has(achievement.id) }));
     return {
       gamesPlayed: games.length, wins, winRate: games.length ? wins / games.length : null,
       counterTotals: lifetimeCounterTotals(games), recentGames: games.slice(0, 12), games, deckStats,
