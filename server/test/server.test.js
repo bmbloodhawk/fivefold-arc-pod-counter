@@ -41,6 +41,30 @@ async function raw(path) {
   return fetch(`${baseUrl}${path}`);
 }
 
+test("health reports only a complete Render commit when available", async (t) => {
+  const original = process.env.RENDER_GIT_COMMIT;
+  t.after(() => {
+    if (original === undefined) delete process.env.RENDER_GIT_COMMIT;
+    else process.env.RENDER_GIT_COMMIT = original;
+  });
+  const commit = "0123456789abcdef0123456789abcdef01234567";
+  for (const [value, expected] of [[undefined, undefined], ["truncated", undefined], [commit + "\n", undefined], [commit.toUpperCase(), commit]]) {
+    if (value === undefined) delete process.env.RENDER_GIT_COMMIT;
+    else process.env.RENDER_GIT_COMMIT = value;
+    const instance = createRealtimeServer().server;
+    await new Promise(resolve => instance.listen(0, "127.0.0.1", resolve));
+    try {
+      const response = await fetch(`http://127.0.0.1:${instance.address().port}/health`);
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), {
+        ok: true, appearanceRewardsReady: false, ...(expected ? { revision: expected } : {}),
+      });
+    } finally {
+      await new Promise(resolve => instance.close(resolve));
+    }
+  }
+});
+
 test("uses explicit CORS and baseline browser security headers when configured", async () => {
   const eventServer = createRealtimeServer({ allowedOrigin: "https://event.example" }).server;
   await new Promise((resolve) => eventServer.listen(0, "127.0.0.1", resolve));

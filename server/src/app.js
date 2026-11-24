@@ -2127,6 +2127,8 @@ export class RoomService {
 
 export function createRealtimeServer(options = {}) {
   const appEnv = options.appEnv ?? process.env.APP_ENV ?? "production";
+  const renderCommit = process.env.RENDER_GIT_COMMIT ?? "";
+  const revision = /^[0-9a-f]{40}$/i.test(renderCommit) ? renderCommit.toLowerCase() : undefined;
   const durableRecoveryEnabled = options.durableRecoveryEnabled ?? (appEnv === "production" && typeof options.ledger?.accessToken === "function");
   const tableDeviceActivity = options.tableDeviceActivity ?? new TableDeviceActivity({
     store: typeof options.ledger?.accessToken === "function" ? options.ledger : null,
@@ -2262,7 +2264,7 @@ export function createRealtimeServer(options = {}) {
         return await roomJson(res, response.status, response.data);
       }
       if (req.method === "GET" && url.pathname === "/health") return json(res, 200, {
-        ok: true, appearanceRewardsReady: Boolean(earnedSkins.size && accountHistory && accountVerifier),
+        ok: true, appearanceRewardsReady: Boolean(earnedSkins.size && accountHistory && accountVerifier), revision,
       });
       if (req.method === "GET" && url.pathname === "/api/account/history") { const accountId = await account(req); return json(res, 200, { history: await accountHistory.summary(accountId) }); }
       if (req.method === "POST" && url.pathname === "/api/account/achievements/viewed") { const accountId = await account(req); const input = await readJson(req); return json(res, 200, { viewed: await accountHistory.markAchievementRarityViewed(accountId, input?.rarity) }); }
