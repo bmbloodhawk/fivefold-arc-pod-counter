@@ -88,7 +88,7 @@ async function legacyAccount(f, token) {
   const id = await f.accountHistory.ensureAccount(token);
   await f.store.update('account-history/accounts/' + id + '.json', account => {
     const { prismaticRuleVersion, ...priorSchema } = account;
-    return priorSchema;
+    return { ...priorSchema, createdAt: Date.UTC(2025, 0, 1) };
   });
   return id;
 }
@@ -262,7 +262,7 @@ test('verified old awards satisfy the path on the first collection read and stay
   assert.equal((await prismaticChoice(f, 'recorded')).state, 'unlocked');
 });
 
-test('old Color Wheel ownership and explicit skin grants continue working without awarding a new path', async t => {
+test('only a recorded skin entitlement preserves old ownership without the full path', async t => {
   const f = await fixture(t, [confluence]);
   for (const [token, award] of [
     ['old-verified', { gameId: 'game_old', earnedAt: f.clock(), ruleVersion: 1 }],
@@ -282,6 +282,10 @@ test('old Color Wheel ownership and explicit skin grants continue working withou
       played.map(deckId => [deckId, { deckId, gameId: deckId, savedAt: f.clock() }])
     ));
   }
+  const marked = await legacyAccount(f, 'old-inferred-marker');
+  await f.store.write('account-history/verified-progress/' + marked + '.json', {
+    prismaticRuleVersion: 2, prismaticLegacyUnlock: true, awards: { 'color-wheel': { historical: true } },
+  });
   const grant = await f.accountHistory.ensureAccount('granted');
   await f.accountHistory.grantSkin(grant, confluence.id);
   const unearned = await f.accountHistory.ensureAccount('stale-preference');
@@ -289,21 +293,26 @@ test('old Color Wheel ownership and explicit skin grants continue working withou
     ...account, seenAchievementIds: ['color-wheel', prismaticPath], preferences: { personalSkinId: confluence.id, usePersonalSkin: true },
   }));
   for (const [token, owns] of [
-    ['old-verified', true], ['old-historical', true], ['old-removed', true], ['old-deck-earner', true],
+    ['old-verified', false], ['old-historical', false], ['old-removed', false], ['old-deck-earner', false], ['old-inferred-marker', false],
     ['granted', true], ['old-unplayed-deck', false], ['stale-preference', false], ['different-account', false],
   ]) {
     const choice = await prismaticChoice(f, token);
     assert.equal(choice.state, owns ? 'unlocked' : 'locked', token);
+    const detail = await fetch(f.base + '/api/game-skins/' + confluence.id, { headers: { authorization: 'Bearer ' + token } });
+    assert.equal(detail.status, owns ? 200 : 404, token);
+    if (['old-verified', 'old-historical', 'old-removed', 'old-deck-earner', 'old-inferred-marker'].includes(token)) {
+      assert.deepEqual(choice.progress.filter(part => part.earned).map(part => part.id), ['color-wheel'], token);
+    }
     assert.equal((await f.request('preferences', { ...equipConfluence, token })).status, owns ? 200 : 403, token);
     assert.ok(!(await f.history(token)).achievements.some(a => a.id === prismaticPath), token);
   }
 });
 
 
-test('an existing skin owner earns the Path badge later without a duplicate skin notification', async t => {
+test('finishing the path announces the skin once unless the account already has a recorded grant', async t => {
   const f = await fixture(t, [confluence]);
-  for (const token of ['grandfather-owner', 'granted-owner']) {
-    const id = token === 'grandfather-owner' ? await legacyAccount(f, token) : await f.accountHistory.ensureAccount(token);
+  for (const token of ['old-four-steps', 'granted-owner']) {
+    const id = token === 'old-four-steps' ? await legacyAccount(f, token) : await f.accountHistory.ensureAccount(token);
     if (token === 'granted-owner') await f.accountHistory.grantSkin(id, confluence.id);
     await f.store.write('account-history/verified-progress/' + id + '.json', {
       awards: Object.fromEntries(prerequisites.filter(key => key !== 'seasoned').map(key => [key, { historical: true }])),
@@ -312,14 +321,15 @@ test('an existing skin owner earns the Path badge later without a duplicate skin
       const gameId = 'game_' + i;
       return [gameId, { gameId, tableSize: 4, savedAt: f.clock() + i }];
     })));
-    assert.equal((await prismaticChoice(f, token)).state, 'unlocked');
+    const owns = token === 'granted-owner';
+    assert.equal((await prismaticChoice(f, token)).state, owns ? 'unlocked' : 'locked');
     const game = f.start();
     game.finish(HOUR);
     const result = await f.save(game, { token });
     assert.ok(result.data.unlockedAchievements.some(a => a.id === 'seasoned'));
     assert.ok(result.data.unlockedAchievements.some(a => a.id === prismaticPath));
-    assert.ok(!result.data.unlockedAchievements.some(a => a.unlockedSkinName === confluence.name));
-    assert.equal((await prismaticChoice(f, token)).state, 'unlocked');
+    assert.equal(result.data.unlockedAchievements.filter(a => a.unlockedSkinName === confluence.name).length, owns ? 0 : 1);
+    assert.equal((await prismaticChoice(f, token)).state, owns ? 'unlocked' : 'new');
     assert.equal((await f.history(token)).achievements.find(a => a.id === prismaticPath).isNew, true);
     assert.deepEqual((await f.save(game, { token })).data.unlockedAchievements, []);
   }
@@ -339,7 +349,9 @@ test('pre-ledger games retroactively complete the five-achievement path without 
     return [gameId, { gameId, deckId, won: i < 10, tableSize: 4, savedAt: f.clock() + i }];
   });
   await f.store.write('account-history/games/' + id + '.json', Object.fromEntries(games));
-  assert.equal((await prismaticChoice(f, token)).state, 'unlocked');
+  const choice = await prismaticChoice(f, token);
+  assert.equal(choice.state, 'new');
+  assert.ok(choice.progress.every(step => step.earned));
   assert.equal((await f.history(token)).gamesPlayed, 25);
   assert.ok((await f.history(token)).achievements.some(a => a.id === prismaticPath));
   assert.equal((await f.request('preferences', { ...equipConfluence, token })).status, 200);

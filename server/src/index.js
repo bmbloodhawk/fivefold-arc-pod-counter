@@ -44,8 +44,10 @@ const appearanceSkins = await loadAppearanceSkins({
   console.warn("Appearance pack could not be loaded");
   return [];
 });
-const rewards = [["Prismatic Confluence", "The Prismatic Path", loadPrismaticConfluenceSkin]];
-if (appEnv === "staging") rewards.unshift(["Night Watch", "Night Shift", loadNightWatchSkin]);
+const rewards = [
+  ["Night Watch", "Night Shift", loadNightWatchSkin],
+  ["Prismatic Confluence", "The Prismatic Path", loadPrismaticConfluenceSkin],
+];
 for (const [name, achievement, load] of rewards) {
   try {
     appearanceSkins.push(await load());

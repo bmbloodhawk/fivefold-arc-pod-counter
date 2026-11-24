@@ -9,7 +9,6 @@ const decksPath = (accountId) => `account-history/decks/${encodeURIComponent(acc
 const progressPath = (accountId) => `account-history/verified-progress/${encodeURIComponent(accountId)}.json`;
 const completionClaimPath = (key) => `account-history/completion-claims/${key}.json`;
 const AWARD_RULE_VERSION = 1;
-const PRISMATIC_RULE_VERSION = 2;
 const subjectKey = (subject) => createHash("sha256").update(String(subject)).digest("hex");
 const text = (value, max) => {
   if (value == null || value === "") return null;
@@ -269,14 +268,10 @@ function rewardInputs(games, now, playedColors, verified = false) {
   return { games, bestWinStreak, monthCount, playedColors: new Set(playedColors) };
 }
 
-function initialProgress(games, decks, now, account) {
+function initialProgress(games, decks, now) {
   const legacyColors = [...new Set(legacyDeckColors(games, decks))];
   const existing = achievementsFor(rewardInputs(games, now, legacyColors));
-  const formerGames = games.filter(game => !(game.prismaticRuleVersion >= PRISMATIC_RULE_VERSION));
-  const formerColors = formerGames.length === games.length ? legacyColors : legacyDeckColors(formerGames, decks);
   return {
-    prismaticRuleVersion: PRISMATIC_RULE_VERSION,
-    prismaticLegacyUnlock: !(account.prismaticRuleVersion >= PRISMATIC_RULE_VERSION) && playedEveryColor(new Set(formerColors)),
     legacyColors,
     awards: Object.fromEntries(existing.map(award => [award.id, { historical: true }])),
     games: {},
@@ -311,17 +306,6 @@ function awardsAfterGameRemoval(awards, gameId) {
 
 function completedPrismaticPath(awards) {
   return PRISMATIC_PREREQUISITES.every(({ id }) => recordedAward(awards?.[id]));
-}
-
-function legacyPrismaticUnlock(account, progress) {
-  if (progress?.prismaticRuleVersion >= PRISMATIC_RULE_VERSION) return progress.prismaticLegacyUnlock === true;
-  return !(account?.prismaticRuleVersion >= PRISMATIC_RULE_VERSION) && recordedAward(progress?.awards?.['color-wheel']);
-}
-
-function underPrismaticRule(account, progress) {
-  if (progress.prismaticRuleVersion >= PRISMATIC_RULE_VERSION) return progress;
-  // Capture the old owner's eligibility before this transaction can award a new Color Wheel.
-  return { ...progress, prismaticRuleVersion: PRISMATIC_RULE_VERSION, prismaticLegacyUnlock: legacyPrismaticUnlock(account, progress) };
 }
 
 function grantedPrismaticSkin(account) {
@@ -377,7 +361,7 @@ export class AccountHistory {
     const existing = await this.store.read(mappingPath);
     if (existing?.accountId) return existing.accountId;
     const accountId = `acct_${this.createId()}`;
-    await this.store.write(accountPath(accountId), { accountId, createdAt: this.now(), consentVersion: null, prismaticRuleVersion: PRISMATIC_RULE_VERSION });
+    await this.store.write(accountPath(accountId), { accountId, createdAt: this.now(), consentVersion: null });
     const mapping = await this.store.update(mappingPath, current => current || { accountId });
     if (mapping.accountId !== accountId) await this.store.write(accountPath(accountId), null);
     return mapping.accountId;
@@ -403,12 +387,13 @@ export class AccountHistory {
       const [games, decks] = await Promise.all([
         this.store.read(gamesPath(accountId)), this.store.read(decksPath(accountId)),
       ]);
-      progress = initialProgress(Object.values(games || {}), Object.values(decks || {}), this.now(), account);
+      progress = initialProgress(Object.values(games || {}), Object.values(decks || {}), this.now());
     }
     const states = {};
     for (const id of achievementIds) {
       if (id === PRISMATIC_PATH_ACHIEVEMENT.id) {
-        if (legacyPrismaticUnlock(account, progress) || grantedPrismaticSkin(account)) states[id] = 'unlocked';
+        // Hosted rewards debuted with the full path. Earlier Color Wheel awards count as one step.
+        if (grantedPrismaticSkin(account)) states[id] = 'unlocked';
         else if (completedPrismaticPath(progress?.awards)) states[id] = seen.has(id) ? 'unlocked' : 'new';
       } else if (recordedAward(progress?.awards?.[id]) || (!prismaticRequirements.has(id) && olderEarned.has(id))) {
         states[id] = seen.has(id) ? 'unlocked' : 'new';
@@ -439,7 +424,7 @@ export class AccountHistory {
     let report;
     const change = current => {
       if (current?.closed) throw unavailable();
-      const progress = current ? underPrismaticRule(account, current) : initialProgress(legacyGames, Object.values(deckRecords || {}), now, account);
+      const progress = current || initialProgress(legacyGames, Object.values(deckRecords || {}), now);
       if (progress.appearanceRecovery) {
         if (progress.appearanceRecovery.runId !== runId) throw Object.assign(new Error('A different appearance recovery is already recorded'), { status: 409 });
         report = { accountId, runId, recoveredGames: Object.keys(progress.appearanceRecovery.games || {}).length,
@@ -534,7 +519,7 @@ export class AccountHistory {
     let savedForAnotherSeat = false;
     await this.store.update(path, current => {
       if (current?.closed) throw Object.assign(new Error("This profile is unavailable"), { status: 409, code: "PROFILE_UNAVAILABLE" });
-      const progress = current ? underPrismaticRule(account, current) : initialProgress(legacyGames, decks, savedAt, account);
+      const progress = current || initialProgress(legacyGames, decks, savedAt);
       const savedSeat = progress.seats?.[key];
       if (savedSeat && savedSeat !== seatKey) {
         savedForAnotherSeat = true;
@@ -585,7 +570,7 @@ export class AccountHistory {
         if (!completedPrismaticPath(progress.awards)) {
           awards[PRISMATIC_PATH_ACHIEVEMENT.id] = evidence;
           unlockedAchievements.push(PRISMATIC_PATH_ACHIEVEMENT);
-          if (legacyPrismaticUnlock(account, progress) || grantedPrismaticSkin(account)) alreadyOwnedSkinAward = PRISMATIC_PATH_ACHIEVEMENT.id;
+          if (grantedPrismaticSkin(account)) alreadyOwnedSkinAward = PRISMATIC_PATH_ACHIEVEMENT.id;
         } else if (!awards[PRISMATIC_PATH_ACHIEVEMENT.id]) {
           awards[PRISMATIC_PATH_ACHIEVEMENT.id] = { historical: true };
         }
@@ -621,7 +606,7 @@ export class AccountHistory {
       this.store.read(progressPath(accountId)), this.store.read(gamesPath(accountId)), this.store.read(decksPath(accountId)), this.store.read(accountPath(accountId)),
     ]);
     if (current || !account || !Object.keys(legacyRecords || {}).length) return;
-    const initial = initialProgress(Object.values(legacyRecords), Object.values(deckRecords || {}), this.now(), account);
+    const initial = initialProgress(Object.values(legacyRecords), Object.values(deckRecords || {}), this.now());
     await this.store.update(progressPath(accountId), progress => progress || initial);
   }
 
@@ -653,9 +638,9 @@ export class AccountHistory {
     const accoladeId = input.accoladeId == null ? null : text(input.accoladeId, 80);
     if (accoladeId && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(accoladeId)) throw new TypeError("Accolade is invalid");
     const game = { gameId, savedAt: this.now(), tableSize, won, place, outcomeDescription: text(input.outcomeDescription, 160), commanderName: text(input.commanderName, 120), deckId: input.deckId || null, counterTotals, achievementFacts, ...(accoladeId ? { accoladeId } : {}), ...(sourceGameId ? { sourceGameId } : {}) };
-    const savedGames = { ...games, [gameId]: { ...game, prismaticRuleVersion: PRISMATIC_RULE_VERSION } };
+    const savedGames = { ...games, [gameId]: game };
     await this.store.write(gamesPath(accountId), savedGames);
-    const account = (await this.store.read(accountPath(accountId))) || { accountId, createdAt: this.now(), consentVersion: null, prismaticRuleVersion: PRISMATIC_RULE_VERSION };
+    const account = (await this.store.read(accountPath(accountId))) || { accountId, createdAt: this.now(), consentVersion: null };
     const longTermAchievementIds = Array.isArray(account.longTermAchievementIds) ? account.longTermAchievementIds : [];
     const nextAchievement = nextLongTermAchievement({ accountId, gameId, games: Object.values(savedGames), earnedIds: longTermAchievementIds });
     if (nextAchievement) await this.store.write(accountPath(accountId), { ...account, longTermAchievementIds: [...longTermAchievementIds, nextAchievement.id] });
@@ -701,7 +686,7 @@ export class AccountHistory {
 
   async savePreferences(accountId, input = {}) {
     const extra = Object.keys(input).find((key) => !["preferredName", "defaultPlayerCount", "defaultRoundLimitMinutes", "interfaceStyle", "personalSkinId", "usePersonalSkin"].includes(key)); if (extra) throw new TypeError(`Preference is not allowed: ${extra}`);
-    const account = (await this.store.read(accountPath(accountId))) || { accountId, createdAt: this.now(), consentVersion: null, prismaticRuleVersion: PRISMATIC_RULE_VERSION };
+    const account = (await this.store.read(accountPath(accountId))) || { accountId, createdAt: this.now(), consentVersion: null };
     const defaultPlayerCount = input.defaultPlayerCount == null ? 4 : Number(input.defaultPlayerCount); const defaultRoundLimitMinutes = input.defaultRoundLimitMinutes == null || input.defaultRoundLimitMinutes === "" ? null : Number(input.defaultRoundLimitMinutes);
     if (!Number.isInteger(defaultPlayerCount) || defaultPlayerCount < 2 || defaultPlayerCount > 8) throw new TypeError("Default player count is invalid");
     if (defaultRoundLimitMinutes !== null && (!Number.isInteger(defaultRoundLimitMinutes) || defaultRoundLimitMinutes < 1 || defaultRoundLimitMinutes > 999)) throw new TypeError("Default round limit is invalid");
