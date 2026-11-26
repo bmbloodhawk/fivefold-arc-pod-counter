@@ -71,6 +71,12 @@ and accepted documented limitations; do not silently waive the phone or credenti
   flows. Root inspected narrow Commander and390px second-game screenshots.
   Browser engine was Chrome140.0.7339.128 with Playwright1.65.1; this older desktop
   engine is not evidence for current physical mobile browsers.
+- Repaired and reran the complete existing Dial browser gate: **294 size/mode,
+  108 numeric and36 skin/font cases passed**, plus native input/keyboard/drag,
+  settled/long warning and elimination checks, with zero page errors. Only two QA
+  files changed. Exact .35px geometry and gameplay/clearance gates were retained;
+  current setup, clipped-button hit targets, caption geometry, observer timing and
+  hidden-number reference measurements replaced obsolete harness assumptions.
 - Actual disposable Chromium two-tab worker test passed: App351/cache426 stayed
   controlling during play with new427 waiting; scoring worked, no reload/controller
   switch occurred. One remaining old tab kept the worker waiting at intermission.
@@ -118,11 +124,9 @@ checkpoint. A real hosted save/restart/reclaim is needed to close that inference
 For a limited invited alpha with the gates satisfied, defer a strict CSP until
 Firebase popup/email/PWA compatibility is tested, broad scaling/refactoring,
 automated retention cleanup until policy/deletion recovery are approved, monetization,
-Leagues and a richer update notice. The full legacy Dial harness is currently stale:
-its setup helper expects the removed player-count step, and its fixed label-y
-expectation fails. The focused actual-input checks pass, but the full Dial gate
-must be repaired before claiming that complete matrix is green. No assertion was
-silenced. The proposed explicit update coordinator remains unimplemented.
+Leagues and a richer update notice. The full Dial harness was repaired and passed
+locally during this audit; no assertion was silenced. The proposed explicit update
+coordinator remains unimplemented.
 
 ## Ordered release plan
 
@@ -152,6 +156,14 @@ all other assertions. The corrected report passed200/200 changes, duplicate
 suppression, stale-owner403 and injected500 state preservation. Local sequential
 two-seat acknowledgement p95 was16.47ms, not a hosted/mobile capacity measurement.
 Independent review found no actionable issues; diff checks passed.
+
+The additional two-file QA repair now completes the full Dial matrix. The original
+failures are retained: obsolete setup/geometry, immediate measurement before the
+warning ResizeObserver settled, and missing reference-font measurement when the
+elimination screen hid the numeric ink. A focused reproduction proved the warning
+cleared after the existing layout settled; the app/CSS needed no change. The final
+full runner exited0, and38 focused Dial unit tests also passed. These results remain
+desktop emulation rather than current physical-phone acceptance.
 
 The primary checkout and its uncommitted/untracked work were not edited. Preparation
 is isolated on `codex/launch-readiness-20261125`; nothing was pushed. Current remote
