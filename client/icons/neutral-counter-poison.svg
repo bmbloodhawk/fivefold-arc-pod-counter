@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <g fill="none"><circle cx="50" cy="50" r="45" stroke="#716953" stroke-width=".55"/><circle cx="50" cy="50" r="39" stroke="#484338" stroke-width=".5"/></g>
+  <defs>
+    <path id="skull" d="m50 16.6 13 2.2 11 8.2 5 12.2-1.5 12.2-5.9 8.1-8.5 3.1-1.4 10.3-5 5H43.3l-5-5-1.4-10.3-8.5-3.1-5.9-8.1L21 39.2 26 27l11-8.2Z"/>
+    <path id="temples" d="m25.7 43.1 8.8-5.1 10 4.4 1.1 6.6-7 6.6-8.4-2.1Zm48.6 0-8.8-5.1-10 4.4-1.1 6.6 7 6.6 8.4-2.1Z"/>
+  </defs>
+  <g fill="#83755a">
+    <path opacity=".19" d="m26 27 11-8.2 13-2.2v14.8L34.5 38Z"/>
+    <path opacity=".24" d="m77.5 51.4-5.9 8.1-8.5 3.1-1.7-7 8.4-2.1 4.5-10.4Z"/>
+  </g>
+  <g fill="none" stroke-linejoin="bevel">
+    <use href="#skull" stroke="#080807" stroke-width="1.7" transform="translate(0 -.55)"/>
+    <use href="#skull" stroke="#8d8168" stroke-width=".9"/>
+    <path d="M21 39.2 26 27l11-8.2 13-2.2m21.6 42.9-8.5 3.1-1.4 10.3-5 5" stroke="#b2a081" stroke-width=".48" transform="translate(.18 .35)"/>
+    <path d="M26 27 34.5 38 50 31.4 65.5 38 74 27M38.6 55.6l-1.7 7 7.3 4.8h11.6l7.3-4.8-1.7-7" stroke="#716650" stroke-width=".76"/>
+    <use href="#temples" fill="#080807" fill-opacity=".43" stroke="#857962" stroke-width="1"/>
+    <path d="m46.8 60.6 3.2-7 3.2 7-3.2-1.1Z" fill="#080807" fill-opacity=".5" stroke="#716650" stroke-width=".72"/>
+    <path d="m45.6 67.4.8 6.7m8-6.7-.8 6.7" stroke="#716650" stroke-width=".7"/>
+  </g>
+</svg>

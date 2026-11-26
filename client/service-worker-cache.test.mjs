@@ -10,7 +10,7 @@ const shell = [...source.match(/const APP_SHELL = \[([\s\S]*?)\];/)[1].matchAll(
 const url = path => new URL(path, origin).href;
 
 test('the offline shell includes the shared production appearance renderer and validator', () => {
-  for (const path of ['./renderer-bridge.js?v=6','./commander-glass-art.js','./appearance-validation.js','./renderer-theme.css?v=1']) assert.ok(shell.includes(url(path)), `${path} is available offline`);
+  for (const path of ['./renderer-bridge.js?v=10','./commander-glass-art.js','./appearance-validation.js?v=4','./counter-design.js?v=4','./appearance-table-design.js?v=3','./counter-design.css?v=5','./renderer-theme.css?v=1','./icons/tabs-ink.svg','./icons/neutral-counter-radiation.svg']) assert.ok(shell.includes(url(path)), `${path} is available offline`);
 });
 
 function worker({ offline = false, quota = false, stores = new Map() } = {}) {

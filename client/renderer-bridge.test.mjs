@@ -155,3 +155,20 @@ test('legacy mode switches retain released placement until the skin is selected 
   bridge.refreshArt('dial');
   assert.equal(fixture.properties.get('--skin-counter-readout-scale'), '0.95');
 });
+
+test('compact counter captions and independent table inks survive the v2 renderer projection', async () => {
+  const {counterDesignFor, counterArtStrengthLimit} = await import('./counter-design.js');
+  const {validateAppearanceSkin,publicAppearanceSkin} = await import('./appearance-validation.js');
+  const skin = {rendererVersion:2,id:'test-paper',name:'Paper',text:'#30251b',surface:'#efe4d1',
+    tableDesign:{titleInk:'#5a402b',stepInk:'#664528'},counterDesign:{modes:{life:{captionBacking:'compact'}}}};
+  assert.deepEqual(validateAppearanceSkin(skin,{preview:true}).errors,[]);
+  const projected=publicAppearanceSkin(skin);
+  const rendered=buildRendererTheme(projected);
+  assert.equal(rendered.variables['--design-title-ink'],skin.tableDesign.titleInk);
+  assert.equal(rendered.variables['--design-step-ink'],skin.tableDesign.stepInk);
+  assert.equal(counterDesignFor(projected,'life').captionSurface,skin.surface);
+  assert.equal(counterArtStrengthLimit(projected),55);
+  assert.equal(buildRendererTheme({rendererVersion:2}).datasets.designTitleInk,undefined);
+  assert.equal(counterDesignFor({...skin,rendererVersion:1},'life'),null);
+  assert.notEqual(validateAppearanceSkin({...skin,rendererVersion:1},{preview:true}).errors.length,0);
+});

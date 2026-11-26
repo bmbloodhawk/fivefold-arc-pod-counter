@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <g fill="none"><circle cx="50" cy="50" r="45" stroke="#716953" stroke-width=".55"/><circle cx="50" cy="50" r="39" stroke="#484338" stroke-width=".5"/></g>
+  <defs>
+    <path id="blade-edge" d="M66 22.3A32 32 0 0 1 82 50H61a11 11 0 0 0-5.5-9.5Z"/>
+    <g id="blade" stroke-linejoin="round">
+      <use href="#blade-edge" transform="translate(0 .65)" fill="none" stroke="#080807" stroke-width="1.45"/>
+      <use href="#blade-edge" fill="#83755a" fill-opacity=".18" stroke="#8d8168" stroke-width=".9"/>
+      <path d="m66 22.3 8.3 13.6-18.8 4.6Z" fill="#83755a" fill-opacity=".24"/>
+      <path d="m66 22.3 8.3 13.6-18.8 4.6" fill="none" stroke="#b2a081" stroke-width=".6"/>
+    </g>
+  </defs>
+  <use href="#blade"/>
+  <use href="#blade" transform="rotate(120 50 50)"/>
+  <use href="#blade" transform="rotate(240 50 50)"/>
+  <circle cx="50" cy="50.5" r="5.7" fill="#83755a" fill-opacity=".23" stroke="#080807" stroke-width="1.45"/>
+  <circle cx="50" cy="50" r="5.7" fill="none" stroke="#8d8168" stroke-width=".9"/>
+  <path d="M44.8 49.1a5.3 5.3 0 0 1 4.3-4.3" fill="none" stroke="#b2a081" stroke-width=".6"/>
+</svg>

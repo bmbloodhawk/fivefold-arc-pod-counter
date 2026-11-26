@@ -73,3 +73,26 @@ test('skin clearing before a game exists is safe and uses the selected interface
     assert.equal(f.label('radiation'), style === 'dial' ? 'Rad' : 'Radiation');
   }
 });
+
+test('an earned Field Notes stays selectable alongside its original staging preview', () => {
+  const canonical = {id:'field-notes', name:'Field Notes'};
+  const preview = {id:'review:field-notes', name:'Field Notes'};
+  const reviewOnly = {id:'review:tideglass', name:'Tideglass'};
+  const deviceAppearanceChoice = { options:[{value:canonical.id},{value:preview.id}] };
+  const context = createContext({ state:{}, dom:{deviceAppearanceField:{},deviceAppearanceChoice}, publishedSkins:[],
+    stagingReviewSkins:[preview,reviewOnly], unlockedSkinChoices:()=>[canonical,{id:'tideglass',name:'Tideglass'}],
+    deviceAppearanceChoice:()=>canonical.id, escapeHtml:value=>value });
+  runInContext([sourceFunction('skinOption'),sourceFunction('renderDeviceAppearanceChoice')].join('\n'), context);
+  context.renderDeviceAppearanceChoice();
+  assert.match(deviceAppearanceChoice.innerHTML, /value="field-notes">Field Notes</);
+  assert.match(deviceAppearanceChoice.innerHTML, /value="review:field-notes">Field Notes \(original collection preview\)</);
+  assert.doesNotMatch(deviceAppearanceChoice.innerHTML, /value="tideglass"/);
+  assert.equal(deviceAppearanceChoice.value,canonical.id);
+  context.deviceAppearanceChoice = ()=>preview.id;
+  context.renderDeviceAppearanceChoice();
+  assert.equal(deviceAppearanceChoice.value,preview.id);
+  context.unlockedSkinChoices = ()=>[];
+  context.renderDeviceAppearanceChoice();
+  assert.doesNotMatch(deviceAppearanceChoice.innerHTML,/value="field-notes"/);
+  assert.match(deviceAppearanceChoice.innerHTML,/value="review:field-notes">Field Notes</);
+});

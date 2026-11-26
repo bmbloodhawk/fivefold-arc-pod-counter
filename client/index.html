@@ -16,8 +16,8 @@
   <link rel="stylesheet" href="renderer-theme.css?v=1" data-renderer-theme>
   <link rel="stylesheet" href="appearance-fonts.css">
   <link rel="stylesheet" href="appearance-surface-design.css">
-  <link rel="stylesheet" href="appearance-table-design.css?v=4">
-  <link rel="stylesheet" href="counter-design.css">
+  <link rel="stylesheet" href="appearance-table-design.css?v=7">
+  <link rel="stylesheet" href="counter-design.css?v=5">
 </head>
 <body>
   <header class="brand-bar">
@@ -358,7 +358,7 @@
             <p class="counter-mode"><span id="modeTitle">LIFE</span></p>
             <output id="mainValue" class="main-value">40</output>
             <div id="eliminationOutcome" class="elimination-outcome" hidden aria-live="polite"><strong></strong><span></span></div>
-            <p id="counterContext" class="counter-context">P1 · YOU</p>
+            <p id="counterContext" class="counter-context"><span>P1 · YOU</span></p>
           </div>
           <div id="dialControls" class="dial-controls" role="group" aria-label="Dial counter controls" hidden>
             <button type="button" class="dial-step dial-step-minus" data-delta="-1" aria-label="Decrease counter by one"></button>
@@ -816,6 +816,6 @@
   </dialog>
   <p id="competitionSetupStatus" role="status" hidden></p>
   <script src="vendor/jsqr.js?v=1"></script>
-  <script type="module" src="app.js?v=346"></script>
+  <script type="module" src="app.js?v=351"></script>
 </body>
 </html>
