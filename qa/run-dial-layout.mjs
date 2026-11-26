@@ -6,7 +6,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRealtimeServer } from '../server/src/app.js';
 import { assertDialLayout, checkDialInput, checkDialReadoutTotals, checkDialSizes,
-  checkDialWarning, createDialTable, readDialLayout, settleDial } from './dial-layout.browser.mjs';
+  checkDialWarning, createDialTable, readDialLayout, settleDial, stepDial } from './dial-layout.browser.mjs';
 
 // Always owns its loopback server and fresh browser contexts. There is no
 // remote-target option, saved browser profile or production account access.
@@ -45,7 +45,7 @@ try {
         report.warning = await checkDialWarning(fixture.page);
         await fixture.page.screenshot({ path: resolve(output, 'warning-320.png'), fullPage: true });
         for (let value = 19; value <= 21; value++) {
-          await fixture.page.getByRole('button', { name: 'Increase counter by one', exact: true }).tap();
+          await stepDial(fixture.page, 1);
           await fixture.page.waitForFunction(expected => document.querySelector('#mainValue').value === String(expected), value);
         }
         await fixture.page.locator('#lethalMark').waitFor({ state: 'visible' });

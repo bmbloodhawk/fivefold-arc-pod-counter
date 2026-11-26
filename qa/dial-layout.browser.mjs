@@ -14,11 +14,9 @@ export async function createDialTable(browser, base, count, viewport = { width: 
     await page.locator(`input[name="gameFormat"][value="${format}"]`).check();
     if (format === 'custom') await page.locator('#customStartingLife').fill('30');
     await page.locator('#createStepOneNext').click();
-    await page.getByRole('radio', { name: String(count), exact: true }).check();
-    await page.locator('#createStepTwoNext').click();
     await page.locator('#createName').fill('Dial Review');
-    await page.locator('#createStepThreeNext').click();
-    if (await page.locator('#createStepFourSkip').isVisible()) await page.locator('#createStepFourSkip').click();
+    await page.locator('#createStepTwoNext').click();
+    await page.locator('#createStepThreeSkip').click();
     await page.getByRole('button', { name: 'Create table', exact: true }).click();
     await page.locator('#lobbyView').waitFor({ state: 'visible' });
     const code = (await page.locator('#lobbyInviteCode').textContent()).trim();
@@ -90,11 +88,11 @@ export async function checkDialInput(page) {
   for (const mode of ['life', 'commander', 'radiation', 'poison', 'energy', 'generic']) {
     await page.locator(`#modeNav [data-mode="${mode}"]`).click();
     const before = Number(await page.locator('#mainValue').textContent());
-    await page.getByRole('button', { name: 'Increase counter by one', exact: true }).tap();
+    await stepDial(page, 1);
     await page.waitForFunction(value => document.querySelector('#mainValue').value === String(value), before + 1);
     await settleDial(page);
     assertDialLayout(await readDialLayout(page));
-    await page.getByRole('button', { name: 'Decrease counter by one', exact: true }).click();
+    await stepDial(page, -1, 'mouse');
     await page.waitForFunction(value => document.querySelector('#mainValue').value === String(value), before);
   }
   const before = Number(await page.locator('#mainValue').textContent());
@@ -115,6 +113,24 @@ export async function checkDialInput(page) {
   return { modes: 6, touchAndMouse: true, keyboard: true, drag: true };
 }
 
+// The curved target excludes the rotary surface; its rectangular center is
+// deliberately outside the hit region. Test the visible symbol's real target.
+export async function stepDial(page, delta, pointer = 'touch') {
+  const side = delta > 0 ? 'plus' : 'minus';
+  const button = page.locator(`.dial-step-${side}`);
+  await button.scrollIntoViewIfNeeded();
+  const label = await page.locator(`.dial-step-${side}-label`).boundingBox();
+  const target = await button.boundingBox();
+  assert.ok(label && target, 'step button and symbol are visible');
+  const point = { x: label.x + label.width / 2, y: label.y + label.height / 2 };
+  assert.equal(await page.evaluate(({ side, point }) =>
+    document.elementFromPoint(point.x, point.y) === document.querySelector(`.dial-step-${side}`),
+  { side, point }), true, `${side} symbol hits its native step button`);
+  const position = { x: point.x - target.x, y: point.y - target.y };
+  if (pointer === 'mouse') await button.click({ position });
+  else await button.tap({ position });
+}
+
 export async function checkDialWarning(page) {
   await page.setViewportSize({ width: 320, height: 568 });
   await settleDial(page);
@@ -125,7 +141,7 @@ export async function checkDialWarning(page) {
   await page.locator('#commanderSourceDialog [data-source-choice="seat-1-commander-b"]').click();
   const before = Number(await page.locator('#mainValue').textContent());
   for (let value = before + 1; value <= 18; value++) {
-    await page.getByRole('button', { name: 'Increase counter by one', exact: true }).tap();
+    await stepDial(page, 1);
     await page.waitForFunction(expected => document.querySelector('#mainValue').value === String(expected), value);
   }
   await page.locator('#lifeChangeIndicator').waitFor({ state: 'hidden' });
@@ -137,6 +153,7 @@ export async function checkDialWarning(page) {
   await page.locator('#statusMessage span').first().evaluate(element => {
     element.textContent = 'Asmoranomardicadaistinaculdacar, the Longest Commander Name';
   });
+  await settleDial(page);
   assertDialLayout(await readDialLayout(page));
   await page.locator('#modeNav [data-mode="commander"]').click();
   return { settled, longText: true };
@@ -190,17 +207,17 @@ export async function readDialLayout(page) {
       y: assemblyBox.y + parseFloat(face.top) + (parseFloat(face.height) + borderHeight) / 2 + matrix.f,
     };
     const value = document.querySelector('#mainValue');
+    const style = getComputedStyle(value);
+    const canvas = document.createElement('canvas').getContext('2d');
+    const rect = value.getBoundingClientRect();
+    const scale = rect.height / parseFloat(style.height) || 1;
     let ink = null;
     if (visible(value)) {
-      const style = getComputedStyle(value);
-      const canvas = document.createElement('canvas').getContext('2d');
       canvas.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
       canvas.letterSpacing = style.letterSpacing === 'normal' ? '0px' : style.letterSpacing;
       const metrics = canvas.measureText(value.value);
       const probe = document.createElement('span');
       probe.style.cssText = 'display:inline-block;width:0;height:0;line-height:0;vertical-align:baseline';
-      const rect = value.getBoundingClientRect();
-      const scale = rect.height / parseFloat(style.height);
       const originalHeight = value.style.height;
       value.style.height = style.height;
       value.append(probe);
@@ -213,11 +230,17 @@ export async function readDialLayout(page) {
       const height = (metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent) * scale;
       ink = { x: x - width / 2, y: y - height / 2, width, height, right: x + width / 2, bottom: y + height / 2 };
     }
+    // The fixed band remains reserved when elimination hides the numeric ink.
+    const digitFactor = parseFloat(value.style.getPropertyValue('--dial-digit-factor')) || 1;
+    canvas.font = `${style.fontStyle} ${style.fontWeight} ${parseFloat(style.fontSize) * digitFactor}px ${style.fontFamily}`;
+    const reference = canvas.measureText('88');
+    const referenceInkHeight = (reference.actualBoundingBoxAscent + reference.actualBoundingBoxDescent) * scale;
     return {
       viewport: { width: innerWidth, height: innerHeight },
       mode: document.querySelector('#gameView').dataset.counterMode,
       boxes: Object.fromEntries(selectors.map(selector => [selector, box(document.querySelector(selector))])),
-      ink, ringCenter,
+      ink, ringCenter, referenceInkHeight,
+      rootFontSize: parseFloat(getComputedStyle(document.documentElement).fontSize),
       horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
       pageHeight: document.documentElement.scrollHeight,
     };
@@ -250,11 +273,21 @@ export function assertDialLayout(layout) {
       near(part.y + part.height / 2, center.y, `${selector} y`);
     }
   }
-  for (const [selector, fraction] of [['.counter-mode', .22], ['#counterContext', .77]]) {
+  for (const selector of ['.counter-mode', '#counterContext']) {
     const label = boxes[selector];
     near(label.x + label.width / 2, center.x, `${selector} x`);
-    near(label.y + label.height / 2, assembly.y + assembly.height * fraction, `${selector} y`);
     assert.ok(!overlaps(layout.ink, label), `visible number overlaps ${selector}`);
+  }
+  // Approved Dial mode is 22% + .5rem. The name begins 12px below the
+  // fixed two-digit ink band (or elimination outcome), rather than at 77%.
+  const mode = boxes['.counter-mode'];
+  near(mode.y + mode.height / 2, assembly.y + assembly.height * .22 + layout.rootFontSize * .5, 'mode y');
+  const context = boxes['#counterContext'];
+  const referenceBottom = assembly.y + assembly.height * .478 + layout.referenceInkHeight / 2;
+  near(context.y, Math.max(referenceBottom, boxes['#eliminationOutcome']?.bottom || referenceBottom) + 12, 'context top');
+  assert.ok(context.x >= -1 && context.right <= layout.viewport.width + 1, 'caption fits viewport');
+  for (const selector of ['#turnActions', '#sourcePanel', '.commander-tax-quick', '#modeNav']) {
+    assert.ok(!overlaps(context, boxes[selector]), `caption overlaps ${selector}`);
   }
   if (layout.ink) {
     near(layout.ink.x + layout.ink.width / 2, center.x, 'visible number x');
