@@ -1227,11 +1227,52 @@ async function removeAccountItem(kind, id) {
   if (kind === 'games') await showMyGames(); else await showMyDecks();
 }
 async function updateSavedDeck(deckId, changes) { const token = await currentAccountToken(); if (!token) return; const response = await fetch(`/api/account/decks/${encodeURIComponent(deckId)}`, { method: 'PATCH', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(changes) }); if (!response.ok) throw new Error('That deck could not be updated.'); await showMyDecks(); void loadSetupDecks(); }
-async function exportDeckSummary(deckId) { const token = await currentAccountToken(); if (!token) return; const [decksResponse, historyResponse] = await Promise.all([fetch('/api/account/decks?archived=all', { headers: { authorization: `Bearer ${token}` } }), fetch('/api/account/history', { headers: { authorization: `Bearer ${token}` } })]); if (!decksResponse.ok || !historyResponse.ok) throw new Error('That deck summary is not available yet.'); const deck = (await decksResponse.json()).decks.find(item => item.deckId === deckId); const history = (await historyResponse.json()).history; if (!deck) return; const games = history.games.filter(game => game.deckId === deckId); const wins = games.filter(game => game.won).length; const summary = { exportedAt: Date.now(), deck: { commanderNames: deck.commanderNames, name: deck.name, colors: deck.colors, notes: deck.notes }, results: { gamesPlayed: games.length, wins, winRate: games.length ? wins / games.length : null, placements: games.map(game => game.place).filter(Boolean) } }; const url = URL.createObjectURL(new Blob([JSON.stringify(summary, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = `${(deck.name || deck.commanderName).replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'fivefold-arc-deck'}-summary.json`; link.click(); URL.revokeObjectURL(url); }
+async function exportDeckSummary(deckId) {
+  const profileEpoch = awardProfileEpoch;
+  const currentExport = () => profileEpoch === awardProfileEpoch;
+  try {
+    const token = await currentAccountToken();
+    if (!currentExport() || !token) return;
+    const [decksResponse, historyResponse] = await Promise.all([
+      fetch('/api/account/decks?archived=all', { headers: { authorization: `Bearer ${token}` } }),
+      fetch('/api/account/history', { headers: { authorization: `Bearer ${token}` } }),
+    ]);
+    if (!currentExport()) return;
+    if (!decksResponse.ok || !historyResponse.ok) throw new Error('That deck summary is not available yet.');
+    const decksData = await decksResponse.json();
+    if (!currentExport()) return;
+    const deck = decksData.decks.find(item => item.deckId === deckId);
+    const historyData = await historyResponse.json();
+    if (!currentExport()) return;
+    const history = historyData.history;
+    if (!deck) return;
+    const games = history.games.filter(game => game.deckId === deckId);
+    const wins = games.filter(game => game.won).length;
+    const summary = { exportedAt: Date.now(), deck: { commanderNames: deck.commanderNames, name: deck.name, colors: deck.colors, notes: deck.notes }, results: { gamesPlayed: games.length, wins, winRate: games.length ? wins / games.length : null, placements: games.map(game => game.place).filter(Boolean) } };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(summary, null, 2)], { type: 'application/json' }));
+    const link = document.createElement('a'); link.href = url; link.download = `${(deck.name || deck.commanderName).replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'fivefold-arc-deck'}-summary.json`; link.click(); URL.revokeObjectURL(url);
+  } catch (error) {
+    if (!currentExport()) return;
+    throw error;
+  }
+}
 async function exportAccountData() {
-  const token = await currentAccountToken(); if (!token) return;
-  const response = await fetch('/api/account/export', { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) throw new Error('Your data export is not available yet.');
-  const url = URL.createObjectURL(new Blob([JSON.stringify((await response.json()).export, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = 'fivefold-arc-my-data.json'; link.click(); URL.revokeObjectURL(url);
+  const profileEpoch = awardProfileEpoch;
+  const currentExport = () => profileEpoch === awardProfileEpoch;
+  try {
+    const token = await currentAccountToken();
+    if (!currentExport() || !token) return;
+    const response = await fetch('/api/account/export', { headers: { authorization: `Bearer ${token}` } });
+    if (!currentExport()) return;
+    if (!response.ok) throw new Error('Your data export is not available yet.');
+    const data = await response.json();
+    if (!currentExport()) return;
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data.export, null, 2)], { type: 'application/json' }));
+    const link = document.createElement('a'); link.href = url; link.download = 'fivefold-arc-my-data.json'; link.click(); URL.revokeObjectURL(url);
+  } catch (error) {
+    if (!currentExport()) return;
+    throw error;
+  }
 }
 
 async function deleteAccountData() {
