@@ -3,7 +3,7 @@ import { resolveDesignArtwork } from "../../client/appearance-design-artwork.js"
 import {
   assertAppearanceValid, publicAppearanceSkin, validateAppearanceAsset, validateAppearanceSkin,
 } from "../../client/appearance-validation.js";
-import { NIGHT_WATCH_SKIN_ID, PRISMATIC_CONFLUENCE_SKIN_ID } from "./appearance-milestones.js";
+import { FIELD_NOTES_SKIN_ID, NIGHT_WATCH_SKIN_ID, PRISMATIC_CONFLUENCE_SKIN_ID } from "./appearance-milestones.js";
 
 async function loadBundledSkin(directory, id, name) {
   const { skin, assets } = JSON.parse(await readFile(new URL("manifest.json", directory), "utf8"));
@@ -30,6 +30,10 @@ async function loadBundledSkin(directory, id, name) {
     backgroundData: byId.get(skin.backgroundAsset),
     ...resolveDesignArtwork(skin, id => byId.get(id)),
   };
+}
+
+export function loadFieldNotesSkin() {
+  return loadBundledSkin(new URL("../static-data/field-notes/", import.meta.url), FIELD_NOTES_SKIN_ID, "Field Notes");
 }
 
 export function loadNightWatchSkin() {

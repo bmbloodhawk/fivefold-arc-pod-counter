@@ -1,13 +1,13 @@
 // Shared input boundary for Studio files, protected APIs, and renderer messages.
 // This module never changes a catalog, executes styles, or reads game state.
-import { appearanceReadability } from './appearance-readability.js';
+import { appearanceReadability } from './appearance-readability.js?v=3';
 import { appearanceFontKeys } from './appearance-fonts.js';
 import { designArtworkReferences } from './appearance-design-artwork.js';
 import { sceneDesignSpec } from './appearance-scene-design.js';
 import { surfaceDesignSpec } from './appearance-surface-design.js';
 import { surfaceArtSpec, surfaceArtDataSpec } from './appearance-surface-art.js';
-import { canvasDesignSpec, tableDesignSpec } from './appearance-table-design.js';
-import { counterDesignSpecFor, counterArtDataSpec } from './counter-design.js';
+import { canvasDesignSpec, tableDesignSpec } from './appearance-table-design.js?v=3';
+import { counterDesignSpecFor, counterArtDataSpec } from './counter-design.js?v=4';
 export const APPEARANCE_SCHEMA_VERSION = 1;
 export const APPEARANCE_ASSET_ROLES = Object.freeze(['background', 'symbol', 'overlay', 'seal', 'dial', 'thumbnail', 'button', 'panel']);
 const ID = /^[A-Za-z0-9_-]{1,80}$/;

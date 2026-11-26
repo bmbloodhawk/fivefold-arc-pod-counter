@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 24">
+  <!-- Six carved silhouettes with open cuts through the ink. -->
+  <path d="M12 20.9C10 19.2 2.6 13.8 2.6 8.8c0-3.1 2-5.1 4.8-5.1 2.1 0 3.6 1.1 4.6 2.7 1.2-1.6 2.7-2.7 4.7-2.7 2.7 0 4.7 2.1 4.7 5.1 0 4.4-6.8 9.9-9.4 12.1ZM4.8 9.3c.7 3.2 3.4 6 6 7.7-2-2.6-3.4-5.1-4.1-8.3Z" fill-rule="evenodd"/>
+  <g transform="translate(24)">
+    <path fill-rule="evenodd" d="m12 2 7.3 3.3 1.2 7.8-3.1 5.3L12 22l-5.4-3.6-3.1-5.3 1.2-7.8ZM6 9.4l.6 3 3.8.6.6 4.1 1 1.3 1-1.3.6-4.1 3.8-.6.6-3-6 1.7ZM12 4 7.5 6.6 12 5.7Z"/>
+  </g>
+  <g transform="translate(48)">
+    <circle cx="12" cy="12" r="2.1"/>
+    <g id="ink-blade"><path d="M16.7 3.1a10 10 0 0 1 5.2 8.9h-6.1a3.8 3.8 0 0 0-1.9-3.3Z"/></g>
+    <use href="#ink-blade" transform="rotate(120 12 12)"/><use href="#ink-blade" transform="rotate(240 12 12)"/>
+  </g>
+  <g transform="translate(72)">
+    <path fill-rule="evenodd" d="M12 2.6c5.2 0 8.7 3.5 8.7 8 0 3.4-1.4 5.5-4.1 6.7L16 21h-2.1l-.5-2.1-.4 2.1h-2l-.5-2.1-.5 2.1H8l-.6-3.7c-2.6-1.2-4-3.3-4-6.7 0-4.5 3.4-8 8.6-8ZM6.2 10c-.5 2.1.6 3.6 2.1 3.8 1.8.2 2.7-1 2.7-2.9Zm11.6 0-4.8.9c0 1.9.9 3.1 2.7 2.9 1.5-.2 2.6-1.7 2.1-3.8Zm-5.8 3.4-1.5 3.5 1.5-.6 1.5.6Z"/>
+  </g>
+  <g transform="translate(96)">
+    <path fill-rule="evenodd" d="M13 2h6.3l-5.2 7.3h6.7L5.4 22.1l4.1-9.3H3.1Zm.6 2.1-6.4 6.5h2.2l5.8-6.5Z"/>
+  </g>
+  <g transform="translate(120) rotate(-8 12 12)">
+    <path fill-rule="evenodd" d="M4 3.6h16l.7 16.8H3.4Zm2.1 3V10h3.4V6.6Zm4.3 3.8v3.2h3.2v-3.2Zm4.1 3.7v3.3h3.4v-3.3Z"/>
+  </g>
+</svg>

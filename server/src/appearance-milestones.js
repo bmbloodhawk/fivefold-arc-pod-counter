@@ -1,3 +1,4 @@
+export const FIELD_NOTES_SKIN_ID = 'field-notes';
 export const NIGHT_WATCH_SKIN_ID = 'skin-8d464cbe-0dd5-4010-87eb-937dcced76eb';
 export const PRISMATIC_CONFLUENCE_SKIN_ID = 'skin-8dcb5aaa-565f-459b-8cb7-5091b023abe0';
 
@@ -23,7 +24,7 @@ export const PRISMATIC_PATH_ACHIEVEMENT = Object.freeze({
 });
 
 const milestones = [
-  ["field-notes", "Field Journal", 10, "common"],
+  [FIELD_NOTES_SKIN_ID, "Field Journal", 10, "common"],
   ["rosewood", "Kitchen Table Regular", 20, "uncommon",
     ", including a rematch at the same table",
     ({ games }) => games.some(game => game.achievementFacts?.tableGameNumber >= 2)],

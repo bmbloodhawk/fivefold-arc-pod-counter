@@ -284,3 +284,11 @@ html.game-skin-active:has(#gameView[data-scene-design]) :is(#gameView,#lobbyView
   html.game-skin-active #gameView[data-canvas-frame]::before, html.game-skin-active #gameView[data-canvas-flourish]::after { display:none; }
   #gameView[data-design-turn-marker] .pod-seat.turn-active, #gameView[data-design-nav-mark] .mode-nav button.active { border:2px solid Highlight; }
 }
+@media not (forced-colors: active) {
+  #gameView[data-design-title-ink] .pod-label { color: var(--design-title-ink); }
+  #gameView[data-design-step-ink][data-interface-style="dial"] .dial-step-minus:enabled:not(:active,:focus-visible) ~ .dial-step-minus-label,
+  #gameView[data-design-step-ink][data-interface-style="dial"] .dial-step-plus:enabled:not(:active,:focus-visible) ~ .dial-step-plus-label {
+    color: var(--design-step-ink);
+    opacity: 1;
+  }
+}

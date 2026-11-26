@@ -27,9 +27,64 @@ html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-caption-
   background:radial-gradient(ellipse at center,var(--counter-design-caption-surface) 0 38%,color-mix(in srgb,var(--counter-design-caption-surface) 80%,transparent) 62%,transparent 84%);
   filter:none;
 }
-html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-design="true"][data-counter-caption-backing="surface"] :is(.counter-mode,.counter-context) {
+html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-design="true"][data-counter-caption-backing] :is(.counter-mode,.counter-context) {
   background:var(--counter-design-caption-surface);color:var(--counter-design-caption-text);
   text-shadow:none;-webkit-text-stroke:0 transparent;box-shadow:0 0 0 2px var(--counter-design-caption-surface);opacity:1;
 }
-html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-design="true"][data-counter-caption-backing="surface"] .counter-mode {color:var(--counter-design-caption-accent)}
+html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-design="true"][data-counter-caption-backing] .counter-mode {color:var(--counter-design-caption-accent)}
 @media (prefers-reduced-motion:reduce) {#gameView[data-counter-design="true"] :is(.counter-design-face,.counter-design-markings,.counter-design-emblem){transition:none}}
+
+/* Put the plate behind the letters while keeping the measured wrapping boxes.
+   The lower fade remains available to transient feedback. */
+html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-design="true"][data-counter-caption-backing="compact"] :is(.counter-mode,.counter-context):has(> span) {
+  background:transparent;box-shadow:none;
+}
+html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-caption-backing="compact"] :is(.counter-mode,.counter-context) > span {
+  background:var(--counter-design-caption-surface);box-shadow:0 0 0 2px var(--counter-design-caption-surface);
+  border-radius:.14em;box-decoration-break:clone;-webkit-box-decoration-break:clone;
+}
+/* An inline span paints one plate per line. A flex item paints one rectangle
+   across the entire wrapped name. Keep the outer dial anchor centered. */
+html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-caption-backing="compact"][data-interface-style="dial"] .counter-context {
+  display:block;align-content:center;text-align:center;
+}
+html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-caption-backing="compact"] .counter-mode-art-fade,
+html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-caption-backing="compact"] .dial-assembly:has(.status-message[hidden]):has(.life-change-indicator[hidden]) .counter-label-art-fade { background:none; }
+
+/* The collection reward retains its reviewed engraved centers and ink-stamped tabs. */
+@supports (mask-image: url("")) or (-webkit-mask-image: url("")) {
+  html.game-skin-active[data-game-skin="field-notes"] #gameView[data-counter-mode="life"] { --field-center: url("icons/neutral-counter-life.svg"); }
+  html.game-skin-active[data-game-skin="field-notes"] #gameView[data-counter-mode="commander"] { --field-center: url("icons/neutral-counter-commander.svg"); }
+  html.game-skin-active[data-game-skin="field-notes"] #gameView[data-counter-mode="radiation"] { --field-center: url("icons/neutral-counter-radiation.svg"); }
+  html.game-skin-active[data-game-skin="field-notes"] #gameView[data-counter-mode="poison"] { --field-center: url("icons/neutral-counter-poison.svg"); }
+  html.game-skin-active[data-game-skin="field-notes"] #gameView[data-counter-mode="energy"] { --field-center: url("icons/neutral-counter-energy.svg"); }
+  html.game-skin-active[data-game-skin="field-notes"] #gameView[data-counter-mode="generic"] { --field-center: url("icons/neutral-counter-generic.svg"); }
+  html.game-skin-active[data-game-skin="field-notes"] #gameView #modeNav [data-mode="life"] { --field-tab-column: 0%; }
+  html.game-skin-active[data-game-skin="field-notes"] #gameView #modeNav [data-mode="commander"] { --field-tab-column: 20%; }
+  html.game-skin-active[data-game-skin="field-notes"] #gameView #modeNav [data-mode="radiation"] { --field-tab-column: 40%; }
+  html.game-skin-active[data-game-skin="field-notes"] #gameView #modeNav [data-mode="poison"] { --field-tab-column: 60%; }
+  html.game-skin-active[data-game-skin="field-notes"] #gameView #modeNav [data-mode="energy"] { --field-tab-column: 80%; }
+  html.game-skin-active[data-game-skin="field-notes"] #gameView #modeNav [data-mode="generic"] { --field-tab-column: 100%; }
+  @media not (forced-colors: active) {
+    html.game-skin-active[data-game-skin="field-notes"] #gameView #modeNav button > svg {
+      background-color: currentColor;
+      -webkit-mask: url("icons/tabs-ink.svg") var(--field-tab-column) center / 600% 100% no-repeat;
+      mask: url("icons/tabs-ink.svg") var(--field-tab-column) center / 600% 100% no-repeat;
+    }
+    html.game-skin-active[data-game-skin="field-notes"] #gameView #modeNav button > svg > *,
+    html.game-skin-active[data-game-skin="field-notes"] #gameView .counter-sigil > svg { visibility: hidden; }
+    html.game-skin-active[data-game-skin="field-notes"] #gameView .counter-sigil:has(> svg) {
+      --counter-art-rotation: 0deg;
+      background: var(--field-center) center / contain no-repeat;
+      opacity: .76; pointer-events: none;
+    }
+    html.game-skin-active[data-game-skin="field-notes"] #gameView .counter-sigil:has(> svg)::after {
+      content: ""; position: absolute; inset: 0;
+      background-color: var(--counter-design-accent, var(--brass));
+      -webkit-mask: var(--field-center) center / contain no-repeat;
+      mask: var(--field-center) center / contain no-repeat;
+      opacity: .56;
+    }
+    html.game-skin-active[data-game-skin="field-notes"] #gameView .dial-face:has(.lethal-mark:not([hidden])) .counter-sigil { visibility: hidden; }
+  }
+}

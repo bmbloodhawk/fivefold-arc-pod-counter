@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <g fill="none"><circle cx="50" cy="50" r="45" stroke="#716953" stroke-width=".55"/><circle cx="50" cy="50" r="39" stroke="#484338" stroke-width=".5"/></g>
+  <defs>
+    <path id="die-edge" d="m50 16 29 17v34L50 84 21 67V33Z"/>
+  </defs>
+  <g stroke-linejoin="round">
+    <use href="#die-edge" transform="translate(0 .7)" fill="none" stroke="#080807" stroke-width="1.55"/>
+    <path d="m50 16 29 17-29 17-29-17Z" fill="#83755a" fill-opacity=".26"/>
+    <path d="m21 33 29 17v34L21 67Z" fill="#83755a" fill-opacity=".16"/>
+    <use href="#die-edge" fill="none" stroke="#8d8168" stroke-width=".9"/>
+    <path d="m21 33 29 17 29-17M50 50v34" fill="none" stroke="#8d8168" stroke-width=".9"/>
+    <path d="m23 32.7 27-15.8m.8 32.7 26.8-15.7" fill="none" stroke="#b2a081" stroke-width=".65"/>
+  </g>
+  <g fill="#080807" stroke="#8d8168" stroke-width=".65">
+    <ellipse cx="50" cy="33" rx="2.5" ry="1.45"/>
+    <g transform="matrix(1 .58 0 1 21 33)">
+      <ellipse cx="7" cy="8" rx="1.55" ry="1.9"/>
+      <ellipse cx="22" cy="26" rx="1.55" ry="1.9"/>
+    </g>
+    <g transform="matrix(1 -.58 0 1 50 50)">
+      <ellipse cx="22" cy="8" rx="1.55" ry="1.9"/>
+      <ellipse cx="14.5" cy="17" rx="1.55" ry="1.9"/>
+      <ellipse cx="7" cy="26" rx="1.55" ry="1.9"/>
+    </g>
+  </g>
+</svg>

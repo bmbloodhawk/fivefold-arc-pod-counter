@@ -9,7 +9,7 @@ const modeFields = {
   accent:{type:'color'},surface:{type:'color'},text:{type:'color'},
   face:choice('native','rings','radial','faceted'),
   markings:choice('native','ticks','runes','none'),
-  captionBacking:choice('native','surface'),
+  captionBacking:choice('native','surface','compact'),
   seal:choice('native','mode','none'),icon:choice('native','configured'),
   artAsset:{type:'id'},artScale:number(70,130),
 };
@@ -20,9 +20,13 @@ function schema(maxStrength, extraFields = {}) {
   const mode = record({ ...modeFields, artOpacity: number(0,maxStrength), ...extraFields });
   return record({ navigationIcons:choice('native','configured'), modes:record(Object.fromEntries(COUNTER_DESIGN_MODES.map(key => [key,mode]))) });
 }
-export const counterDesignSpec = schema(55);
+export const counterDesignSpec = schema(55, {captionBacking:choice('native','surface')});
+const expandedSpec = schema(55);
 const glassSpec = schema(100, { uprightCenter: {type:'boolean'} });
-export function counterDesignSpecFor(skin) { return counterArtStrengthLimit(skin) === 100 ? glassSpec : counterDesignSpec; }
+export function counterDesignSpecFor(skin) {
+  if (skin?.rendererVersion !== 2) return counterDesignSpec;
+  return counterArtStrengthLimit(skin) === 100 ? glassSpec : expandedSpec;
+}
 export const counterArtDataSpec = record(Object.fromEntries(COUNTER_DESIGN_MODES.map(mode=>[mode,{type:'image'}])));
 
 export function nativeDraftIcons(skin) {
@@ -43,7 +47,7 @@ export function counterDesignFor(skin,mode,safeImage = ()=>'') {
   const result = {};
   for (const field of ['accent','surface','text']) if (/^#[0-9a-f]{6}$/i.test(source[field])) result[field] = source[field];
   for (const field of ['face','markings','seal','captionBacking']) if (modeFields[field].values.includes(source[field]) && source[field] !== 'native') result[field] = source[field];
-  if (result.captionBacking==='surface') {
+  if (result.captionBacking) {
     const color=(value,fallback)=>/^#[0-9a-f]{6}$/i.test(value)?value:fallback;
     const tokens=object(skin.tokens?.color);
     result.captionSurface=color(source.surface,color(skin.surface,color(tokens.surface,'#161616')));
@@ -89,7 +93,7 @@ export function createCounterDesignRenderer(document,{safeImage}) {
       game.dataset['counter'+field[0].toUpperCase()+field.slice(1)] = 'true';
       game.style.setProperty('--counter-design-'+field,design[field]);
     }
-    if (design.captionBacking==='surface') for (const field of ['Surface','Text','Accent']) {
+    if (design.captionBacking) for (const field of ['Surface','Text','Accent']) {
       game.style.setProperty('--counter-design-caption-'+field.toLowerCase(),design['caption'+field]);
     }
     const surface = decoration('counter-design-face');

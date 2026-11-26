@@ -55,9 +55,18 @@ export function appearanceReadability(skin = {}) {
   if (expanded) {
     findings.push(...surfaceReadability(skin));
     const canvasEnd = skin.canvasDesign?.endColor;
-    if (['linear','radial'].includes(skin.canvasDesign?.fill) && canvasEnd) {
+    const gradient = ['linear','radial'].includes(skin.canvasDesign?.fill);
+    if (gradient && canvasEnd) {
       pair(ink,canvasEnd,'canvasDesign.endColor','Main text at the other end of the backdrop');
       pair(muted,canvasEnd,'canvasDesign.endColor','Supporting text at the other end of the backdrop');
+    }
+    for (const [key,name,minimum] of [['titleInk','Table title',4.5],['stepInk','Dial plus and minus marks',3]]) {
+      const foreground = skin.tableDesign?.[key];
+      if (!isHexColor(foreground)) continue;
+      const backdrop = canvas ?? '#080808';
+      pair(foreground,backdrop,'tableDesign.'+key,name+' on the backdrop',minimum);
+      const end = canvasEnd ?? surface ?? '#161616';
+      if (gradient && end !== backdrop) pair(foreground,end,'tableDesign.'+key,name+' at the other end of the backdrop',minimum);
     }
     for (const [moment,design] of Object.entries(skin.sceneDesign || {})) {
       if (!design?.tint) continue;
@@ -73,7 +82,7 @@ export function appearanceReadability(skin = {}) {
       const bg = design.surface || skin.surfaceDesign?.surfaces?.readout?.fill?.color || canvas;
       if (design.text || design.surface) pair(design.text || ink,bg,'counterDesign.modes.'+mode+'.text',mode+' counter value',3);
       if (design.accent || design.surface) pair(design.accent || skin.accent,bg,'counterDesign.modes.'+mode+'.accent',mode+' counter label');
-      if (design.captionBacking === 'surface') {
+      if (design.captionBacking === 'surface' || design.captionBacking === 'compact') {
         const plate = design.surface || surface || '#161616';
         pair(design.text || ink || '#f4ecd9',plate,'counterDesign.modes.'+mode+'.text',mode+' caption on its plate');
         pair(design.accent || skin.accent || colors.accentPrimary || '#d8ae61',plate,'counterDesign.modes.'+mode+'.accent',mode+' counter name on its plate');

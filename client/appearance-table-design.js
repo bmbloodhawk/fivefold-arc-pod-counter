@@ -18,6 +18,7 @@ export const tableDesignSpec = record({
   turnAccent: color, ownerAccent: color, bannerMark: choice('rail','double','ticket'),
   navMark: choice('bar','pill','keyline'), stepMark: choice('rail','dotted'),
   feedbackMark: choice('rail','double','dashed'), titleRule: choice('plain','short','double'),
+  titleInk: color, stepInk: color,
   tableWidth: number(520,720), sideGutter: number(8,24), rowGap: number(3,10)
 });
 
@@ -25,6 +26,10 @@ const validHex = value => typeof value === 'string' && /^#[a-f\d]{6}$/i.test(val
 const cssColor = (value,fallback) => validHex(value) ? value : fallback;
 const bounded = (value,fallback,min,max) => Number.isFinite(Number(value)) ? Math.max(min,Math.min(max,Number(value))) : fallback;
 const own = (value,key) => value && Object.hasOwn(value,key);
+const tableColorVars = {
+  turnAccent:'--design-turn-accent', ownerAccent:'--design-owner-accent',
+  titleInk:'--design-title-ink', stepInk:'--design-step-ink'
+};
 const patternLayers = {
   grid: tint => [`linear-gradient(to right,${tint} 1px,transparent 1px)`,`linear-gradient(to bottom,${tint} 1px,transparent 1px)`],
   dots: tint => [`radial-gradient(circle at center,${tint} 1.2px,transparent 1.6px)`],
@@ -98,7 +103,10 @@ export function compileTableDesign(skin,result) {
   for (const [key,spec] of Object.entries(tableDesignSpec.fields)) {
     if (!own(table,key)) continue;
     if (spec.type === 'enum' && spec.values.includes(table[key])) datasets['design' + key[0].toUpperCase() + key.slice(1)] = table[key];
-    if (spec.type === 'color' && validHex(table[key])) variables[key === 'turnAccent' ? '--design-turn-accent' : '--design-owner-accent'] = table[key];
+    if (spec.type === 'color' && validHex(table[key])) {
+      variables[tableColorVars[key]] = table[key];
+      if (key === 'titleInk' || key === 'stepInk') datasets['design' + key[0].toUpperCase() + key.slice(1)] = 'true';
+    }
     if (spec.type === 'number') {
       const css = {tableWidth:'width',sideGutter:'gutter',rowGap:'row-gap'}[key];
       datasets['design' + key[0].toUpperCase() + key.slice(1)] = 'true';

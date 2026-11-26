@@ -1,0 +1,746 @@
+{
+  "skin": {
+    "id": "field-notes",
+    "name": "Field Notes",
+    "status": "Approved",
+    "background": "#e5d9bc",
+    "surface": "#f9f1da",
+    "text": "#29251e",
+    "muted": "#413a2d",
+    "accent": "#704025",
+    "secondary": "#6f5336",
+    "stateSuccess": "#26553d",
+    "stateWarning": "#74440b",
+    "stateDanger": "#882c2c",
+    "focusColor": "#704025",
+    "borderColor": "#826d4b",
+    "atmosphereColor": "#6f5336",
+    "atmosphereStrength": 0,
+    "fontFamily": "literata",
+    "fontWeight": 600,
+    "buttonTreatment": "solid",
+    "seatTreatment": "flat",
+    "backgroundTreatment": "plain",
+    "interfaceStyle": "dial",
+    "rendererVersion": 2,
+    "componentColors": {
+      "endTurn": {
+        "background": "#704025",
+        "text": "#e5d9bc",
+        "border": "#704025"
+      },
+      "lifeButtons": {
+        "background": "#f9f1da",
+        "text": "#29251e",
+        "border": "#826d4b"
+      },
+      "playerCards": {
+        "background": "#f9f1da",
+        "text": "#29251e",
+        "border": "#826d4b"
+      },
+      "navigation": {
+        "background": "#f9f1da",
+        "text": "#413a2d",
+        "border": "#826d4b",
+        "selectedText": "#704025",
+        "selectedBorder": "#704025"
+      }
+    },
+    "canvasDesign": {
+      "fill": "linear",
+      "endColor": "#cfc0a2",
+      "angle": 145,
+      "lightX": 32,
+      "lightY": 20,
+      "pattern": "dots",
+      "patternColor": "#5d4434",
+      "strength": 16,
+      "spacing": 14,
+      "frame": "double",
+      "frameColor": "#704025",
+      "frameStrength": 48,
+      "flourish": "none",
+      "flourishPeriod": 30
+    },
+    "sceneDesign": {
+      "ownTurn": {
+        "tint": "#704025",
+        "strength": 3
+      },
+      "otherTurn": {
+        "tint": "#6f5336",
+        "strength": 8
+      },
+      "complete": {
+        "tint": "#704025",
+        "strength": 12,
+        "edge": "double",
+        "edgeColor": "#704025"
+      }
+    },
+    "tableDesign": {
+      "seatAlign": "start",
+      "turnMarker": "double",
+      "bannerMark": "ticket",
+      "navMark": "keyline",
+      "titleRule": "double",
+      "ownerMarker": "underline",
+      "feedbackMark": "rail",
+      "titleInk": "#5a402b",
+      "stepInk": "#664528"
+    },
+    "counterDesign": {
+      "navigationIcons": "native",
+      "modes": {
+        "life": {
+          "accent": "#704025",
+          "surface": "#f9f1da",
+          "text": "#29251e",
+          "face": "rings",
+          "markings": "ticks",
+          "seal": "native",
+          "captionBacking": "compact"
+        },
+        "commander": {
+          "accent": "#513b72",
+          "surface": "#f9f1da",
+          "text": "#29251e",
+          "face": "rings",
+          "markings": "ticks",
+          "seal": "native",
+          "captionBacking": "compact"
+        },
+        "radiation": {
+          "accent": "#4b591e",
+          "surface": "#f9f1da",
+          "text": "#29251e",
+          "face": "rings",
+          "markings": "ticks",
+          "seal": "native",
+          "captionBacking": "compact"
+        },
+        "poison": {
+          "accent": "#235740",
+          "surface": "#f9f1da",
+          "text": "#29251e",
+          "face": "rings",
+          "markings": "ticks",
+          "seal": "native",
+          "captionBacking": "compact"
+        },
+        "energy": {
+          "accent": "#205566",
+          "surface": "#f9f1da",
+          "text": "#29251e",
+          "face": "rings",
+          "markings": "ticks",
+          "seal": "native",
+          "captionBacking": "compact"
+        },
+        "generic": {
+          "accent": "#584536",
+          "surface": "#f9f1da",
+          "text": "#29251e",
+          "face": "rings",
+          "markings": "ticks",
+          "seal": "native",
+          "captionBacking": "compact"
+        }
+      }
+    },
+    "surfaceDesign": {
+      "surfaces": {
+        "playerCards": {
+          "fill": {
+            "kind": "solid",
+            "color": "#f5e9cd"
+          },
+          "ink": "#29251e",
+          "border": {
+            "color": "#826d4b",
+            "width": 1,
+            "style": "solid"
+          },
+          "shadow": "none",
+          "accent": "#704025",
+          "typography": {
+            "label": {
+              "family": "literata",
+              "weight": 600,
+              "shadow": "none"
+            },
+            "value": {
+              "shadow": "none"
+            }
+          },
+          "texture": {
+            "kind": "lines",
+            "strength": 3
+          }
+        },
+        "turnBar": {
+          "fill": {
+            "kind": "solid",
+            "color": "#f5e9cd"
+          },
+          "ink": "#29251e",
+          "border": {
+            "color": "#826d4b",
+            "width": 1,
+            "style": "solid"
+          },
+          "shadow": "none",
+          "muted": "#413a2d",
+          "accent": "#704025",
+          "typography": {
+            "label": {
+              "family": "literata",
+              "weight": 600
+            }
+          }
+        },
+        "navigation": {
+          "fill": {
+            "kind": "solid",
+            "color": "#f5e9cd"
+          },
+          "ink": "#29251e",
+          "border": {
+            "color": "#826d4b",
+            "width": 1,
+            "style": "solid"
+          },
+          "shadow": "none",
+          "accent": "#704025",
+          "typography": {
+            "label": {
+              "family": "literata",
+              "weight": 600
+            }
+          }
+        },
+        "gameMenu": {
+          "fill": {
+            "kind": "solid",
+            "color": "#f5e9cd"
+          },
+          "ink": "#29251e",
+          "border": {
+            "color": "#826d4b",
+            "width": 1,
+            "style": "solid"
+          },
+          "shadow": "none",
+          "typography": {
+            "label": {
+              "family": "literata",
+              "weight": 600
+            }
+          }
+        },
+        "dialogs": {
+          "fill": {
+            "kind": "solid",
+            "color": "#f5e9cd"
+          },
+          "ink": "#29251e",
+          "border": {
+            "color": "#826d4b",
+            "width": 1,
+            "style": "solid"
+          },
+          "shadow": "none",
+          "muted": "#413a2d",
+          "typography": {
+            "label": {
+              "family": "literata",
+              "weight": 600
+            }
+          }
+        },
+        "inputs": {
+          "fill": {
+            "kind": "solid",
+            "color": "#f5e9cd"
+          },
+          "ink": "#29251e",
+          "border": {
+            "color": "#826d4b",
+            "width": 1,
+            "style": "solid"
+          },
+          "shadow": "none"
+        },
+        "lobby": {
+          "fill": {
+            "kind": "solid",
+            "color": "#f5e9cd"
+          },
+          "ink": "#29251e",
+          "border": {
+            "color": "#826d4b",
+            "width": 1,
+            "style": "solid"
+          },
+          "shadow": "none",
+          "muted": "#413a2d",
+          "accent": "#704025",
+          "typography": {
+            "label": {
+              "family": "literata",
+              "weight": 600
+            }
+          }
+        },
+        "results": {
+          "fill": {
+            "kind": "solid",
+            "color": "#f5e9cd"
+          },
+          "ink": "#29251e",
+          "border": {
+            "color": "#826d4b",
+            "width": 1,
+            "style": "solid"
+          },
+          "shadow": "none",
+          "muted": "#413a2d",
+          "accent": "#704025",
+          "typography": {
+            "label": {
+              "family": "literata",
+              "weight": 600
+            }
+          }
+        },
+        "commanderTools": {
+          "fill": {
+            "kind": "solid",
+            "color": "#f5e9cd"
+          },
+          "ink": "#29251e",
+          "border": {
+            "color": "#826d4b",
+            "width": 1,
+            "style": "solid"
+          },
+          "shadow": "none",
+          "muted": "#413a2d",
+          "typography": {
+            "label": {
+              "family": "literata",
+              "weight": 600
+            }
+          }
+        },
+        "lifeControls": {
+          "fill": {
+            "kind": "solid",
+            "color": "#f5e9cd"
+          },
+          "ink": "#29251e",
+          "border": {
+            "color": "#826d4b",
+            "width": 1,
+            "style": "solid"
+          },
+          "shadow": "none",
+          "muted": "#413a2d",
+          "typography": {
+            "label": {
+              "family": "literata",
+              "weight": 600
+            }
+          }
+        },
+        "gameHeader": {
+          "fill": {
+            "kind": "solid",
+            "color": "#f5e9cd"
+          },
+          "ink": "#29251e",
+          "muted": "#413a2d",
+          "typography": {
+            "heading": {
+              "family": "literata",
+              "weight": 700
+            }
+          }
+        },
+        "readout": {
+          "ink": "#29251e",
+          "typography": {
+            "value": {
+              "family": "literata",
+              "weight": 700,
+              "shadow": "none"
+            }
+          }
+        }
+      }
+    },
+    "modeLayouts": {
+      "button": {
+        "seatRadius": 3,
+        "buttonRadius": 3,
+        "labelTextScale": 100,
+        "seatTextScale": 100,
+        "counterOffsetY": 0,
+        "turnOffsetY": 0,
+        "controlsOffsetY": 0,
+        "centerSealScale": 100,
+        "centerSealOffsetX": 0,
+        "centerSealOffsetY": 0,
+        "lifeNumberScale": 100,
+        "lifeNumberOffsetX": 0,
+        "lifeNumberOffsetY": 0,
+        "dialArtSpin": false,
+        "componentLayout": {
+          "podStrip": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "counterReadout": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "dialSurface": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "turnActions": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "adjustControls": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "customLife": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "commanderTax": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "commanderDamage": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "modeNav": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          }
+        },
+        "overlays": {
+          "seat": "",
+          "counter": "",
+          "dial": ""
+        },
+        "overlayOpacity": {
+          "seat": 35,
+          "counter": 28,
+          "dial": 30
+        },
+        "overlayScale": {
+          "seat": 100,
+          "counter": 100,
+          "dial": 100
+        },
+        "overlayBlend": {
+          "seat": "normal",
+          "counter": "screen",
+          "dial": "screen"
+        },
+        "seatGap": 8
+      },
+      "dial": {
+        "seatRadius": 3,
+        "buttonRadius": 3,
+        "labelTextScale": 100,
+        "seatTextScale": 100,
+        "counterOffsetY": 0,
+        "turnOffsetY": 0,
+        "controlsOffsetY": 0,
+        "centerSealScale": 100,
+        "centerSealOffsetX": 0,
+        "centerSealOffsetY": 0,
+        "lifeNumberScale": 100,
+        "lifeNumberOffsetX": 0,
+        "lifeNumberOffsetY": 0,
+        "dialArtSpin": false,
+        "componentLayout": {
+          "podStrip": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "counterReadout": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "dialSurface": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "turnActions": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "adjustControls": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "customLife": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "commanderTax": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "commanderDamage": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          },
+          "modeNav": {
+            "x": 0,
+            "y": 0,
+            "scale": 100
+          }
+        },
+        "overlays": {
+          "seat": "",
+          "counter": "",
+          "dial": ""
+        },
+        "overlayOpacity": {
+          "seat": 35,
+          "counter": 28,
+          "dial": 30
+        },
+        "overlayScale": {
+          "seat": 100,
+          "counter": 100,
+          "dial": 100
+        },
+        "overlayBlend": {
+          "seat": "normal",
+          "counter": "screen",
+          "dial": "screen"
+        },
+        "seatGap": 8
+      }
+    },
+    "variants": {
+      "numerals": "tabular",
+      "commander": "accent",
+      "panels": "outlined"
+    },
+    "atmosphere": "custom",
+    "ring": "arc",
+    "backgroundAsset": "",
+    "sealAsset": "",
+    "symbolAssets": {},
+    "symbolScale": {
+      "life": 100,
+      "commander": 100,
+      "radiation": 100,
+      "poison": 100,
+      "energy": 100,
+      "generic": 100
+    },
+    "atmospherePosition": "top",
+    "backgroundScale": 100,
+    "backgroundPositionX": 50,
+    "backgroundPositionY": 50,
+    "buttonOpacity": 100,
+    "buttonBlur": 0,
+    "buttonBorder": 70,
+    "lifeButtonOpacity": 100,
+    "lifeButtonBlur": 0,
+    "lifeButtonBorder": 70,
+    "customLifeOpacity": 100,
+    "customLifeBlur": 0,
+    "customLifeBorder": 70,
+    "commanderTaxOpacity": 100,
+    "commanderTaxBlur": 0,
+    "commanderTaxBorder": 70,
+    "commanderDamageOpacity": 100,
+    "commanderDamageBlur": 0,
+    "commanderDamageBorder": 70,
+    "seatOpacity": 100,
+    "seatBlur": 0,
+    "seatBorder": 70,
+    "symbols": {},
+    "labelTextScale": 100,
+    "seatTextScale": 100,
+    "seatRadius": 8,
+    "buttonRadius": 8,
+    "counterOffsetY": 0,
+    "turnOffsetY": 0,
+    "controlsOffsetY": 0,
+    "centerSealScale": 100,
+    "centerSealOffsetX": 0,
+    "centerSealOffsetY": 0,
+    "lifeNumberScale": 100,
+    "lifeNumberOffsetX": 0,
+    "lifeNumberOffsetY": 0,
+    "dialArtSpin": false,
+    "componentLayout": {
+      "podStrip": {
+        "x": 0,
+        "y": 0,
+        "scale": 100
+      },
+      "counterReadout": {
+        "x": 0,
+        "y": 0,
+        "scale": 100
+      },
+      "dialSurface": {
+        "x": 0,
+        "y": 0,
+        "scale": 100
+      },
+      "turnActions": {
+        "x": 0,
+        "y": 0,
+        "scale": 100
+      },
+      "adjustControls": {
+        "x": 0,
+        "y": 0,
+        "scale": 100
+      },
+      "customLife": {
+        "x": 0,
+        "y": 0,
+        "scale": 100
+      },
+      "commanderTax": {
+        "x": 0,
+        "y": 0,
+        "scale": 100
+      },
+      "commanderDamage": {
+        "x": 0,
+        "y": 0,
+        "scale": 100
+      },
+      "modeNav": {
+        "x": 0,
+        "y": 0,
+        "scale": 100
+      }
+    },
+    "overlays": {
+      "seat": "",
+      "counter": "",
+      "dial": ""
+    },
+    "overlayOpacity": {
+      "seat": 35,
+      "counter": 28,
+      "dial": 30
+    },
+    "overlayScale": {
+      "seat": 100,
+      "counter": 100,
+      "dial": 100
+    },
+    "overlayBlend": {
+      "seat": "normal",
+      "counter": "screen",
+      "dial": "screen"
+    },
+    "tokens": {
+      "schemaVersion": 1,
+      "color": {
+        "canvas": "#e5d9bc",
+        "surface": "#f9f1da",
+        "text": "#29251e",
+        "textMuted": "#413a2d",
+        "accentPrimary": "#704025",
+        "accentSecondary": "#6f5336",
+        "atmosphere": "#6f5336",
+        "border": "#826d4b",
+        "success": "#26553d",
+        "warning": "#74440b",
+        "danger": "#882c2c",
+        "focus": "#704025"
+      },
+      "typography": {
+        "family": "literata",
+        "weight": 600,
+        "lineHeight": 1.2,
+        "letterSpacing": 0,
+        "textTransform": "none",
+        "labelAlignment": "inherit",
+        "textEffect": "none"
+      },
+      "effects": {
+        "backgroundTreatment": "plain",
+        "buttonTreatment": "solid",
+        "seatTreatment": "flat"
+      },
+      "components": {
+        "button": {
+          "opacity": 100,
+          "blur": 0,
+          "border": 70
+        },
+        "lifeButton": {
+          "opacity": 100,
+          "blur": 0,
+          "border": 70
+        },
+        "customLife": {
+          "opacity": 100,
+          "blur": 0,
+          "border": 70
+        },
+        "commanderTax": {
+          "opacity": 100,
+          "blur": 0,
+          "border": 70
+        },
+        "commanderDamage": {
+          "opacity": 100,
+          "blur": 0,
+          "border": 70
+        },
+        "seat": {
+          "opacity": 100,
+          "blur": 0,
+          "border": 70
+        }
+      }
+    },
+    "lineHeight": 1.2,
+    "letterSpacing": 0,
+    "textTransform": "none",
+    "labelAlignment": "inherit",
+    "textEffect": "none",
+    "edited": "Nov 25"
+  },
+  "assets": []
+}

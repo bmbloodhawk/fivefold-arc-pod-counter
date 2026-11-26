@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <g fill="none"><circle cx="50" cy="50" r="45" stroke="#716953" stroke-width=".55"/><circle cx="50" cy="50" r="39" stroke="#484338" stroke-width=".5"/></g>
+  <defs>
+    <path id="bolt-edge" d="M56 17H70L56 43H77L31 83L42 55H24Z"/>
+  </defs>
+  <g stroke-linejoin="round">
+    <use href="#bolt-edge" transform="translate(0 .7)" fill="none" stroke="#080807" stroke-width="1.55"/>
+    <use href="#bolt-edge" fill="#83755a" fill-opacity=".16" stroke="#8d8168" stroke-width=".9"/>
+    <path d="M56 17 47 49 24 55ZM47 49 64 48 31 83Z" fill="#83755a" fill-opacity=".29"/>
+    <path d="M56 17 47 49 64 48 31 83" fill="none" stroke="#b2a081" stroke-width=".72"/>
+    <path d="m47 49-5 6m22-7 13-5" fill="none" stroke="#8d8168" stroke-width=".6"/>
+  </g>
+</svg>

@@ -1,10 +1,10 @@
-import { inspectImageData, publicAppearanceSkin } from './appearance-validation.js';
-import { createCounterDesignRenderer, usesNativeCounterIcon } from './counter-design.js';
+import { inspectImageData, publicAppearanceSkin } from './appearance-validation.js?v=4';
+import { createCounterDesignRenderer, usesNativeCounterIcon } from './counter-design.js?v=4';
 import { previewGeometryChecks } from './appearance-preflight.js';
 import { compileSurfaceDesign } from './appearance-surface-design.js';
 import { appearanceFonts, fontFamily, localFontKeys, prepareAppearanceFonts } from './appearance-fonts.js';
 import { createSurfaceArtRenderer } from './appearance-surface-art.js';
-import { compileTableDesign, hasCustomGeometry } from './appearance-table-design.js';
+import { compileTableDesign, hasCustomGeometry } from './appearance-table-design.js?v=3';
 import { createCommanderGlass } from './commander-glass.js';
 // Cosmetic projection shared by the real game and isolated Studio fixtures.
 // No transport, rules, account preferences, selectors or executable content.
