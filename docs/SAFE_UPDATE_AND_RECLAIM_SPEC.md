@@ -13,7 +13,11 @@ Success means a waiting update is never allowed to interrupt live scoring or alt
 - A completed result is not by itself permission to force refresh; the user may defer until they reach a safe boundary.
 - A fresh `?join=CODE` QR link is an explicit target and has priority over stored recovery state. It is removed after a successful join.
 - A normal client update must be protocol-compatible with clients still in a game on the prior release.
-- The present server stores active rooms only in memory. A server deployment/restart can end an active room; this specification does not claim to solve that separate availability limit.
+- The server keeps active rooms in memory and can restore durable Firebase checkpoints when that integration is configured and enabled. Successful room-snapshot HTTP responses wait for persistence; optimistic display/SSE can precede it. Restart still disconnects streams and can lose unconfirmed changes. Recovery does not establish multi-instance ownership or uninterrupted service.
+
+## Implementation status — November 25, 2026
+
+This document remains a specification, not a completed-feature checklist. At staging source `872e5e2`, the worker relies on normal browser activation after existing controlled clients close; it never calls `skipWaiting` or `clients.claim`, and the app does not force a reload. The explicit release ID, waiting-update notice and **Refresh now** flow below remain proposed. Verify an installed app stays on its existing controller during play and adopts the intended release only after all old app windows close at a safe boundary. Local recovery and cache tests do not replace hosted two-phone acceptance.
 
 ## Required behavior
 
@@ -102,4 +106,4 @@ const result = await transport.claimRoom({ code: target.code, seatId: target.sea
 
 ## Open decision
 
-The client implementation can safely defer normal client updates, but a live server deployment can still delete in-memory rooms. Before any release process changes, decide whether to enforce an operational no-deploy-during-live-games rule or fund durable room persistence/rolling deployment.
+Before changing release operations, confirm hosted durable-recovery configuration and checkpoint health, complete the two-phone restart test, and choose a window without active games. A compatible rollback must preserve recovery-record readability. The local single-server recovery implementation does not establish seamless rolling deployment or continuity through a provider outage.

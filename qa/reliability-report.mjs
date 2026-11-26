@@ -73,7 +73,7 @@ async function main() {
     phase = 'health and versioned assets';
     const health = await fetch(`${baseUrl}/health`);
     assert.equal(health.status, 200);
-    assert.deepEqual(await health.json(), { ok: true });
+    assert.equal((await health.json()).ok, true);
     const assets = await releaseAssets(baseUrl);
     phase = 'table setup and initial stream';
     const host = await createPod({ playerCount: 2 });

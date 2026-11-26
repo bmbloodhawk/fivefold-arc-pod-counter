@@ -12,7 +12,7 @@ An installable phone-first web prototype for synced Commander pods. Each phone o
 - Warning and lethal evaluation with commander > poison > life priority
 - Atomic seat claims, private reconnect tokens, conflict-safe live counter deltas, exact-version structural writes, and host-only reset
 - Disconnected shared controls pause; offline changes are not queued or replayed
-- Installable PWA shell with no accounts, chat, or analytics. Shared-pod playtest notes and compact game recaps are written server-side when Firebase credentials are configured.
+- Installable PWA shell with optional Firebase sign-in, saved decks and personal history. Configured Firebase storage also retains shared-table playtest notes, recaps, diagnostics, recovery checkpoints and aggregate device activity; see the in-app privacy page for scope and limits.
 
 ## Run on this computer
 
@@ -49,7 +49,7 @@ The GitHub Actions workflow in `.github/workflows/refresh-card-identity-index.ym
 
 The prepared `render.yaml` describes a single free Render web service. It serves both the interface and ephemeral realtime rooms over HTTPS. Deployment requires a Git repository and a Render account; account creation, provider authorization, and accepting provider terms are intentionally not performed by this project.
 
-Important free-tier behavior: the service can sleep after inactivity and take roughly a minute to wake. Live rooms disappear whenever the service restarts or redeploys. When its Firebase environment variables are configured, the server separately writes compact playtest notes, game events, checkpoints, and completed-game recaps.
+Important free-tier behavior: the service can sleep after inactivity and take roughly a minute to wake. With a configured Firebase ledger and durable recovery enabled, successful room-snapshot HTTP responses wait for their recovery checkpoint. A replacement server can restore that checkpoint when a phone reclaims its seat. Optimistic display and live-stream updates can precede confirmation; those unconfirmed changes can still be lost. Without that storage configuration, rooms remain in memory and disappear on restart. This remains a single-server design; local restart tests do not prove hosted or physical-phone recovery.
 
 ## Private feedback inbox
 
