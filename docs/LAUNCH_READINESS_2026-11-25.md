@@ -40,14 +40,24 @@ not attest recovery checkpoint readiness.
 | Priority | Blocker | Evidence | Smallest safe resolution | Verification |
 |---|---|---|---|---|
 | P1 | Public account exports can complete after sign-out/profile change. | Fresh synthetic execution of public source produced1 stale download; staging source produced0. No real user's private data was used. | Promote the existing guarded implementation with fresh pins after staging acceptance and approval. |45 export regressions; hosted controlled-account normal/sign-out/switch cases. |
-| P1 | Previously exposed service-account key remains active. | Signed-in Chrome IAM shows key ending55d6beb9 Active. Its public SPKI fingerprint matches the historical exposed credential and Google's current certificate for that exact key ID. | With approval, create a protected replacement, verify consumers on staging then production, and retire the exposed key after those checks. | Replacement provider read/write succeeds; old key disabled/deleted; every consumer uses the replacement. |
 | P1 evidence gate | Current physical-phone, hosted restart and installed-phone update acceptance is missing. | Local forced-kill, desktop Chromium PWA and hosted protocol pass; no current mixed iOS/Android complete-game/restart evidence was obtained. | Execute the prepared two-phone acceptance record against the exact staged candidate, with a paper fallback. | Same seats/totals after approved restart; no forced update during play; correct second-game/reconnect behavior. |
 | P2, broad onboarding gate | Support/privacy contact and retention/provider decisions are incomplete. | Terms explicitly has no dedicated contact. Retained playtest/recovery/feedback records lack an automatic TTL; scan provider is not named. Owner has not chosen public details. | Approve a name/contact and accurate inventory/retention wording; review actual rights-holder/provider uses before broad promotion/payment. | Signed-out contact access; wording checked against storage and deletion behavior; owner/qualified review recorded. |
 
 These are gates for the next promotion/expansion. They are not a claim that every
 existing alpha session is unsafe or that an unknown key has been compromised.
 Scope may be narrowed to invited alpha use with an explicit direct owner contact
-and accepted documented limitations; do not silently waive the phone or credential gates.
+and accepted documented limitations; do not silently waive remaining acceptance gates.
+
+## Owner-accepted credential risk
+
+The previously exposed service-account key is confirmed Active. The confirmed
+exposure was in assistant/tool output; no public posting or misuse was established.
+The owner said, “I think it was only exposed to you and I am ok with that,” and
+rotation is deferred for this alpha on that basis. This is an accepted residual
+risk, not proof of exclusive access or evidence that rotation occurred. The pending
+creation dialog was canceled; no replacement was generated and no key/service
+setting changed. Keep this finding out of the unresolved blocker list unless new
+exposure evidence or a changed release scope warrants review.
 
 ## Confirmed
 
@@ -210,11 +220,11 @@ terms statement is not evidence of full permission.
 
 ## Recommended next action
 
-Obtain approval to create a replacement for the exposed service-account key, with
-the user handling secret creation/download and entry. Creation alone must not change
-either hosted app or disable the old key. Verify and migrate consumers before its
-retirement. Keep the app candidate local and arrange the staging/physical acceptance
-window; passing tests alone do not approve a broader public launch.
+Prepare the staging-only app candidate for an approved acceptance window, preserving
+production. Verify the guarded export behavior, fresh cache markers and hosted
+account/feedback flows, then complete physical-phone acceptance. Credential rotation
+is deferred with the owner's recorded risk acceptance. Passing tests alone do not
+approve a broader public launch.
 
 Raw local evidence is under `outputs/launch-audit/`: served hashes, export baseline
 comparison, full/client/protocol logs, reliability report, focused audit notes,
@@ -236,12 +246,17 @@ key was not printed, saved again, used to sign anything, or exchanged for a toke
 This confirms the previously exposed key is still active; it is not evidence
 of third-party misuse. Evidence: `outputs/launch-audit/key-status-20261125.json`.
 
-No key, permission, Render setting, deployment or live data was changed. The next
-proposed step is creation of one replacement JSON key for this same service account,
-under user control. It creates another credential but leaves both apps and the old
+No key, permission, Render setting, deployment or live data was changed. The earlier
+proposal was creation of one replacement JSON key for this same service account,
+under user control; it was subsequently deferred as recorded below. Creation would
+add another credential but leave both apps and the old
 key unchanged. Protect the downloaded file; do not paste its contents into chat.
 An unused replacement can be revoked without affecting either app. Any application
 configuration/deployment and old-key retirement need their own approved checks.
+
+Subsequent owner decision: the owner accepts the assistant/tool-output exposure risk
+and defers rotation. The create-key dialog was canceled before submission; the
+creation proposal above was not executed. No credential or service was changed.
 
 Render restarts retain deployed environment values; saved-only credentials require
 an approved deployment to take effect. Render rollback can restore an old deployment's

@@ -18,9 +18,8 @@ push; a newer head invalidates a blind promotion.
   connected game. Broad acquisition must not outrun those basics.
 - **Files/systems:** Google Cloud IAM and Firebase/Render configuration (read-only
   initially), `client/privacy.html`, `client/terms.html`, home Help entry if approved.
-- **Acceptance:** provider evidence identifies the old key as disabled/deleted and
-  confirms the replacement is used in each environment, without copying secrets;
-  owner approves a public operator name/contact and retained-data inventory.
+- **Acceptance:** credential status and the owner's risk decision are recorded
+  without copying secrets; owner approves a public operator name/contact and retained-data inventory.
   Review actual assets/access model against current rights-holder/provider terms
   before broad promotion or payment; do not infer legal permission from a disclaimer.
 - **Verification:** authorized key metadata inspection and normal provider-backed
@@ -28,9 +27,12 @@ push; a newer head invalidates a blind promotion.
   account/legal checks. The initial in-app Cloud attempt lacked access; signed-in
   Chrome subsequently showed the exposed key Active, with its identity confirmed
   by public-key fingerprint comparison. No access was expanded or credential changed.
-- **Risk:** credential changes can stop Firebase auth/storage; unsupported retention
+  The owner subsequently accepted the confirmed assistant/tool-output exposure risk
+  and deferred rotation. Creation was canceled before submission. This credential
+  decision is recorded; do not require rotation again without new evidence or scope.
+- **Risk:** credential changes can stop server access to Firebase storage; unsupported retention
   promises can mislead users. Source inspection does not establish live Rules/IAM.
-- **Rollback/recovery:** prepare replacement credentials and a staging validation
+- **Rollback/recovery:** if rotation is later approved, prepare replacement credentials and a staging validation
   before retiring a possibly active key. Do not restore an exposed key. Revert
   inaccurate draft copy locally; approve any data cleanup independently.
 - **Approval:** read-only investigation/local drafts are authorized. Changing
