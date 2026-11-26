@@ -40,7 +40,7 @@ not attest recovery checkpoint readiness.
 | Priority | Blocker | Evidence | Smallest safe resolution | Verification |
 |---|---|---|---|---|
 | P1 | Public account exports can complete after sign-out/profile change. | Fresh synthetic execution of public source produced1 stale download; staging source produced0. No real user's private data was used. | Promote the existing guarded implementation with fresh pins after staging acceptance and approval. |45 export regressions; hosted controlled-account normal/sign-out/switch cases. |
-| P1 evidence gate | Revocation/replacement of the previously flagged service-account key is unknown. | Owner answered “I’m not sure.” Targeted source/history scan found no real committed private key; Cloud console returned “You need additional access.” Neither proves revocation. | Authorized provider metadata inspection; prepare rotation separately if needed. | Old key disabled/deleted, replacement used in both environments, normal staged provider operation. |
+| P1 | Previously exposed service-account key remains active. | Signed-in Chrome IAM shows key ending55d6beb9 Active. Its public SPKI fingerprint matches the historical exposed credential and Google's current certificate for that exact key ID. | With approval, create a protected replacement, verify consumers on staging then production, and retire the exposed key after those checks. | Replacement provider read/write succeeds; old key disabled/deleted; every consumer uses the replacement. |
 | P1 evidence gate | Current physical-phone, hosted restart and installed-phone update acceptance is missing. | Local forced-kill, desktop Chromium PWA and hosted protocol pass; no current mixed iOS/Android complete-game/restart evidence was obtained. | Execute the prepared two-phone acceptance record against the exact staged candidate, with a paper fallback. | Same seats/totals after approved restart; no forced update during play; correct second-game/reconnect behavior. |
 | P2, broad onboarding gate | Support/privacy contact and retention/provider decisions are incomplete. | Terms explicitly has no dedicated contact. Retained playtest/recovery/feedback records lack an automatic TTL; scan provider is not named. Owner has not chosen public details. | Approve a name/contact and accurate inventory/retention wording; review actual rights-holder/provider uses before broad promotion/payment. | Signed-out contact access; wording checked against storage and deletion behavior; owner/qualified review recorded. |
 
@@ -106,7 +106,7 @@ checkpoint. A real hosted save/restart/reclaim is needed to close that inference
 
 ## Unknown
 
-- Live credential revocation, Rules/IAM/restrictions, full environment configuration,
+- Which consumers still use the exposed key, Rules/IAM/restrictions, full environment configuration,
   staging/public storage isolation and provider backup/retention practices.
 - Current private feedback inbox contents and whether a fresh hosted feedback write
   survives reload. The audit did not have the private portal key. Previous feedback
@@ -210,9 +210,11 @@ terms statement is not evidence of full permission.
 
 ## Recommended next action
 
-Resolve the service-account key status through an authorized provider account.
-In parallel, keep the ready candidate local and arrange the exact staging/physical
-acceptance window. Do not approve a broader public launch from the passing tests alone.
+Obtain approval to create a replacement for the exposed service-account key, with
+the user handling secret creation/download and entry. Creation alone must not change
+either hosted app or disable the old key. Verify and migrate consumers before its
+retirement. Keep the app candidate local and arrange the staging/physical acceptance
+window; passing tests alone do not approve a broader public launch.
 
 Raw local evidence is under `outputs/launch-audit/`: served hashes, export baseline
 comparison, full/client/protocol logs, reliability report, focused audit notes,
@@ -222,3 +224,31 @@ not a public support page or new telemetry collection.
 Automatic approval review rejected cleanup of the generated worker-test fixture
 copy/archive with “blocked by policy” and no more specific reason. Those disposable
 files remain; no user or original source file was deleted.
+
+### Credential finding update — November 25, 2026, 23:46 Pacific
+
+The initial in-app browser lacked access; the user's signed-in Chrome profile has
+access to Fivefold Arc Playtest. IAM lists the Firebase Admin SDK account's key
+`869ce1ba058238417f657bda4818a4f055d6beb9` as Active, created August25. A local,
+in-memory derivation of the public key from the historical exposure matched the
+public SPKI SHA-256 in Google's current certificate for that same ID. The private
+key was not printed, saved again, used to sign anything, or exchanged for a token.
+This confirms the previously exposed key is still active; it is not evidence
+of third-party misuse. Evidence: `outputs/launch-audit/key-status-20261125.json`.
+
+No key, permission, Render setting, deployment or live data was changed. The next
+proposed step is creation of one replacement JSON key for this same service account,
+under user control. It creates another credential but leaves both apps and the old
+key unchanged. Protect the downloaded file; do not paste its contents into chat.
+An unused replacement can be revoked without affecting either app. Any application
+configuration/deployment and old-key retirement need their own approved checks.
+
+Render restarts retain deployed environment values; saved-only credentials require
+an approved deployment to take effect. Render rollback can restore an old deployment's
+credential configuration, so a later recovery must retain working replacement
+credentials rather than blindly restore the exposed key. Disabling/deleting a key
+does not immediately invalidate access tokens already issued from it.
+[Google credential-response guidance](https://docs.cloud.google.com/docs/security/compromised-credentials).
+[Google key rotation](https://docs.cloud.google.com/iam/docs/key-rotation),
+[Render configuration](https://render.com/docs/configure-environment-variables),
+[Render rollback](https://render.com/docs/rollbacks#whats-rolled-back).

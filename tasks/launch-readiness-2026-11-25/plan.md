@@ -13,8 +13,8 @@ push; a newer head invalidates a blind promotion.
 
 - **Outcome:** establish credential status, an approved operator/contact, and
   honest retention/provider wording for the actual release scope.
-- **Why now:** the owner is unsure whether the previously flagged service-account
-  key was revoked; users currently lack a direct help/privacy contact outside a
+- **Why now:** signed-in IAM and public-key comparison confirm the previously
+  exposed service-account key remains active; users lack a direct help/privacy contact outside a
   connected game. Broad acquisition must not outrun those basics.
 - **Files/systems:** Google Cloud IAM and Firebase/Render configuration (read-only
   initially), `client/privacy.html`, `client/terms.html`, home Help entry if approved.
@@ -25,8 +25,9 @@ push; a newer head invalidates a blind promotion.
   before broad promotion or payment; do not infer legal permission from a disclaimer.
 - **Verification:** authorized key metadata inspection and normal provider-backed
   staging read/write; signed-out reachability of the approved contact; focused
-  account/legal checks. Current Cloud console attempt returned “You need additional
-  access”; no access was expanded. No key validity/revocation is proven.
+  account/legal checks. The initial in-app Cloud attempt lacked access; signed-in
+  Chrome subsequently showed the exposed key Active, with its identity confirmed
+  by public-key fingerprint comparison. No access was expanded or credential changed.
 - **Risk:** credential changes can stop Firebase auth/storage; unsupported retention
   promises can mislead users. Source inspection does not establish live Rules/IAM.
 - **Rollback/recovery:** prepare replacement credentials and a staging validation
