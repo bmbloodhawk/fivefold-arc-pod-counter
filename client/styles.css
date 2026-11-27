@@ -1236,22 +1236,15 @@ dialog:not(#victoryDialog) { max-height:calc(100dvh - 24px); overflow-y:auto; ov
   white-space: normal;
 }
 #gameView[data-counter-mode="commander"] > .source-panel .selected-source-button span > small { display: none; }
-#gameView[data-counter-mode="commander"] > .source-panel .selected-source-button em {
-  display: flex;
+#gameView[data-counter-mode="commander"] > .source-panel .selected-source-button > .commander-life-note {
+  display: block;
   grid-column: 1;
   grid-row: 2;
-  align-items: baseline;
-  gap: 5px;
-  font-size: 1.12rem;
-}
-#gameView[data-counter-mode="commander"] > .source-panel .selected-source-button em::before {
-  content: "Damage";
+  margin: 0;
   color: var(--muted);
   font-family: system-ui, sans-serif;
-  font-size: .56rem;
-  font-weight: 900;
-  letter-spacing: .07em;
-  text-transform: uppercase;
+  font-size: .7rem;
+  line-height: 1.2;
 }
 #gameView[data-counter-mode="commander"] > .source-panel .selected-source-button b {
   grid-column: 2;

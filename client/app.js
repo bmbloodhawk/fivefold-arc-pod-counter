@@ -1934,7 +1934,7 @@ function render() {
   dom.game.dataset.hasIdentity = String(playerIdentity(player).length > 0);
   dom.game.dataset.counterMode = state.mode;
   const counterValue = currentValue(player);
-  dom.podLabel.textContent = state.podCode === 'LOCAL' ? 'LOCAL TABLE' : `TABLE ${state.podCode}`; dom.modeTitle.textContent = state.mode.toUpperCase(); dom.mainValue.value = counterValue; dom.mainValue.classList.toggle('elimination-placeholder', player.eliminated); dom.mainValue.setAttribute('aria-hidden', String(player.eliminated));
+  dom.podLabel.textContent = state.podCode === 'LOCAL' ? 'LOCAL TABLE' : `TABLE ${state.podCode}`; dom.modeTitle.textContent = state.mode === 'commander' ? 'DAMAGE RECEIVED' : state.mode.toUpperCase(); dom.mainValue.value = counterValue; dom.mainValue.classList.toggle('elimination-placeholder', player.eliminated); dom.mainValue.setAttribute('aria-hidden', String(player.eliminated));
   dom.game.style.setProperty('--dial-seal-rotation', `${counterValue * 12}deg`);
   const inspectingSharedSeat = !state.localSimulation && player.id !== state.ownerPlayerId;
   dom.counterContext.textContent = `${displayName(player)}${state.localSimulation && player.id !== state.ownerPlayerId ? ' · SIMULATED' : ''}`;
@@ -2208,11 +2208,12 @@ function renderSources(player) {
   dom.sourcePanel.classList.remove('source-panel-dense', 'source-panel-turn-clearance');
   const pairedSources = source ? sourcesForDefender(player.id).filter(candidate => candidate.ownerPlayerId === source.ownerPlayerId) : [];
   const hasPair = pairedSources.length === 2;
+  const sourceLabel = source ? source.commanderName || `${sourceOwnerLabel(source)}'s commander` : '';
   dom.sourcePanel.classList.toggle('commander-source-pair', hasPair);
   dom.sourcePanel.innerHTML = source ? (hasPair ? pairedSources.map(candidate => {
     const selected = candidate.id === source.id;
     return `<button class="inline-commander-choice${selected ? ' selected' : ''}" data-inline-source-choice="${escapeHtml(candidate.id)}" type="button" aria-pressed="${selected}" aria-label="${escapeHtml(`${sourceChoiceLabel(candidate)}${selected ? ', selected. Tap to choose another commander.' : ', choose this commander.'}`)}"><strong>${escapeHtml(sourceChoiceLabel(candidate))}</strong><em><small>Damage</small>${commanderValue(player, candidate.id)}</em><b>${selected ? 'Selected · change' : 'Choose'}</b></button>`;
-  }).join('') : `<button class="selected-source-button" id="changeCommanderSourceButton" type="button"><span><strong>${escapeHtml(sourceChoiceLabel(source))}</strong><small>${escapeHtml(`${sourceOwnerLabel(source)} · ${source.ownerPlayerId}`)}</small></span><em>${commanderValue(player, source.id)}</em><b>Change commander</b></button>`) : '<p class="field-help">No commander sources are available for this table.</p>';
+  }).join('') : `<button class="selected-source-button" id="changeCommanderSourceButton" type="button"><span><strong>From ${escapeHtml(sourceLabel)}</strong><small>${escapeHtml(`${sourceOwnerLabel(source)} · ${source.ownerPlayerId}`)}</small></span><small class="commander-life-note">Life adjusts automatically</small><b>Change source</b></button>`) : '<p class="field-help">No commander sources are available for this table.</p>';
   $('#changeCommanderSourceButton')?.addEventListener('click', () => openCommanderSourceDialog(player));
   $$('[data-inline-source-choice]').forEach(button => button.addEventListener('click', () => {
     if (button.dataset.inlineSourceChoice === state.selectedSourceId) openCommanderSourceDialog(player);
