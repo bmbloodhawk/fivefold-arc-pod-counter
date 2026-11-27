@@ -11,14 +11,14 @@ import { MemoryPlaytestLedger } from '../src/playtest-ledger.js';
 
 const HOUR = 3_600_000;
 
-async function fixture(t, appearanceSkins = []) {
+async function fixture(t, appearanceSkins = [], releaseOptions = {}) {
   let now = Date.UTC(2026, 10, 7, 12);
   const clock = () => now;
   const store = new MemoryAccountHistoryStore();
   const ledger = new MemoryPlaytestLedger();
   const accountHistory = new AccountHistory({ store, now: clock });
   const { server, service } = createRealtimeServer({
-    now: clock, connectionTtlMs: 24 * HOUR, ledger, accountHistory, appearanceSkins,
+    now: clock, connectionTtlMs: 24 * HOUR, ledger, accountHistory, appearanceSkins, ...releaseOptions,
     accountVerifier: { async verify(token) {
       if (!token) throw Object.assign(new Error('Sign in'), { status: 401 });
       return { providerSubject: token };
@@ -746,4 +746,76 @@ test('a completed loss at negative life is saved, and custom games never award C
   assert.equal(saved.status, 201);
   assert.equal(saved.data.game.achievementFacts.lowestLife, -1);
   assert.ok(!saved.data.unlockedAchievements.some(award => award.id === 'flash-victory'));
+});
+
+test('a new Studio reward uses verified saves, earlier awards, live access checks and durable ownership', async t => {
+  const id = 'skin-test-lantern', skin = {id, name:'The Lantern', background:'#264259'};
+  const rule = {allOf:['first-crown','settling-in']};
+  let artworkReads = 0;
+  let active = [{skin:{id,name:skin.name}, loadSkin:async () => { artworkReads++; return skin; }, rewardRule: rule, activatedAt: 1}];
+  const f = await fixture(t, [], {studioRewardSkins:async () => active, feedbackPortalKey:'editor'});
+  const headers = {authorization:'Bearer player-a'};
+  const choice = async (token = 'player-a') => (await f.request('preferences', {token})).data.skins?.find(row => row.id === id);
+  const raw = () => fetch(f.base + '/api/game-skins/' + id, {headers});
+  const equip = () => f.request('preferences', {method:'PUT',body:{usePersonalSkin:true, personalSkinId:id}});
+  assert.equal((await fetch(f.base + '/api/appearance-studio/achievements')).status,403);
+  const list = await (await fetch(f.base + '/api/appearance-studio/achievements',{headers:{'x-feedback-portal-key':'editor'}})).json();
+  assert.ok(rule.allOf.every(id => list.achievements.some(row => row.id === id)));
+  assert.equal((await fetch(f.base + '/api/game-skins/' + id)).status,404);
+  assert.ok(!(await (await fetch(f.base + '/api/game-skins')).json()).skins.some(row=>row.id===id));
+  const game = f.start({});
+  const share = () => fetch(f.base+'/api/rooms/'+game.code+'/table-skin',{method:'POST',
+    headers:{...headers,'x-connection-id':game.host,'content-type':'application/json'},
+    body:JSON.stringify({baseVersion:f.service.room(game.code).version,tableSkinId:id})});
+  assert.equal((await raw()).status,404); assert.equal((await equip()).status,403); assert.equal((await share()).status,403);
+  assert.equal(artworkReads,0);
+  game.finish(HOUR/2,1);
+  const first = await f.save(game); assert.equal(first.status,201);
+  assert.deepEqual((await choice()).progress.map(row => row.earned),[true,false]);
+  assert.ok(!first.data.unlockedAchievements.some(row => row.unlockedSkinName === skin.name));
+  const final = f.start({}); final.finish(HOUR,1);
+  const saves = await Promise.all([f.save(final),f.save(final)]);
+  assert.deepEqual(saves.flatMap(result=>result.data.unlockedAchievements).filter(row=>row.unlockedSkinName===skin.name).map(row=>row.id),['settling-in']);
+  assert.equal(artworkReads,0);
+  assert.equal((await (await raw()).json()).skin.background, skin.background);
+  assert.equal(artworkReads,1);
+  assert.equal((await equip()).status,200);
+  const setup = f.start({});
+  const api = f.base + '/api/rooms/' + setup.code + '/table-skin';
+  const response = await fetch(api,{method:'POST',headers:{...headers,'x-connection-id':setup.host,'content-type':'application/json'},
+    body:JSON.stringify({baseVersion:f.service.room(setup.code).version,tableSkinId:id})});
+  assert.equal(response.status,200);
+  assert.equal((await (await fetch(api,{headers:{'x-connection-id':setup.guest}})).json()).skin.id,id);
+  assert.notEqual((await fetch(api)).status,200);
+  const cutoff = f.clock() + 1;
+  active = [{skin,rewardRule:{allOf:['ten-crowns']},activatedAt:cutoff,rewardHistory:[{rewardRule:rule,activatedAt:1,retiredAt:cutoff}]}];
+  assert.equal((await choice()).state,'unlocked');
+  assert.equal((await choice()).progress[0].earned,false);
+  assert.equal((await raw()).status,200);
+  for (const [token, at, expected] of [['early',cutoff-1,'unlocked'],['late',cutoff,'locked']]) {
+    const accountId = await legacyAccount(f, token);
+    const record = {gameId:'game-history',earnedAt:at,ruleVersion:1};
+    await f.store.write('account-history/verified-progress/'+accountId+'.json',{awards:{'first-crown':record,'settling-in':record}});
+    assert.equal((await choice(token)).state, expected);
+  }
+  const explicit = await f.accountHistory.ensureAccount('explicit');
+  await f.accountHistory.grantSkin(explicit,id);
+  assert.equal((await choice('explicit')).state,'unlocked');
+  active = [];
+  assert.equal((await raw()).status,404); assert.equal((await equip()).status,400);
+});
+
+test('withdrawn Studio art stays out of the public catalog or a renamed draft', async t => {
+  const id='skin-test-retired', sharedAsset='reserved-window';
+  const row={id,name:'Retired',status:'Approved',backgroundAsset:sharedAsset};
+  const copy={id:'skin-test-copy',name:'Copy',status:'Approved',backgroundAsset:sharedAsset};
+  const derived={id:'skin-test-child',name:'Child',status:'Approved',sourceSkinId:id};
+  const catalog={skins:[row,copy,derived],assets:[]};
+  const f=await fixture(t,[],{studioRewardSkins:async()=>[],studioReservedSkins:async()=>[{id,reservedAssetIds:[sharedAsset]}],
+    appearanceCatalog:{read:async()=>catalog},feedbackPortalKey:'editor'});
+  const listing=(await (await fetch(f.base+'/api/game-skins')).json()).skins;
+  for(const item of catalog.skins){
+    assert.ok(!listing.some(s=>s.id===item.id));
+    assert.equal((await fetch(f.base+'/api/game-skins/'+item.id)).status,404);
+  }
 });

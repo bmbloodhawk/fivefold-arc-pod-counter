@@ -1,3 +1,4 @@
+import { createHostedStudioReleases } from './studio-release-registry.js';
 import { createRealtimeServer } from "./app.js";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
@@ -56,7 +57,11 @@ for (const [name, achievement, load] of rewards) {
     console.warn(`${name} could not be loaded:`, error.message);
   }
 }
+const studioReleaseRegistry = createHostedStudioReleases({
+  environment: appEnv === 'staging' ? 'staging' : 'public', ledger, accountHistory, accountVerifier,
+});
 const { server, service, competitions, competitionTables } = createRealtimeServer({
+  studioReleaseRegistry, studioRewardSkins: studioReleaseRegistry.rewardSkins, studioReservedSkins: studioReleaseRegistry.reservedSkins,
   ...streamLimits, appEnv, staticDir, ledger, appearanceCatalog, accountVerifier, accountHistory, appearanceSkins,
   durableRecoveryEnabled, competitionStore, competitionEraser, lookupCommanderIdentity: createLocalCommanderIdentityLookup(cardIdentityIndex),
 });

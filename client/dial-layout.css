@@ -210,3 +210,84 @@ body:is(.dial-layout, .button-layout) .connection-pill { flex: none; min-height:
 #gameView[data-interface-style="button"] .custom-life-button { width: 100%; min-height: 44px; margin: 0; padding: 6px; }
 #gameView[data-interface-style="button"] .mode-nav small { font-size: clamp(.48rem, 2.05vw, .65rem); letter-spacing: 0; }
 body.dial-dragging { overscroll-behavior: none; }
+
+/* The native counter already exposes its current mode. Keep its engraving
+   on the face, beneath the readout, while the existing identity rings turn. */
+.neutral-counter-art { display: none; }
+@supports (mask-image: url("")) or (-webkit-mask-image: url("")) {
+  [data-counter-mode="life"] { --neutral-counter-icon: url("icons/neutral-counter-life.svg"); }
+  [data-counter-mode="commander"] { --neutral-counter-icon: url("icons/neutral-counter-commander.svg"); }
+  [data-counter-mode="radiation"] { --neutral-counter-icon: url("icons/neutral-counter-radiation.svg"); }
+  [data-counter-mode="poison"] { --neutral-counter-icon: url("icons/neutral-counter-poison.svg"); }
+  [data-counter-mode="energy"] { --neutral-counter-icon: url("icons/neutral-counter-energy.svg"); }
+  [data-counter-mode="generic"] { --neutral-counter-icon: url("icons/neutral-counter-generic.svg"); }
+
+  #modeNav [data-mode="life"] { --neutral-tab-icon: url("icons/neutral-tab-life.svg"); --tab-column: 0%; }
+  #modeNav [data-mode="commander"] { --neutral-tab-icon: url("icons/neutral-tab-commander.svg"); --tab-column: 20%; }
+  #modeNav [data-mode="radiation"] { --neutral-tab-icon: url("icons/neutral-tab-radiation.svg"); --tab-column: 40%; }
+  #modeNav [data-mode="poison"] { --neutral-tab-icon: url("icons/neutral-tab-poison.svg"); --tab-column: 60%; }
+  #modeNav [data-mode="energy"] { --neutral-tab-icon: url("icons/neutral-tab-energy.svg"); --tab-column: 80%; }
+  #modeNav [data-mode="generic"] { --neutral-tab-icon: url("icons/neutral-tab-generic.svg"); --tab-column: 100%; }
+
+  :where(html:not(.game-skin-active, [data-collection-treatment])) #gameView .neutral-counter-art {
+    display: block; position: absolute; inset: 8%; z-index: 0; pointer-events: none;
+    background: var(--neutral-counter-icon) center / contain no-repeat; opacity: .74;
+  }
+  :where(html:not(.game-skin-active, [data-collection-treatment])) #gameView .dial-face:has(.lethal-mark:not([hidden])) .neutral-counter-art,
+  :where(html:not(.game-skin-active, [data-collection-treatment])) #gameView .counter-sigil,
+  :where(html:not(.game-skin-active, [data-collection-treatment], [data-private-skin-review])) #modeNav button > svg { display: none; }
+  :where(html:not(.game-skin-active, [data-collection-treatment], [data-private-skin-review])) #modeNav button::before {
+    content: ""; width: 20px; height: 20px; pointer-events: none;
+    background-color: currentColor;
+    -webkit-mask: var(--neutral-tab-icon) center / 19px 19px no-repeat;
+    mask: var(--neutral-tab-icon) center / 19px 19px no-repeat;
+  }
+  /* Style the existing icon so authored images, glyphs and collection sprite sheets keep their own paint. */
+  :is(#gameView[data-tab-icon-set="ink"], html[data-collection-treatment="inlay"] #gameView:not([data-tab-icon-set])) #modeNav {
+    --tab-sheet: url("icons/tabs-ink.svg"); --tab-size: 600% 100%;
+  }
+  :is(#gameView[data-tab-icon-set="circuit"], html[data-collection-treatment="grid"] #gameView:not([data-tab-icon-set])) #modeNav {
+    --tab-sheet: url("icons/tabs-circuit.svg"); --tab-size: 600% 100%;
+  }
+  :is(#gameView[data-tab-icon-set="glass"], html[data-collection-treatment="glass"] #gameView:not([data-tab-icon-set])) #modeNav {
+    --tab-sheet: url("icons/tabs-glass.svg"); --tab-size: 600% 100%;
+  }
+  html:not([data-collection-icons]):is(.game-skin-active, [data-collection-treatment], [data-private-skin-review]) #modeNav button > svg {
+    background-color: currentColor;
+    -webkit-mask: var(--tab-sheet, var(--neutral-tab-icon)) var(--tab-column) center / var(--tab-size, 100% 100%) no-repeat;
+    mask: var(--tab-sheet, var(--neutral-tab-icon)) var(--tab-column) center / var(--tab-size, 100% 100%) no-repeat;
+  }
+  html:not([data-collection-icons]):is(.game-skin-active, [data-collection-treatment], [data-private-skin-review]) #modeNav button > svg > * { visibility: hidden; }
+
+  /* The renderer leaves an SVG in the inherited seal slot and installs an img
+     for authored seals. Explicit per-counter artwork and visibility keep their
+     own layers. Both the inherited and the selectable mode emblem use the
+     skin's palette over the engraved master. */
+  :is(html.game-skin-active, html[data-collection-treatment]) #gameView :is(.counter-sigil:has(> svg), .counter-design-emblem) {
+    --counter-art-rotation: 0deg;
+    background: var(--neutral-counter-icon) center / contain no-repeat;
+    opacity: .76; pointer-events: none;
+  }
+  html.game-skin-active #gameView[data-counter-seal="mode"] .counter-design-emblem {
+    inset: 8%; transform: none;
+  }
+  :is(html.game-skin-active, html[data-collection-treatment]) #gameView :is(.counter-sigil:has(> svg), .counter-design-emblem)::after {
+    content: ""; position: absolute; inset: 0;
+    background-color: var(--counter-design-accent, var(--brass));
+    -webkit-mask: var(--neutral-counter-icon) center / contain no-repeat;
+    mask: var(--neutral-counter-icon) center / contain no-repeat;
+    opacity: .56;
+  }
+  :is(html.game-skin-active, html[data-collection-treatment]) #gameView :is(.counter-sigil, .counter-design-emblem) > svg { visibility: hidden; }
+  :is(html.game-skin-active, html[data-collection-treatment]) #gameView .dial-face:has(.lethal-mark:not([hidden])) :is(.counter-sigil, .counter-design-emblem) { visibility: hidden; }
+  @media (forced-colors: active) {
+    :is(html.game-skin-active, html[data-collection-treatment]) #gameView :is(.counter-sigil:has(> svg), .counter-design-emblem),
+    :where(html:not(.game-skin-active, [data-collection-treatment])) #gameView .neutral-counter-art {
+      display: none;
+    }
+    html:not([data-collection-icons]):is(.game-skin-active, [data-collection-treatment], [data-private-skin-review]) #modeNav button > svg,
+    :where(html:not(.game-skin-active, [data-collection-treatment], [data-private-skin-review])) #modeNav button::before {
+      forced-color-adjust: none; background-color: ButtonText;
+    }
+  }
+}

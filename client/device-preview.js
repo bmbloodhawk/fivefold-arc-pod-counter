@@ -1,6 +1,7 @@
 // Device Preview is intentionally a thin shell around the real preview iframe.
 // It never re-creates game UI, so Studio changes are reviewed against the same
 // renderer that runs on a phone.
+import { fitPreviewScale } from './renderer-bridge.js?v=11';
 const STORAGE_KEY = 'fivefold-arc:device-preview';
 
 export const DEVICE_PRESETS = [
@@ -26,7 +27,7 @@ export const DEVICE_PRESETS = [
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const escapeHtml = value => String(value).replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
-const defaultState = { presetId: 'iphone-16', orientation: 'portrait', zoom: 'fit', frame: true, safe: true, scheme: 'system', network: 'online', count: 1, category: 'All', query: '', custom: [], slots: [] };
+const defaultState = { presetId: 'iphone-16', orientation: 'portrait', zoom: 'fit', frame: false, safe: false, scheme: 'system', network: 'online', count: 1, category: 'All', query: '', custom: [], slots: [] };
 function loadState() { try { return { ...defaultState, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') }; } catch { return { ...defaultState }; } }
 
 export function mountDevicePreview({ primaryFrame, getSkin }) {
@@ -35,7 +36,7 @@ export function mountDevicePreview({ primaryFrame, getSkin }) {
   panel.className = 'device-preview-panel';
   panel.innerHTML = `<div class="device-preview-heading"><div><p class="kicker">DEVICE PREVIEW</p><h2>Phone Simulator</h2><p class="helper">This is the live game renderer at the selected viewport. Choose the same device or desktop window you are checking.</p></div><span id="devicePreviewMeta" class="device-preview-meta"></span></div>
     <div class="device-preview-controls"><label>Find device<input id="deviceSearch" type="search" placeholder="Search iPhone or size"></label><label>Category<select id="deviceCategory"><option>All</option><option>Reference</option><option>iOS</option><option>Android</option><option>Tablet</option><option>Generic</option><option>Custom</option></select></label><label>Device<select id="devicePreset"></select></label><button id="deviceRotate" type="button" class="quiet">Rotate</button><label>Zoom<select id="deviceZoom"><option value="fit">Fit</option><option value="50">50%</option><option value="75">75%</option><option value="100">100%</option><option value="125">125%</option></select></label><label>Views<select id="deviceCount"><option value="1">1 device</option><option value="2">2 devices</option><option value="4">4 devices</option></select></label></div>
-    <div class="device-preview-toggles"><label><input id="deviceFrame" type="checkbox"> Device frame</label><label><input id="deviceSafe" type="checkbox"> Safe areas</label><label>Appearance<select id="deviceScheme"><option value="system">System</option><option value="dark">Dark</option><option value="light">Light</option></select></label><label>Network<select id="deviceNetwork"><option value="online">Online</option><option value="slow">Slow network</option><option value="offline">Offline</option></select></label></div>
+    <div class="device-preview-toggles"><label><input id="deviceFrame" type="checkbox"> Device frame</label><label><input id="deviceSafe" type="checkbox"> Overlay device guides</label><label>Browser color scheme<select id="deviceScheme"><option value="system">System</option><option value="dark">Dark</option><option value="light">Light</option></select></label><label>Signal marker<select id="deviceNetwork"><option value="online">None</option><option value="slow">Slow label</option><option value="offline">Offline label</option></select></label></div>
     <section id="deviceComparisonSetup" class="device-comparison-setup" hidden></section>
     <details class="device-custom"><summary>Add a custom device</summary><div><label>Name<input id="customDeviceName" maxlength="40" placeholder="My phone"></label><label>Width<input id="customDeviceWidth" type="number" min="240" max="1600" value="393"></label><label>Height<input id="customDeviceHeight" type="number" min="400" max="1800" value="852"></label><label>DPR<input id="customDeviceDpr" type="number" min="1" max="5" step="0.125" value="3"></label><label>Frame<select id="customDeviceFrame"><option value="island">Dynamic Island</option><option value="notch">Notch</option><option value="hole">Camera hole</option><option value="plain">Plain</option><option value="tablet">Tablet</option></select></label><button id="saveCustomDevice" type="button">Save device</button></div></details>
     <div id="devicePreviewGrid" class="device-preview-grid" aria-live="polite"></div>`;
@@ -67,23 +68,42 @@ export function mountDevicePreview({ primaryFrame, getSkin }) {
     $('#devicePreset').value = state.presetId;
   }
   function dimensions(device, orientation) { return orientation === 'landscape' ? { width: device.height, height: device.width } : device; }
-  function displayScale(width) {
-    const requested = state.zoom === 'fit' ? .75 : Number(state.zoom) / 100;
+  function displayScale(width, height) {
+    const requested = state.zoom === 'fit' ? 1 : Number(state.zoom) / 100;
     const columns = state.count === 1 || window.innerWidth <= 720 ? 1 : 2;
-    const usableWidth = Math.max(220, ($('#devicePreviewGrid').clientWidth - 36 - ((columns - 1) * 22)) / columns);
-    return Math.min(requested, usableWidth / (width + 20));
+    const grid = $('#devicePreviewGrid');
+    const usableWidth = Math.max(220, (grid.clientWidth - 36 - ((columns - 1) * 22)) / columns);
+    const style = getComputedStyle(grid);
+    const padding = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+    const availableHeight = state.zoom === 'fit'
+      ? Math.max(80,Math.min(grid.clientHeight || window.innerHeight,window.innerHeight - Math.max(0,grid.getBoundingClientRect().top)) - padding - 2)
+      : Infinity;
+
+    return fitPreviewScale(width,height,usableWidth,availableHeight,requested);
   }
-  function createShell(frame, device, slotIndex) {
-    const slot = state.slots[slotIndex]; const { width, height } = dimensions(device, slot.orientation); const shell = document.createElement('article');
+  function updateShell(shell, device, slotIndex) {
+    const slot = state.slots[slotIndex]; const { width, height } = dimensions(device, slot.orientation);
     shell.className = `sim-device frame-${device.frame}${state.frame ? '' : ' no-frame'} ${slot.orientation}`;
-    const scale = displayScale(width); shell.style.setProperty('--device-width', `${width}px`); shell.style.setProperty('--device-height', `${height}px`);
+    const scale = displayScale(width,height); shell.style.setProperty('--device-width', `${width}px`); shell.style.setProperty('--device-height', `${height}px`);
     shell.style.setProperty('--device-scale', String(scale)); shell.style.setProperty('--sim-layout-width', `${Math.ceil((width + 20) * scale)}px`); shell.style.setProperty('--sim-layout-height', `${Math.ceil((height + 48) * scale)}px`);
     shell.dataset.network = state.network;
-    const label = document.createElement('p'); label.className = 'sim-device-label'; label.textContent = `${width} × ${height} · ${device.dpr}× DPR`;
+    shell.querySelector('.sim-device-label').textContent = `${width} × ${height} · ${device.dpr}× reference`;
+    const frame = shell.querySelector('iframe');
+    frame.className = 'exact-preview device-preview-frame'; frame.tabIndex = -1; frame.style.width = `${width}px`; frame.style.height = `${height}px`;
+    shell.querySelector('.sim-status').hidden = !state.safe;
+    shell.querySelector('.sim-home').hidden = !state.safe;
+  }
+  function createShell(frame) {
+    const shell = document.createElement('article'); shell.className = 'sim-device';
+    const label = document.createElement('p'); label.className = 'sim-device-label';
     const screen = document.createElement('div'); screen.className = 'sim-device-screen';
-    frame.className = 'exact-preview device-preview-frame'; frame.tabIndex = -1; frame.style.width = `${width}px`; frame.style.height = `${height}px`; frame.dataset.previewSafeBottom = state.safe && device.category === 'iOS' && slot.orientation === 'portrait' ? '34' : '0';
-    screen.append(frame); shell.append(label, screen);
-    if (state.safe) { const status = document.createElement('span'); status.className = 'sim-status'; status.textContent = '9:41'; const home = document.createElement('span'); home.className = 'sim-home'; screen.append(status, home); }
+    const status = document.createElement('span'); status.className = 'sim-status'; status.textContent = '9:41';
+    const home = document.createElement('span'); home.className = 'sim-home';
+    screen.append(status,home); shell.append(label,screen); $('#devicePreviewGrid').append(shell);
+    // Keep a loaded iframe alive when this browser supports atomic DOM moves.
+    if ('moveBefore' in screen && frame.isConnected) screen.moveBefore(frame,status);
+    else screen.insertBefore(frame,status);
+    frame.addEventListener('load', () => post(frame));
     return shell;
   }
   function renderComparisonSetup() {
@@ -100,14 +120,17 @@ export function mountDevicePreview({ primaryFrame, getSkin }) {
     });
   }
   function render() {
-    syncSlots(); const device = deviceForSlot(0); const grid = $('#devicePreviewGrid'); const oldFrames = [...grid.querySelectorAll('iframe')];
-    const primary = oldFrames.find(frame => frame.id === 'exactPreview') || primaryFrame;
-    oldFrames.filter(frame => frame !== primary).forEach(frame => frame.remove()); grid.replaceChildren();
-    grid.dataset.count = state.count; grid.append(createShell(primary, device, 0));
-    for (let index = 1; index < state.count; index += 1) { const comparisonDevice = deviceForSlot(index); const clone = document.createElement('iframe'); clone.title = `${comparisonDevice.name} synchronized app preview ${index + 1}`; clone.src = 'index.html?appearance-preview=1'; clone.addEventListener('load', () => post(clone), { once: true }); grid.append(createShell(clone, comparisonDevice, index)); }
-    renderComparisonSetup(); $('#devicePreviewMeta').textContent = `${device.width} × ${device.height} CSS px · ${device.dpr}× DPR`;
+    syncSlots(); const device = deviceForSlot(0); const grid = $('#devicePreviewGrid');
+    grid.dataset.count = state.count;
+    while (grid.children.length > state.count) grid.lastElementChild.remove();
+    for (let index = 0; index < state.count; index += 1) {
+      let shell = grid.children[index];
+      if (!shell) { const frame = index === 0 ? primaryFrame : document.createElement('iframe'); if (index > 0) { frame.title = `${deviceForSlot(index).name} synchronized app preview ${index + 1}`; frame.src = 'index.html?appearance-preview=1'; } shell = createShell(frame); }
+      updateShell(shell,deviceForSlot(index),index);
+    }
+    renderComparisonSetup(); const metadata = $('#devicePreviewMeta'); if (metadata) metadata.textContent = `${device.width} × ${device.height} CSS px · ${device.dpr}× DPR`;
     $('#deviceRotate').textContent = state.orientation === 'portrait' ? 'Rotate landscape' : 'Rotate portrait';
-    save(); post(primary); grid.querySelectorAll('iframe').forEach(post);
+    save(); grid.querySelectorAll('iframe').forEach(post);
   }
   function bind(selector, key, value = element => element.value) { $(selector).addEventListener('change', event => { state[key] = value(event.currentTarget); render(); }); }
   $('#deviceSearch').value = state.query; $('#deviceCategory').value = state.category; $('#deviceZoom').value = state.zoom; $('#deviceCount').value = state.count; $('#deviceFrame').checked = state.frame; $('#deviceSafe').checked = state.safe; $('#deviceScheme').value = state.scheme; $('#deviceNetwork').value = state.network;
@@ -116,5 +139,9 @@ export function mountDevicePreview({ primaryFrame, getSkin }) {
   $('#deviceRotate').addEventListener('click', () => { state.orientation = state.orientation === 'portrait' ? 'landscape' : 'portrait'; if (state.slots[0]) state.slots[0].orientation = state.orientation; render(); });
   $('#saveCustomDevice').addEventListener('click', () => { const name = $('#customDeviceName').value.trim(); const width = Number($('#customDeviceWidth').value); const height = Number($('#customDeviceHeight').value); const dpr = Number($('#customDeviceDpr').value); if (!name || !Number.isFinite(width) || !Number.isFinite(height) || !Number.isFinite(dpr)) return; const device = { id: `custom-${Date.now()}`, name, category: 'Custom', width: clamp(width, 240, 1600), height: clamp(height, 400, 1800), dpr: clamp(dpr, 1, 5), frame: $('#customDeviceFrame').value }; state.custom.push(device); state.category = 'Custom'; state.presetId = device.id; options(); $('#deviceCategory').value = 'Custom'; render(); });
   options(); render();
+  let resizeFrame = 0;
+  const resizeObserver = new ResizeObserver(() => { cancelAnimationFrame(resizeFrame); resizeFrame = requestAnimationFrame(() => { [...$('#devicePreviewGrid').children].forEach((shell,index) => updateShell(shell,deviceForSlot(index),index)); }); });
+  resizeObserver.observe($('#devicePreviewGrid'));
+  window.addEventListener('resize', () => { [...$('#devicePreviewGrid').children].forEach((shell,index) => updateShell(shell,deviceForSlot(index),index)); });
   return { sync: () => panel.querySelectorAll('iframe').forEach(post) };
 }

@@ -10,7 +10,7 @@ const shell = [...source.match(/const APP_SHELL = \[([\s\S]*?)\];/)[1].matchAll(
 const url = path => new URL(path, origin).href;
 
 test('the offline shell includes the shared production appearance renderer and validator', () => {
-  for (const path of ['./renderer-bridge.js?v=10','./commander-glass-art.js','./appearance-validation.js?v=4','./counter-design.js?v=4','./appearance-table-design.js?v=3','./counter-design.css?v=5','./renderer-theme.css?v=1','./icons/tabs-ink.svg','./icons/neutral-counter-radiation.svg']) assert.ok(shell.includes(url(path)), `${path} is available offline`);
+  for (const path of ['./renderer-bridge.js?v=11','./commander-art-regions.js','./commander-region-renderer.js','./studio-reward-rule.js','./appearance-practice.js','./appearance-practice.css','./commander-glass-art.js','./appearance-validation.js','./renderer-theme.css?v=1']) assert.ok(shell.includes(url(path)), `${path} is available offline`);
 });
 
 function worker({ offline = false, quota = false, stores = new Map() } = {}) {
@@ -78,6 +78,19 @@ function worker({ offline = false, quota = false, stores = new Map() } = {}) {
     get(path, options) { return dispatch('fetch', new Request(url(path), options)); },
   };
 }
+
+test('Built-in dial and tab symbols are all present in the offline shell', async () => {
+  const css = await readFile(new URL('./dial-layout.css', import.meta.url), 'utf8');
+  const paths = new Set([...css.matchAll(/url\(["']?(icons\/(?:neutral-(?:counter|tab)|tabs)-[a-z]+\.svg)["']?\)/g)].map(match => match[1]));
+  const modes = ['life', 'commander', 'radiation', 'poison', 'energy', 'generic'];
+  const expected = modes.flatMap(mode => [`icons/neutral-counter-${mode}.svg`, `icons/neutral-tab-${mode}.svg`]);
+  expected.push(...['ink','circuit','glass'].map(set => `icons/tabs-${set}.svg`));
+  assert.deepEqual(paths, new Set(expected));
+  for (const path of paths) {
+    assert.ok(shell.includes(url(path)), `missing offline symbol: ${path}`);
+    assert.match(await readFile(new URL(path, import.meta.url), 'utf8'), /<svg\b/);
+  }
+});
 
 test('waiting installs create no build caches, including repeated replacements', async () => {
   const w = worker();

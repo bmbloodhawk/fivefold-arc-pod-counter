@@ -13,6 +13,7 @@ export const canvasDesignSpec = record({
   flourish: choice('none','pulse','runners','glints'), flourishColor: color, flourishStrength: number(0,35), flourishPeriod: number(12,60)
 });
 export const tableDesignSpec = record({
+  dialSocket: choice('none','stone','metal'),
   seatArrangement: choice('nameFirst','numberFirst'), seatAlign: choice('start','center','end'),
   turnMarker: choice('edge','double','inset'), ownerMarker: choice('underline','dot'),
   turnAccent: color, ownerAccent: color, bannerMark: choice('rail','double','ticket'),
@@ -45,10 +46,12 @@ export function compileTableDesign(skin,result) {
   const { variables, datasets } = result;
   const hasMoments = compileSceneDesign(skin,result);
   const glass = skin.commanderTreatment === 'prismatic-glass';
+  const regions = skin.commanderTreatment === 'art-regions';
   if (glass) datasets.commanderTreatment = 'prismatic-glass';
-  if (skin.canvasDesign || hasMoments || glass) {
+  if (regions) datasets.commanderTreatment = 'art-regions';
+  if (skin.canvasDesign || hasMoments || glass || regions) {
     const canvas = skin.canvasDesign || {};
-    const hasLayers = glass || hasMoments || Object.keys(canvas).some(key => !key.startsWith('frame') && !key.startsWith('flourish'));
+    const hasLayers = glass || regions || hasMoments || Object.keys(canvas).some(key => !key.startsWith('frame') && !key.startsWith('flourish'));
     if (hasLayers) {
       const images = [], sizes = [], positions = [], repeats = [];
       const layer = (image,size = 'cover',position = 'center',repeat = 'no-repeat') => {
@@ -74,7 +77,8 @@ export function compileTableDesign(skin,result) {
           variables['--prism-fitted-size'] = `min(${zoom}%,${(result.assets.backgroundAspect * .92 * zoom).toFixed(2)}dvh) auto`;
           size = `var(--prism-landscape-size,${size})`;
         }
-        const image = glass ? 'var(--prism-hall-art,none)' : `url("${result.assets.background}")`;
+        const original = `url("${result.assets.background}")`;
+        const image = glass ? 'var(--prism-hall-art,none)' : regions ? `var(--commander-region-background,${original})` : original;
         layer(image,size,result.assets.backgroundPosition);
       }
       const end = cssColor(canvas.endColor,'var(--surface)');

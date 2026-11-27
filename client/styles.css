@@ -1015,6 +1015,9 @@ html.game-menu-open, body.game-menu-open { overflow: hidden; overscroll-behavior
   backdrop-filter: blur(7px);
   box-shadow: 0 3px 0 rgb(119 87 30 / .72);
 }
+:where(html:not(.game-skin-active, [data-collection-treatment], [data-private-skin-review])) #endTurnButton:enabled {
+  color: #f4ecd8;
+}
 .undo-turn-button {
   border-color: rgb(240 154 137 / .9);
   background: rgb(169 71 59 / .35);
@@ -1236,22 +1239,15 @@ dialog:not(#victoryDialog) { max-height:calc(100dvh - 24px); overflow-y:auto; ov
   white-space: normal;
 }
 #gameView[data-counter-mode="commander"] > .source-panel .selected-source-button span > small { display: none; }
-#gameView[data-counter-mode="commander"] > .source-panel .selected-source-button em {
-  display: flex;
+#gameView[data-counter-mode="commander"] > .source-panel .selected-source-button > .commander-life-note {
+  display: block;
   grid-column: 1;
   grid-row: 2;
-  align-items: baseline;
-  gap: 5px;
-  font-size: 1.12rem;
-}
-#gameView[data-counter-mode="commander"] > .source-panel .selected-source-button em::before {
-  content: "Damage";
+  margin: 0;
   color: var(--muted);
   font-family: system-ui, sans-serif;
-  font-size: .56rem;
-  font-weight: 900;
-  letter-spacing: .07em;
-  text-transform: uppercase;
+  font-size: .7rem;
+  line-height: 1.2;
 }
 #gameView[data-counter-mode="commander"] > .source-panel .selected-source-button b {
   grid-column: 2;

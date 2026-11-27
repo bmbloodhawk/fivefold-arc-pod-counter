@@ -88,7 +88,7 @@ export function appearanceReadability(skin = {}) {
         pair(design.accent || skin.accent || colors.accentPrimary || '#d8ae61',plate,'counterDesign.modes.'+mode+'.accent',mode+' counter name on its plate');
       }
     }
-    if (Object.values(skin.surfaceArt || {}).some(layer => layer?.assetId) || Object.values(skin.counterDesign?.modes || {}).some(mode => mode?.artAsset)) {
+    if (Object.values(skin.surfaceArt || {}).some(layer => layer?.assetId) || Object.values(skin.counterDesign?.modes || {}).some(mode => mode?.artAsset || mode?.ringArtAsset)) {
       findings.push({severity:'warning',path:'surfaceArt',label:'Original artwork sits behind a game surface.',fix:'Check text over the brightest area in the preview. Reduce artwork opacity or use a stronger backing color.'});
     }
   }

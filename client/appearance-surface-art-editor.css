@@ -1,0 +1,11 @@
+.surface-art-editor > label { display: grid; gap: .35rem; margin-block: .75rem; }
+.surface-art-editor select { min-inline-size: 0; inline-size: 100%; }
+.surface-art-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.surface-art-fields > label { display: grid; grid-template-columns: 1fr auto; gap: .35rem; min-inline-size: 0; }
+.surface-art-fields input, .surface-art-fields select { grid-column: 1 / -1; inline-size: 100%; }
+.surface-art-fields input[type="range"] { min-block-size: 2.75rem; padding-inline: 0; }
+.surface-art-preview { display: flex; align-items: center; gap: .75rem; padding-block: .5rem; }
+.surface-art-preview img { inline-size: 4rem; block-size: 4rem; object-fit: contain; background: #20221f; border: 1px solid var(--studio-line); border-radius: .4rem; }
+.surface-art-preview small { color: var(--studio-muted); overflow-wrap: anywhere; }
+.surface-art-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+@media (max-width: 380px) { .surface-art-fields { grid-template-columns: minmax(0, 1fr); } }

@@ -1,0 +1,114 @@
+// Exercise the complete asset authoring flow with synthetic art on a loopback fixture.
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { mkdir,writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+
+const address = new URL(process.argv[2] || 'http://127.0.0.1:8799/review');
+assert.equal(address.hostname,'127.0.0.1');
+assert.equal((await fetch(address)).headers.get('x-studio-fixture'),'memory','Use a disposable in-memory Studio for this regression.');
+const require = createRequire(process.env.PLAYWRIGHT_TOOLING || new URL('./package.json',import.meta.url));
+const {chromium,webkit} = require('playwright-core');
+const engine = process.env.STUDIO_BROWSER || 'chromium';
+const browser = engine === 'webkit' ? await webkit.launch({headless:true}) : await chromium.launch({headless:true,...(process.env.CHROME_PATH ? {executablePath:process.env.CHROME_PATH} : {})});
+const path = process.env.STUDIO_REPORT_DIR || 'output/appearance-studio-review/assets';
+await mkdir(path,{recursive:true});
+const page = await browser.newPage({viewport:{width:1440,height:900}});
+page.setDefaultTimeout(10000);
+const errors=[],writes=[],checks=[];
+page.on('pageerror',e=>errors.push(e.message));
+page.on('request',req=>{if(!['GET','HEAD','OPTIONS'].includes(req.method())) writes.push(new URL(req.url()).pathname);});
+page.on('dialog',dialog=>dialog.accept());
+const appearancePage = id => page.locator('#studioNavigation button[aria-controls="edit-'+id+'"]').click();
+const imageFile = '<svg xmlns="http://www.w3.org/2000/svg" width="88" height="44" viewBox="0 0 88 44"><rect width="88" height="44" fill="#14625c"/><circle cx="44" cy="22" r="15" fill="#eabc72"/></svg>';
+try {
+  await page.goto(address.href);
+  await page.waitForSelector('body.studio-workspace');
+  await page.locator('[data-skin="harbor-study"]').waitFor();
+  for (const [width,height] of [[1024,650],[1280,720],[1440,900]]) {
+    await page.setViewportSize({width,height});
+    await page.waitForFunction(()=>{
+      const rect = s=>document.querySelector(s).getBoundingClientRect();
+      const grid=rect('#devicePreviewGrid'),frame=rect('#exactPreview'),shell=rect('.sim-device-screen');
+      return frame.bottom<=grid.bottom && frame.bottom<=shell.bottom && rect('.sim-device-label').top>=grid.top && document.documentElement.scrollWidth<=innerWidth;
+    });
+  }
+  checks.push('Full phone viewport and caption fit 1024, 1280 and 1440 pixel desktop windows');
+  await page.locator('[data-skin="__neutral_arc__"]').click();
+  await page.locator('#accentHex').fill('8673cf'); await page.locator('#accentHex').press('Enter');
+  assert.equal(await page.locator('#accent').inputValue(),'#8673cf');
+  await page.locator('#accentHex').fill('oops'); await page.locator('#accentHex').press('Enter');
+  assert.equal(await page.locator('#accentHex').getAttribute('aria-invalid'),'true');
+  assert.equal(await page.locator('#accent').inputValue(),'#8673cf');
+  await page.locator('#accentHex').press('Escape'); await page.locator('#undoButton').click();
+  assert.equal(await page.locator('#accentHex').inputValue(),'#D8AE61');
+  checks.push('Keyboard hex entry, invalid input recovery and Undo');
+  await page.locator('[data-skin="harbor-study"]').click();
+  const reviewName = 'Synthetic button ' + Date.now();
+  await appearancePage('assets');
+  await page.locator('#assetPlacement').selectOption('button');
+  await page.locator('#assetName').fill(reviewName);
+  await page.locator('#assetSource').fill('Local test fixture');
+  await page.locator('#assetFile').setInputFiles({name:'trim.svg',mimeType:'image/svg+xml',buffer:Buffer.from(imageFile)});
+  await page.route('**/api/appearance-studio/catalog',async route=>{
+    if (route.request().method()==='PUT') {
+      await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Temporary local fixture interruption'})});
+    } else await route.continue();
+  });
+  await page.locator('#importAssetButton').click();
+  await page.locator('#assetStatus').getByText('Your file is still selected for retry.',{exact:false}).waitFor();
+  await page.unroute('**/api/appearance-studio/catalog');
+  await page.locator('#importAssetButton').click();
+  const row = page.locator('.review-asset').filter({hasText:reviewName});
+  await row.getByText('Pending review',{exact:false}).waitFor();
+  assert.match(await row.innerText(),/88 × 44/);
+  const src = await row.locator('img').getAttribute('src');
+  assert.match(src,/^data:image\/(webp|png);base64,/);
+  const uploads = writes.filter(url=>/^\/api\/appearance-studio\/assets\/asset-/.test(url));
+  assert.equal(uploads.length,2); assert.equal(uploads[0],uploads[1]);
+  checks.push('Retry after an interrupted catalog write reuses the same pending asset ID');
+  checks.push('SVG decoded into bounded raster artwork with derived dimensions and Pending state');
+  await appearancePage('artwork');
+  const assetId = await page.locator('#buttonAsset option').filter({hasText:reviewName}).getAttribute('value');
+  await page.locator('#buttonAsset').selectOption(assetId);
+  await appearancePage('review');
+  await page.locator('#validationList').getByText('This artwork is still pending approval.',{exact:false}).waitFor();
+  checks.push('Pending artwork can be previewed and blocks publication');
+  await appearancePage('assets');
+  // The visible library recomputes current draft usage when opened.
+  await row.getByRole('button',{name:'Approve artwork'}).click();
+  await row.getByText('Approved · Button treatment').waitFor();
+  await appearancePage('review');
+  assert.equal(await page.locator('#validationList').getByText('This artwork is still pending approval.',{exact:false}).count(),0);
+  await appearancePage('components');
+  await page.locator('#variant-navigation').selectOption('framed');
+  await page.locator('#variant-panels').selectOption('raised');
+  const frame = page.frameLocator('#exactPreview');
+  await frame.locator('#gameView[data-variant-navigation="framed"][data-variant-panels="raised"][data-button-art="true"]').waitFor({state:'attached'});
+  assert.match(await frame.locator('.end-turn-button').evaluate(el=>getComputedStyle(el).backgroundImage),/data:image/);
+  checks.push('Approved art, navigation and panel treatments reach the real game surface');
+  await page.screenshot({path:join(path,engine+'-controls.png')});
+  await appearancePage('typography');
+  await page.locator('#disabledColor').fill('#b7c3b7');
+  await page.locator('#variant-numerals').selectOption('tabular');
+  await frame.locator('#gameView[data-custom-disabled="true"][data-variant-numerals="tabular"]').waitFor({state:'attached'});
+  await page.locator('#saveButton').click();
+  await page.locator('#saveState').getByText('Saved draft',{exact:true}).waitFor();
+  await page.reload();
+  await page.locator('[data-skin="harbor-study"].selected').waitFor();
+  await appearancePage('artwork');
+  assert.equal(await page.locator('#buttonAsset').inputValue(),assetId);
+  await appearancePage('assets');
+  await row.locator('summary').click();
+  assert.match(await row.innerText(),/Harbor night/);
+  assert.equal(await row.getByText('Remove unused artwork').count(),0);
+  checks.push('Saved art persists after reload, reports usage and cannot be removed while referenced');
+  await page.screenshot({path:join(path,engine+'-assets.png')});
+  await appearancePage('foundation');
+  await page.screenshot({path:join(path,engine+'-desktop.png')});
+  assert.deepEqual(errors,[]);
+  assert.deepEqual(writes.filter(url=>!url.startsWith('/api/appearance-studio/')),[]);
+  const report = {engine,checks,errors,mutations:writes.length};
+  await writeFile(join(path,engine+'-artwork.json'),JSON.stringify(report,null,2));
+  console.log(JSON.stringify(report));
+} finally { await browser.close(); }

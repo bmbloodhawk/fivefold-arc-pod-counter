@@ -176,7 +176,10 @@ test('local next-game Save changes the displayed owner even while another simula
   h.context.sourcesFromPlayers = () => [];
   h.context.remapLocalDamage = () => {};
   h.context.remapLocalCastCounts = () => {};
-  h.context.updateCommanderSetup = runInNewContext(sourceFunction('updateCommanderSetup') + '\nupdateCommanderSetup', h.context);
+  h.context.updateCommanderSetup = runInNewContext(
+    [sourceFunction('setLocalCommanderSetup'), sourceFunction('updateCommanderSetup'), 'updateCommanderSetup'].join('\n'),
+    h.context
+  );
   await h.submit();
   assert.equal(h.context.state.players[0].commanderCount, 2);
   assert.deepEqual(h.context.state.players[0].commanderNames, ['New commander A', 'New commander B']);

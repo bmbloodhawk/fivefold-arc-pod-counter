@@ -1,9 +1,8 @@
 import { readFile } from "node:fs/promises";
-import { resolveDesignArtwork } from "../../client/appearance-design-artwork.js";
-import {
-  assertAppearanceValid, publicAppearanceSkin, validateAppearanceAsset, validateAppearanceSkin,
-} from "../../client/appearance-validation.js";
+import { assertAppearanceValid, validateAppearanceSkin } from "../../client/appearance-validation.js";
+import { materializeAppearanceSkin } from "./appearance-artwork-payload.js";
 import { FIELD_NOTES_SKIN_ID, NIGHT_WATCH_SKIN_ID, PRISMATIC_CONFLUENCE_SKIN_ID } from "./appearance-milestones.js";
+import { checkedAsset } from "./appearance-studio-boundary.js";
 
 async function loadBundledSkin(directory, id, name) {
   const { skin, assets } = JSON.parse(await readFile(new URL("manifest.json", directory), "utf8"));
@@ -15,21 +14,13 @@ async function loadBundledSkin(directory, id, name) {
       throw new Error(name + " requires approved, bundled WebP artwork.");
     }
     const bytes = await readFile(new URL(file, directory));
-    const asset = { ...metadata, data: "data:image/webp;base64," + bytes.toString("base64") };
-    assertAppearanceValid(validateAppearanceAsset(asset, { requireData: true }));
-    return asset;
+    return checkedAsset({ ...metadata, data: "data:image/webp;base64," + bytes.toString("base64") }, metadata.id);
   }));
   assertAppearanceValid(validateAppearanceSkin(skin, { assets: artwork, requireApprovedAssets: true, publish: true }));
-  // Keep the reviewed files independent of the editable catalog. The earned
-  // skin routes release this renderer payload after account or table approval.
-  const byId = new Map(artwork.map(asset => [asset.id, asset.data]));
-  const symbols = Object.entries(skin.symbolAssets || {}).filter(([, assetId]) => byId.has(assetId));
-  return {
-    ...publicAppearanceSkin(skin),
-    ...(symbols.length ? { symbolData: Object.fromEntries(symbols.map(([mode, assetId]) => [mode, byId.get(assetId)])) } : {}),
-    backgroundData: byId.get(skin.backgroundAsset),
-    ...resolveDesignArtwork(skin, id => byId.get(id)),
-  };
+  // Hydrate from the reviewed release once. The resulting renderer payload
+  // stays on the server until the account or table access check succeeds.
+  const bundledAppearance = await materializeAppearanceSkin(skin, { assets: artwork });
+  return { ...skin, bundledAppearance };
 }
 
 export function loadFieldNotesSkin() {

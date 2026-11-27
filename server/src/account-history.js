@@ -1,3 +1,4 @@
+import { recordedAward, studioRewardStatus } from './studio-reward-evidence.js';
 import { createHash, randomUUID } from "node:crypto";
 import { chooseMatchMoment, RECENT_ACCOLADE_LIMIT } from "./match-moments.js";
 import { APPEARANCE_ACHIEVEMENTS, DEEP_NIGHT_ACHIEVEMENT, NIGHT_SHIFT_ID, NIGHT_WATCH_REWARD, NIGHT_WATCH_SKIN_ID, nextAppearanceAchievement, PRISMATIC_CONFLUENCE_SKIN_ID, PRISMATIC_PATH_ACHIEVEMENT, PRISMATIC_PREREQUISITES } from "./appearance-milestones.js";
@@ -119,7 +120,7 @@ function prismaticRequirement(id, reached) {
 }
 const playedEveryColor = colors => ['W', 'U', 'B', 'R', 'G'].every(color => colors.has(color));
 
-const achievementsFor = ({ games, bestWinStreak, monthCount, playedColors, longTermAchievementIds = [], storedLegacyIds }) => {
+const achievementsFor = ({ games, bestWinStreak, monthCount, playedColors, longTermAchievementIds = [], storedLegacyIds, listDefinitions = false }) => {
   const wins = games.filter(game => game.won);
   const tableSizes = new Set(games.map(game => game.tableSize));
   const deckGames = new Map(); games.filter(game => game.deckId).forEach(game => deckGames.set(game.deckId, (deckGames.get(game.deckId) || 0) + 1));
@@ -232,11 +233,17 @@ const achievementsFor = ({ games, bestWinStreak, monthCount, playedColors, longT
       ['known-to-legends', 'Known to the Legends', 'Received 1,000 commander damage across saved games.', 1000],
     ]),
   ];
-  const legacy = definitions.filter(([id, , , reached]) => storedLegacyIds ? storedLegacyIds.has(id) : reached).map(([id, title, detail]) => ({ id, title, detail, rarity: achievementRarity(id) }));
+  const legacy = definitions.filter(([id, , , reached]) => listDefinitions || (storedLegacyIds ? storedLegacyIds.has(id) : reached)).map(([id, title, detail]) => ({ id, title, detail, rarity: achievementRarity(id) }));
   const longTerm = longTermDefinitions().filter(item => longTermAchievementIds.includes(item.id)).map(longTermAward);
-  const appearance = Object.values(APPEARANCE_ACHIEVEMENTS).filter(item => storedLegacyIds?.has(item.id));
+  const appearance = Object.values(APPEARANCE_ACHIEVEMENTS).filter(item => listDefinitions || storedLegacyIds?.has(item.id));
   return [...legacy, ...longTerm, ...appearance];
 };
+
+// Studio gets existing game-defined achievement IDs and labels from this protected catalog.
+export const studioAchievementCatalog = Object.freeze(achievementsFor({
+  games: [], playedColors: new Set(), monthCount: 0, bestWinStreak: 0,
+  listDefinitions: true, longTermAchievementIds: longTermDefinitions().map(item => item.id),
+}).concat(PRISMATIC_PATH_ACHIEVEMENT).sort((a, b) => a.title.localeCompare(b.title)).map(Object.freeze));
 
 function legacyDeckColors(games, decks) {
   const usedDecks = new Set(games.map(game => game.deckId).filter(Boolean));
@@ -273,7 +280,7 @@ function initialProgress(games, decks, now) {
   const existing = achievementsFor(rewardInputs(games, now, legacyColors));
   return {
     legacyColors,
-    awards: Object.fromEntries(existing.map(award => [award.id, { historical: true }])),
+    awards: Object.fromEntries(existing.map(award => [award.id, { historical: true, earnedAt: now }])),
     games: {},
   };
 }
@@ -284,12 +291,6 @@ function gameForProfile(game) {
   return fields;
 }
 
-function recordedAward(award) {
-  return award?.historical === true || award?.evidenceRemoved === true
-    || (typeof award?.gameId === 'string' && award.gameId.length > 0
-      && Number.isFinite(award.earnedAt) && Number.isInteger(award.ruleVersion) && award.ruleVersion > 0);
-}
-
 function awardsAfterGameRemoval(awards, gameId) {
   const retained = { ...awards };
   for (const [id, evidence] of Object.entries(retained)) {
@@ -297,6 +298,7 @@ function awardsAfterGameRemoval(awards, gameId) {
     if (recordedAward(evidence)) {
       retained[id] = {
         evidenceRemoved: true,
+        ...(Number.isFinite(evidence.earnedAt) ? { earnedAt: evidence.earnedAt } : {}),
         ...(id === NIGHT_SHIFT_ID && Object.hasOwn(evidence, "nightWatchRuleVersion") ? { nightWatchRuleVersion: 2 } : {}),
         ...(evidence.recoveryRunId ? { recoveryRunId: evidence.recoveryRunId } : {}),
       };
@@ -422,6 +424,42 @@ export class AccountHistory {
     return states;
   }
 
+  async studioSkinChoices(accountId, releases) {
+    if (!releases.length) return [];
+    const [account, stored] = await Promise.all([
+      this.store.read(accountPath(accountId)), this.store.read(progressPath(accountId)),
+    ]);
+    if (!account || stored?.closed) return [];
+    const needsLegacy = !stored || (releases.some(release => release.rewardHistory.length) &&
+      Object.values(stored.awards || {}).some(award => award?.historical === true));
+    const [records, deckRecords] = needsLegacy ? await Promise.all([
+      this.store.read(gamesPath(accountId)), this.store.read(decksPath(accountId)),
+    ]) : [{}, {}];
+    const games = Object.values(records || {}), decks = Object.values(deckRecords || {});
+    const now = this.now(), dates = new Map();
+    const legacyAwardsAt = end => {
+      if (!dates.has(end)) {
+        const before = games.filter(game => Number.isFinite(game.savedAt) && game.savedAt < end);
+        dates.set(end, initialProgress(before, decks, end - 1).awards);
+      }
+      return dates.get(end);
+    };
+    const baseline = stored || initialProgress(games, decks, now);
+    const inspect = progress => releases.map(release => studioRewardStatus(account, progress, release, legacyAwardsAt));
+    let results = inspect(baseline);
+    if (results.some(result => result.needsReceipt)) {
+      await this.store.update(progressPath(accountId), current => {
+        if (current?.closed) { results = []; return current; }
+        const progress = current || baseline;
+        results = inspect(progress);
+        const grants = {...progress.studioSkinGrants};
+        for (const result of results) if (result.needsReceipt) grants[result.choice.id] = {earnedAt: now};
+        return results.some(result => result.needsReceipt) ? {...progress, studioSkinGrants: grants} : current;
+      });
+    }
+    return results.map(result => result.choice);
+  }
+
   async grantSkin(accountId, skinId, source = 'grant') {
     if (!/^acct_[A-Za-z0-9-]{1,120}$/.test(accountId || '') || !/^[A-Za-z0-9_-]{1,80}$/.test(skinId || '') || !['grant', 'achievement', 'payment'].includes(source)) throw new TypeError('Skin grant is invalid');
     const account = await this.store.read(accountPath(accountId)); if (!account) throw new TypeError('Account is invalid');
@@ -508,7 +546,7 @@ export class AccountHistory {
   }
 
   // Only the room service constructs a completed seat for this method.
-  async saveCompletedGame(accountId, completion, deckId = null, appearanceAchievementIds = []) {
+  async saveCompletedGame(accountId, completion, deckId = null, appearanceAchievementIds = [], studioReleases = []) {
     if (completion.sessionKind !== "standard") {
       throw Object.assign(new Error("Practice games do not count toward profile achievements"), { status: 409, code: "PRACTICE_GAME" });
     }
@@ -617,8 +655,20 @@ export class AccountHistory {
           unlockedAchievements.push(appearance);
         }
       }
-      result = { game, moment, unlockedAchievements, ...(alreadyOwnedSkinAward ? { alreadyOwnedSkinAward } : {}), ...(nightWatchAwardId ? { nightWatchAwardId } : {}) };
-      return { ...progress, awards, games: { ...progress.games, [key]: game }, seats: { ...progress.seats, [key]: seatKey } };
+      const studioUnlocks = [];
+      let studioSkinGrants = progress.studioSkinGrants;
+      for (const release of studioReleases) {
+        const next = studioRewardStatus(account, {...progress, awards}, release);
+        if (!next.needsReceipt) continue;
+        studioSkinGrants = {...studioSkinGrants, [release.id]: {earnedAt: savedAt}};
+        const previous = studioRewardStatus(account, progress, release);
+        if (previous.choice.state === 'locked') {
+          const finalStep = unlockedAchievements.findLast(step => release.rewardRule.allOf.includes(step.id));
+          if (finalStep) studioUnlocks.push({achievementId: finalStep.id, skinName: release.skin.name});
+        }
+      }
+      result = { game, moment, unlockedAchievements, ...(studioUnlocks.length ? {studioUnlocks} : {}), ...(alreadyOwnedSkinAward ? { alreadyOwnedSkinAward } : {}), ...(nightWatchAwardId ? { nightWatchAwardId } : {}) };
+      return { ...progress, awards, ...(studioSkinGrants ? {studioSkinGrants} : {}), games: { ...progress.games, [key]: game }, seats: { ...progress.seats, [key]: seatKey } };
     });
     if (savedForAnotherSeat) {
       // The other seat can still be saved to its own profile.
@@ -671,6 +721,7 @@ export class AccountHistory {
     const longTermAchievementIds = Array.isArray(account.longTermAchievementIds) ? account.longTermAchievementIds : [];
     const nextAchievement = nextLongTermAchievement({ accountId, gameId, games: Object.values(savedGames), earnedIds: longTermAchievementIds });
     if (nextAchievement) await this.store.write(accountPath(accountId), { ...account, longTermAchievementIds: [...longTermAchievementIds, nextAchievement.id],
+      studioLongTermDates: {...account.studioLongTermDates, [nextAchievement.id]: game.savedAt},
       ...(nextAchievement.id === NIGHT_SHIFT_ID ? { nightWatchRuleVersion: 2 } : {}) });
     return game;
   }

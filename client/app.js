@@ -15,7 +15,6 @@ import { createCompetitionHub } from './competition-ui.js?v=10';
 import { parseCompetitionFragment } from './competition-model.mjs?v=2';
 import { createAppearanceCatchUp } from './appearance-catch-up.js?v=2';
 import { createDialLayout } from './dial-layout.js?v=10';
-import { createRendererBridge } from './renderer-bridge.js?v=10';
 import { bindDialSideTaps } from './dial-side-zones.js?v=2';
 import { bindDialTouchGuard } from './dial-touch-guard.js?v=1';
 import { nextGameStarterPolicy } from './next-game-starter.js?v=1';
@@ -23,9 +22,11 @@ import { tournamentTableFlow } from './tournament-table-flow.mjs?v=1';
 import { renderSeatOrder } from './seat-order.js?v=1';
 import { renderIntermissionPanel } from './intermission-panel.js?v=1';
 import { renderDeckLibrary as renderSavedDeckLibrary } from './deck-library-view.js?v=1';
+import { createRendererBridge, normalizePreviewFixture, previewMessageAllowed } from './renderer-bridge.js?v=11';
 
 const appearancePreviewMode = new URLSearchParams(location.search).get('appearance-preview') === '1';
 const appearanceParams = new URLSearchParams(location.search);
+const practiceRelease = appearancePreviewMode ? appearanceParams.get('practice-release') : null;
 const phoneLayoutSessionId = /^[A-Za-z0-9_-]{12,40}$/.test(appearanceParams.get('phone-layout') || '') ? appearanceParams.get('phone-layout') : '';
 const MODES = ['life', 'commander', 'radiation', 'poison', 'energy', 'generic'];
 const LOCAL_DEMO_IDLE_TIMEOUT_MS = 24 * 60 * 60 * 1000;
@@ -187,7 +188,7 @@ const registration = createAccountScreen({
 const accountSkinRewards = $('#accountSkinRewards');
 const accountInterfaceStyleField = $('#accountInterfaceStyleField'); const accountInterfaceStyle = $('#accountInterfaceStyle'); const accountPersonalSkinField = $('#accountPersonalSkinField'); const accountPersonalSkin = $('#accountPersonalSkin'); const accountUsePersonalSkinField = $('#accountUsePersonalSkinField'); const accountUsePersonalSkin = $('#accountUsePersonalSkin');
 let state = null;
-let developerMode = sessionStorage.getItem(DEVELOPER_MODE_KEY) === 'on';
+let developerMode = practiceRelease === null && sessionStorage.getItem(DEVELOPER_MODE_KEY) === 'on';
 const SAVED_TABLES_KEY = 'fivefold-arc:saved-tables';
 const ACTIVE_TABLE_KEY = 'fivefold-arc:active-table';
 const LEGACY_ACTIVE_TABLE_KEY = 'fivefold-arc:last-active-table';
@@ -449,9 +450,8 @@ const achievementRarityLabel = (rarity) => ({ common: 'Common', uncommon: 'Uncom
 const achievementRarityMark = (rarity) => ({ common: '◇', uncommon: '✦', rare: '✧', epic: '✹', legendary: '✪' })[rarity] || '◇';
 const achievementCardHtml = (achievement, showNew = false) => {
   const rarity = achievement.rarity || 'common';
-  const skinReward = achievement.unlockedSkinName
-    ? `<small class="achievement-skin-reward">You unlocked the ${escapeHtml(achievement.unlockedSkinName)} skin.</small>`
-    : '';
+  const names = achievement.unlockedSkinNames || (achievement.unlockedSkinName ? [achievement.unlockedSkinName] : []);
+  const skinReward = names.map(name => `<small class="achievement-skin-reward">You unlocked the ${escapeHtml(name)} skin.</small>`).join('');
   return `<article class="achievement-card" data-rarity="${escapeHtml(rarity)}">
     <span aria-hidden="true">${achievementRarityMark(rarity)}</span>
     <div>
@@ -576,6 +576,10 @@ function renderVictory() {
   if (!result || (!winner && !timedDraw)) { shownVictoryKey = null; victoryStage = 'winner'; if (dom.victoryDialog.open) dom.victoryDialog.close('game-reset'); return; }
   const declared = result.reason === 'declared_winner';
   dom.victoryNotice.textContent = timedDraw ? 'TIMED DRAW · Surviving players share placement points' : `${declared ? 'WINNER' : 'LAST PLAYER STANDING'} · ${displayName(winner)}`;
+  if (practiceRelease !== null) {
+    dom.viewCelebrationButton.hidden = true;
+    return;
+  }
   const actingSeatId = state.localSimulation ? state.activePlayerId : state.ownerPlayerId;
   const key = victoryKey(result);
   // Preserve the existing rapid-correction grace period before saving/revealing.
@@ -788,8 +792,8 @@ async function applySelectedAppearance() {
       const skin = await transport.sharedAchievementSkin();
       if (generation !== appearanceRequestGeneration) return;
       if (skin?.id !== id) throw new Error();
-      applyEarnedAppearance(skin);
       activeGameSkinId = key;
+      applyEarnedAppearance(skin);
       return;
     }
     const headers = {};
@@ -805,8 +809,8 @@ async function applySelectedAppearance() {
     const { skin } = await response.json();
     if (generation !== appearanceRequestGeneration) return;
     if (isEarned) {
-      applyEarnedAppearance(skin);
       activeGameSkinId = id;
+      applyEarnedAppearance(skin);
       return;
     }
     if (document.documentElement.hasAttribute('data-collection-treatment')) clearPublishedSkin();
@@ -1934,7 +1938,7 @@ function render() {
   dom.game.dataset.hasIdentity = String(playerIdentity(player).length > 0);
   dom.game.dataset.counterMode = state.mode;
   const counterValue = currentValue(player);
-  dom.podLabel.textContent = state.podCode === 'LOCAL' ? 'LOCAL TABLE' : `TABLE ${state.podCode}`; dom.modeTitle.textContent = state.mode.toUpperCase(); dom.mainValue.value = counterValue; dom.mainValue.classList.toggle('elimination-placeholder', player.eliminated); dom.mainValue.setAttribute('aria-hidden', String(player.eliminated));
+  dom.podLabel.textContent = state.podCode === 'LOCAL' ? 'LOCAL TABLE' : `TABLE ${state.podCode}`; dom.modeTitle.textContent = state.mode === 'commander' ? 'DAMAGE RECEIVED' : state.mode.toUpperCase(); dom.mainValue.value = counterValue; dom.mainValue.classList.toggle('elimination-placeholder', player.eliminated); dom.mainValue.setAttribute('aria-hidden', String(player.eliminated));
   dom.game.style.setProperty('--dial-seal-rotation', `${counterValue * 12}deg`);
   const inspectingSharedSeat = !state.localSimulation && player.id !== state.ownerPlayerId;
   dom.counterContext.textContent = `${displayName(player)}${state.localSimulation && player.id !== state.ownerPlayerId ? ' · SIMULATED' : ''}`;
@@ -2208,11 +2212,12 @@ function renderSources(player) {
   dom.sourcePanel.classList.remove('source-panel-dense', 'source-panel-turn-clearance');
   const pairedSources = source ? sourcesForDefender(player.id).filter(candidate => candidate.ownerPlayerId === source.ownerPlayerId) : [];
   const hasPair = pairedSources.length === 2;
+  const sourceLabel = source ? source.commanderName || `${sourceOwnerLabel(source)}'s commander` : '';
   dom.sourcePanel.classList.toggle('commander-source-pair', hasPair);
   dom.sourcePanel.innerHTML = source ? (hasPair ? pairedSources.map(candidate => {
     const selected = candidate.id === source.id;
     return `<button class="inline-commander-choice${selected ? ' selected' : ''}" data-inline-source-choice="${escapeHtml(candidate.id)}" type="button" aria-pressed="${selected}" aria-label="${escapeHtml(`${sourceChoiceLabel(candidate)}${selected ? ', selected. Tap to choose another commander.' : ', choose this commander.'}`)}"><strong>${escapeHtml(sourceChoiceLabel(candidate))}</strong><em><small>Damage</small>${commanderValue(player, candidate.id)}</em><b>${selected ? 'Selected · change' : 'Choose'}</b></button>`;
-  }).join('') : `<button class="selected-source-button" id="changeCommanderSourceButton" type="button"><span><strong>${escapeHtml(sourceChoiceLabel(source))}</strong><small>${escapeHtml(`${sourceOwnerLabel(source)} · ${source.ownerPlayerId}`)}</small></span><em>${commanderValue(player, source.id)}</em><b>Change commander</b></button>`) : '<p class="field-help">No commander sources are available for this table.</p>';
+  }).join('') : `<button class="selected-source-button" id="changeCommanderSourceButton" type="button"><span><strong>From ${escapeHtml(sourceLabel)}</strong><small>${escapeHtml(`${sourceOwnerLabel(source)} · ${source.ownerPlayerId}`)}</small></span><small class="commander-life-note">Life adjusts automatically</small><b>Change source</b></button>`) : '<p class="field-help">No commander sources are available for this table.</p>';
   $('#changeCommanderSourceButton')?.addEventListener('click', () => openCommanderSourceDialog(player));
   $$('[data-inline-source-choice]').forEach(button => button.addEventListener('click', () => {
     if (button.dataset.inlineSourceChoice === state.selectedSourceId) openCommanderSourceDialog(player);
@@ -2362,9 +2367,16 @@ function remapLocalCastCounts(previousSources, nextSources) {
   const oldId = new Map(previousSources.map(source => [`${source.ownerPlayerId}:${source.slot || 'A'}`, source.id]));
   state.commanderCastCounts = Object.fromEntries(nextSources.map(source => [source.id, state.commanderCastCounts[oldId.get(`${source.ownerPlayerId}:${source.slot || 'A'}`)] || 0]));
 }
+function setLocalCommanderSetup(player, count, names, colors) {
+  const previousSources = state.commanderSources;
+  player.commanderCount = count; player.commanderNames = names; player.commanderColors = colors;
+  state.commanderSources = sourcesFromPlayers(state.players);
+  remapLocalDamage(previousSources,state.commanderSources); remapLocalCastCounts(previousSources,state.commanderSources);
+  state.selectedSourceId = null; render();
+}
 async function updateCommanderSetup(count, names, colors, { ownerOnly = false } = {}) {
   const player = state.localSimulation && !ownerOnly ? activePlayer() : state.players.find(item => item.id === state.ownerPlayerId);
-  if (transport.status === 'local') { const previousSources = state.commanderSources; player.commanderCount = count; player.commanderNames = names; player.commanderColors = colors; state.commanderSources = sourcesFromPlayers(state.players); remapLocalDamage(previousSources, state.commanderSources); remapLocalCastCounts(previousSources, state.commanderSources); state.selectedSourceId = null; render(); return true; }
+  if (transport.status === 'local') { setLocalCommanderSetup(player,count,names,colors); return true; }
   try { const result = await transport.setCommanderSetup(count, names, colors); if (result.conflict) showError(new Error('The table changed first. The latest commander setup is shown.')); return !result.conflict && !result.blocked && !result.ignored; } catch (error) { showError(error); return false; }
 }
 function confirmedCommanderDeck() {
@@ -2998,7 +3010,8 @@ function touchLocalDemo() {
   }
 }
 
-fillSetupControls(); refreshSetupCommanderNames(); updateFormatSetup(); renderDeveloperTools(); renderConnection(); renderSavedTables();
+fillSetupControls(); refreshSetupCommanderNames(); updateFormatSetup(); renderDeveloperTools(); renderConnection();
+if (practiceRelease === null) renderSavedTables();
 let createStep = 1;
 function showCreateStep(step) {
   const previousStep = createStep;
@@ -3402,7 +3415,7 @@ window.addEventListener('error', event => recordClientDiagnostic('unhandled_erro
 window.addEventListener('unhandledrejection', event => recordClientDiagnostic('unhandled_error', { errorCode: diagnosticErrorCode(event.reason) }));
 dom.startingRollCanvas?.addEventListener('webglcontextlost', () => recordClientDiagnostic('webgl_context_lost'));
 transport.addEventListener('protocolerror', () => recordClientDiagnostic('protocol_error'));
-if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js').catch(() => {});
+if (practiceRelease === null && 'serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js').catch(() => {});
 const deepJoinCode = new URLSearchParams(location.search).get('join');
 const deepCompetitionFragment = parseCompetitionFragment(location.hash);
 if (!appearancePreviewMode) {
@@ -3429,71 +3442,145 @@ if (appearancePreviewMode) {
   state.turn = { ...state.turn, gameStarted: true, gameStartedAt: startedAt, turnStartedAt: startedAt, startingPlayerSeatId: 0 };
   showView(dom.game); render();
   document.documentElement.classList.add('appearance-preview');
-  const appearancePreviewStyle = document.createElement('style'); appearancePreviewStyle.textContent = 'html.appearance-preview[data-appearance-custom="true"] body{background:radial-gradient(circle at var(--appearance-position,50% 0%),color-mix(in srgb,var(--appearance-atmosphere,#000) calc(var(--appearance-strength,0) * 100%),transparent),transparent 58%),var(--bg);background-size:cover;background-position:center}html.appearance-preview .game-shell{pointer-events:none}html.appearance-preview[data-appearance-custom="true"] :is(.counter-stage,.dial-face)::after{border-style:var(--appearance-ring-style,solid)}html.appearance-preview[data-appearance-custom="true"] #gameView[data-appearance-ring="none"] :is(.counter-stage,.dial-face)::after,html.appearance-preview[data-appearance-custom="true"] #gameView[data-appearance-ring="none"] .counter-sigil{display:none}html.appearance-preview[data-appearance-custom="true"] #gameView[data-appearance-ring="orbit"] :is(.counter-stage,.dial-face)::after{border-style:dashed}html.appearance-preview[data-appearance-custom="true"] #gameView[data-appearance-seat="flat"] .pod-seat{border-radius:0;box-shadow:none}html.appearance-preview[data-appearance-custom="true"] #gameView[data-appearance-seat="glass"] .pod-seat{background:color-mix(in srgb,var(--surface) 72%,transparent);backdrop-filter:blur(7px)}html.appearance-preview[data-appearance-custom="true"] #gameView[data-appearance-button="glass"] .end-turn-button{background:color-mix(in srgb,var(--brass) 36%,var(--surface));color:var(--ink);backdrop-filter:blur(8px)}html.appearance-preview[data-appearance-custom="true"] #gameView[data-appearance-button="outline"] .end-turn-button{background:transparent;color:var(--brass)}html.appearance-preview[data-appearance-custom="true"] .mode-nav img{width:22px;height:22px;object-fit:contain}html.appearance-preview[data-appearance-custom="true"] .counter-sigil img{width:100%;height:100%;object-fit:contain}'; document.head.append(appearancePreviewStyle);
-  const appearanceSeatStyle = document.createElement('style'); appearanceSeatStyle.textContent = 'html.appearance-preview[data-appearance-custom="true"] #gameView .pod-seat{border-color:color-mix(in srgb,#5b594f calc(var(--appearance-seat-border,70) * 1%),transparent);background:color-mix(in srgb,var(--surface) calc(var(--appearance-seat-opacity,100) * 1%),transparent);backdrop-filter:blur(calc(var(--appearance-seat-blur,0) * 1px))}html.appearance-preview[data-appearance-custom="true"] #gameView[data-appearance-seat="glass"] .pod-seat{background:color-mix(in srgb,var(--surface) calc(var(--appearance-seat-opacity,100) * .72%),transparent)}'; document.head.append(appearanceSeatStyle);
-  const appearanceButtonStyle = document.createElement('style'); appearanceButtonStyle.textContent = 'html.appearance-preview[data-appearance-custom="true"] #gameView .end-turn-button{border-color:color-mix(in srgb,var(--brass) calc(var(--appearance-button-border,70) * 1%),transparent);background:color-mix(in srgb,var(--brass) calc(var(--appearance-button-opacity,100) * 1%),transparent);backdrop-filter:blur(calc(var(--appearance-button-blur,0) * 1px))}html.appearance-preview[data-appearance-custom="true"] #gameView .adjust-controls button{border-color:color-mix(in srgb,#62583f calc(var(--appearance-life-button-border,70) * 1%),transparent);background:color-mix(in srgb,var(--surface) calc(var(--appearance-life-button-opacity,100) * 1%),transparent);backdrop-filter:blur(calc(var(--appearance-life-button-blur,0) * 1px))}html.appearance-preview[data-appearance-custom="true"] #gameView .custom-life-button{border-color:color-mix(in srgb,#62583f calc(var(--appearance-custom-life-border,70) * 1%),transparent);background:color-mix(in srgb,var(--surface) calc(var(--appearance-custom-life-opacity,100) * 1%),transparent);backdrop-filter:blur(calc(var(--appearance-custom-life-blur,0) * 1px))}html.appearance-preview[data-appearance-custom="true"] #gameView .commander-tax-quick button{border-color:color-mix(in srgb,#62583f calc(var(--appearance-commander-tax-border,70) * 1%),transparent);background:color-mix(in srgb,var(--surface) calc(var(--appearance-commander-tax-opacity,100) * 1%),transparent);backdrop-filter:blur(calc(var(--appearance-commander-tax-blur,0) * 1px))}'; document.head.append(appearanceButtonStyle);
-  const appearanceCommanderDamageStyle = document.createElement('style'); appearanceCommanderDamageStyle.textContent = 'html.appearance-preview[data-appearance-custom="true"] #gameView .source-panel .selected-source-button,html.appearance-preview[data-appearance-custom="true"] #gameView .source-panel .inline-commander-choice{border-color:color-mix(in srgb,#62583f calc(var(--appearance-commander-damage-border,70) * 1%),transparent);background:color-mix(in srgb,var(--surface) calc(var(--appearance-commander-damage-opacity,100) * 1%),transparent);backdrop-filter:blur(calc(var(--appearance-commander-damage-blur,0) * 1px))}'; document.head.append(appearanceCommanderDamageStyle);
-  const builtInSealMarkup = document.querySelector('.counter-sigil')?.innerHTML || ''; let activeAppearanceSkin = null;
-  const appearanceUxStyle = document.createElement('style'); appearanceUxStyle.textContent = 'html.appearance-preview #gameView{font-family:var(--appearance-font,inherit)}html.appearance-preview #gameView .pod-seat{border-radius:var(--appearance-seat-radius,8px)}html.appearance-preview #gameView .pod-seat .seat-name{font-size:calc(.72rem * var(--appearance-seat-text-scale,1))}html.appearance-preview #gameView .pod-seat .seat-life{font-size:calc(1.82rem * var(--appearance-seat-text-scale,1))}html.appearance-preview #gameView .turn-banner p{font-size:calc(.67rem * var(--appearance-label-text-scale,1))}html.appearance-preview #gameView .turn-banner strong{font-size:calc(.92rem * var(--appearance-label-text-scale,1))}html.appearance-preview #gameView .turn-banner span{font-size:calc(.62rem * var(--appearance-label-text-scale,1))}html.appearance-preview #gameView .end-turn-button{font-size:calc(.82rem * var(--appearance-label-text-scale,1))}html.appearance-preview #gameView .mode-nav small{font-size:calc(clamp(.48rem,2.4vw,.65rem) * var(--appearance-label-text-scale,1))}html.appearance-preview #gameView .end-turn-button,html.appearance-preview #gameView .adjust-controls button{border-radius:var(--appearance-button-radius,6px)}html.appearance-preview #gameView .counter-readout{translate:0 var(--appearance-counter-offset,0);z-index:3}html.appearance-preview #gameView .counter-sigil{translate:none;scale:1;transform:translate(-50%,var(--counter-seal-anchor-y,-43%)) translate(var(--appearance-seal-offset-x,0),var(--appearance-seal-offset-y,0)) scale(var(--appearance-seal-scale,1)) rotate(var(--appearance-seal-rotation,0deg));transform-origin:center}html.appearance-preview #gameView .main-value{translate:var(--appearance-life-number-offset-x,0) var(--appearance-life-number-offset-y,0);scale:var(--appearance-life-number-transform-scale,var(--appearance-life-number-scale,1));transform-origin:center}html.appearance-preview #gameView #turnActions{translate:0 var(--appearance-turn-offset,0)}html.appearance-preview #gameView .adjust-controls{translate:0 var(--appearance-controls-offset,0)}html.appearance-preview .appearance-overlay{position:absolute;inset:0;z-index:2;width:100%;height:100%;object-fit:cover;pointer-events:none;mix-blend-mode:var(--appearance-overlay-blend,normal);opacity:var(--appearance-overlay-opacity,.3);transform:scale(var(--appearance-overlay-scale,1));transform-origin:center}html.appearance-preview .appearance-dial-art{object-fit:contain;transform:scale(var(--appearance-overlay-scale,1)) rotate(var(--appearance-dial-art-rotation,0deg))}html.appearance-preview .pod-seat{position:relative;overflow:hidden}html.appearance-preview .pod-seat>.seat-name,html.appearance-preview .pod-seat>.seat-life,html.appearance-preview .dial-controls>*:not(.appearance-overlay){position:relative;z-index:3}html.appearance-preview .pod-seat>.identity-rail{z-index:3}html.appearance-preview .counter-stage>.dial-controls{z-index:3}'; document.head.append(appearanceUxStyle);
-  const appearanceDialArtStyle = document.createElement('style'); appearanceDialArtStyle.textContent = 'html.appearance-preview .dial-gesture{position:relative;overflow:visible;transform-origin:50% 50%}html.appearance-preview .dial-gesture>.appearance-overlay{border-radius:0;object-fit:contain;object-position:center;transform:scale(var(--appearance-overlay-scale,1)) rotate(var(--dial-seal-rotation,0deg));transform-origin:50% 50%;will-change:transform}'; document.head.append(appearanceDialArtStyle);
-  const appearanceSemanticTypeStyle = document.createElement('style'); appearanceSemanticTypeStyle.textContent = 'html.appearance-preview[data-appearance-custom="true"] #gameView{font-weight:var(--appearance-font-weight,inherit);line-height:var(--appearance-line-height,normal);letter-spacing:var(--appearance-letter-spacing,normal)}html.appearance-preview[data-appearance-custom="true"] #gameView .turn-banner,html.appearance-preview[data-appearance-custom="true"] #gameView .end-turn-button,html.appearance-preview[data-appearance-custom="true"] #gameView .mode-nav button{text-transform:var(--appearance-text-transform,none);text-align:var(--appearance-label-alignment,inherit);text-shadow:var(--appearance-text-shadow,none)}'; document.head.append(appearanceSemanticTypeStyle);
-  const appearanceSeatGapStyle = document.createElement('style'); appearanceSeatGapStyle.textContent = 'html.appearance-preview[data-appearance-custom="true"] #gameView .pod-strip{gap:var(--appearance-seat-gap,8px)}'; document.head.append(appearanceSeatGapStyle);
-  const appearanceComponentColorStyle = document.createElement('style'); appearanceComponentColorStyle.textContent = 'html.appearance-preview[data-appearance-custom="true"] #gameView .end-turn-button{background:var(--appearance-end-turn-background);color:var(--appearance-end-turn-text);border-color:var(--appearance-end-turn-border)}html.appearance-preview[data-appearance-custom="true"] #gameView .adjust-controls button{background:var(--appearance-life-buttons-background);color:var(--appearance-life-buttons-text);border-color:var(--appearance-life-buttons-border)}html.appearance-preview[data-appearance-custom="true"] #gameView .pod-seat{background:var(--appearance-player-cards-background);color:var(--appearance-player-cards-text);border-color:var(--appearance-player-cards-border)}html.appearance-preview[data-appearance-custom="true"] #gameView .mode-nav button{background:var(--appearance-navigation-background);color:var(--appearance-navigation-text);border-color:var(--appearance-navigation-border)}html.appearance-preview[data-appearance-custom="true"] #gameView .mode-nav button.active{color:var(--appearance-navigation-selected-text);border-color:var(--appearance-navigation-selected-border)}'; document.head.append(appearanceComponentColorStyle);
-  function applyAppearanceOverlays(skin) { document.querySelectorAll('.appearance-overlay').forEach(node => node.remove()); const add = (target, data, slot) => { if (!target || !data) return; const image = document.createElement('img'); image.className = `appearance-overlay${slot === 'dial' ? ' appearance-dial-art' : ''}`; image.alt = ''; image.src = data; image.style.setProperty('--appearance-overlay-opacity', String(Math.min(70, Math.max(0, Number(skin.overlayOpacity?.[slot]) || 0)) / 100)); image.style.setProperty('--appearance-overlay-scale', String(Math.min(160, Math.max(50, Number(skin.overlayScale?.[slot]) || 100)) / 100)); image.style.setProperty('--appearance-overlay-blend', skin.overlayBlend?.[slot] || 'normal'); if (slot === 'dial') image.style.setProperty('--appearance-dial-art-rotation', skin.dialArtSpin ? 'var(--dial-seal-rotation,0deg)' : '0deg'); target.append(image); }; document.querySelectorAll('.pod-seat').forEach(seat => add(seat, skin.overlayData?.seat, 'seat')); add(document.querySelector('.counter-stage'), skin.overlayData?.counter, 'counter'); add(document.querySelector('.dial-gesture'), skin.overlayData?.dial, 'dial'); }
-  // Layout transforms apply only to named outer regions. They never change
-  // child positioning, handlers, or document flow inside the game renderer.
-  const appearanceComponentLayoutStyle = document.createElement('style'); appearanceComponentLayoutStyle.textContent = 'html.appearance-preview #gameView .pod-strip{translate:var(--appearance-pod-strip-x,0) var(--appearance-pod-strip-y,0);scale:var(--appearance-pod-strip-scale,1)}html.appearance-preview #gameView .counter-readout{translate:var(--appearance-counter-readout-x,0) calc(var(--appearance-counter-offset,0px) + var(--appearance-counter-readout-y,0px));scale:var(--appearance-counter-readout-scale,1)}html.appearance-preview #gameView .dial-gesture{translate:var(--appearance-dial-surface-x,0) var(--appearance-dial-surface-y,0);scale:var(--appearance-dial-surface-scale,1)}html.appearance-preview #gameView .source-panel{translate:var(--appearance-commander-damage-x,0) var(--appearance-commander-damage-y,0);scale:var(--appearance-commander-damage-scale,1)}html.appearance-preview #gameView #turnActions{translate:var(--appearance-turn-actions-x,0) calc(var(--appearance-turn-offset,0px) + var(--appearance-turn-actions-y,0px));scale:var(--appearance-turn-actions-scale,1)}html.appearance-preview #gameView .adjust-controls{translate:var(--appearance-adjust-controls-x,0) calc(var(--appearance-controls-offset,0px) + var(--appearance-adjust-controls-y,0px));scale:var(--appearance-adjust-controls-scale,1)}html.appearance-preview #gameView .custom-life-button{translate:var(--appearance-custom-life-x,0) var(--appearance-custom-life-y,0);scale:var(--appearance-custom-life-scale,1)}html.appearance-preview #gameView .commander-tax-quick{translate:var(--appearance-commander-tax-x,0) var(--appearance-commander-tax-y,0);scale:var(--appearance-commander-tax-scale,1)}html.appearance-preview #gameView .mode-nav{translate:var(--appearance-mode-nav-x,0) var(--appearance-mode-nav-y,0);scale:var(--appearance-mode-nav-scale,1)}'; document.head.append(appearanceComponentLayoutStyle);
-  // A desktop iframe has no iPhone safe-area environment values. Device
-  // Preview supplies the selected iOS bottom inset so its live renderer has
-  // the same reserved navigation space as the phone it represents.
-  const appearanceSafeAreaStyle = document.createElement('style'); appearanceSafeAreaStyle.textContent = 'html.appearance-preview #gameView .mode-nav{padding-bottom:calc(3px + var(--appearance-preview-safe-bottom,env(safe-area-inset-bottom)))}html.appearance-preview .game-shell:not([data-interface-style="dial"]){padding-bottom:calc(var(--mode-nav-height) + 18px + var(--appearance-preview-safe-bottom,env(safe-area-inset-bottom)))}'; document.head.append(appearanceSafeAreaStyle);
-  // Every Studio scale is centered on the same visual point. Position controls
-  // may deliberately move an item, but changing only its size never does.
-  const appearanceScaleOriginStyle = document.createElement('style'); appearanceScaleOriginStyle.textContent = 'html.appearance-preview #gameView .pod-strip,html.appearance-preview #gameView .counter-readout,html.appearance-preview #gameView .dial-gesture,html.appearance-preview #gameView .source-panel,html.appearance-preview #gameView #turnActions,html.appearance-preview #gameView .adjust-controls,html.appearance-preview #gameView .custom-life-button,html.appearance-preview #gameView .commander-tax-quick,html.appearance-preview #gameView .mode-nav,html.appearance-preview #gameView .counter-sigil,html.appearance-preview #gameView .main-value,html.appearance-preview .appearance-overlay{transform-origin:center center}'; document.head.append(appearanceScaleOriginStyle);
-  window.addEventListener('message', event => {
-    if (event.origin !== location.origin || event.data?.type !== 'fivefold-arc:appearance-skin') return;
-    const skin = event.data.skin; if (!skin) return; activeAppearanceSkin = structuredClone(skin);
-    const root = document.documentElement, game = dom.game, customAppearance = !skin.useGameBase; root.dataset.appearanceCustom = String(customAppearance); game.dataset.appearanceCustom = String(customAppearance); appearanceUxStyle.disabled = !customAppearance; root.style.colorScheme = ['light','dark'].includes(skin.previewColorScheme) ? skin.previewColorScheme : ''; ['button','lifeButton','customLife','commanderTax','commanderDamage'].forEach(prefix => { const css = prefix.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`), opacity = Math.min(100, Math.max(35, Number(skin[`${prefix}Opacity`]) || 100)), blur = Math.min(16, Math.max(0, Number(skin[`${prefix}Blur`]) || 0)), border = Number.isFinite(Number(skin[`${prefix}Border`])) ? Math.min(100, Math.max(0, Number(skin[`${prefix}Border`]))) : 70; root.style.setProperty(`--appearance-${css}-opacity`, String(opacity)); root.style.setProperty(`--appearance-${css}-blur`, String(blur)); root.style.setProperty(`--appearance-${css}-border`, String(border)); });
-    root.style.setProperty('--bg', skin.background); root.style.setProperty('--surface', skin.surface); root.style.setProperty('--surface-2', skin.surface); root.style.setProperty('--ink', skin.text); root.style.setProperty('--muted', skin.muted); root.style.setProperty('--brass', skin.accent); root.style.setProperty('--brass-dark', skin.secondary); root.style.setProperty('--safe', /^#[0-9a-f]{6}$/i.test(skin.stateSuccess || '') ? skin.stateSuccess : '#85c799'); root.style.setProperty('--warning', /^#[0-9a-f]{6}$/i.test(skin.stateWarning || '') ? skin.stateWarning : '#efc968'); root.style.setProperty('--danger', /^#[0-9a-f]{6}$/i.test(skin.stateDanger || '') ? skin.stateDanger : '#ed866f'); root.style.setProperty('--focus-ring', `0 0 0 3px #fff,0 0 0 6px ${/^#[0-9a-f]{6}$/i.test(skin.focusColor || '') ? skin.focusColor : skin.accent}`); root.style.setProperty('--appearance-font-weight', String([400,500,600,700].includes(Number(skin.fontWeight)) ? Number(skin.fontWeight) : 700)); root.style.setProperty('--appearance-line-height', String(Math.min(1.6, Math.max(1.1, Number(skin.lineHeight) || 1.2)))); root.style.setProperty('--appearance-letter-spacing', `${Math.min(.08, Math.max(-.02, Number(skin.letterSpacing) || 0))}em`); root.style.setProperty('--appearance-atmosphere', skin.atmosphereColor); root.style.setProperty('--appearance-strength', String((Number(skin.atmosphereStrength) || 0) / 100)); root.style.setProperty('--appearance-position', skin.atmospherePosition === 'bottom' ? '50% 100%' : skin.atmospherePosition === 'center' ? '50% 50%' : '50% 0%'); root.style.setProperty('--appearance-seat-opacity', String(Math.min(100, Math.max(35, Number(skin.seatOpacity) || 100)))); root.style.setProperty('--appearance-seat-blur', String(Math.min(16, Math.max(0, Number(skin.seatBlur) || 0)))); root.style.setProperty('--appearance-seat-border', String(Math.min(100, Math.max(0, Number.isFinite(Number(skin.seatBorder)) ? Number(skin.seatBorder) : 70))));
-    root.style.setProperty('--appearance-text-transform', ['none','uppercase'].includes(skin.textTransform) ? skin.textTransform : 'none'); root.style.setProperty('--appearance-label-alignment', ['inherit','start','center'].includes(skin.labelAlignment) ? skin.labelAlignment : 'inherit'); root.style.setProperty('--appearance-text-shadow', skin.textEffect === 'soft-shadow' ? '0 1px 3px rgb(0 0 0 / .7)' : 'none'); root.style.setProperty('--appearance-seat-gap', `${Math.min(16, Math.max(4, Number(skin.seatGap) || 8))}px`);
-    const componentColors = skin.componentColors || {}; Object.entries({ endTurn: 'end-turn', lifeButtons: 'life-buttons', playerCards: 'player-cards', navigation: 'navigation' }).forEach(([key, css]) => { const colors = componentColors[key] || {}; root.style.setProperty(`--appearance-${css}-background`, /^#[0-9a-f]{6}$/i.test(colors.background || '') ? colors.background : skin.surface); root.style.setProperty(`--appearance-${css}-text`, /^#[0-9a-f]{6}$/i.test(colors.text || '') ? colors.text : skin.text); root.style.setProperty(`--appearance-${css}-border`, /^#[0-9a-f]{6}$/i.test(colors.border || '') ? colors.border : skin.accent); if (key === 'navigation') { root.style.setProperty('--appearance-navigation-selected-text', /^#[0-9a-f]{6}$/i.test(colors.selectedText || '') ? colors.selectedText : skin.accent); root.style.setProperty('--appearance-navigation-selected-border', /^#[0-9a-f]{6}$/i.test(colors.selectedBorder || '') ? colors.selectedBorder : skin.accent); } });
-    root.style.setProperty('--appearance-preview-safe-bottom', `${Math.min(48, Math.max(0, Number(skin.previewSafeBottom) || 0))}px`);
-    const previewPlayers = [4, 6, 8].includes(Number(skin.previewPlayers)) ? Number(skin.previewPlayers) : 4;
-    if (state.playerCount !== previewPlayers) { state = createState({ playerCount: previewPlayers, ownerName: 'Mira', podCode: 'STUDIO' }); const startedAt = Date.now(); state.turn = { ...state.turn, gameStarted: true, gameStartedAt: startedAt, turnStartedAt: startedAt, startingPlayerSeatId: 0 }; }
-    const previewMode = MODES.includes(skin.previewMode) ? skin.previewMode : skin.previewState === 'damage' ? 'commander' : 'life';
-    interfaceStyle = skin.interfaceStyle === 'dial' ? 'dial' : 'button'; root.style.setProperty('--appearance-font', skin.fontFamily === 'serif' ? 'Georgia,serif' : skin.fontFamily === 'rounded' ? 'ui-rounded,system-ui,sans-serif' : skin.fontFamily === 'mono' ? 'ui-monospace,monospace' : 'inherit'); root.style.setProperty('--appearance-label-text-scale', String(Math.min(115, Math.max(85, Number(skin.labelTextScale) || 100)) / 100)); root.style.setProperty('--appearance-seat-text-scale', String(Math.min(115, Math.max(85, Number(skin.seatTextScale) || 100)) / 100)); root.style.setProperty('--appearance-seat-radius', `${Math.min(24, Math.max(0, Number(skin.seatRadius) || 8))}px`); root.style.setProperty('--appearance-button-radius', `${Math.min(24, Math.max(0, Number(skin.buttonRadius) || 8))}px`); root.style.setProperty('--appearance-counter-offset', `${Math.min(18, Math.max(-18, Number(skin.counterOffsetY) || 0))}px`); root.style.setProperty('--appearance-seal-scale', String(Math.min(150, Math.max(60, Number(skin.centerSealScale) || 100)) / 100)); root.style.setProperty('--appearance-seal-offset-x', `${Math.min(18, Math.max(-18, Number(skin.centerSealOffsetX) || 0))}px`); root.style.setProperty('--appearance-seal-offset-y', `${Math.min(18, Math.max(-18, Number(skin.centerSealOffsetY) || 0))}px`); root.style.setProperty('--appearance-seal-rotation', interfaceStyle === 'dial' ? 'var(--dial-seal-rotation,0deg)' : '0deg'); root.style.setProperty('--appearance-life-number-scale', String(Math.min(140, Math.max(75, Number(skin.lifeNumberScale) || 100)) / 100)); root.style.setProperty('--appearance-life-number-offset-x', `${Math.min(14, Math.max(-14, Number(skin.lifeNumberOffsetX) || 0))}px`); root.style.setProperty('--appearance-life-number-offset-y', `${Math.min(14, Math.max(-14, Number(skin.lifeNumberOffsetY) || 0))}px`); root.style.setProperty('--appearance-turn-offset', `${Math.min(12, Math.max(-12, Number(skin.turnOffsetY) || 0))}px`); root.style.setProperty('--appearance-controls-offset', `${Math.min(12, Math.max(-12, Number(skin.controlsOffsetY) || 0))}px`);
-    const componentLayout = skin.componentLayout || {};
-    Object.entries({ podStrip: 'pod-strip', counterReadout: 'counter-readout', dialSurface: 'dial-surface', commanderDamage: 'commander-damage', turnActions: 'turn-actions', adjustControls: 'adjust-controls', customLife: 'custom-life', commanderTax: 'commander-tax', modeNav: 'mode-nav' }).forEach(([key, css]) => {
-      const placement = componentLayout[key] || {};
-      root.style.setProperty(`--appearance-${css}-x`, `${Math.min(100, Math.max(-100, Number(placement.x) || 0))}px`);
-      root.style.setProperty(`--appearance-${css}-y`, `${Math.min(140, Math.max(-140, Number(placement.y) || 0))}px`);
-      root.style.setProperty(`--appearance-${css}-scale`, String(Math.min(140, Math.max(70, Number(placement.scale) || 100)) / 100));
+  // Only named local fixtures can influence this read-only document. The same
+  // production cosmetic renderer handles both selected skins and Studio drafts.
+  document.querySelector('main').inert = true;
+  document.querySelector('.brand-bar').inert = true;
+  document.querySelectorAll('dialog').forEach(dialog => { dialog.inert = true; });
+  let activeAppearanceSkin = null, refreshPhoneLayoutEditor = () => {};
+  const previewGameLayoutReady = practiceRelease === null ? loadGameDefaultLayout() : Promise.resolve();
+  let previewRenderRevision = 0;
+  async function showAppearanceFixture(skin) {
+    const revision = ++previewRenderRevision;
+    await previewGameLayoutReady;
+    if (revision !== previewRenderRevision) return;
+    const fixture = normalizePreviewFixture(skin);
+    closeGameMenu();
+    closeGameOverlays();
+    transport.useLocal();
+    const prismatic = skin.rendererVersion === 2 && ['prismatic-glass','art-regions'].includes(skin.commanderTreatment);
+    const ownerColors = [prismatic ? skin.previewCommanderColors ?? ['U', 'R'] : []];
+    if (prismatic && Array.isArray(skin.previewPartnerColors)) ownerColors.push(skin.previewPartnerColors);
+    state = createState({
+      playerCount: fixture.players, ownerName: 'Mira', podCode: 'STUDIO',
+      ownerCommanderCount: ownerColors.length, ownerCommanderColors: ownerColors
     });
-    state.mode = previewMode; state.activePlayerId = 'P1'; state.turnSeatId = skin.previewState === 'other' ? 'P2' : 'P1';
-    game.dataset.appearanceArt = skin.backgroundTreatment || 'plain'; game.dataset.appearanceRing = skin.ring || 'arc'; game.dataset.appearanceButton = skin.buttonTreatment || 'solid'; game.dataset.appearanceSeat = skin.seatTreatment || 'raised';
-    const seal = document.querySelector('.counter-sigil'); if (seal) seal.innerHTML = skin.sealData ? `<img src="${skin.sealData}" alt="">` : builtInSealMarkup;
-    document.body.style.backgroundImage = skin.backgroundData ? `linear-gradient(rgb(0 0 0 / .32), rgb(0 0 0 / .32)), url("${skin.backgroundData}")` : '';
-    document.body.style.backgroundSize = skin.backgroundData ? `${Math.min(200, Math.max(50, Number(skin.backgroundScale) || 100))}% auto` : '';
-    document.body.style.backgroundPosition = skin.backgroundData ? `${Math.min(100, Math.max(0, Number(skin.backgroundPositionX) || 50))}% ${Math.min(100, Math.max(0, Number(skin.backgroundPositionY) || 50))}%` : '';
-    MODES.forEach(mode => { const button = document.querySelector(`[data-mode="${mode}"]`), asset = skin.symbolData?.[mode], scale = Math.min(200, Math.max(60, Number(skin.symbolScale?.[mode]) || 100)) / 100; if (!button) return; button.innerHTML = asset ? `<img src="${asset}" alt=""><small>${counterModeLabel(mode)}</small>` : `<span>${skin.symbols?.[mode] || button.textContent.trim().slice(0, 1)}</span><small>${counterModeLabel(mode)}</small>`; const icon = button.querySelector('img, span'); if (icon) { icon.style.display = 'inline-block'; icon.style.transform = `scale(${scale})`; icon.style.transformOrigin = 'center'; } });
-    renderConnection(skin.previewState === 'offline' ? 'disconnected' : 'local'); render(); applyAppearanceOverlays(skin);
+    if (prismatic) {
+      const otherColors = [skin.previewInspectedColors ?? ['W', 'B'], ['G'], ['U', 'B'], ['W', 'R'], []];
+      state.players.slice(1).forEach((player, index) => { player.commanderColors = [normaliseIdentity(otherColors[index])]; });
+      if (Array.isArray(skin.previewInspectedColors)) state.activePlayerId = state.players[1].id;
+    }
+    if (fixture.state === 'offline') {
+      // Fixed display fixture: real disconnected/disabled presentation, with
+      // the adapter still local and no room, seat token, or network connection.
+      state.localSimulation = false; state.hostSeatId = 0;
+      transport.seatId = 0; transport.status = 'disconnected';
+    }
+    const startedAt = Date.now();
+    state.turn = { ...state.turn, gameStarted: fixture.state !== 'lobby', gameStartedAt: startedAt, turnStartedAt: startedAt, startingPlayerSeatId: 0 };
+    state.lifecycle.status = fixture.state === 'lobby' ? 'lobby' : 'playing';
+    if (fixture.state === 'end') {
+      state.lifecycle.status = 'complete';
+      state.gameResult = { winnerSeatId:0,reason:'declared_winner',decidedAt:startedAt,declarationDetail:'The table declared a winner.' };
+      shownVictoryKey = null;
+    }
+    state.mode = fixture.mode; state.turnSeatId = fixture.state === 'other' ? 'P2' : 'P1';
+    const previewPlayer = activePlayer();
+    if (fixture.state === 'status') previewPlayer.poison = 8;
+    if (fixture.state === 'longLabels') {
+      state.mode = 'life'; previewPlayer.name = 'Alexandria Starlight'; previewPlayer.life = 1040;
+      state.players.find(player => player !== previewPlayer).name = 'Maximilian Brightwater';
+    }
+    if (fixture.state === 'eliminated') previewPlayer.life = 0;
+    if (fixture.state === 'radiationDialog') { state.mode = 'radiation'; previewPlayer.radiation = 3; }
+    if (fixture.state === 'commanderDialog') state.mode = 'commander';
+    interfaceStyle = skin.interfaceStyle === 'dial' ? 'dial' : 'button';
+    applyGameDefaultLayout();
+    document.documentElement.style.colorScheme = ['light','dark'].includes(skin.previewColorScheme) ? skin.previewColorScheme : '';
+    applyPublishedSkin(skin);
+    showTableView(); render();
+    renderConnection(fixture.state === 'offline' ? 'disconnected' : 'local');
+    if (fixture.state === 'menu') { dom.gameMenu.hidden = false; dom.moreButton.setAttribute('aria-expanded','true'); }
+    if (fixture.state === 'radiationDialog') {
+      dom.radiationDetail.textContent = 'You have 3 radiation counters. Mill that many cards, then enter the nonland cards milled.';
+      dom.radiationNonlandCount.max = '3'; dom.radiationNonlandCount.value = '0'; dom.radiationDialog.showModal();
+    }
+    if (fixture.state === 'commanderDialog') openCommanderSourceDialog(state.players[0],{readOnly:true});
+    if (fixture.state === 'dialog') { dom.customLifeAmount.value = ''; dom.customLifeDialog.showModal(); }
+    if (fixture.state === 'error') { dom.connectionDetail.textContent = 'The table server could not complete that request. Check the connection and try again.'; dom.connectionDialog.showModal(); }
+    applyPublishedSkinArt();
+    document.documentElement.dataset.previewFixture = fixture.state;
+    document.documentElement.dataset.previewPlayers = String(fixture.players);
+    document.documentElement.dataset.previewMode = fixture.mode;
+    refreshPhoneLayoutEditor();
+    // Acknowledgement lets preflight measure the requested fixture after its
+    // actual renderer and fonts have settled, instead of trusting labels.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (window.parent !== window) window.parent.postMessage({ type: 'fivefold-arc:appearance-rendered', requestId: skin.previewRequestId, state: fixture.state, mode: fixture.mode, players: fixture.players }, location.origin);
+    }));
+  }
+  if (practiceRelease !== null) {
+    document.querySelector('main').hidden = true;
+    void import('./appearance-practice.js').then(({openPractice}) => openPractice(practiceRelease, {
+      start: async skin => {
+        activeAppearanceSkin = {...skin, previewPlayers:4, previewMode:'life', previewState:'turn'};
+        await showAppearanceFixture(activeAppearanceSkin);
+      },
+      snapshot: () => ({style:interfaceStyle, inspected:state.activePlayerId, owner:state.ownerPlayerId,
+        seats:state.players.map(player => ({id:player.id, name:displayName(player), identities:player.commanderColors}))}),
+      changeStyle: style => {
+        interfaceStyle = style === 'dial' ? 'dial' : 'button';
+        applyGameDefaultLayout(); applyPublishedSkin(activeAppearanceSkin); render();
+      },
+      changeColors: (seat, identities) => {
+        const player = state.players.find(item=>item.id===seat);
+        if (!player || !transport.localMode) return;
+        const names = identities.map((_,slot)=>player.commanderNames[slot] || '');
+        setLocalCommanderSetup(player,identities.length,names,identities.map(normaliseIdentity));
+      },
+    })).catch(() => {
+      const message = document.createElement('p');
+      message.setAttribute('role', 'status');
+      message.textContent = 'Practice could not open. Start a new phone test in the desktop Studio.';
+      document.querySelector('main').after(message);
+      document.documentElement.dataset.releasePractice = 'closed';
+    });
+  } else window.addEventListener('message', event => {
+    const expected = window.parent !== window ? window.parent : window;
+    if (!previewMessageAllowed(event, location.origin, expected) || event.data?.type !== 'fivefold-arc:appearance-skin') return;
+    const skin = event.data.skin; if (!skin || typeof skin !== 'object' || Array.isArray(skin)) return;
+    activeAppearanceSkin = structuredClone(skin);
+    void showAppearanceFixture(activeAppearanceSkin);
   });
-  if (phoneLayoutSessionId) {
+  if (practiceRelease === null && phoneLayoutSessionId) {
+    let phoneEditPending = false, phoneEditRevision = 0;
     const phoneLayoutChannel = typeof BroadcastChannel === 'function' ? new BroadcastChannel(`fivefold-arc:phone-layout:${phoneLayoutSessionId}`) : null;
-    const applyPhoneLayoutBroadcast = event => { const skin = event.data?.type === 'fivefold-arc:phone-layout-sync' ? event.data.skin : null; if (skin) window.postMessage({ type: 'fivefold-arc:appearance-skin', skin }, location.origin); };
+    const applyPhoneLayoutBroadcast = event => { const skin = event.data?.type === 'fivefold-arc:phone-layout-sync' ? event.data.skin : null; if (skin && !phoneEditPending) window.postMessage({ type: 'fivefold-arc:appearance-skin', skin }, location.origin); };
     phoneLayoutChannel?.addEventListener('message', applyPhoneLayoutBroadcast);
     const editorStyle = document.createElement('style'); editorStyle.textContent = 'html.appearance-preview .phone-layout-editor{position:fixed;z-index:30;right:10px;bottom:calc(12px + env(safe-area-inset-bottom));left:10px;max-height:48dvh;overflow:auto;padding:12px;border:1px solid var(--brass);border-radius:10px;background:rgb(16 16 15 / .96);box-shadow:0 14px 40px #000c;pointer-events:auto;color:var(--ink)}html.appearance-preview .phone-layout-editor header{display:flex;justify-content:space-between;gap:8px;align-items:center}html.appearance-preview .phone-layout-editor strong{color:var(--brass);font-size:.82rem}html.appearance-preview .phone-layout-editor button,.phone-layout-editor-launcher{min-height:32px;padding:5px 8px;border:1px solid var(--brass-dark);border-radius:5px;background:var(--surface);color:var(--ink);font-weight:800}.phone-layout-editor-launcher{position:fixed;z-index:30;right:10px;bottom:calc(12px + env(safe-area-inset-bottom));pointer-events:auto}.phone-layout-editor details{margin-top:8px;border-top:1px solid var(--line)}.phone-layout-editor summary{padding:8px 0;color:var(--brass);font-size:.75rem;font-weight:800}.phone-layout-editor label{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center;margin:8px 0;color:var(--ink);font-size:.72rem}.phone-layout-editor input,.phone-layout-editor select{accent-color:var(--brass)}.phone-layout-editor input[type=range]{width:120px}.phone-layout-editor output{color:var(--brass);font-size:.7rem}'; document.head.append(editorStyle);
     const editor = document.createElement('aside'); editor.className = 'phone-layout-editor'; editor.setAttribute('aria-label', 'Phone Layout Editor'); editor.innerHTML = '<header><strong>Phone Layout Editor</strong><button type="button" data-phone-editor-close>Hide</button></header><details open><summary>Choose layout</summary><label>Controls <select data-phone-layout-style><option value="button">Button controls</option><option value="dial">Dial controls</option></select></label></details><details open><summary>Center readout</summary><label>Life total size <output data-phone-output="lifeNumberScale"></output><input data-phone-layout-field="lifeNumberScale" type="range" min="75" max="140" step="5"></label><label>Life total left/right <output data-phone-output="lifeNumberOffsetX"></output><input data-phone-layout-field="lifeNumberOffsetX" type="range" min="-14" max="14" step="2"></label><label>Life total up/down <output data-phone-output="lifeNumberOffsetY"></output><input data-phone-layout-field="lifeNumberOffsetY" type="range" min="-14" max="14" step="2"></label><label>Seal size <output data-phone-output="centerSealScale"></output><input data-phone-layout-field="centerSealScale" type="range" min="60" max="150" step="5"></label></details><details><summary>Cards & controls</summary><label>Card corners <output data-phone-output="seatRadius"></output><input data-phone-layout-field="seatRadius" type="range" min="0" max="24" step="2"></label><label>Button corners <output data-phone-output="buttonRadius"></output><input data-phone-layout-field="buttonRadius" type="range" min="0" max="24" step="2"></label><label>Turn position <output data-phone-output="turnOffsetY"></output><input data-phone-layout-field="turnOffsetY" type="range" min="-12" max="12" step="2"></label><label>Life buttons <output data-phone-output="controlsOffsetY"></output><input data-phone-layout-field="controlsOffsetY" type="range" min="-12" max="12" step="2"></label></details>';
     const editorLauncher = document.createElement('button'); editorLauncher.type = 'button'; editorLauncher.className = 'phone-layout-editor-launcher'; editorLauncher.textContent = 'Edit layout'; editorLauncher.hidden = true; document.body.append(editor, editorLauncher);
-    const phonePlacementDetails = document.createElement('details'); phonePlacementDetails.innerHTML = '<summary>Place game regions</summary><p class="phone-layout-note">Choose a real game region, then adjust its visual position. Game actions stay protected.</p><label>Region <select data-phone-placement-region><option value="podStrip">Player cards</option><option value="counterReadout">Life total and center</option><option value="dialSurface">Dial surface</option><option value="commanderDamage">Commander damage cards</option><option value="turnActions">End turn area</option><option value="adjustControls">Life change buttons</option><option value="customLife">Custom life button</option><option value="commanderTax">Commander card</option><option value="modeNav">Bottom navigation</option></select></label><label>Left / right <output data-phone-placement-output="x"></output><input data-phone-placement-field="x" type="range" min="-100" max="100" step="2"></label><label>Up / down <output data-phone-placement-output="y"></output><input data-phone-placement-field="y" type="range" min="-140" max="140" step="2"></label><label>Size <output data-phone-placement-output="scale"></output><input data-phone-placement-field="scale" type="range" min="70" max="140" step="2"></label><button type="button" data-phone-placement-reset>Reset selected region</button>'; editor.append(phonePlacementDetails);
+    const phonePlacementDetails = document.createElement('details'); phonePlacementDetails.innerHTML = '<summary>Place game regions</summary><p class="phone-layout-note">Choose a real game region, then adjust its visual position. Game actions stay protected.</p><label>Region <select data-phone-placement-region><option value="podStrip">Player cards</option><option value="counterReadout">Life total and center</option><option value="dialSurface">Dial surface</option><option value="commanderDamage">Commander damage cards</option><option value="turnActions">End turn area</option><option value="adjustControls">Life change buttons</option><option value="customLife">Custom life button</option><option value="commanderTax">Commander card</option><option value="modeNav">Bottom navigation</option></select></label><label>Left / right <output data-phone-placement-output="x"></output><input data-phone-placement-field="x" type="range" min="-32" max="32" step="2"></label><label>Up / down <output data-phone-placement-output="y"></output><input data-phone-placement-field="y" type="range" min="-36" max="36" step="2"></label><label>Size <output data-phone-placement-output="scale"></output><input data-phone-placement-field="scale" type="range" min="85" max="115" step="1"></label><button type="button" data-phone-placement-reset>Reset selected region</button>'; editor.append(phonePlacementDetails);
     let phoneSaveTimer = null;
     const phoneLayout = () => activeAppearanceSkin?.modeLayouts?.[activeAppearanceSkin.interfaceStyle === 'dial' ? 'dial' : 'button'];
-    const refreshPhoneEditor = () => { const layout = phoneLayout(); if (!layout) return; editor.querySelector('[data-phone-layout-style]').value = activeAppearanceSkin.interfaceStyle === 'dial' ? 'dial' : 'button'; editor.querySelectorAll('[data-phone-layout-field]').forEach(input => { input.value = layout[input.dataset.phoneLayoutField] ?? input.min; const output = editor.querySelector(`[data-phone-output="${input.dataset.phoneLayoutField}"]`); if (output) output.value = `${input.value}${input.dataset.phoneLayoutField.endsWith('Scale') ? '%' : 'px'}`; }); const region = editor.querySelector('[data-phone-placement-region]')?.value || 'podStrip', placement = layout.componentLayout?.[region] || { x: 0, y: 0, scale: 100 }; editor.querySelectorAll('[data-phone-placement-field]').forEach(input => { input.value = placement[input.dataset.phonePlacementField] ?? 0; const output = editor.querySelector(`[data-phone-placement-output="${input.dataset.phonePlacementField}"]`); if (output) output.value = `${input.value}${input.dataset.phonePlacementField === 'scale' ? '%' : 'px'}`; }); };
-    const savePhoneLayout = () => { clearTimeout(phoneSaveTimer); phoneSaveTimer = setTimeout(async () => { try { await fetch(`/api/appearance-studio/phone-layout/${phoneLayoutSessionId}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ skin: activeAppearanceSkin }) }); } catch {} }, 180); };
-    const applyPhoneLayout = () => { window.postMessage({ type: 'fivefold-arc:appearance-skin', skin: activeAppearanceSkin }, location.origin); refreshPhoneEditor(); savePhoneLayout(); };
-    editor.querySelector('[data-phone-layout-style]').addEventListener('input', event => { activeAppearanceSkin.interfaceStyle = event.target.value === 'dial' ? 'dial' : 'button'; applyPhoneLayout(); }); editor.querySelectorAll('[data-phone-layout-field]').forEach(input => input.addEventListener('input', event => { const layout = phoneLayout(); if (!layout) return; layout[event.target.dataset.phoneLayoutField] = Number(event.target.value); activeAppearanceSkin[event.target.dataset.phoneLayoutField] = Number(event.target.value); applyPhoneLayout(); })); editor.querySelector('[data-phone-placement-region]').addEventListener('input', refreshPhoneEditor); editor.querySelectorAll('[data-phone-placement-field]').forEach(input => input.addEventListener('input', event => { const layout = phoneLayout(); if (!layout) return; const region = editor.querySelector('[data-phone-placement-region]').value; layout.componentLayout ||= {}; layout.componentLayout[region] ||= { x: 0, y: 0, scale: 100 }; layout.componentLayout[region][event.target.dataset.phonePlacementField] = Number(event.target.value); applyPhoneLayout(); })); editor.querySelector('[data-phone-placement-reset]').addEventListener('click', () => { const layout = phoneLayout(); if (!layout) return; layout.componentLayout ||= {}; layout.componentLayout[editor.querySelector('[data-phone-placement-region]').value] = { x: 0, y: 0, scale: 100 }; applyPhoneLayout(); }); editor.querySelector('[data-phone-editor-close]').addEventListener('click', () => { editor.hidden = true; editorLauncher.hidden = false; }); editorLauncher.addEventListener('click', () => { editor.hidden = false; editorLauncher.hidden = true; });
+    let phoneEditorExpanded = true;
+    const refreshPhoneEditor = () => { const readOnly = activeAppearanceSkin?.previewReadOnly || activeAppearanceSkin?.id === '__neutral_arc__'; editor.hidden = Boolean(readOnly || !phoneEditorExpanded); editorLauncher.hidden = Boolean(readOnly || phoneEditorExpanded); const layout = phoneLayout(); if (!layout) return; editor.querySelector('[data-phone-layout-style]').value = activeAppearanceSkin.interfaceStyle === 'dial' ? 'dial' : 'button'; editor.querySelectorAll('[data-phone-layout-field]').forEach(input => { input.value = layout[input.dataset.phoneLayoutField] ?? input.min; const output = editor.querySelector(`[data-phone-output="${input.dataset.phoneLayoutField}"]`); if (output) output.value = `${input.value}${input.dataset.phoneLayoutField.endsWith('Scale') ? '%' : 'px'}`; }); const region = editor.querySelector('[data-phone-placement-region]')?.value || 'podStrip', placement = layout.componentLayout?.[region] || { x: 0, y: 0, scale: 100 }; editor.querySelectorAll('[data-phone-placement-field]').forEach(input => { input.value = placement[input.dataset.phonePlacementField] ?? 0; const output = editor.querySelector(`[data-phone-placement-output="${input.dataset.phonePlacementField}"]`); if (output) output.value = `${input.value}${input.dataset.phonePlacementField === 'scale' ? '%' : 'px'}`; }); };
+    refreshPhoneLayoutEditor = refreshPhoneEditor;
+    const savePhoneLayout = () => {
+      const skin = structuredClone(activeAppearanceSkin), revision = ++phoneEditRevision; phoneEditPending = true; clearTimeout(phoneSaveTimer);
+      phoneSaveTimer = setTimeout(async () => {
+        try {
+          const response = await fetch(`/api/appearance-studio/phone-layout/${phoneLayoutSessionId}`, { method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({skin}) });
+          if (!response.ok) throw new Error('Could not sync this layout.');
+          phoneLayoutUpdatedAt = Math.max(phoneLayoutUpdatedAt,(await response.json()).updatedAt || 0);
+        } catch { /* The edited snapshot stays on this page for another adjustment. */ }
+        finally { if (revision === phoneEditRevision) phoneEditPending = false; }
+      },180);
+    };
+    const applyPhoneLayout = () => { if (activeAppearanceSkin?.previewReadOnly || activeAppearanceSkin?.id === '__neutral_arc__') return; window.postMessage({ type: 'fivefold-arc:appearance-skin', skin: activeAppearanceSkin }, location.origin); refreshPhoneEditor(); savePhoneLayout(); };
+    editor.querySelector('[data-phone-layout-style]').addEventListener('input', event => { activeAppearanceSkin.interfaceStyle = event.target.value === 'dial' ? 'dial' : 'button'; applyPhoneLayout(); }); editor.querySelectorAll('[data-phone-layout-field]').forEach(input => input.addEventListener('input', event => { const layout = phoneLayout(); if (!layout) return; layout[event.target.dataset.phoneLayoutField] = Number(event.target.value); activeAppearanceSkin[event.target.dataset.phoneLayoutField] = Number(event.target.value); applyPhoneLayout(); })); editor.querySelector('[data-phone-placement-region]').addEventListener('input', refreshPhoneEditor); editor.querySelectorAll('[data-phone-placement-field]').forEach(input => input.addEventListener('input', event => { const layout = phoneLayout(); if (!layout) return; const region = editor.querySelector('[data-phone-placement-region]').value; layout.componentLayout ||= {}; layout.componentLayout[region] ||= { x: 0, y: 0, scale: 100 }; layout.componentLayout[region][event.target.dataset.phonePlacementField] = Number(event.target.value); applyPhoneLayout(); })); editor.querySelector('[data-phone-placement-reset]').addEventListener('click', () => { const layout = phoneLayout(); if (!layout) return; layout.componentLayout ||= {}; layout.componentLayout[editor.querySelector('[data-phone-placement-region]').value] = { x: 0, y: 0, scale: 100 }; applyPhoneLayout(); }); editor.querySelector('[data-phone-editor-close]').addEventListener('click', () => { phoneEditorExpanded = false; refreshPhoneEditor(); }); editorLauncher.addEventListener('click', () => { phoneEditorExpanded = true; refreshPhoneEditor(); });
     let phoneLayoutUpdatedAt = 0;
-    const loadPhoneLayout = async () => { try { const response = await fetch(`/api/appearance-studio/phone-layout/${phoneLayoutSessionId}`); if (!response.ok) return; const session = await response.json(); if (session.updatedAt <= phoneLayoutUpdatedAt) return; phoneLayoutUpdatedAt = session.updatedAt; window.postMessage({ type: 'fivefold-arc:appearance-skin', skin: session.skin }, location.origin); setTimeout(refreshPhoneEditor, 0); } catch {} }; void loadPhoneLayout(); setInterval(loadPhoneLayout, 1200);
+    const loadPhoneLayout = async () => { if (phoneEditPending) return; try { const response = await fetch(`/api/appearance-studio/phone-layout/${phoneLayoutSessionId}`); if (!response.ok) return; const session = await response.json(); if (phoneEditPending || session.updatedAt <= phoneLayoutUpdatedAt) return; phoneLayoutUpdatedAt = session.updatedAt; window.postMessage({ type: 'fivefold-arc:appearance-skin', skin: session.skin }, location.origin); setTimeout(refreshPhoneEditor, 0); } catch {} }; void loadPhoneLayout(); setInterval(loadPhoneLayout, 1200);
   }
   if (window.parent !== window) window.parent.postMessage({ type: 'fivefold-arc:appearance-preview-ready' }, location.origin);
 }

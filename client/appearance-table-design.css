@@ -131,25 +131,25 @@ html.game-skin-active #gameView[data-design-title-rule="double"] .pod-label::aft
   }
   /* The cut belongs to the fitted disk, independent of the camera behind it.
      Scale the whole mounting for a reduced face; oversized art zooms inside it. */
-  html.game-skin-active[data-renderer-version="2"] #gameView[data-glass-medallion] .dial-assembly {
+  html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-socket] .dial-assembly {
     --socket-offset: max(0%, calc(50% - 50% * var(--counter-design-art-scale, 1)));
     --socket-lip: calc(var(--socket-offset) + clamp(2px, 2.1%, 8px));
     --socket-opening: calc(var(--socket-offset) + clamp(4px, 4%, 14px));
     --medallion-image-scale: max(1, var(--counter-design-art-scale, 1));
   }
-  html.game-skin-active[data-renderer-version="2"] #gameView[data-glass-medallion] .dial-face {
+  html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-socket] .dial-face {
     background: none; box-shadow: none;
   }
-  html.game-skin-active[data-renderer-version="2"] #gameView[data-glass-medallion] .dial-face::before,
-  html.game-skin-active[data-renderer-version="2"] #gameView[data-glass-medallion] .dial-face::after,
-  html.game-skin-active[data-renderer-version="2"] #gameView[data-glass-medallion] .dial-assembly::after {
+  html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-socket] .dial-face::before,
+  html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-socket] .dial-face::after,
+  html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-socket] .dial-assembly::after {
     content: ''; position: absolute; box-sizing: border-box; width: auto; height: auto;
     border: 0; border-radius: 50%; transform: none; transition: none;
     -webkit-mask: none; mask: none; filter: none; pointer-events: none;
     opacity: clamp(0, calc(var(--counter-design-art-opacity, 1) * 100), 1);
   }
   /* Dressed limestone. Fine pores and sparse joints break up its broad bevel. */
-  html.game-skin-active[data-renderer-version="2"] #gameView[data-glass-medallion] .dial-face::before {
+  html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-socket] .dial-face::before {
     inset: var(--socket-offset); z-index: 0;
     background:
       radial-gradient(ellipse at 29% 35%,#302c265c 0 .55px,transparent 1.1px) 0 0 / 5px 7px,
@@ -159,33 +159,41 @@ html.game-skin-active #gameView[data-design-title-rule="double"] .pod-label::aft
     box-shadow: inset 1px 1.5px 1px #eee3d0bd, inset -1px -2px 2px #292722b8;
   }
   /* With light from upper left, the near cut is dark and the opposite cut catches light. */
-  html.game-skin-active[data-renderer-version="2"] #gameView[data-glass-medallion] .dial-face::after {
+  html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-socket] .dial-face::after {
     inset: var(--socket-lip); z-index: 0;
     background: conic-gradient(from -45deg,#25221f,#4b463e 80deg,#a79c88 140deg,#c1b6a1 180deg,#8c8273 232deg,#514b42 278deg,#25221f);
     box-shadow: inset 1px 2px 2px #080807b8, inset -1px -1px 1px #f2e7cd80;
   }
-  html.game-skin-active[data-renderer-version="2"] #gameView[data-glass-medallion] .counter-design-face {
+  html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-socket="metal"] .dial-face::before {
+    background: repeating-conic-gradient(from 11deg,transparent 0 .9deg,#c3daee24 1deg 1.18deg,transparent 1.3deg 2deg),
+      conic-gradient(from -40deg,#dde2e4,#343b41 48deg,#a2aeb4 94deg,#515b63 141deg,#dce3e6 185deg,#45525b 246deg,#adbcc1 307deg,#dde2e4);
+    box-shadow: inset 1px 1px 1px #fff9, inset -1px -2px 2px #0b1722bb;
+  }
+  html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-socket="metal"] .dial-face::after {
+    background: conic-gradient(from -40deg,#192026,#52636e 110deg,#adbcc4 181deg,#40515b 260deg,#192026);
+  }
+  html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-socket] .counter-design-face {
     inset: var(--socket-opening); background: #11151b; box-shadow: none;
   }
-  html.game-skin-active[data-renderer-version="2"] #gameView[data-glass-medallion] .counter-design-face img {
+  html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-socket] .counter-design-face img {
     transform: scale(var(--medallion-image-scale));
   }
-  html.game-skin-active[data-renderer-version="2"] #gameView[data-glass-medallion] .dial-assembly::after {
+  html.game-skin-active[data-renderer-version="2"] #gameView[data-counter-socket] .dial-assembly::after {
     inset: var(--socket-opening); z-index: 3;
     box-shadow: inset 1px 2px 2px #090908bd, inset -.5px -1px 1px #e1d5bb39;
   }
 }
 /* Both slices use the same processed painting. Cut them inside the neutral
    slate, so only the outer metal and jewels follow the counter rotation. */
-#gameView[data-glass-medallion] .counter-design-ring img {
+#gameView[data-counter-design] .counter-design-ring img {
   -webkit-mask-image: radial-gradient(circle closest-side, transparent 60%, #000 60%);
   mask-image: radial-gradient(circle closest-side, transparent 60%, #000 60%);
 }
-#gameView[data-glass-medallion] .counter-design-engraving {
+#gameView[data-counter-design] .counter-design-engraving {
   display: block; position: absolute; inset: var(--socket-opening, 0); z-index: 1;
   overflow: clip; border-radius: 50%; pointer-events: none;
 }
-#gameView[data-glass-medallion] .counter-design-engraving img {
+#gameView[data-counter-design] .counter-design-engraving img {
   position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain;
   opacity: var(--counter-design-art-opacity, .28); clip-path: circle(30%);
   transform: scale(var(--medallion-image-scale, var(--counter-design-art-scale, 1)));
@@ -231,6 +239,14 @@ html.game-skin-active #gameView[data-design-title-rule="double"] .pod-label::aft
     --prism-step-edge: ButtonText; --prism-step-focus: Highlight;
   }
   #gameView[data-commander-treatment="prismatic-glass"][data-interface-style="dial"] .dial-step-label { forced-color-adjust: none; }
+}
+@media not (forced-colors: active) {
+  #gameView[data-design-title-ink] .pod-label { color: var(--design-title-ink); }
+  #gameView[data-design-step-ink][data-interface-style="dial"] .dial-step-minus:enabled:not(:active,:focus-visible) ~ .dial-step-minus-label,
+  #gameView[data-design-step-ink][data-interface-style="dial"] .dial-step-plus:enabled:not(:active,:focus-visible) ~ .dial-step-plus-label {
+    color: var(--design-step-ink);
+    opacity: 1;
+  }
 }
 /* Small decorative edge marks stay outside the controls and never receive input. */
 html.game-skin-active #gameView[data-canvas-flourish]::after {
@@ -283,12 +299,4 @@ html.game-skin-active:has(#gameView[data-scene-design]) :is(#gameView,#lobbyView
   html.game-skin-active:has(#gameView[data-canvas-layers]) body { background-image:none !important; }
   html.game-skin-active #gameView[data-canvas-frame]::before, html.game-skin-active #gameView[data-canvas-flourish]::after { display:none; }
   #gameView[data-design-turn-marker] .pod-seat.turn-active, #gameView[data-design-nav-mark] .mode-nav button.active { border:2px solid Highlight; }
-}
-@media not (forced-colors: active) {
-  #gameView[data-design-title-ink] .pod-label { color: var(--design-title-ink); }
-  #gameView[data-design-step-ink][data-interface-style="dial"] .dial-step-minus:enabled:not(:active,:focus-visible) ~ .dial-step-minus-label,
-  #gameView[data-design-step-ink][data-interface-style="dial"] .dial-step-plus:enabled:not(:active,:focus-visible) ~ .dial-step-plus-label {
-    color: var(--design-step-ink);
-    opacity: 1;
-  }
 }

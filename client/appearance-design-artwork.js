@@ -1,5 +1,5 @@
 import { SURFACE_ART_SLOTS, SURFACE_ART_ROLES } from './appearance-surface-art.js';
-import { COUNTER_DESIGN_MODES } from './counter-design.js';
+import { COUNTER_DESIGN_MODES } from './counter-design.js?v=5';
 
 const object = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 const validId = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(value);
@@ -10,8 +10,11 @@ export function designArtworkReferences(skin) {
     if (validId(id)) refs.push({ id, path: `surfaceArt.${key}.assetId`, roles: [...SURFACE_ART_ROLES], dataKey: 'surfaceArtData', slot: key });
   }
   for (const key of COUNTER_DESIGN_MODES) {
-    const id = object(modes[key]).artAsset;
-    if (validId(id)) refs.push({ id, path: `counterDesign.modes.${key}.artAsset`, roles: ['dial', 'seal', 'overlay'], dataKey: 'counterArtData', slot: key });
+    const mode = object(modes[key]);
+    for (const [field, dataKey] of [['artAsset', 'counterArtData'], ['ringArtAsset', 'counterRingArtData']]) {
+      const id = mode[field];
+      if (validId(id)) refs.push({ id, path: `counterDesign.modes.${key}.${field}`, roles: ['dial', 'seal', 'overlay'], dataKey, slot: key });
+    }
   }
   return refs;
 }

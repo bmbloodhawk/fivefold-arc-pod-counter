@@ -9,15 +9,15 @@
   <title>Fivefold Arc — Table Counter</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/arc-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=255">
+  <link rel="stylesheet" href="styles.css?v=257">
   <link rel="stylesheet" href="collection-visual.css?v=6">
   <link rel="stylesheet" href="competition.css?v=4">
-  <link rel="stylesheet" href="dial-layout.css?v=12">
+  <link rel="stylesheet" href="dial-layout.css?v=19">
   <link rel="stylesheet" href="renderer-theme.css?v=1" data-renderer-theme>
   <link rel="stylesheet" href="appearance-fonts.css">
   <link rel="stylesheet" href="appearance-surface-design.css">
-  <link rel="stylesheet" href="appearance-table-design.css?v=7">
-  <link rel="stylesheet" href="counter-design.css?v=5">
+  <link rel="stylesheet" href="appearance-table-design.css?v=8">
+  <link rel="stylesheet" href="counter-design.css?v=6">
 </head>
 <body>
   <header class="brand-bar">
@@ -344,6 +344,7 @@
         <aside id="sideSeats" class="side-seats" aria-label="Additional table seats" hidden></aside>
         <div class="dial-assembly">
           <div class="dial-face">
+            <span class="neutral-counter-art" aria-hidden="true"></span>
             <div class="counter-sigil" aria-hidden="true">
               <svg viewBox="0 0 100 100" focusable="false">
                 <circle cx="50" cy="50" r="45"></circle>
@@ -818,6 +819,6 @@
   </dialog>
   <p id="competitionSetupStatus" role="status" hidden></p>
   <script src="vendor/jsqr.js?v=1"></script>
-  <script type="module" src="app.js?v=352"></script>
+  <script type="module" src="app.js?v=354"></script>
 </body>
 </html>

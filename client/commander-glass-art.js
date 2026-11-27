@@ -62,7 +62,7 @@ function panesForIdentity(colors) {
   });
 }
 
-function colorTable(code, family) {
+export function colorTable(code, family = 2) {
   const stops = ramps[code];
   const table = new Uint8ClampedArray(256 * 3);
   for (let light = 0; light < 256; light++) {
@@ -85,7 +85,7 @@ function checkCancellation(signal) {
   if (signal?.aborted) throw signal.reason ?? new DOMException('Artwork cancelled', 'AbortError');
 }
 
-async function forPixels(length, signal, run) {
+export async function forPixels(length, signal, run) {
   let startTime = performance.now();
   for (let start = 0; start < length; start += 32768) {
     checkCancellation(signal);
@@ -133,7 +133,7 @@ export async function prepareGlassPigments(source, signal) {
 
 // The renderer supplies its already byte-validated, approved raster. Refuse
 // all URLs other than embedded supported formats, including external URLs.
-export async function createCommanderGlassArtwork(document, dataUrl, signal) {
+export async function createRasterMaterial(document, dataUrl, signal, prepare) {
   checkCancellation(signal);
   if (typeof dataUrl !== 'string' || dataUrl.length > 2_000_040 || !/^data:image\/(png|jpeg|webp);base64,/.test(dataUrl)) return null;
   const image = document.createElement('img');
@@ -151,7 +151,7 @@ export async function createCommanderGlassArtwork(document, dataUrl, signal) {
   if (!context) return null;
   context.drawImage(image, 0, 0, canvas.width, canvas.height);
   const original = context.getImageData(0, 0, canvas.width, canvas.height);
-  const paint = await prepareGlassPigments(original.data, signal);
+  const paint = await prepare(original.data, signal, canvas.width, canvas.height);
   if (!paint) return { original: true }; // Decoded and inspected: no keyed pigments.
   return {
     async render(colors) {
@@ -165,4 +165,8 @@ export async function createCommanderGlassArtwork(document, dataUrl, signal) {
       return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
     },
   };
+}
+
+export function createCommanderGlassArtwork(document, dataUrl, signal) {
+  return createRasterMaterial(document, dataUrl, signal, prepareGlassPigments);
 }

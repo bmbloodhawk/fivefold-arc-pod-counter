@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 24" fill="none" stroke="#000" stroke-width="1.65" stroke-linejoin="round">
+  <!-- Larger panes carry a wash; clear lead lines define each counter. -->
+  <path d="m12 20.6-8.5-8.9V7.5l3.2-3.2h2.9L12 7l2.4-2.7h2.9l3.2 3.2v4.2Z" fill="#000" fill-opacity=".18"/>
+  <path d="m3.6 9.2 4.6 1.6 3.8 9.8-1.2-10.2L12 7m8.3 2.3-5 1.9-3.3 9.4" stroke-width="1.1"/>
+  <g transform="translate(24)">
+    <path d="m12 2.4 7.5 4-1 8.4-6.5 6.4-6.5-6.4-1-8.4Z" fill="#000" fill-opacity=".29"/>
+    <path d="m5 7 7 3.3L19 7M12 2.8v7.5m-5.2.9 5.2 1.9 5.2-1.9m-5.2 1.9v4.5"/>
+  </g>
+  <g transform="translate(48)">
+    <g id="glass-blade"><path d="m16.4 3.4 3.9 3.3 1.3 5.1-5.6-.1-1.9-3Z" fill="#000" fill-opacity=".24"/><path d="m16.4 3.4 2 5.3-2.4 3" stroke-width="1.05"/></g>
+    <use href="#glass-blade" transform="rotate(120 12 12)"/><use href="#glass-blade" transform="rotate(240 12 12)"/>
+    <circle cx="12" cy="12" r="1.7" fill="#000" stroke="none"/>
+  </g>
+  <g transform="translate(72)">
+    <path d="m4 7 4.2-3.6h7.6L20 7v6.3l-3.5 3-1.1 3.8H8.6l-1.1-3.8-3.5-3Z" fill="#000" fill-opacity=".18"/>
+    <path d="m4.1 7.2 7.9 2.2 7.9-2.2M12 3.6v5.8" stroke-width="1.05"/>
+    <path d="m6.5 10.2 4.2 1.2-.5 2.8-3.4-.8zm11 0-4.2 1.2.5 2.8 3.4-.8z" fill="#000" stroke-width=".5"/>
+  </g>
+  <g transform="translate(96)">
+    <path d="M13.2 2.4h5.6l-4.4 7.1 5.7-.3L6.4 21.4l3.6-8.7H4.3Z" fill="#000" fill-opacity=".26"/>
+    <path d="m13.2 2.4-2.1 8.8 9-2M11.1 11.2l-4.7 10.2" stroke-width="1"/>
+  </g>
+  <g transform="translate(120)">
+    <path d="m12 2.6 8.5 4.6v9.6L12 21.5l-8.5-4.7V7.2Z" fill="#000" fill-opacity=".18"/>
+    <path d="m3.5 7.2 8.5 4.6 8.5-4.6M12 11.8v9.4"/>
+    <path d="m10.4 7.1 1.6-.9 1.6.9-1.6.9Zm-4 4.7 1.6.9v2l-1.6-.9zm9.4 1.4 1.7-.9v1.9l-1.7.9Z" fill="#000" stroke="none"/>
+  </g>
+</svg>

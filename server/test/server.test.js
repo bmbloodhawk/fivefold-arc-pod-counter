@@ -1644,9 +1644,9 @@ test("protects the Appearance Studio catalog with the developer portal key", asy
     const allowed = await fetch(url, { headers: { "x-feedback-portal-key": "owner-key" } });
     assert.equal(allowed.status, 200);
     assert.deepEqual((await allowed.json()).catalog, catalog.value);
-    const updated = await fetch(url, { method: "PUT", headers: { "content-type": "application/json", "x-feedback-portal-key": "owner-key" }, body: JSON.stringify({ skins: [], assets: [{ id: "asset-a" }], selected: "neutral" }) });
+    const updated = await fetch(url, { method: "PUT", headers: { "content-type": "application/json", "x-feedback-portal-key": "owner-key" }, body: JSON.stringify({ skins: [{ id: "new-draft", name: "Safe draft", status: "Draft" }], assets: [], selected: "new-draft" }) });
     assert.equal(updated.status, 200);
-    assert.deepEqual(catalog.value.assets, [{ id: "asset-a" }]);
+    assert.deepEqual(catalog.value.skins, [{ id: "new-draft", name: "Safe draft", status: "Draft" }]);
   } finally {
     await new Promise((resolve) => protectedServer.close(resolve));
   }

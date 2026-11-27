@@ -1,0 +1,12 @@
+.practice-notice { margin: 10vh auto; max-width: 35rem; padding: 1rem; color: var(--ink); }
+html[data-release-practice="ready"] #moreButton { width: auto; min-width: 44px; padding-inline: .55rem; font-size: .72rem; }
+.practice-options { box-sizing: border-box; width: min(25rem, calc(100vw - 1.5rem)); max-height: 86dvh; overflow: auto; margin: auto; padding: 1rem; }
+.practice-options > label:not(.practice-check) { display: grid; gap: .2rem; margin: .7rem 0; }
+.practice-options fieldset { display: flex; flex-wrap: wrap; gap: .35rem; padding: .55rem 0; border: 0; }
+.practice-options fieldset[hidden], .practice-notice[hidden] { display: none; }
+.practice-options .practice-check, .practice-options .practice-color { display: inline-flex; align-items: center; gap: .35rem; min-height: 36px; }
+.practice-options .practice-color { padding-inline: .35rem; }
+.practice-options input[type="checkbox"] { width: 1.1rem; height: 1.1rem; margin: 0; }
+.practice-actions { display: flex; gap: .5rem; margin-top: .8rem; }
+.practice-actions button { flex: 1; min-height: 44px; }
+.practice-options::backdrop { background: rgb(0 0 0 / .72); }

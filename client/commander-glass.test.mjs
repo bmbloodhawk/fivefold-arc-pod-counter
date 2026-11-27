@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createCommanderGlass, glassIdentity } from './commander-glass.js';
 import { publicAppearanceSkin, validateAppearanceSkin } from './appearance-validation.js';
+import { checkedPreviewSkin } from '../server/src/appearance-studio-boundary.js';
 import { buildRendererTheme, createRendererBridge } from './renderer-bridge.js';
 import { rendererDocument } from './test-support/renderer-document.mjs';
 import { counterDesignFor } from './counter-design.js';
@@ -25,24 +26,6 @@ test('solid material art is allowed only on expanded prismatic faces, including 
   assert.ok(validateAppearanceSkin({...skin,versions:[version(ordinary)]}).errors.length);
 });
 
-test('upright centers require per-face opt-in, prismatic glass, and safe artwork', () => {
-  const skin = {id:'engraving',rendererVersion:2,commanderTreatment:'prismatic-glass',counterArtData:{life:'approved'},
-    counterDesign:{modes:{life:{uprightCenter:true},poison:{uprightCenter:true}}}};
-  const accept = value => value === 'approved' ? value : '';
-  assert.equal(counterDesignFor(skin,'life',accept).uprightCenter,true);
-  assert.equal(counterDesignFor(skin,'poison',accept),null);
-  const {counterArtData, ...draft} = skin;
-  assert.deepEqual(validateAppearanceSkin(draft).errors,[]);
-  assert.equal(publicAppearanceSkin(draft).counterDesign.modes.life.uprightCenter,true);
-  const {commanderTreatment, ...ordinary} = draft;
-  for (const other of [ordinary,{...draft,rendererVersion:1}]) {
-    assert.ok(validateAppearanceSkin(other).errors.some(issue=>issue.path.endsWith('.modes.life') && issue.message.includes('uprightCenter')));
-    assert.equal(counterDesignFor({...other,counterArtData},'life',accept)?.uprightCenter,undefined);
-    assert.equal(publicAppearanceSkin(other).counterDesign.modes.life.uprightCenter,undefined);
-  }
-  assert.ok(validateAppearanceSkin({...draft,counterDesign:{modes:{life:{uprightCenter:'true'}}}}).errors.length);
-});
-
 test('every commander identity including colorless has distinct panes, independent of partner order or duplicates', () => {
   const colors = [...'WUBRG'];
   const identities = new Set();
@@ -56,15 +39,15 @@ test('every commander identity including colorless has distinct panes, independe
   assert.equal(glassIdentity(['?', 'url(foo)']), 'C');
 });
 
-test('sample identities are validated and excluded from stored and public skins', () => {
+test('fixture identity is validated on the phone boundary and excluded from stored and public skins', () => {
   const fixture = { ...skin, previewCommanderColors: [], previewPartnerColors: ['G','U'], previewInspectedColors: ['R'] };
-  assert.deepEqual(validateAppearanceSkin(fixture,{preview:true}).errors, []);
+  assert.deepEqual(checkedPreviewSkin(fixture), fixture);
   assert.deepEqual(publicAppearanceSkin(fixture), skin);
   assert.ok(validateAppearanceSkin(fixture).errors.length);
   assert.deepEqual(validateAppearanceSkin(skin).errors, []);
   assert.ok(validateAppearanceSkin({ ...skin, rendererVersion: 1 }).errors.length);
   for (const input of ['W', null, [['W']], ['WR'], ['W','W'], ['X'], ['W','U','B','R','G','G']]) {
-    assert.ok(validateAppearanceSkin({ ...skin, previewCommanderColors: input },{preview:true}).errors.length);
+    assert.throws(() => checkedPreviewSkin({ ...skin, previewCommanderColors: input }));
   }
   for (const field of [{ commanderTreatment: false }, { commanderTreatment: 'other' }, { rendererVersion: 1 }]) {
     assert.equal(buildRendererTheme({ ...skin, ...field }).datasets.commanderTreatment, undefined);

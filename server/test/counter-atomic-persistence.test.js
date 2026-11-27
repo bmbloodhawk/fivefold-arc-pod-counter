@@ -38,7 +38,10 @@ async function fixture(t, intercept = async () => null) {
     const code = app.service.createRoom(host, { playerCount: 2, startingLife: 40 }).snapshot.code;
     app.service.claimSeat(code, guest, { seatId: 1 });
     app.service.startGame(code, host, { baseVersion: app.service.room(code).version });
-    await ledger.flush(); return { code, host, guest };
+    // The initial room sweep also queues device-metrics cleanup on a separate queue.
+    // Finish fixture setup before measuring requests made by a single life adjustment.
+    await Promise.all([ledger.flush(), app.service.tableDeviceActivity.flush()]);
+    return { code, host, guest };
   }
   return { ...app, ledger, database, attempts, releases, call, room };
 }

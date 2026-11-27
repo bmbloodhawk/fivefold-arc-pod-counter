@@ -1,11 +1,12 @@
-import { inspectImageData, publicAppearanceSkin } from './appearance-validation.js?v=4';
-import { createCounterDesignRenderer, usesNativeCounterIcon } from './counter-design.js?v=4';
+import { inspectImageData, publicAppearanceSkin } from './appearance-validation.js?v=5';
+import { createCounterDesignRenderer, usesNativeCounterIcon, nativeTabSet } from './counter-design.js?v=5';
 import { previewGeometryChecks } from './appearance-preflight.js';
 import { compileSurfaceDesign } from './appearance-surface-design.js';
 import { appearanceFonts, fontFamily, localFontKeys, prepareAppearanceFonts } from './appearance-fonts.js';
 import { createSurfaceArtRenderer } from './appearance-surface-art.js';
-import { compileTableDesign, hasCustomGeometry } from './appearance-table-design.js?v=3';
-import { createCommanderGlass } from './commander-glass.js';
+import { compileTableDesign, hasCustomGeometry } from './appearance-table-design.js?v=4';
+import { createCommanderGlass } from './commander-glass.js?v=2';
+import { createRegionRenderer } from './commander-region-renderer.js';
 // Cosmetic projection shared by the real game and isolated Studio fixtures.
 // No transport, rules, account preferences, selectors or executable content.
 export const RENDERER_MODES = ['life', 'commander', 'radiation', 'poison', 'energy', 'generic'];
@@ -205,6 +206,7 @@ export function buildRendererTheme(value, interfaceStyle = 'button') {
     for (const [field, fallback] of Object.entries(componentDefaults[key])) vars[`--skin-${css}-${kebab(field)}`] = color(override[field], fallback);
   }
   result.datasets = { appearanceSeat: named(skin.seatTreatment,['raised','flat','glass'],'raised'), appearanceButton: named(skin.buttonTreatment,['solid','outline','glass'],'solid'), appearanceRing: named(skin.ring,['arc','orbit','none'],'arc'), appearanceArt: named(skin.backgroundTreatment,['plain','rays','grain','mist','stars'],'plain') };
+  result.datasets.tabIconSet = nativeTabSet(skin);
   const selectedVariants = record(skin.variants);
   for (const [key,choices] of Object.entries({dial:['engraved','plain'],seal:['etched','medallion'],counterMode:['badge','underlined'],navigation:['underline','framed'],commander:['accent','quiet'],panels:['outlined','raised'],numerals:['tabular','proportional']})) {
     if (choices.includes(selectedVariants[key])) result.datasets['variant' + key[0].toUpperCase() + key.slice(1)] = selectedVariants[key];
@@ -242,12 +244,13 @@ export function createRendererBridge(document, { modeLabel = mode => mode, getCo
   const baseNav = new Map(RENDERER_MODES.map(mode => [mode, [...(document.querySelector(`[data-mode="${mode}"]`)?.childNodes || [])].map(node => node.cloneNode(true))]));
   const counterDesignRenderer = createCounterDesignRenderer(document,{safeImage});
   const commanderGlass = createCommanderGlass(document, getCommanderTable);
+  const regionRenderer = createRegionRenderer(document, getCommanderTable);
   let applied = new Set(), theme = null, selectedSkin = null, selectedStyle = null, artRevision = 0;
   const surfaceArtwork = createSurfaceArtRenderer(document,{safeImage});
   const renderedArt = new WeakMap();
   const image = data => { const node = document.createElement('img'); node.alt = ''; node.src = data; return node; };
   function clear(preserveGlass = false) {
-    if (!preserveGlass) commanderGlass.clear();
+    if (!preserveGlass) { commanderGlass.clear(); regionRenderer.clear(); }
     surfaceArtwork.clear();
     counterDesignRenderer.clear();
     for (const property of applied) root.style.removeProperty(property);
@@ -261,7 +264,7 @@ export function createRendererBridge(document, { modeLabel = mode => mode, getCo
   }
   function apply(skin, interfaceStyle) {
     const next = buildRendererTheme(skin, interfaceStyle);
-    clear(theme?.datasets.commanderTreatment && next.datasets.commanderTreatment && selectedSkin?.id === skin?.id);
+    clear(next.datasets.commanderTreatment && theme?.datasets.commanderTreatment === next.datasets.commanderTreatment && selectedSkin?.id === skin?.id);
     selectedSkin = skin; selectedStyle = interfaceStyle; theme = next; artRevision += 1;
     if (theme.native) return;
     void prepareAppearanceFonts(document,publicAppearanceSkin(record(skin)));
@@ -270,8 +273,12 @@ export function createRendererBridge(document, { modeLabel = mode => mode, getCo
     root.dataset.rendererVersion=String(theme.version);
     for (const [name,value] of Object.entries(theme.variables)) { root.style.setProperty(name,value); applied.add(name); }
     Object.assign(game.dataset, theme.datasets);
-    if (theme.datasets.commanderTreatment) commanderGlass.refresh(theme.assets.background, counterDesignRenderer.refresh(skin, game.dataset.counterMode));
+    if (theme.datasets.commanderTreatment) refreshCommanderArtwork(counterDesignRenderer.refresh(skin, game.dataset.counterMode));
     if (theme.assets.background && !theme.datasets.commanderTreatment) { document.body.style.backgroundImage = `linear-gradient(rgb(0 0 0 / .32),rgb(0 0 0 / .32)),url("${theme.assets.background}")`; document.body.style.backgroundSize = theme.assets.backgroundSize; document.body.style.backgroundPosition = theme.assets.backgroundPosition; }
+  }
+  function refreshCommanderArtwork(counter) {
+    if (theme.datasets.commanderTreatment === 'prismatic-glass') commanderGlass.refresh(theme.assets.background, counter);
+    if (theme.datasets.commanderTreatment === 'art-regions') regionRenderer.refresh(selectedSkin, game.dataset.counterMode, theme.assets.background, counter);
   }
   function refreshArt(interfaceStyle = selectedStyle) {
     // Released skins compiled placement only when selected. Preserve that v1
@@ -326,7 +333,7 @@ export function createRendererBridge(document, { modeLabel = mode => mode, getCo
     addOverlay(document.querySelector('.counter-stage'), 'counter');
     addOverlay(document.querySelector('.dial-gesture'), 'dial');
     const counterArtwork = counterDesignRenderer.refresh(selectedSkin,game.dataset.counterMode);
-    if (theme.datasets.commanderTreatment) commanderGlass.refresh(theme.assets.background, counterArtwork);
+    refreshCommanderArtwork(counterArtwork);
   }
   return { apply, clear, refreshArt };
 }

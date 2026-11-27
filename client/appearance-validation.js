@@ -1,13 +1,15 @@
 // Shared input boundary for Studio files, protected APIs, and renderer messages.
 // This module never changes a catalog, executes styles, or reads game state.
-import { appearanceReadability } from './appearance-readability.js?v=3';
+import { validStudioRewardRule } from './studio-reward-rule.js';
+import { appearanceReadability } from './appearance-readability.js?v=4';
 import { appearanceFontKeys } from './appearance-fonts.js';
-import { designArtworkReferences } from './appearance-design-artwork.js';
+import { designArtworkReferences } from './appearance-design-artwork.js?v=2';
 import { sceneDesignSpec } from './appearance-scene-design.js';
 import { surfaceDesignSpec } from './appearance-surface-design.js';
 import { surfaceArtSpec, surfaceArtDataSpec } from './appearance-surface-art.js';
-import { canvasDesignSpec, tableDesignSpec } from './appearance-table-design.js?v=3';
-import { counterDesignSpecFor, counterArtDataSpec } from './counter-design.js?v=4';
+import { canvasDesignSpec, tableDesignSpec } from './appearance-table-design.js?v=4';
+import { counterDesignSpecFor, counterArtDataSpec } from './counter-design.js?v=5';
+import { regionAssetId, validCommanderRegions } from './commander-art-regions.js';
 export const APPEARANCE_SCHEMA_VERSION = 1;
 export const APPEARANCE_ASSET_ROLES = Object.freeze(['background', 'symbol', 'overlay', 'seal', 'dial', 'thumbnail', 'button', 'panel']);
 const ID = /^[A-Za-z0-9_-]{1,80}$/;
@@ -42,7 +44,7 @@ const typography = { family: choice(...appearanceFontKeys), weight: choice(400, 
 const tokenColors = ['canvas', 'surface', 'text', 'textMuted', 'accentPrimary', 'accentSecondary', 'atmosphere', 'success', 'warning', 'danger', 'focus', 'border', 'disabled'];
 const componentColors = record({ ...map(['background', 'text', 'border', 'selectedText', 'selectedBorder'], color) });
 const visualFields = {
-  rendererVersion: choice(1, 2), commanderTreatment: choice('prismatic-glass'), canvasDesign: canvasDesignSpec, sceneDesign: sceneDesignSpec, tableDesign: tableDesignSpec, surfaceArt: surfaceArtSpec, surfaceDesign: surfaceDesignSpec, counterDesign: counterDesignSpecFor(),
+  rendererVersion: choice(1, 2), commanderTreatment: choice('prismatic-glass','art-regions'), commanderRegions: { type: 'commanderRegions' }, canvasDesign: canvasDesignSpec, sceneDesign: sceneDesignSpec, tableDesign: tableDesignSpec, surfaceArt: surfaceArtSpec, surfaceDesign: surfaceDesignSpec, counterDesign: counterDesignSpecFor(),
   ...map(['background', 'surface', 'accent', 'secondary', 'text', 'muted', 'atmosphereColor', 'stateSuccess', 'stateWarning', 'stateDanger', 'focusColor', 'borderColor', 'disabledColor'], color),
   variants: record({ dial: choice('native', 'engraved', 'plain'), seal: choice('native', 'etched', 'medallion'), counterMode: choice('native', 'badge', 'underlined'), navigation: choice('native', 'underline', 'framed'), commander: choice('native', 'accent', 'quiet'), panels: choice('native', 'outlined', 'raised'), numerals: choice('native', 'tabular', 'proportional') }),
   ...effects, atmosphere: choice('dark', 'light', 'custom'), atmospherePosition: choice('top', 'center', 'bottom'), atmosphereStrength: number(0, 80),
@@ -56,7 +58,7 @@ const visualFields = {
 };
 for (const prefix of componentPrefixes) Object.assign(visualFields, { [`${prefix}Opacity`]: number(35, 100), [`${prefix}Blur`]: number(0, 16), [`${prefix}Border`]: number(0, 100) });
 const previewFields = {
-  surfaceArtData: surfaceArtDataSpec, counterArtData: counterArtDataSpec,
+  surfaceArtData: surfaceArtDataSpec, counterArtData: counterArtDataSpec, counterRingArtData: counterArtDataSpec,
   useGameBase: bool, previewReadOnly: bool, previewState: choice('turn', 'other', 'damage', 'offline', 'lobby', 'dialog', 'status', 'error', 'finished', 'end', 'endgame', 'menu', 'radiationDialog', 'commanderDialog', 'eliminated', 'longLabels'), previewMode: choice(...modes), previewPlayers: choice(2, 3, 4, 5, 6, 7, 8), previewColorScheme: choice('', 'dark', 'light'),
   backgroundData: image, sealData: image, buttonData: image, symbolData: record(map(modes, image)), overlayData: record(map(slots, image)),
 };
@@ -66,7 +68,7 @@ function validCommanderColors(value) {
   return Array.isArray(value) && value.length <= 5 && new Set(value).size === value.length
     && value.every(code => ['W','U','B','R','G'].includes(code));
 }
-const skinFields = { id, name: text(80), status: choice('Draft', 'Approved'), edited: text(80), schemaVersion: choice(1), sourceSkinId: id, ...visualFields, ...privateFields };
+const skinFields = { id, rewardRule: { type: 'rewardRule' }, name: text(80), status: choice('Draft', 'Approved'), edited: text(80), schemaVersion: choice(1), sourceSkinId: id, ...visualFields, ...privateFields };
 const issue = (path, message, fix) => ({ path, message, fix });
 const result = () => ({ errors: [], warnings: [] });
 function check(value, spec, path, report) {
@@ -81,7 +83,9 @@ function check(value, spec, path, report) {
   } else if (spec.type === 'color') { if (typeof value !== 'string' || !/^#[\da-f]{6}$/i.test(value)) fail('Use a six-digit color such as #f4ecd9.'); }
   else if (spec.type === 'number') { if (!['number', 'string'].includes(typeof value) || value === '' || !Number.isFinite(Number(value)) || Number(value) < spec.min || Number(value) > spec.max) fail(`Value must be between ${spec.min} and ${spec.max}.`); }
   else if (spec.type === 'enum') { if (!spec.values.includes(value)) fail(`Choose one of: ${spec.values.join(', ')}.`); }
+  else if (spec.type === 'rewardRule') { if (!validStudioRewardRule(value)) fail('Choose one to twelve different achievements.'); }
   else if (spec.type === 'commanderColors') { if (!validCommanderColors(value)) fail('Choose up to five distinct commander colors.'); }
+  else if (spec.type === 'commanderRegions') { if (!validCommanderRegions(value)) fail('Artwork regions need valid source artwork, color slots and bounded outlines.', 'Open the commander-color editor and check the affected region.'); }
   else if (spec.type === 'boolean') { if (typeof value !== 'boolean') fail('This setting must be true or false.'); }
   else if (spec.type === 'id') { if (value !== '' && (typeof value !== 'string' || !ID.test(value))) fail('Use a stable ID containing letters, numbers, underscores or hyphens.'); }
   else if (spec.type === 'text') { if (typeof value !== 'string' || value.length > spec.max || /[\p{Cc}\p{Cf}]/u.test(value)) fail(`Use plain text up to ${spec.max} characters.`); }
@@ -171,7 +175,7 @@ export function validateAppearanceSkin(skin, { assets, preview = false, requireA
   check(skin, record({ ...skinFields, counterDesign: counterDesignSpecFor(skin), ...(preview ? { ...previewFields, ...fixtureIdentities } : {}), versions: { type: 'versions' } }), 'skin', report);
   // Resolve geometry, references and contrast only after the input shape checks.
   if (!object(skin) || report.errors.length) return report;
-  if (!preview && skin.rendererVersion !== 2 && ['surfaceDesign','surfaceArt','counterDesign','tableDesign','canvasDesign','sceneDesign','commanderTreatment'].some(key => Object.hasOwn(skin,key))) report.errors.push(issue('skin.rendererVersion','These design controls need the expanded renderer.','Open the source skin and choose Use expanded controls before adding these settings.'));
+  if (!preview && skin.rendererVersion !== 2 && ['surfaceDesign','surfaceArt','counterDesign','tableDesign','canvasDesign','sceneDesign','commanderTreatment','commanderRegions'].some(key => Object.hasOwn(skin,key))) report.errors.push(issue('skin.rendererVersion','These design controls need the expanded renderer.','Open the source skin and choose Use expanded controls before adding these settings.'));
   if (!preview && Object.values(skin.modeLayouts || {}).some(layout => layout?.overlayData)) report.errors.push(issue('skin.modeLayouts.overlayData', 'Store asset IDs instead of embedded renderer image data.', 'Choose artwork through the asset library.'));
   if (!preview && (typeof skin.id !== 'string' || !ID.test(skin.id))) report.errors.push(issue('skin.id', 'A skin needs a stable ID.', 'Create a new draft.'));
   if (skin.versions !== undefined) {
@@ -181,6 +185,11 @@ export function validateAppearanceSkin(skin, { assets, preview = false, requireA
     }
   }
   if (report.errors.length) return report;
+  if (skin.commanderTreatment === 'art-regions') for (const [surface, configuration] of Object.entries(skin.commanderRegions || {})) {
+    if (configuration.assetId !== regionAssetId(skin, surface)) {
+      (publish ? report.errors : report.warnings).push(issue('skin.commanderRegions.' + surface, 'These outlines belong to different artwork.', 'Reopen the region editor to outline this artwork or remove the old outlines.'));
+    }
+  }
   if (assets) for (const reference of appearanceAssetReferences(skin)) {
     const found = assets.find(item => item.id === reference.id);
     if (!found) report.errors.push(issue(reference.path, `Artwork “${reference.id}” is missing.`, 'Choose an existing asset or clear this artwork slot.'));
@@ -245,6 +254,7 @@ function project(value, spec) {
     return Object.fromEntries(Object.entries(value).filter(([key]) => Object.hasOwn(spec.fields, key)).map(([key, item]) => [key, project(item, spec.fields[key])]).filter(([, item]) => item !== undefined));
   }
   if (spec.type === 'commanderColors') return validCommanderColors(value) ? [...value] : undefined;
+  if (spec.type === 'commanderRegions') return validCommanderRegions(value) ? structuredClone(value) : undefined;
   if (value === null || typeof value === 'object') return undefined;
   if (spec.type === 'boolean') return typeof value === 'boolean' ? value : undefined;
   if (spec.type === 'number') return (typeof value === 'number' || (typeof value === 'string' && value !== '')) && Number.isFinite(Number(value)) ? value : undefined;

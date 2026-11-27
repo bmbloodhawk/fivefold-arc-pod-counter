@@ -48,7 +48,14 @@
       "energy": "ϟ",
       "generic": "◇"
     },
-    "symbolAssets": {},
+    "symbolAssets": {
+      "life": "asset-night-watch-tab-life",
+      "commander": "asset-night-watch-tab-commander",
+      "radiation": "asset-night-watch-tab-radiation",
+      "poison": "asset-night-watch-tab-poison",
+      "energy": "asset-night-watch-tab-energy",
+      "generic": "asset-night-watch-tab-generic"
+    },
     "symbolScale": {
       "life": 100,
       "commander": 100,
@@ -418,9 +425,12 @@
           "face": "rings",
           "markings": "ticks",
           "seal": "none",
-          "artAsset": "asset-f4d9d41e-ebe5-44d1-b0a9-796cb2d819e3",
+          "artAsset": "asset-night-watch-center-life",
           "artOpacity": 55,
-          "artScale": 100
+          "artScale": 100,
+          "ringArtAsset": "asset-f4d9d41e-ebe5-44d1-b0a9-796cb2d819e3",
+          "ringCrop": "full",
+          "icon": "configured"
         },
         "commander": {
           "accent": "#f0c183",
@@ -429,9 +439,12 @@
           "face": "rings",
           "markings": "none",
           "seal": "none",
-          "artAsset": "asset-3896a84f-2a18-4206-8591-7501358cb559",
+          "artAsset": "asset-night-watch-center-commander",
           "artOpacity": 55,
-          "artScale": 100
+          "artScale": 100,
+          "ringArtAsset": "asset-3896a84f-2a18-4206-8591-7501358cb559",
+          "ringCrop": "full",
+          "icon": "configured"
         },
         "radiation": {
           "accent": "#e9ee96",
@@ -440,9 +453,12 @@
           "face": "rings",
           "markings": "none",
           "seal": "none",
-          "artAsset": "asset-4c1011e6-4176-4adb-b856-bfcb5a7857e1",
+          "artAsset": "asset-night-watch-center-radiation",
           "artOpacity": 55,
-          "artScale": 100
+          "artScale": 100,
+          "ringArtAsset": "asset-4c1011e6-4176-4adb-b856-bfcb5a7857e1",
+          "ringCrop": "full",
+          "icon": "configured"
         },
         "poison": {
           "accent": "#b2ed9b",
@@ -451,9 +467,12 @@
           "face": "rings",
           "markings": "none",
           "seal": "none",
-          "artAsset": "asset-6ff4613a-6039-459b-809b-9ca651fa11c5",
+          "artAsset": "asset-night-watch-center-poison",
           "artOpacity": 55,
-          "artScale": 100
+          "artScale": 100,
+          "ringArtAsset": "asset-6ff4613a-6039-459b-809b-9ca651fa11c5",
+          "ringCrop": "full",
+          "icon": "configured"
         },
         "energy": {
           "accent": "#8ce0ff",
@@ -462,9 +481,12 @@
           "face": "rings",
           "markings": "none",
           "seal": "none",
-          "artAsset": "asset-b96d50db-8c95-4f1a-a82e-ebef8fce2263",
+          "artAsset": "asset-night-watch-center-energy",
           "artOpacity": 55,
-          "artScale": 100
+          "artScale": 100,
+          "ringArtAsset": "asset-b96d50db-8c95-4f1a-a82e-ebef8fce2263",
+          "ringCrop": "full",
+          "icon": "configured"
         },
         "generic": {
           "accent": "#d7bbfc",
@@ -473,9 +495,12 @@
           "face": "rings",
           "markings": "none",
           "seal": "none",
-          "artAsset": "asset-cc1d61ff-047e-4c6f-b215-77c55ca6f5e9",
+          "artAsset": "asset-night-watch-center-generic",
           "artOpacity": 55,
-          "artScale": 100
+          "artScale": 100,
+          "ringArtAsset": "asset-cc1d61ff-047e-4c6f-b215-77c55ca6f5e9",
+          "ringCrop": "full",
+          "icon": "configured"
         }
       }
     },
@@ -843,6 +868,150 @@
       "height": 492,
       "bytes": 40976,
       "file": "lunar-phases.webp"
+    },
+    {
+      "id": "asset-night-watch-center-life",
+      "name": "Night Watch · Auroral Pulse",
+      "source": "Original observatory engraving for the Night Watch counter center.",
+      "placement": "dial",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 17334,
+      "file": "center-life.webp"
+    },
+    {
+      "id": "asset-night-watch-center-commander",
+      "name": "Night Watch · Polaris Diadem",
+      "source": "Original observatory engraving for the Night Watch counter center.",
+      "placement": "dial",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 492,
+      "height": 492,
+      "bytes": 12500,
+      "file": "center-commander.webp"
+    },
+    {
+      "id": "asset-night-watch-center-radiation",
+      "name": "Night Watch · Ion Chamber",
+      "source": "Original observatory engraving for the Night Watch counter center.",
+      "placement": "dial",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 492,
+      "height": 492,
+      "bytes": 13264,
+      "file": "center-radiation.webp"
+    },
+    {
+      "id": "asset-night-watch-center-poison",
+      "name": "Night Watch · Viper Star",
+      "source": "Original observatory engraving for the Night Watch counter center.",
+      "placement": "dial",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 492,
+      "height": 492,
+      "bytes": 13598,
+      "file": "center-poison.webp"
+    },
+    {
+      "id": "asset-night-watch-center-energy",
+      "name": "Night Watch · Storm Meridian",
+      "source": "Original observatory engraving for the Night Watch counter center.",
+      "placement": "dial",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 492,
+      "height": 492,
+      "bytes": 11882,
+      "file": "center-energy.webp"
+    },
+    {
+      "id": "asset-night-watch-center-generic",
+      "name": "Night Watch · Lunar Ephemeris",
+      "source": "Original observatory engraving for the Night Watch counter center.",
+      "placement": "dial",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 492,
+      "height": 492,
+      "bytes": 10744,
+      "file": "center-generic.webp"
+    },
+    {
+      "id": "asset-night-watch-tab-life",
+      "name": "Night Watch · Auroral Pulse tab",
+      "source": "Original miniature instrument engraving for the Night Watch counter tabs.",
+      "placement": "symbol",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 128,
+      "height": 128,
+      "bytes": 5112,
+      "file": "tab-life.webp"
+    },
+    {
+      "id": "asset-night-watch-tab-commander",
+      "name": "Night Watch · Polaris Diadem tab",
+      "source": "Original miniature instrument engraving for the Night Watch counter tabs.",
+      "placement": "symbol",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 128,
+      "height": 128,
+      "bytes": 4790,
+      "file": "tab-commander.webp"
+    },
+    {
+      "id": "asset-night-watch-tab-radiation",
+      "name": "Night Watch · Ion Chamber tab",
+      "source": "Original miniature instrument engraving for the Night Watch counter tabs.",
+      "placement": "symbol",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 128,
+      "height": 128,
+      "bytes": 3832,
+      "file": "tab-radiation.webp"
+    },
+    {
+      "id": "asset-night-watch-tab-poison",
+      "name": "Night Watch · Viper Star tab",
+      "source": "Original miniature instrument engraving for the Night Watch counter tabs.",
+      "placement": "symbol",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 128,
+      "height": 128,
+      "bytes": 4828,
+      "file": "tab-poison.webp"
+    },
+    {
+      "id": "asset-night-watch-tab-energy",
+      "name": "Night Watch · Storm Meridian tab",
+      "source": "Original miniature instrument engraving for the Night Watch counter tabs.",
+      "placement": "symbol",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 128,
+      "height": 128,
+      "bytes": 4430,
+      "file": "tab-energy.webp"
+    },
+    {
+      "id": "asset-night-watch-tab-generic",
+      "name": "Night Watch · Lunar Ephemeris tab",
+      "source": "Original miniature instrument engraving for the Night Watch counter tabs.",
+      "placement": "symbol",
+      "status": "Approved",
+      "mimeType": "image/webp",
+      "width": 128,
+      "height": 128,
+      "bytes": 3328,
+      "file": "tab-generic.webp"
     }
   ]
 }

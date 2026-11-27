@@ -1,4 +1,4 @@
-import { createCommanderGlassArtwork } from './commander-glass-art.js';
+import { createCommanderGlassArtwork } from './commander-glass-art.js?v=2';
 
 const mana = ['W', 'U', 'B', 'R', 'G'];
 export function glassIdentity(colors) {
@@ -7,7 +7,7 @@ export function glassIdentity(colors) {
 
 // One decoded painting per surface. Coalesce fast seat/identity changes; a
 // late decode or PNG from an old skin must never paint the next table.
-function createMaterialSlot(document, makeArtwork, show) {
+export function createMaterialSlot(document, makeArtwork, show) {
   const urls = document.defaultView?.URL || globalThis.URL;
   let asset = null, identity = null;
 
@@ -22,7 +22,7 @@ function createMaterialSlot(document, makeArtwork, show) {
     if (current.busy) return;
     current.busy = true;
     try {
-      current.material ??= await makeArtwork(document, current.source, current.controller.signal);
+      current.material ??= await makeArtwork(document, current.source, current.controller.signal, current.recipe);
       if (asset !== current) return;
       if (current.material?.original) {
         show(identity, current.source, true);
@@ -53,12 +53,12 @@ function createMaterialSlot(document, makeArtwork, show) {
     }
   }
 
-  function update(source, key, newTarget = false) {
-    const changed = source !== (asset?.source || '');
+  function update(source, key, newTarget = false, recipe = null) {
+    const changed = source !== (asset?.source || '') || recipe !== (asset?.recipe ?? null);
     if (!changed && key === identity && !newTarget) return;
     if (changed) {
       clear();
-      if (source) asset = { source, controller: new AbortController(), variants: new Map(), busy: false, failed: false, material: null, visible: null };
+      if (source) asset = { source, recipe, controller: new AbortController(), variants: new Map(), busy: false, failed: false, material: null, visible: null };
     }
     identity = key;
     if (!asset) return show(key, null, true);
