@@ -1,4 +1,6 @@
-import { PRISMATIC_PATH_ACHIEVEMENT, PRISMATIC_PREREQUISITES } from './appearance-milestones.js';
+import { APPEARANCE_ACHIEVEMENTS, PRISMATIC_PATH_ACHIEVEMENT, PRISMATIC_PREREQUISITES } from './appearance-milestones.js';
+
+const legacyAppearanceAwards = new Set(Object.values(APPEARANCE_ACHIEVEMENTS).map(award => award.id));
 
 export function recordedAward(award) {
   return award?.historical === true || award?.evidenceRemoved === true
@@ -15,7 +17,8 @@ function earnedAt(account, awards, id) {
   if (id === 'account-awakened' && Number.isFinite(account.createdAt)) return account.createdAt;
   const award = awards?.[id];
   if (recordedAward(award)) return Number.isFinite(award.earnedAt) ? award.earnedAt : 0;
-  if (id.startsWith('long-') && Array.isArray(account.longTermAchievementIds) && account.longTermAchievementIds.includes(id)) {
+  const legacyProfileAward = id.startsWith('long-') || legacyAppearanceAwards.has(id);
+  if (legacyProfileAward && Array.isArray(account.longTermAchievementIds) && account.longTermAchievementIds.includes(id)) {
     if (!Object.hasOwn(account.studioLongTermDates || {}, id)) return 0;
     const at = account.studioLongTermDates[id];
     return Number.isFinite(at) && at >= 0 ? at : Infinity;
