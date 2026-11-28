@@ -221,3 +221,63 @@ for (const action of ['leaveTable()', 'forgetCurrentTable()', "clearPastTables({
     assert.equal(JSON.parse(page.stored.get(activeKey)), null);
   });
 }
+
+test('leaving a recovered intermission after its old celebration prevents another automatic return', async () => {
+  const snapshot = {
+    ...confirmed,
+    gameResult: { gameId: 'finished-game', winnerSeatId: 0 },
+    lifecycle: { status: 'intermission', seatIds: [0, 1], readySeatIds: [] },
+  };
+  const savedSeat = { ...target, lastUsedAt: target.updatedAt };
+  const page = startPage({ history: [savedSeat, previous], claim: async () => snapshot });
+  await setImmediate();
+  assert.deepEqual(page.shown, [snapshot]);
+
+  // The recovery harness captures showSharedGame; supply the recovered view state.
+  Object.assign(page.context, {
+    state: { ...page.shown[0], podCode: target.code, localSimulation: false },
+    victoryKey: result => result?.gameId,
+    victoryStage: 'winner',
+    dismissedVictoryKeys: new Set(), automaticSavePromises: new Map(), personalMomentPromises: new Map(),
+    showAchievementUnlocks: () => false,
+    showTableActionError: message => assert.fail(message),
+    showTableRequestError: error => assert.fail(error.message),
+  });
+  const { dom, transport } = page.context;
+  dom.victoryDialog = {
+    open: true, dataset: { stage: 'winner' }, setAttribute() {},
+    close() { this.open = false; },
+  };
+  dom.achievementDialog = { open: false };
+  dom.personalMatchMoment = { hidden: false };
+  const requests = [];
+  transport.roomCode = target.code;
+  transport.beginIntermission = async () => { assert.fail('Recovered intermission must not begin again'); };
+  transport.leaveIntermission = async () => { requests.push('leave'); return { left: true }; };
+  runInContext([
+    segment('function finishEndGameFlow(', 'async function loadSaveGameDecks('),
+    segment('async function beginIntermission(', 'async function setNextGameReady('),
+    segment('async function leaveNextGameTable()', 'async function leaveFinishedTournamentTable('),
+  ].join('\n'), page.context);
+
+  runInContext("advanceEndGameFlow('finished-game')", page.context);
+  await setImmediate();
+  assert.equal(dom.victoryDialog.dataset.stage, 'accolade');
+  runInContext("advanceEndGameFlow('finished-game')", page.context);
+  await setImmediate();
+  assert.equal(dom.victoryDialog.open, false);
+
+  await runInContext('leaveNextGameTable()', page.context);
+  assert.deepEqual(requests, ['leave']);
+  assert.equal(page.context.state, null);
+  assert.equal(transport.roomCode, null);
+  assert.equal(dom.landing.hidden, false);
+  assert.equal(page.stored.get(activeKey), 'null');
+  const remainingHistory = JSON.parse(page.stored.get(historyKey));
+  assert.deepEqual(remainingHistory, [previous]);
+
+  const reloaded = startPage({ activeRaw: page.stored.get(activeKey), history: remainingHistory, legacy: target });
+  await setImmediate();
+  assert.deepEqual(reloaded.calls, []);
+  assert.deepEqual(reloaded.shown, []);
+});

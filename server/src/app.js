@@ -1999,6 +1999,7 @@ export class RoomService {
     room.protocolVersion = roomProtocolVersion(room.protocolVersion);
     // Firebase omits empty arrays from persisted recovery records.
     room.playtestNotes = Array.isArray(room.playtestNotes) ? room.playtestNotes : [];
+    if (room.lifecycle) room.lifecycle.readySeatIds = Array.isArray(room.lifecycle.readySeatIds) ? room.lifecycle.readySeatIds : [];
     room.hostRecoveryKeyHash = decodedHash(record.hostRecoveryKeyHash);
     // Recovery records can outlive optional Commander display fields added in a
     // later release. Normalize those legacy seats before deriving sources.

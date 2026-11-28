@@ -105,6 +105,41 @@ for (const withNotes of [false, true]) test(`recovered Table reset ${withNotes ?
   assert.equal(f.database.read(`recovery/${code}.json`).room.version, reset.data.snapshot.version);
 });
 
+for (const ready of [false, true]) test(`recovered intermission can be left with ${ready ? 'an existing ready player' : 'Firebase-omitted empty readiness'}`, { timeout: 10000 }, async t => {
+  const f = await fixture(t);
+  const host = f.service.createConnection().connectionId, guest = f.service.createConnection().connectionId;
+  const created = f.service.createRoom(host, { playerCount: 2, startingLife: 40 });
+  const code = created.snapshot.code;
+  const claimed = f.service.claimSeat(code, guest, { seatId: 1, name: 'Returning guest' });
+  const room = f.service.room(code);
+  f.service.startGame(code, host, { baseVersion: room.version });
+  f.service.declareWinner(code, host, { baseVersion: room.version, winnerSeatId: 0, winCondition: 'other_declared' });
+  f.service.beginIntermission(code, host, { baseVersion: room.version });
+  if (ready) f.service.setNextGameReady(code, host, { baseVersion: room.version });
+  await f.ledger.flush();
+  const saved = f.database.read(`recovery/${code}.json`);
+  assert.equal(Object.hasOwn(saved.room.lifecycle, 'readySeatIds'), ready, 'Exercise the persisted Firebase shape.');
+  const completedGames = structuredClone(saved.room.completedGames);
+
+  const restarted = createRealtimeServer({ appEnv: 'staging', ledger: f.ledger }); f.servers.push(restarted.server);
+  await new Promise(resolve => restarted.server.listen(0, '127.0.0.1', resolve));
+  const endpoint = `http://127.0.0.1:${restarted.server.address().port}`;
+  const owner = restarted.service.createConnection().connectionId;
+  const reclaimed = await f.call(code, 'reclaim', owner, { seatId: 1, reclaimToken: claimed.reclaimToken }, 'POST', endpoint);
+  assert.equal(reclaimed.status, 200, JSON.stringify(reclaimed.data));
+  const left = await f.call(code, 'leave-intermission', owner, { baseVersion: reclaimed.data.snapshot.version }, 'POST', endpoint);
+  assert.equal(left.status, 200, JSON.stringify(left.data));
+  assert.equal(left.data.left, true);
+  assert.equal(left.data.snapshot.seats[1].claimed, false);
+  assert.equal(left.data.snapshot.hostSeatId, 0);
+  assert.deepEqual(left.data.snapshot.lifecycle.seatIds, [0]);
+  assert.deepEqual(left.data.snapshot.lifecycle.readySeatIds, ready ? [0] : []);
+  assert.deepEqual(f.database.read(`recovery/${code}.json`).room.completedGames, completedGames, 'Leaving preserves the completed game.');
+  assert.equal(restarted.service.getConnection(owner).seatKey, null);
+  assert.equal((await f.call(code, 'adjust', owner, { counter: 'life', delta: -1 }, 'POST', endpoint)).status, 403);
+  assert.equal((await f.call(code, 'reclaim', owner, { seatId: 0, reclaimToken: claimed.reclaimToken }, 'POST', endpoint)).status, 403);
+});
+
 test('automatic seat reclaim waits for its durable recovery acknowledgement', { timeout: 10000 }, async t => {
   const blocked = gate(), entered = gate(); let heldPath;
   const f = await fixture(t, async (url, options) => {
