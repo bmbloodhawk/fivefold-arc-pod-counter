@@ -3,11 +3,13 @@ import { createHash, randomUUID } from "node:crypto";
 import { chooseMatchMoment, RECENT_ACCOLADE_LIMIT } from "./match-moments.js";
 import { APPEARANCE_ACHIEVEMENTS, DEEP_NIGHT_ACHIEVEMENT, NIGHT_SHIFT_ID, NIGHT_WATCH_REWARD, NIGHT_WATCH_SKIN_ID, nextAppearanceAchievement, PRISMATIC_CONFLUENCE_SKIN_ID, PRISMATIC_PATH_ACHIEVEMENT, PRISMATIC_PREREQUISITES } from "./appearance-milestones.js";
 import { appearanceCommanderGames, legacyAppearanceGames } from './appearance-history-recovery.js';
+import { EXPLORATION_COMMISSION, beginExplorationCommission, advanceExplorationCommission, explorationCommissionProgress } from './exploration-commission.js';
 
 const accountPath = (accountId) => `account-history/accounts/${encodeURIComponent(accountId)}.json`;
 const gamesPath = (accountId) => `account-history/games/${encodeURIComponent(accountId)}.json`;
 const decksPath = (accountId) => `account-history/decks/${encodeURIComponent(accountId)}.json`;
 const progressPath = (accountId) => `account-history/verified-progress/${encodeURIComponent(accountId)}.json`;
+const explorationEnrollmentPath = accountId => `account-history/exploration-enrollments/${encodeURIComponent(accountId)}.json`;
 const completionClaimPath = (key) => `account-history/completion-claims/${key}.json`;
 const AWARD_RULE_VERSION = 1;
 const subjectKey = (subject) => createHash("sha256").update(String(subject)).digest("hex");
@@ -243,7 +245,7 @@ const achievementsFor = ({ games, bestWinStreak, monthCount, playedColors, longT
 export const studioAchievementCatalog = Object.freeze(achievementsFor({
   games: [], playedColors: new Set(), monthCount: 0, bestWinStreak: 0,
   listDefinitions: true, longTermAchievementIds: longTermDefinitions().map(item => item.id),
-}).concat(PRISMATIC_PATH_ACHIEVEMENT).sort((a, b) => a.title.localeCompare(b.title)).map(Object.freeze));
+}).concat(PRISMATIC_PATH_ACHIEVEMENT).sort((a, b) => a.title.localeCompare(b.title)).concat(EXPLORATION_COMMISSION).map(Object.freeze));
 
 function legacyDeckColors(games, decks) {
   const usedDecks = new Set(games.map(game => game.deckId).filter(Boolean));
@@ -389,6 +391,24 @@ export class AccountHistory {
     const grants = Array.isArray(account.skinEntitlements) ? account.skinEntitlements : [];
     const history = await this.summary(accountId);
     return { accountId, grants, achievementIds: history.achievements.map(item => item.id) };
+  }
+
+  async startExplorationCommission(accountId, timeZone) {
+    const now = this.now();
+    const requested = beginExplorationCommission(timeZone, now);
+    const [account, progress] = await Promise.all([this.store.read(accountPath(accountId)), this.store.read(progressPath(accountId))]);
+    if (!account || progress?.closed) throw Object.assign(new Error('This profile is unavailable'), {status: 409, code: 'PROFILE_UNAVAILABLE'});
+    if (progress?.explorationCommission) return explorationCommissionProgress(progress.explorationCommission);
+    // Enrollment must not initialize or date any existing achievement evidence.
+    // A separate immutable enrollment also avoids races with older account
+    // preference writers. Game credit and awards commit in verified progress.
+    const stored = await this.store.update(explorationEnrollmentPath(accountId), current => {
+      if (current?.closed) throw Object.assign(new Error('This profile is unavailable'), {status: 409, code: 'PROFILE_UNAVAILABLE'});
+      return current || requested;
+    });
+    const latest = await this.store.read(progressPath(accountId));
+    if (latest?.closed) throw Object.assign(new Error('This profile is unavailable'), {status: 409, code: 'PROFILE_UNAVAILABLE'});
+    return explorationCommissionProgress(latest?.explorationCommission || stored);
   }
 
   async earnedSkinAwards(accountId, achievementIds) {
@@ -550,10 +570,11 @@ export class AccountHistory {
     if (completion.sessionKind !== "standard") {
       throw Object.assign(new Error("Practice games do not count toward profile achievements"), { status: 409, code: "PRACTICE_GAME" });
     }
-    const [account, legacyRecords, deckRecords] = await Promise.all([
+    const [account, legacyRecords, deckRecords, enrollment] = await Promise.all([
       this.store.read(accountPath(accountId)),
       this.store.read(gamesPath(accountId)),
       this.store.read(decksPath(accountId)),
+      this.store.read(explorationEnrollmentPath(accountId)),
     ]);
     if (!account) throw Object.assign(new Error("This profile is unavailable"), { status: 409, code: "PROFILE_UNAVAILABLE" });
     const legacyGames = Object.values(legacyRecords || {});
@@ -655,6 +676,15 @@ export class AccountHistory {
           unlockedAchievements.push(appearance);
         }
       }
+      // This mission never enters either of the existing one-award selectors.
+      // Its evidence commits atomically with the verified game and other awards.
+      const explorationCommission = advanceExplorationCommission(progress.explorationCommission || (enrollment?.closed ? null : enrollment), completion, key);
+      if (explorationCommission?.earnedAt != null && !recordedAward(awards[EXPLORATION_COMMISSION.id])) {
+        awards[EXPLORATION_COMMISSION.id] = {...evidence, missionRuleVersion: 1,
+          eligibilityVersion: explorationCommission.eligibilityVersion, timeZone: explorationCommission.timeZone,
+          objectives: explorationCommissionProgress(explorationCommission)};
+        unlockedAchievements.push(EXPLORATION_COMMISSION);
+      }
       const studioUnlocks = [];
       let studioSkinGrants = progress.studioSkinGrants;
       for (const release of studioReleases) {
@@ -668,7 +698,7 @@ export class AccountHistory {
         }
       }
       result = { game, moment, unlockedAchievements, ...(studioUnlocks.length ? {studioUnlocks} : {}), ...(alreadyOwnedSkinAward ? { alreadyOwnedSkinAward } : {}), ...(nightWatchAwardId ? { nightWatchAwardId } : {}) };
-      return { ...progress, awards, ...(studioSkinGrants ? {studioSkinGrants} : {}), games: { ...progress.games, [key]: game }, seats: { ...progress.seats, [key]: seatKey } };
+      return { ...progress, awards, ...(explorationCommission ? {explorationCommission} : {}), ...(studioSkinGrants ? {studioSkinGrants} : {}), games: { ...progress.games, [key]: game }, seats: { ...progress.seats, [key]: seatKey } };
     });
     if (savedForAnotherSeat) {
       // The other seat can still be saved to its own profile.
@@ -829,9 +859,10 @@ export class AccountHistory {
   }
 
   async summary(accountId) {
-    const [record, legacyRecords, deckRecords, progress] = await Promise.all([
+    const [record, legacyRecords, deckRecords, progress, enrollment] = await Promise.all([
       this.store.read(accountPath(accountId)), this.store.read(gamesPath(accountId)),
       this.store.read(decksPath(accountId)), this.store.read(progressPath(accountId)),
+      this.store.read(explorationEnrollmentPath(accountId)),
     ]);
     const account = record || { accountId };
     const legacyGames = Object.values(legacyRecords || {});
@@ -854,11 +885,13 @@ export class AccountHistory {
       ...inputs, storedLegacyIds, longTermAchievementIds: longTermIds(account, progress),
     });
     if (!progress?.closed && PRISMATIC_PREREQUISITES.every(({ id }) => earned.some(award => award.id === id))) earned.push(PRISMATIC_PATH_ACHIEVEMENT);
+    if (!progress?.closed && recordedAward(progress?.awards?.[EXPLORATION_COMMISSION.id])) earned.push(EXPLORATION_COMMISSION);
     const achievements = earned.map(achievement => ({ ...achievement, isNew: !seen.has(achievement.id) }));
     return {
       gamesPlayed: games.length, wins, winRate: games.length ? wins / games.length : null,
       counterTotals: lifetimeCounterTotals(games), recentGames: games.slice(0, 12), games, deckStats,
       achievements, recentAccoladeIds: recentAccolades(allGames),
+      explorationCommission: explorationCommissionProgress(progress?.closed ? null : progress?.explorationCommission || (enrollment?.closed ? null : enrollment)),
       thisMonth: { gamesPlayed: monthGames.length, wins: monthGames.filter(game => game.won).length },
     };
   }
@@ -874,6 +907,7 @@ export class AccountHistory {
     if (!mapping?.accountId) return false;
     // Close the progression record first so an in-flight save cannot recreate it.
     await this.store.update(progressPath(mapping.accountId), () => ({ closed: true }));
+    await this.store.update(explorationEnrollmentPath(mapping.accountId), () => ({ closed: true }));
     await Promise.all([
       this.store.write(gamesPath(mapping.accountId), null),
       this.store.write(decksPath(mapping.accountId), null),

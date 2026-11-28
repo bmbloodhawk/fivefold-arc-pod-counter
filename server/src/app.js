@@ -23,6 +23,7 @@ import { TableDeviceActivity, normalizedTableDeviceId } from "./table-device-act
 import { ProductMeasurement } from "./product-measurement.js";
 import { blankMatchMoment, chooseMatchMoment, RECENT_ACCOLADE_LIMIT, recordMatchMoment, recordTurnMoment, tableMatchMomentDecisions } from "./match-moments.js";
 import { nextGameStarterPolicy } from "../../client/next-game-starter.js";
+import { startingCommanderEvidenceFor } from './starting-commander-evidence.js';
 
 const JOIN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const MUTABLE_COUNTERS = new Set(["life", "radiation", "poison", "energy", "generic", "commanderDamage"]);
@@ -561,6 +562,7 @@ export class RoomService {
     tableDeviceActivity = new TableDeviceActivity(),
     autoRecoverRooms = false,
     completionEvidenceEnabled = false,
+    startingCommanderEvidenceFor: resolveStartingCommanders = startingCommanderEvidenceFor,
     setTimeoutImpl = setTimeout,
     clearTimeoutImpl = clearTimeout,
   } = {}) {
@@ -574,6 +576,7 @@ export class RoomService {
     this.tableDeviceActivity = tableDeviceActivity;
     this.autoRecoverRooms = autoRecoverRooms;
     this.completionEvidenceEnabled = completionEvidenceEnabled;
+    this.startingCommanderEvidenceFor = resolveStartingCommanders;
     this.recoveryLoads = new Map();
     this.sseKeepaliveMs = sseKeepaliveMs;
     this.streamKeepalives = new Map();
@@ -1039,6 +1042,7 @@ export class RoomService {
       place: place || null,
       outcomeDescription: room.gameResult.declarationDetail || null,
       commanderName: seat.commanderNames?.filter(Boolean).join(" / ") || null,
+      ...(room.turn.startingCommanderEvidence?.[seat.seatId] ? { startingCommanderEvidence: structuredClone(room.turn.startingCommanderEvidence[seat.seatId]) } : {}),
       playedColors: [...new Set(seat.commanderColors?.flat() || [])],
       counterTotals: {
         poison: matchMoment.poisonGained || 0,
@@ -1719,6 +1723,7 @@ export class RoomService {
       roundTrackingComplete: room.turn.trackingEnabled !== false,
       startedAsDevelopment: room.sessionKind === "development",
       startingCommanderSourceIds: commanderSources(room).filter(source => claimedSeats.some(seat => seat.seatId === source.ownerSeatId)).map(source => source.id),
+      startingCommanderEvidence: Object.fromEntries(claimedSeats.map(seat => [seat.seatId, this.startingCommanderEvidenceFor(seat.commanderNames)])),
       roundEndsAt: room.config.roundLimitMinutes ? startedAt + room.config.roundLimitMinutes * 60 * 1000 : null,
       startingPlayerSeatId: startingSeatId,
       lastHandoff: null,
@@ -2336,6 +2341,13 @@ export function createRealtimeServer(options = {}) {
         ok: true, appearanceRewardsReady: Boolean(earnedSkins.size && accountHistory && accountVerifier), revision,
       });
       if (req.method === "GET" && url.pathname === "/api/account/history") { const accountId = await account(req); return json(res, 200, { history: await accountHistory.summary(accountId) }); }
+      if (req.method === 'POST' && url.pathname === '/api/account/missions/exploration-commission/start') {
+        const accountId = await account(req), input = await readJson(req);
+        if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).length !== 1 || !Object.hasOwn(input, 'timeZone')) {
+          throw Object.assign(new TypeError('Mission start requires one named IANA timezone.'), {status: 400});
+        }
+        return json(res, 200, {mission: await accountHistory.startExplorationCommission(accountId, input.timeZone)});
+      }
       if (req.method === "POST" && url.pathname === "/api/account/achievements/viewed") { const accountId = await account(req); const input = await readJson(req); return json(res, 200, { viewed: await accountHistory.markAchievementRarityViewed(accountId, input?.rarity) }); }
       if (req.method === 'GET' && url.pathname === '/api/account/appearance-catch-up') {
         const accountId = await account(req);
