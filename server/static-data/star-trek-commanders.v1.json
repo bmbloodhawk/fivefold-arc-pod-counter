@@ -1,0 +1,6239 @@
+{
+  "version": "star-trek-commanders-v1-2026-11-27",
+  "reviewedAt": "2026-11-27",
+  "scope": {
+    "nativeIdentityCount": 197,
+    "reskinIdentityCount": 31,
+    "identityCount": 228,
+    "description": "Trek-native Commander-legal canonical cards in TRK/TRC; explicitly named Commander-legal Star Trek reskins in SDS and Secret Lair Assimilation/Lower Decks. English names and reviewed MTGJSON ASCII aliases only. A reskin qualifies through its exact Trek display name or approved print identity, never the unrelated mechanical name alone."
+  },
+  "sources": [
+    {
+      "kind": "official-gallery",
+      "url": "https://magic.wizards.com/en/products/star-trek/card-image-gallery"
+    },
+    {
+      "kind": "official-release-notes",
+      "url": "https://magic.wizards.com/en/news/feature/star-trek-release-notes"
+    },
+    {
+      "kind": "official-stardates-explanation",
+      "url": "https://magic.wizards.com/en/news/feature/collecting-star-trek"
+    },
+    {
+      "kind": "official-secret-lair-list",
+      "url": "https://magic.wizards.com/en/news/announcements/secret-lair-set-phasers-to-superdrop"
+    },
+    {
+      "kind": "official-commander-rule-change",
+      "url": "https://magic.wizards.com/en/news/announcements/edge-of-eternities-update-bulletin"
+    },
+    {
+      "kind": "reviewed-card-data",
+      "url": "https://api.scryfall.com/cards/search?q=%28set%3Atrk+or+set%3Atrc%29+is%3Acommander+game%3Apaper&unique=prints&order=name",
+      "sha256": "e27db3aee323d4e9bf8e3942c4b456f9a0d4a33866e61216ee93d3b075ccda5c"
+    },
+    {
+      "kind": "reviewed-card-data",
+      "url": "https://api.scryfall.com/cards/search?format=json&include_extras=false&include_multilingual=false&include_variations=false&order=name&page=2&q=%28set%3Atrk+or+set%3Atrc%29+is%3Acommander+game%3Apaper&unique=prints",
+      "sha256": "7690a72768ff9732f1f9e3f0f667bd6eb5df377df4e75835b612bfa09a1a4e70"
+    },
+    {
+      "kind": "reviewed-card-data",
+      "url": "https://api.scryfall.com/cards/search?format=json&include_extras=false&include_multilingual=false&include_variations=false&order=name&page=3&q=%28set%3Atrk+or+set%3Atrc%29+is%3Acommander+game%3Apaper&unique=prints",
+      "sha256": "36a18a56f120d3abf6c85a90bdcdc2bbd3c2d32388f97fff6add2f49d7793af4"
+    },
+    {
+      "kind": "reviewed-card-data",
+      "url": "https://api.scryfall.com/cards/search?q=set%3Asds+is%3Acommander+game%3Apaper&unique=prints&order=name",
+      "sha256": "c139fd117b857d9f036a8fed61f23a549cc243354fa5bd97ca5635039321ebab"
+    },
+    {
+      "kind": "reviewed-card-data",
+      "url": "https://api.scryfall.com/cards/search?q=set%3Asld+%28cn%3A2731+or+cn%3A2732+or+cn%3A2733+or+cn%3A2739+or+cn%3A2740+or+cn%3A2741+or+cn%3A2742+or+cn%3A2743%29+is%3Acommander+game%3Apaper&unique=prints&order=name",
+      "sha256": "782195a60e4404bf33fd1d2f864ba7e02f0847acdd9af207ed02dfd6e302a79c"
+    },
+    {
+      "kind": "reviewed-card-data",
+      "url": "https://mtgjson.com/api/v5/TRC.json",
+      "sha256": "2a330e30c7e4d6edb5d2f867855e3afe8c38214582b8a4a10d8931e5fbc33ac7"
+    },
+    {
+      "kind": "reviewed-card-data",
+      "url": "https://mtgjson.com/api/v5/TRK.json",
+      "sha256": "e071614470c6f4ac744a5fc1eae8f2cc0969f252c67e96aa8d07051e2685be45"
+    }
+  ],
+  "excluded": [
+    {
+      "name": "Loran of the Third Path",
+      "reason": "Unrelated canonical reprint appearing in TRC; no Trek display-name identity."
+    },
+    {
+      "scope": "other-card-identities",
+      "reason": "Set/product membership, art, partial names, fuzzy suggestions and editable final names never establish eligibility."
+    }
+  ],
+  "cards": [
+    {
+      "oracleId": "d629311f-a7fc-4af5-91ce-5bf506a3cdb3",
+      "name": "Alexander, Ship's Fool",
+      "aliases": [
+        "Alexander, Ship's Fool"
+      ],
+      "eligibleNames": [
+        "Alexander, Ship's Fool"
+      ],
+      "typeLine": "Legendary Creature — Klingon Human",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Vigilance",
+        "Haste"
+      ],
+      "printings": [
+        {
+          "id": "7c7d8bbd-7ee3-4e02-9978-403a84c29fe5",
+          "set": "trc",
+          "collectorNumber": "81"
+        },
+        {
+          "id": "7a6d3f42-dffb-4c01-aa9c-8e68351bbba6",
+          "set": "trc",
+          "collectorNumber": "309"
+        }
+      ]
+    },
+    {
+      "oracleId": "13d4a70f-c48c-4739-8f3e-5f0302c5484c",
+      "name": "Amanda Grayson, Logic's Link",
+      "aliases": [
+        "Amanda Grayson, Logic's Link"
+      ],
+      "eligibleNames": [
+        "Amanda Grayson, Logic's Link"
+      ],
+      "typeLine": "Legendary Creature — Human Advisor",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Affinity",
+        "Landfall"
+      ],
+      "printings": [
+        {
+          "id": "a07593d8-957d-4a85-9672-f3fabf576fd5",
+          "set": "trc",
+          "collectorNumber": "77"
+        },
+        {
+          "id": "2cf064eb-7d6c-4961-962b-3d7e68f8e73e",
+          "set": "trc",
+          "collectorNumber": "297"
+        }
+      ]
+    },
+    {
+      "oracleId": "ce60a1a4-1e53-4985-a54f-3627dd35c5f2",
+      "name": "Ambassador K'Ehleyr",
+      "aliases": [
+        "Ambassador K'Ehleyr"
+      ],
+      "eligibleNames": [
+        "Ambassador K'Ehleyr"
+      ],
+      "typeLine": "Legendary Creature — Klingon Human Advisor",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Vigilance",
+        "Parley"
+      ],
+      "printings": [
+        {
+          "id": "5241fa80-1af1-4f9b-b2a2-cd94262e6f3d",
+          "set": "trc",
+          "collectorNumber": "9"
+        },
+        {
+          "id": "9ce4e24e-8710-423b-a22e-5ee3c629e569",
+          "set": "trc",
+          "collectorNumber": "212"
+        }
+      ]
+    },
+    {
+      "oracleId": "0fdfe986-0216-468b-aac8-bbcf588fd894",
+      "name": "Arcum Dagsson",
+      "aliases": [
+        "Arcum Dagsson",
+        "Scotty, Transwarp Transporter"
+      ],
+      "eligibleNames": [
+        "Scotty, Transwarp Transporter"
+      ],
+      "typeLine": "Legendary Creature — Human Artificer",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "158bbb41-a954-4bd2-8414-8bf1c275f7cf",
+          "set": "sds",
+          "collectorNumber": "7",
+          "trekName": "Scotty, Transwarp Transporter"
+        }
+      ]
+    },
+    {
+      "oracleId": "42c77c4d-90bb-45d6-a9e0-36704b5a2b11",
+      "name": "Armus, Skin of Evil",
+      "aliases": [
+        "Armus, Skin of Evil"
+      ],
+      "eligibleNames": [
+        "Armus, Skin of Evil"
+      ],
+      "typeLine": "Legendary Creature — Ooze Horror",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Menace"
+      ],
+      "printings": [
+        {
+          "id": "c3ba1e0d-5e3d-4fa7-9b58-5b90944b43c5",
+          "set": "trk",
+          "collectorNumber": "91"
+        },
+        {
+          "id": "c709714b-ae51-4006-8873-05f1d71a447c",
+          "set": "trk",
+          "collectorNumber": "454"
+        }
+      ]
+    },
+    {
+      "oracleId": "c905227d-b5fe-42e6-a11d-5008b7a7922f",
+      "name": "B'Elanna Torres, Scrapper",
+      "aliases": [
+        "B'Elanna Torres, Scrapper"
+      ],
+      "eligibleNames": [
+        "B'Elanna Torres, Scrapper"
+      ],
+      "typeLine": "Legendary Creature — Klingon Human Artificer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Surveil",
+        "Vigilance",
+        "Trample"
+      ],
+      "printings": [
+        {
+          "id": "cc2287da-495a-4b48-9e4f-43792d3bccbb",
+          "set": "trc",
+          "collectorNumber": "82"
+        },
+        {
+          "id": "85ed14c9-ff10-4c3b-856b-8128acc07aa8",
+          "set": "trc",
+          "collectorNumber": "311"
+        }
+      ]
+    },
+    {
+      "oracleId": "227fb13b-0a07-4937-9048-7cf02efbc8e3",
+      "name": "Badgey, Malicious Glitch",
+      "aliases": [
+        "Badgey, Malicious Glitch"
+      ],
+      "eligibleNames": [
+        "Badgey, Malicious Glitch"
+      ],
+      "typeLine": "Legendary Artifact Creature — Illusion Horror",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "294e0651-99b4-4792-8ee8-107e7484117d",
+          "set": "trc",
+          "collectorNumber": "152"
+        }
+      ]
+    },
+    {
+      "oracleId": "1033a0cb-1a00-46c4-83d5-68a6eac85feb",
+      "name": "Beckett Mariner, Impetuous Ensign",
+      "aliases": [
+        "Beckett Mariner, Impetuous Ensign"
+      ],
+      "eligibleNames": [
+        "Beckett Mariner, Impetuous Ensign"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Reckless Behavior",
+        "First strike"
+      ],
+      "printings": [
+        {
+          "id": "f2001bbd-63ee-4a6e-8e01-3a91aaf1e3b9",
+          "set": "trk",
+          "collectorNumber": "138"
+        }
+      ]
+    },
+    {
+      "oracleId": "f1416577-97d0-4d6c-afd2-455798556d4c",
+      "name": "Benjamin Sisko, Besieged",
+      "aliases": [
+        "Benjamin Sisko, Besieged"
+      ],
+      "eligibleNames": [
+        "Benjamin Sisko, Besieged"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "6cf853b8-4479-424d-998a-4fc53456c38b",
+          "set": "trc",
+          "collectorNumber": "200"
+        }
+      ]
+    },
+    {
+      "oracleId": "7a33edc3-e938-463f-8568-7d7a458427c8",
+      "name": "Beverly Crusher, Ship's Doctor",
+      "aliases": [
+        "Beverly Crusher, Ship's Doctor"
+      ],
+      "eligibleNames": [
+        "Beverly Crusher, Ship's Doctor"
+      ],
+      "typeLine": "Legendary Creature — Human Doctor",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Seek",
+        "Seek out"
+      ],
+      "printings": [
+        {
+          "id": "35a289b9-18da-437a-ad0a-450accb99100",
+          "set": "trc",
+          "collectorNumber": "11"
+        },
+        {
+          "id": "c48d6ba5-5ac0-4b1a-a592-ffdc22007398",
+          "set": "trc",
+          "collectorNumber": "214"
+        }
+      ]
+    },
+    {
+      "oracleId": "f9b46a1a-474f-4fac-8d71-131c1720e4c0",
+      "name": "Borg Queen, Perfection Manifest",
+      "aliases": [
+        "Borg Queen, Perfection Manifest"
+      ],
+      "eligibleNames": [
+        "Borg Queen, Perfection Manifest"
+      ],
+      "typeLine": "Legendary Artifact Creature — Borg Noble",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Assimilate"
+      ],
+      "printings": [
+        {
+          "id": "cb07e5e4-154e-4ba5-85a4-ecc78f1555d2",
+          "set": "trc",
+          "collectorNumber": "197"
+        }
+      ]
+    },
+    {
+      "oracleId": "10af9cd9-1700-48f9-97e1-61e239536fef",
+      "name": "Brad Boimler, Eager Ensign",
+      "aliases": [
+        "Brad Boimler, Eager Ensign"
+      ],
+      "eligibleNames": [
+        "Brad Boimler, Eager Ensign"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Lifelink"
+      ],
+      "printings": [
+        {
+          "id": "a6bf1525-2212-46d0-ad4d-1dbaa2e3b3cd",
+          "set": "trk",
+          "collectorNumber": "5"
+        }
+      ]
+    },
+    {
+      "oracleId": "d3b2d8a2-d3bc-448c-9cf6-6bead6010c28",
+      "name": "Bristly Bill, Spine Sower",
+      "aliases": [
+        "Bristly Bill, Spine Sower",
+        "Leonard McCoy, Country Doctor"
+      ],
+      "eligibleNames": [
+        "Leonard McCoy, Country Doctor"
+      ],
+      "typeLine": "Legendary Creature — Plant Druid",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [
+        "Double",
+        "Landfall"
+      ],
+      "printings": [
+        {
+          "id": "9845bd74-326f-4506-87f9-ead7d2fa6cfa",
+          "set": "sds",
+          "collectorNumber": "15",
+          "trekName": "Leonard McCoy, Country Doctor"
+        }
+      ]
+    },
+    {
+      "oracleId": "274b999f-f193-48fd-9a4a-0fdaf535e6c3",
+      "name": "Bruvac the Grandiloquent",
+      "aliases": [
+        "Bruvac the Grandiloquent",
+        "Spock, Completely Logical"
+      ],
+      "eligibleNames": [
+        "Spock, Completely Logical"
+      ],
+      "typeLine": "Legendary Creature — Human Advisor",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [
+        "Mill"
+      ],
+      "printings": [
+        {
+          "id": "426bd73c-67d2-4f9a-8fd9-214ccacb1d7d",
+          "set": "sds",
+          "collectorNumber": "8",
+          "trekName": "Spock, Completely Logical"
+        }
+      ]
+    },
+    {
+      "oracleId": "f997ad8a-6903-47b1-83af-837b3b55a3d4",
+      "name": "Captain Benjamin Sisko",
+      "aliases": [
+        "Captain Benjamin Sisko"
+      ],
+      "eligibleNames": [
+        "Captain Benjamin Sisko"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Face a dilemma"
+      ],
+      "printings": [
+        {
+          "id": "51338fb2-13a3-41b8-981f-05fa35e87e2e",
+          "set": "trk",
+          "collectorNumber": "6"
+        },
+        {
+          "id": "c1344601-3f86-4910-b5ad-d7e1e58d851d",
+          "set": "trk",
+          "collectorNumber": "344"
+        }
+      ]
+    },
+    {
+      "oracleId": "19edde54-153f-46b8-8a8d-a20fdef0667f",
+      "name": "Captain James T. Kirk",
+      "aliases": [
+        "Captain James T. Kirk"
+      ],
+      "eligibleNames": [
+        "Captain James T. Kirk"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "40a0466d-20bb-4ed5-858d-947fb9144580",
+          "set": "trk",
+          "collectorNumber": "142"
+        },
+        {
+          "id": "367aa1e6-ce6c-41a0-ba7c-af00487a4302",
+          "set": "trk",
+          "collectorNumber": "418"
+        },
+        {
+          "id": "a7f991c5-0a55-4d34-8dee-d3f206167be1",
+          "set": "trk",
+          "collectorNumber": "542"
+        },
+        {
+          "id": "b1cfb3f1-f1ad-47aa-a7f0-ff3ebd2ffa5e",
+          "set": "trk",
+          "collectorNumber": "1701"
+        }
+      ]
+    },
+    {
+      "oracleId": "488ff0d9-a74c-4ba9-9c10-3aa88230c2bd",
+      "name": "Captain Janeway, Endgame",
+      "aliases": [
+        "Captain Janeway, Endgame"
+      ],
+      "eligibleNames": [
+        "Captain Janeway, Endgame"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "1fc05320-c8f8-4acd-8bac-86c4156352d2",
+          "set": "trc",
+          "collectorNumber": "84"
+        },
+        {
+          "id": "ca41b0a7-ad2f-4047-9e4e-f1e44b7fc7ac",
+          "set": "trc",
+          "collectorNumber": "205"
+        }
+      ]
+    },
+    {
+      "oracleId": "04624f75-5981-4607-aa8f-706554f826e1",
+      "name": "Captain Jean-Luc Picard",
+      "aliases": [
+        "Captain Jean-Luc Picard"
+      ],
+      "eligibleNames": [
+        "Captain Jean-Luc Picard"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "b7114271-eb05-41e2-ad96-a34f53492312",
+          "set": "trk",
+          "collectorNumber": "7"
+        },
+        {
+          "id": "566c03c3-aedd-4bd0-8932-e1b279e53c68",
+          "set": "trk",
+          "collectorNumber": "363"
+        },
+        {
+          "id": "a6eb4655-ea1d-426d-a75b-a0a341362cd3",
+          "set": "trk",
+          "collectorNumber": "497"
+        },
+        {
+          "id": "4d9fcb2a-b4fa-4990-861c-789926052104",
+          "set": "trk",
+          "collectorNumber": "1701D"
+        }
+      ]
+    },
+    {
+      "oracleId": "85df3564-5134-4dc2-9021-40ec84ee6d08",
+      "name": "Captain Jonathan Archer",
+      "aliases": [
+        "Captain Jonathan Archer"
+      ],
+      "eligibleNames": [
+        "Captain Jonathan Archer"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Federation"
+      ],
+      "printings": [
+        {
+          "id": "a4518ea3-5f56-4f1d-9024-2bf06ac98786",
+          "set": "trk",
+          "collectorNumber": "186"
+        },
+        {
+          "id": "aaaeeb0f-eb6f-41d6-be1f-7f8f14c4e82a",
+          "set": "trk",
+          "collectorNumber": "467"
+        }
+      ]
+    },
+    {
+      "oracleId": "d77d1895-ce02-4302-87c9-649e852fd0ea",
+      "name": "Captain Kathryn Janeway",
+      "aliases": [
+        "Captain Kathryn Janeway"
+      ],
+      "eligibleNames": [
+        "Captain Kathryn Janeway"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Explore"
+      ],
+      "printings": [
+        {
+          "id": "d17ea45c-7f9c-411f-b7d3-ca7100ffe53b",
+          "set": "trk",
+          "collectorNumber": "187"
+        },
+        {
+          "id": "b16da038-5e35-4cd7-a157-624d4ed6bde3",
+          "set": "trk",
+          "collectorNumber": "340"
+        },
+        {
+          "id": "ac990bba-7b0c-4235-9726-b944d66952ab",
+          "set": "trk",
+          "collectorNumber": "386"
+        },
+        {
+          "id": "2e462516-fddb-4e76-836b-b590d37e783f",
+          "set": "trk",
+          "collectorNumber": "520"
+        },
+        {
+          "id": "e40fe4b6-81c0-4822-9668-2dac7820dcb9",
+          "set": "trk",
+          "collectorNumber": "1704"
+        }
+      ]
+    },
+    {
+      "oracleId": "5228fffe-6347-4177-bccb-b15621c7159c",
+      "name": "Captain Kirk, Boldly Going",
+      "aliases": [
+        "Captain Kirk, Boldly Going"
+      ],
+      "eligibleNames": [
+        "Captain Kirk, Boldly Going"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Vigilance"
+      ],
+      "printings": [
+        {
+          "id": "6b5d9bd2-cc78-4c30-b6ee-65b76c60a588",
+          "set": "trc",
+          "collectorNumber": "85"
+        },
+        {
+          "id": "fc1fed6e-98b4-495d-bc66-086ee0b95385",
+          "set": "trc",
+          "collectorNumber": "206"
+        }
+      ]
+    },
+    {
+      "oracleId": "9a71aa6c-2d5f-468d-b588-252fae37ccbb",
+      "name": "Captain Michael Burnham",
+      "aliases": [
+        "Captain Michael Burnham"
+      ],
+      "eligibleNames": [
+        "Captain Michael Burnham"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Trample",
+        "Landfall"
+      ],
+      "printings": [
+        {
+          "id": "e10d6d71-9360-4ecf-97c8-22afb22aaeb7",
+          "set": "trk",
+          "collectorNumber": "143"
+        }
+      ]
+    },
+    {
+      "oracleId": "745633e6-8635-4d99-8a4e-edc5d500bb3d",
+      "name": "Captain Pike, Fullness of Time",
+      "aliases": [
+        "Captain Pike, Fullness of Time"
+      ],
+      "eligibleNames": [
+        "Captain Pike, Fullness of Time"
+      ],
+      "typeLine": "Legendary Creature — Human Officer Scout",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Strange new worlds"
+      ],
+      "printings": [
+        {
+          "id": "743be4c4-5c91-42bb-9942-115e903041a9",
+          "set": "trk",
+          "collectorNumber": "188"
+        },
+        {
+          "id": "62c9b897-bc43-47f9-8939-13faaa0b7c6b",
+          "set": "trk",
+          "collectorNumber": "468"
+        }
+      ]
+    },
+    {
+      "oracleId": "2e7a9ea9-f76c-4c12-950f-c613fa16cfa8",
+      "name": "Captain Sisay",
+      "aliases": [
+        "Captain Sisay",
+        "Pike, Unrelenting Mentor"
+      ],
+      "eligibleNames": [
+        "Pike, Unrelenting Mentor"
+      ],
+      "typeLine": "Legendary Creature — Human Soldier",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "ed9010d9-3ebc-4374-b7d0-56660fbc49a2",
+          "set": "sds",
+          "collectorNumber": "22",
+          "trekName": "Pike, Unrelenting Mentor"
+        }
+      ]
+    },
+    {
+      "oracleId": "24d194d3-f83a-496b-921a-77c09c68b0e1",
+      "name": "Chancellor Gorkon",
+      "aliases": [
+        "Chancellor Gorkon"
+      ],
+      "eligibleNames": [
+        "Chancellor Gorkon"
+      ],
+      "typeLine": "Legendary Creature — Klingon Noble",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Vigilance"
+      ],
+      "printings": [
+        {
+          "id": "7a021b9d-9500-48a0-8d38-92f175340eb6",
+          "set": "trc",
+          "collectorNumber": "86"
+        },
+        {
+          "id": "f3b40dd7-f8bf-4854-8a9c-4e6bd0a7e7d5",
+          "set": "trc",
+          "collectorNumber": "312"
+        }
+      ]
+    },
+    {
+      "oracleId": "058a5b8b-08bc-4021-8a8b-8e149941e775",
+      "name": "Chekov and McCoy",
+      "aliases": [
+        "Chekov and McCoy"
+      ],
+      "eligibleNames": [
+        "Chekov and McCoy"
+      ],
+      "typeLine": "Legendary Creature — Human Pilot Doctor",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "eb40c889-15e0-4a01-bec1-2148b17ad382",
+          "set": "trc",
+          "collectorNumber": "183"
+        }
+      ]
+    },
+    {
+      "oracleId": "02583549-b618-4d41-9f46-209a99e30cd7",
+      "name": "Chief Kyle, Transporter Tech",
+      "aliases": [
+        "Chief Kyle, Transporter Tech"
+      ],
+      "eligibleNames": [
+        "Chief Kyle, Transporter Tech"
+      ],
+      "typeLine": "Legendary Creature — Human Artificer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Landfall"
+      ],
+      "printings": [
+        {
+          "id": "7a310a62-836b-4ed9-99b1-a09c9079ab43",
+          "set": "trc",
+          "collectorNumber": "87"
+        },
+        {
+          "id": "acb4ac7c-96b2-4fde-9109-1ced34c495db",
+          "set": "trc",
+          "collectorNumber": "313"
+        }
+      ]
+    },
+    {
+      "oracleId": "c98d476a-2646-4171-bab7-4a4624fce917",
+      "name": "Chief Miles O'Brien",
+      "aliases": [
+        "Chief Miles O'Brien"
+      ],
+      "eligibleNames": [
+        "Chief Miles O'Brien"
+      ],
+      "typeLine": "Legendary Creature — Human Artificer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Seek",
+        "Seek out",
+        "Double"
+      ],
+      "printings": [
+        {
+          "id": "f8d20229-bae2-4130-8a93-302d2ad5eef0",
+          "set": "trc",
+          "collectorNumber": "37"
+        },
+        {
+          "id": "095f7f84-b889-4536-a3a5-c40c643bdd00",
+          "set": "trc",
+          "collectorNumber": "249"
+        }
+      ]
+    },
+    {
+      "oracleId": "07f9c121-8a12-4f28-ae89-ec71f073b9ba",
+      "name": "Chief Montgomery Scott",
+      "aliases": [
+        "Chief Montgomery Scott"
+      ],
+      "eligibleNames": [
+        "Chief Montgomery Scott"
+      ],
+      "typeLine": "Legendary Creature — Human Artificer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Strange new worlds"
+      ],
+      "printings": [
+        {
+          "id": "9e26096a-88a1-4086-9fa7-7be932b2885c",
+          "set": "trc",
+          "collectorNumber": "88"
+        },
+        {
+          "id": "825fe7dd-2767-407d-b74e-20425d8b23f3",
+          "set": "trc",
+          "collectorNumber": "314"
+        }
+      ]
+    },
+    {
+      "oracleId": "330e8a18-d224-4416-b59d-02b749c3a674",
+      "name": "Christine Chapel, Combat Medic",
+      "aliases": [
+        "Christine Chapel, Combat Medic"
+      ],
+      "eligibleNames": [
+        "Christine Chapel, Combat Medic"
+      ],
+      "typeLine": "Legendary Creature — Human Doctor",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Strange new worlds"
+      ],
+      "printings": [
+        {
+          "id": "f2efcab5-3aad-4edd-87d1-289978e8855e",
+          "set": "trc",
+          "collectorNumber": "78"
+        },
+        {
+          "id": "65a688e8-6427-4997-8712-46a4ff43d47b",
+          "set": "trc",
+          "collectorNumber": "300"
+        }
+      ]
+    },
+    {
+      "oracleId": "b80879d3-5abd-47e5-8b8c-61db120854e4",
+      "name": "Cleveland Booker, Empath",
+      "aliases": [
+        "Cleveland Booker, Empath"
+      ],
+      "eligibleNames": [
+        "Cleveland Booker, Empath"
+      ],
+      "typeLine": "Legendary Creature — Kwejian Rogue",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Landfall"
+      ],
+      "printings": [
+        {
+          "id": "6b2e52e2-5cb9-4360-92d6-5c0d9e435d09",
+          "set": "trk",
+          "collectorNumber": "229"
+        }
+      ]
+    },
+    {
+      "oracleId": "9a52cb6b-b0d8-4649-b65a-5f9a9d2a7eb2",
+      "name": "Cmdr. Troi, Outgoing Empath",
+      "aliases": [
+        "Cmdr. Troi, Outgoing Empath"
+      ],
+      "eligibleNames": [
+        "Cmdr. Troi, Outgoing Empath"
+      ],
+      "typeLine": "Legendary Creature — Betazoid Human Advisor",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Vigilance"
+      ],
+      "printings": [
+        {
+          "id": "7cc079c8-9c00-439f-9e5d-08e7c8e2c5ed",
+          "set": "trc",
+          "collectorNumber": "89"
+        },
+        {
+          "id": "93c86f46-e091-4b84-8163-28f8860c074c",
+          "set": "trc",
+          "collectorNumber": "315"
+        }
+      ]
+    },
+    {
+      "oracleId": "4f8a70cb-2487-4e6d-9a3f-c6c5313b8e82",
+      "name": "Commander Raffi Musiker",
+      "aliases": [
+        "Commander Raffi Musiker"
+      ],
+      "eligibleNames": [
+        "Commander Raffi Musiker"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Investigate"
+      ],
+      "printings": [
+        {
+          "id": "7e60bd56-3da1-4211-b790-320471eef242",
+          "set": "trk",
+          "collectorNumber": "100"
+        }
+      ]
+    },
+    {
+      "oracleId": "60644afe-9645-45a1-9eac-70f327daa6a7",
+      "name": "Commander Spock",
+      "aliases": [
+        "Commander Spock"
+      ],
+      "eligibleNames": [
+        "Commander Spock"
+      ],
+      "typeLine": "Legendary Creature — Vulcan Human Scientist",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Strange new worlds"
+      ],
+      "printings": [
+        {
+          "id": "cf114392-a38d-4117-aa41-911d6dc1051b",
+          "set": "trc",
+          "collectorNumber": "2"
+        },
+        {
+          "id": "f496fdd1-fb95-4294-88de-336068400861",
+          "set": "trc",
+          "collectorNumber": "6"
+        }
+      ]
+    },
+    {
+      "oracleId": "cef73cb5-88c2-43cd-8648-1baca085b8a4",
+      "name": "Commander William Riker",
+      "aliases": [
+        "Commander William Riker"
+      ],
+      "eligibleNames": [
+        "Commander William Riker"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Vigilance",
+        "Haste"
+      ],
+      "printings": [
+        {
+          "id": "2b78058a-8434-4b0a-9c69-56c9bcdda65a",
+          "set": "trc",
+          "collectorNumber": "91"
+        },
+        {
+          "id": "24f91f09-0f6b-4766-80bc-be545e509056",
+          "set": "trc",
+          "collectorNumber": "207"
+        }
+      ]
+    },
+    {
+      "oracleId": "74b58f31-7634-4b51-a900-6fbfccfb3cd2",
+      "name": "Constable Odo",
+      "aliases": [
+        "Constable Odo"
+      ],
+      "eligibleNames": [
+        "Constable Odo"
+      ],
+      "typeLine": "Legendary Creature — Shapeshifter Detective",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Investigate"
+      ],
+      "printings": [
+        {
+          "id": "3df582e4-3bfb-4413-9b39-898f33a5c1fd",
+          "set": "trk",
+          "collectorNumber": "230"
+        },
+        {
+          "id": "c0d0b4ee-72f6-45b6-8911-e3ef979e40a0",
+          "set": "trk",
+          "collectorNumber": "348"
+        }
+      ]
+    },
+    {
+      "oracleId": "5b8e8ef2-2f04-4485-ae12-08f52dac81a2",
+      "name": "Culber and Stamets, Star-Crossed",
+      "aliases": [
+        "Culber and Stamets, Star-Crossed"
+      ],
+      "eligibleNames": [
+        "Culber and Stamets, Star-Crossed"
+      ],
+      "typeLine": "Legendary Creature — Human Doctor Artificer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "962752f7-5c94-41e4-ab7d-3e8741c7a502",
+          "set": "trk",
+          "collectorNumber": "191"
+        }
+      ]
+    },
+    {
+      "oracleId": "035bee4c-6f79-4123-9b6c-feba190052e8",
+      "name": "Curzon Dax, Bound by Blood",
+      "aliases": [
+        "Curzon Dax, Bound by Blood"
+      ],
+      "eligibleNames": [
+        "Curzon Dax, Bound by Blood"
+      ],
+      "typeLine": "Legendary Creature — Trill Warrior",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "cb369f4f-e20a-479d-8e35-8466b05375f7",
+          "set": "trc",
+          "collectorNumber": "92"
+        },
+        {
+          "id": "1335371c-d886-48ed-962c-3bc46f1f9076",
+          "set": "trc",
+          "collectorNumber": "317"
+        }
+      ]
+    },
+    {
+      "oracleId": "6bb42689-b169-43cb-b787-f0e348063cd6",
+      "name": "D'Vana Tendi, Optimistic Ensign",
+      "aliases": [
+        "D'Vana Tendi, Optimistic Ensign"
+      ],
+      "eligibleNames": [
+        "D'Vana Tendi, Optimistic Ensign"
+      ],
+      "typeLine": "Legendary Creature — Orion Scientist",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Surveil"
+      ],
+      "printings": [
+        {
+          "id": "206239ca-341a-4f07-8149-a24ccf20ee45",
+          "set": "trk",
+          "collectorNumber": "236"
+        }
+      ]
+    },
+    {
+      "oracleId": "7cecf129-3df9-4ebf-b194-28d1b34faaab",
+      "name": "Dal R'El, Augment Orphan",
+      "aliases": [
+        "Dal R'El, Augment Orphan"
+      ],
+      "eligibleNames": [
+        "Dal R'El, Augment Orphan"
+      ],
+      "typeLine": "Legendary Creature — Human Mutant Rogue",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Landfall"
+      ],
+      "printings": [
+        {
+          "id": "0da52d3a-dd83-4662-8e6d-3f4d4d389c3d",
+          "set": "trk",
+          "collectorNumber": "231"
+        }
+      ]
+    },
+    {
+      "oracleId": "2e44a02f-af94-4696-b979-cdf68285c87a",
+      "name": "Daniels, Temporal Agent",
+      "aliases": [
+        "Daniels, Temporal Agent"
+      ],
+      "eligibleNames": [
+        "Daniels, Temporal Agent"
+      ],
+      "typeLine": "Legendary Creature — Human Advisor",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "b64dd792-7dc7-4d22-9776-9b9e25e1173d",
+          "set": "trk",
+          "collectorNumber": "232"
+        }
+      ]
+    },
+    {
+      "oracleId": "93bfb762-e69e-4d8e-a5b7-e13dd12cd42a",
+      "name": "Data, Exploring Humanity",
+      "aliases": [
+        "Data, Exploring Humanity"
+      ],
+      "eligibleNames": [
+        "Data, Exploring Humanity"
+      ],
+      "typeLine": "Legendary Artifact Creature — Android Scientist",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Seek",
+        "Seek out",
+        "Discover"
+      ],
+      "printings": [
+        {
+          "id": "2c769fc2-b234-4bb2-aac0-1373e6ad07d3",
+          "set": "trc",
+          "collectorNumber": "40"
+        },
+        {
+          "id": "73aadcd2-3fda-4c18-a319-e2ce9648a461",
+          "set": "trc",
+          "collectorNumber": "202"
+        }
+      ]
+    },
+    {
+      "oracleId": "010630c6-5d7b-43e0-90a9-3e3cef9a4e6b",
+      "name": "Data, New Life",
+      "aliases": [
+        "Data, New Life"
+      ],
+      "eligibleNames": [
+        "Data, New Life"
+      ],
+      "typeLine": "Legendary Artifact Creature — Android Scientist",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "96b7e757-c64d-48c8-bd9c-caad5f3c78fb",
+          "set": "trk",
+          "collectorNumber": "52"
+        }
+      ]
+    },
+    {
+      "oracleId": "25ecd09e-d8bf-4929-96e2-e5132ea4f718",
+      "name": "Data, Professor of Humanities",
+      "aliases": [
+        "Data, Professor of Humanities"
+      ],
+      "eligibleNames": [
+        "Data, Professor of Humanities"
+      ],
+      "typeLine": "Legendary Artifact Creature — Android Scientist",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Seek",
+        "Seek out"
+      ],
+      "printings": [
+        {
+          "id": "59eedf7b-0738-4a42-88d0-4ba7c7b73480",
+          "set": "trc",
+          "collectorNumber": "189"
+        }
+      ]
+    },
+    {
+      "oracleId": "8de259a9-99d0-4f07-8dbc-f065e3af352b",
+      "name": "Dathon, His Heart Open",
+      "aliases": [
+        "Dathon, His Heart Open"
+      ],
+      "eligibleNames": [
+        "Dathon, His Heart Open"
+      ],
+      "typeLine": "Legendary Creature — Tamarian Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "f2fe4663-eaaf-42c3-90f9-07e68129352c",
+          "set": "trk",
+          "collectorNumber": "233"
+        },
+        {
+          "id": "51602acb-62f6-4d38-8a0e-f73497c8f512",
+          "set": "trk",
+          "collectorNumber": "388"
+        },
+        {
+          "id": "b64323f7-db8c-44e9-bed1-696012f32740",
+          "set": "trk",
+          "collectorNumber": "522"
+        }
+      ]
+    },
+    {
+      "oracleId": "15885e58-76a9-49fa-ae67-a0482aacd81c",
+      "name": "David and Carol Marcus, Creators",
+      "aliases": [
+        "David and Carol Marcus, Creators"
+      ],
+      "eligibleNames": [
+        "David and Carol Marcus, Creators"
+      ],
+      "typeLine": "Legendary Creature — Human Scientist",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "55d21155-647e-4892-b349-86b8d4e6d9b9",
+          "set": "trk",
+          "collectorNumber": "193"
+        },
+        {
+          "id": "43091ed3-a412-48b4-8794-62c0a279e4b2",
+          "set": "trk",
+          "collectorNumber": "420"
+        },
+        {
+          "id": "5b585418-57c6-4319-8ab5-28de8e7f2d88",
+          "set": "trk",
+          "collectorNumber": "544"
+        }
+      ]
+    },
+    {
+      "oracleId": "cf612cbe-7af8-48fd-875e-a669e05cfb49",
+      "name": "Deanna Troi, Psychic Counsel",
+      "aliases": [
+        "Deanna Troi, Psychic Counsel"
+      ],
+      "eligibleNames": [
+        "Deanna Troi, Psychic Counsel"
+      ],
+      "typeLine": "Legendary Creature — Betazoid Human Advisor",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "1a027761-84e7-4cbf-a629-ae9bd3d8467b",
+          "set": "trk",
+          "collectorNumber": "11"
+        },
+        {
+          "id": "4c8ee48d-d0bc-4b5c-ab82-066cd8bbf317",
+          "set": "trk",
+          "collectorNumber": "365"
+        },
+        {
+          "id": "5366830b-323e-40da-a3e8-9cc6e5187e49",
+          "set": "trk",
+          "collectorNumber": "499"
+        }
+      ]
+    },
+    {
+      "oracleId": "5fe6f4ae-3fb1-4df6-8760-88c8666068df",
+      "name": "Dr. Beverly Crusher",
+      "aliases": [
+        "Dr. Beverly Crusher"
+      ],
+      "eligibleNames": [
+        "Dr. Beverly Crusher"
+      ],
+      "typeLine": "Legendary Creature — Human Doctor",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "ef9c5790-d909-4271-90bd-5fa4816ddd6b",
+          "set": "trk",
+          "collectorNumber": "13"
+        },
+        {
+          "id": "15d800b3-f5ed-4267-b2e7-5de83a207512",
+          "set": "trk",
+          "collectorNumber": "366"
+        },
+        {
+          "id": "179d50b5-cab1-482c-85a6-36f59335b562",
+          "set": "trk",
+          "collectorNumber": "500"
+        }
+      ]
+    },
+    {
+      "oracleId": "046c4052-4c3c-4207-b44e-e9a98a8c017f",
+      "name": "Dr. Joseph M'Benga",
+      "aliases": [
+        "Dr. Joseph M'Benga"
+      ],
+      "eligibleNames": [
+        "Dr. Joseph M'Benga"
+      ],
+      "typeLine": "Legendary Creature — Human Doctor",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "c27e6865-40ba-406c-9dce-d8a7a9b8035b",
+          "set": "trk",
+          "collectorNumber": "196"
+        },
+        {
+          "id": "71f54ed7-1def-4c3f-9be5-11332fce751f",
+          "set": "trk",
+          "collectorNumber": "469"
+        }
+      ]
+    },
+    {
+      "oracleId": "0157faee-f307-43c0-b308-bbf36ce02e32",
+      "name": "Dr. Leonard \"Bones\" McCoy",
+      "aliases": [
+        "Dr. Leonard \"Bones\" McCoy"
+      ],
+      "eligibleNames": [
+        "Dr. Leonard \"Bones\" McCoy"
+      ],
+      "typeLine": "Legendary Creature — Human Doctor",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Flash"
+      ],
+      "printings": [
+        {
+          "id": "d8593bf7-5248-4f4a-bf8b-9816d2f76c6b",
+          "set": "trk",
+          "collectorNumber": "197"
+        },
+        {
+          "id": "cff4d056-1050-4c08-9b8d-9941e20e974e",
+          "set": "trk",
+          "collectorNumber": "329"
+        },
+        {
+          "id": "dab837b1-32f9-4a73-a6c4-04a7a30b42d0",
+          "set": "trk",
+          "collectorNumber": "421"
+        },
+        {
+          "id": "dba2e690-8b55-4c0d-b7d7-747f4b9b382c",
+          "set": "trk",
+          "collectorNumber": "545"
+        },
+        {
+          "id": "66d618ab-1be6-4049-a384-d50c4bb39c33",
+          "set": "trk",
+          "collectorNumber": "558"
+        }
+      ]
+    },
+    {
+      "oracleId": "df8a0737-5841-4c17-b567-e9296541c3c9",
+      "name": "Dr. McCoy, Surly Surgeon",
+      "aliases": [
+        "Dr. McCoy, Surly Surgeon"
+      ],
+      "eligibleNames": [
+        "Dr. McCoy, Surly Surgeon"
+      ],
+      "typeLine": "Legendary Creature — Human Doctor",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Heal"
+      ],
+      "printings": [
+        {
+          "id": "b300d814-cf74-44ba-b253-ec179ec54a20",
+          "set": "trk",
+          "collectorNumber": "14"
+        },
+        {
+          "id": "e4349c0f-55f8-40d5-a972-4fb655608b6a",
+          "set": "trk",
+          "collectorNumber": "402"
+        },
+        {
+          "id": "00474b9c-620f-44dc-912f-5d1972a1eb22",
+          "set": "trk",
+          "collectorNumber": "526"
+        }
+      ]
+    },
+    {
+      "oracleId": "686d8449-e132-4478-b4f5-f5cadc8971c8",
+      "name": "Dr. Pulaski, Cynical Clinician",
+      "aliases": [
+        "Dr. Pulaski, Cynical Clinician"
+      ],
+      "eligibleNames": [
+        "Dr. Pulaski, Cynical Clinician"
+      ],
+      "typeLine": "Legendary Creature — Human Doctor",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Seek",
+        "Seek out"
+      ],
+      "printings": [
+        {
+          "id": "a6d26af7-43c8-49d7-8fb8-ed72b9cd643e",
+          "set": "trc",
+          "collectorNumber": "13"
+        },
+        {
+          "id": "0c4ca596-211c-4681-b90e-c91e36fd3e5a",
+          "set": "trc",
+          "collectorNumber": "217"
+        }
+      ]
+    },
+    {
+      "oracleId": "51780f71-bf60-4208-94ea-76fa84790fb6",
+      "name": "Drivnod, Carnage Dominus",
+      "aliases": [
+        "Drivnod, Carnage Dominus",
+        "Intendant Kira Nerys"
+      ],
+      "eligibleNames": [
+        "Intendant Kira Nerys"
+      ],
+      "typeLine": "Legendary Creature — Phyrexian Horror",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "40a91407-3463-4a72-9a5d-497a877e7125",
+          "set": "sds",
+          "collectorNumber": "10",
+          "trekName": "Intendant Kira Nerys"
+        }
+      ]
+    },
+    {
+      "oracleId": "a4d33e21-d3fe-4d5b-903c-b75e859d6f7f",
+      "name": "Elas il-Kor, Sadistic Pilgrim",
+      "aliases": [
+        "Elas il-Kor, Sadistic Pilgrim",
+        "D'k Tahg"
+      ],
+      "eligibleNames": [
+        "D'k Tahg"
+      ],
+      "typeLine": "Legendary Creature — Phyrexian Kor Cleric",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [
+        "Deathtouch"
+      ],
+      "printings": [
+        {
+          "id": "3a7491e3-e5c1-4835-af19-7e81ee6b60f8",
+          "set": "sld",
+          "collectorNumber": "2733",
+          "trekName": "D'k Tahg"
+        }
+      ]
+    },
+    {
+      "oracleId": "c83465bd-f95f-4c57-b9ce-925a85b45276",
+      "name": "Elim Garak, Simple Tailor",
+      "aliases": [
+        "Elim Garak, Simple Tailor"
+      ],
+      "eligibleNames": [
+        "Elim Garak, Simple Tailor"
+      ],
+      "typeLine": "Legendary Creature — Cardassian Rogue",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Face a dilemma",
+        "Menace"
+      ],
+      "printings": [
+        {
+          "id": "113bd51a-dfbb-4106-adf3-e567057fcd06",
+          "set": "trk",
+          "collectorNumber": "106"
+        },
+        {
+          "id": "2c881def-1b77-42ed-9fdc-45f0ebbf843d",
+          "set": "trk",
+          "collectorNumber": "456"
+        }
+      ]
+    },
+    {
+      "oracleId": "ea2614bc-00ad-4859-98f5-689f33357fe6",
+      "name": "Empress Galina",
+      "aliases": [
+        "Empress Galina",
+        "Empress Sato, Terran Tyrant"
+      ],
+      "eligibleNames": [
+        "Empress Sato, Terran Tyrant"
+      ],
+      "typeLine": "Legendary Creature — Merfolk Noble",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "9782a592-6c58-4c9b-af34-d1af28c97dac",
+          "set": "sds",
+          "collectorNumber": "6",
+          "trekName": "Empress Sato, Terran Tyrant"
+        }
+      ]
+    },
+    {
+      "oracleId": "d9bc0f83-c522-44c9-baa6-fffdeb02a0f5",
+      "name": "Ensign Harry Kim, Operations",
+      "aliases": [
+        "Ensign Harry Kim, Operations"
+      ],
+      "eligibleNames": [
+        "Ensign Harry Kim, Operations"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "1ccd6aeb-e6f4-4673-b4f5-a4b66b869992",
+          "set": "trc",
+          "collectorNumber": "15"
+        },
+        {
+          "id": "77199b8d-9f0a-4e12-8123-f795c1bc6740",
+          "set": "trc",
+          "collectorNumber": "220"
+        }
+      ]
+    },
+    {
+      "oracleId": "7d7e232f-e4f9-41db-a2d9-cfe88721b7a9",
+      "name": "Ensign Pavel Chekov",
+      "aliases": [
+        "Ensign Pavel Chekov"
+      ],
+      "eligibleNames": [
+        "Ensign Pavel Chekov"
+      ],
+      "typeLine": "Legendary Creature — Human Pilot",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Strange new worlds"
+      ],
+      "printings": [
+        {
+          "id": "a441c12e-1a2f-4b04-83dd-407bf6040efe",
+          "set": "trk",
+          "collectorNumber": "57"
+        },
+        {
+          "id": "578709ac-771b-410b-bd71-ba4ab8d466a2",
+          "set": "trk",
+          "collectorNumber": "409"
+        },
+        {
+          "id": "f483991b-5291-42a8-89c3-f51629530bb1",
+          "set": "trk",
+          "collectorNumber": "533"
+        }
+      ]
+    },
+    {
+      "oracleId": "947729a8-f8b0-4e08-9a87-6602af0e3c0a",
+      "name": "Enterprise NX-01",
+      "aliases": [
+        "Enterprise NX-01"
+      ],
+      "eligibleNames": [
+        "Enterprise NX-01"
+      ],
+      "typeLine": "Legendary Artifact — Spacecraft",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Station"
+      ],
+      "printings": [
+        {
+          "id": "385638fe-cafb-4541-ba37-19bc57520c48",
+          "set": "trk",
+          "collectorNumber": "58"
+        }
+      ]
+    },
+    {
+      "oracleId": "8b2514e5-4124-4f6c-b6b7-24c0ab3d3971",
+      "name": "Erica Ortegas, Plucky Pilot",
+      "aliases": [
+        "Erica Ortegas, Plucky Pilot"
+      ],
+      "eligibleNames": [
+        "Erica Ortegas, Plucky Pilot"
+      ],
+      "typeLine": "Legendary Creature — Human Pilot",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Haste"
+      ],
+      "printings": [
+        {
+          "id": "3667eb41-598e-4543-97ed-6da961f8b567",
+          "set": "trk",
+          "collectorNumber": "149"
+        }
+      ]
+    },
+    {
+      "oracleId": "3d038f7c-95fa-4b71-8f74-b9b4dd45cde0",
+      "name": "Ertai Resurrected",
+      "aliases": [
+        "Ertai Resurrected",
+        "Nero, Last of the Empire"
+      ],
+      "eligibleNames": [
+        "Nero, Last of the Empire"
+      ],
+      "typeLine": "Legendary Creature — Phyrexian Human Wizard",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [
+        "Flash"
+      ],
+      "printings": [
+        {
+          "id": "528f2bfb-c09f-4bb9-a92f-6fcf23525046",
+          "set": "sds",
+          "collectorNumber": "20",
+          "trekName": "Nero, Last of the Empire"
+        }
+      ]
+    },
+    {
+      "oracleId": "d4fb650a-94fd-4361-9648-45d6ad64b7a2",
+      "name": "Ezri Dax, Newly Joined",
+      "aliases": [
+        "Ezri Dax, Newly Joined"
+      ],
+      "eligibleNames": [
+        "Ezri Dax, Newly Joined"
+      ],
+      "typeLine": "Legendary Creature — Trill Advisor",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Flash"
+      ],
+      "printings": [
+        {
+          "id": "f46512c2-0d03-406d-a37c-5e4cb8d5a465",
+          "set": "trc",
+          "collectorNumber": "16"
+        },
+        {
+          "id": "f1e43d7f-682b-4cb6-ad3c-4dfb2b9253c6",
+          "set": "trc",
+          "collectorNumber": "221"
+        }
+      ]
+    },
+    {
+      "oracleId": "e0a9a7a2-c996-4e3e-817d-9283be690c39",
+      "name": "Fleet Captain Christopher Pike",
+      "aliases": [
+        "Fleet Captain Christopher Pike"
+      ],
+      "eligibleNames": [
+        "Fleet Captain Christopher Pike"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Yes",
+        "No"
+      ],
+      "printings": [
+        {
+          "id": "5991e424-e91f-4b6d-b6bb-17dbc1cec67e",
+          "set": "trc",
+          "collectorNumber": "41"
+        },
+        {
+          "id": "0e9c7fbf-fe01-43b1-834f-3c6ba2bbd217",
+          "set": "trc",
+          "collectorNumber": "255"
+        }
+      ]
+    },
+    {
+      "oracleId": "6349eecb-dabd-4dcb-a8fb-c8ee66f61461",
+      "name": "Gabriel Lorca, Mirror Menace",
+      "aliases": [
+        "Gabriel Lorca, Mirror Menace"
+      ],
+      "eligibleNames": [
+        "Gabriel Lorca, Mirror Menace"
+      ],
+      "typeLine": "Legendary Creature — Human Rogue Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Face a dilemma",
+        "Menace"
+      ],
+      "printings": [
+        {
+          "id": "a98d0f01-8e5e-4ff1-88e5-684b8f4c015c",
+          "set": "trk",
+          "collectorNumber": "108"
+        }
+      ]
+    },
+    {
+      "oracleId": "72217c2e-4f6b-41da-8de1-bb6892d3c452",
+      "name": "General Chang, Cold Warrior",
+      "aliases": [
+        "General Chang, Cold Warrior"
+      ],
+      "eligibleNames": [
+        "General Chang, Cold Warrior"
+      ],
+      "typeLine": "Legendary Creature — Klingon Warrior Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "c46a0910-215c-4757-8bfe-7eca479157a5",
+          "set": "trk",
+          "collectorNumber": "109"
+        },
+        {
+          "id": "502673f3-2794-4b4c-8912-674cc4d2bbd2",
+          "set": "trk",
+          "collectorNumber": "415"
+        },
+        {
+          "id": "377bc253-f9a2-45b0-bbf8-e027f2d5dc4d",
+          "set": "trk",
+          "collectorNumber": "427"
+        },
+        {
+          "id": "1b1b6249-5c4b-4ccf-a860-22532a0d958b",
+          "set": "trk",
+          "collectorNumber": "437"
+        },
+        {
+          "id": "443083e7-dfee-4889-b8ed-82d6876f6402",
+          "set": "trk",
+          "collectorNumber": "539"
+        }
+      ]
+    },
+    {
+      "oracleId": "adbef171-3640-4f77-8c92-b50c109ca303",
+      "name": "Geordi La Forge, Innovator",
+      "aliases": [
+        "Geordi La Forge, Innovator"
+      ],
+      "eligibleNames": [
+        "Geordi La Forge, Innovator"
+      ],
+      "typeLine": "Legendary Creature — Human Artificer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "b45ddbca-b89d-4552-b870-839aa281e113",
+          "set": "trc",
+          "collectorNumber": "42"
+        },
+        {
+          "id": "b5b349ba-6421-487a-b4f7-f35fde7a7995",
+          "set": "trc",
+          "collectorNumber": "256"
+        }
+      ]
+    },
+    {
+      "oracleId": "31932df4-0be8-45c4-8b22-84119d9c20ba",
+      "name": "Georgiou, Terran Emperor",
+      "aliases": [
+        "Georgiou, Terran Emperor"
+      ],
+      "eligibleNames": [
+        "Georgiou, Terran Emperor"
+      ],
+      "typeLine": "Legendary Creature — Human Rogue Noble",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "a68361a3-83fa-44b5-92b5-b7905866fc99",
+          "set": "trk",
+          "collectorNumber": "110"
+        },
+        {
+          "id": "53401f53-aebe-4538-82be-9d6916c01c76",
+          "set": "trk",
+          "collectorNumber": "457"
+        }
+      ]
+    },
+    {
+      "oracleId": "928d977e-cff0-4e0e-83bb-16d73a754f35",
+      "name": "Gix, Yawgmoth Praetor",
+      "aliases": [
+        "Gix, Yawgmoth Praetor",
+        "The Negatronic Man"
+      ],
+      "eligibleNames": [
+        "The Negatronic Man"
+      ],
+      "typeLine": "Legendary Creature — Phyrexian Praetor",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "896212fe-98ed-4981-8305-915c793bef8c",
+          "set": "sld",
+          "collectorNumber": "2731",
+          "trekName": "The Negatronic Man"
+        }
+      ]
+    },
+    {
+      "oracleId": "40616029-e1a8-4e7c-bc7b-e381779c57cc",
+      "name": "Gowron, Eager for Battle",
+      "aliases": [
+        "Gowron, Eager for Battle"
+      ],
+      "eligibleNames": [
+        "Gowron, Eager for Battle"
+      ],
+      "typeLine": "Legendary Creature — Klingon Warrior",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "d60613c2-5655-4051-babd-fc0f3a73fc77",
+          "set": "trk",
+          "collectorNumber": "237"
+        },
+        {
+          "id": "1a7bda12-b72b-49e6-a086-644d0560ddc9",
+          "set": "trk",
+          "collectorNumber": "433"
+        },
+        {
+          "id": "20cbf82c-c8c1-4bd3-b701-7e8509a7f56d",
+          "set": "trk",
+          "collectorNumber": "443"
+        }
+      ]
+    },
+    {
+      "oracleId": "654ce8c5-b329-4046-9728-7fa276bc8695",
+      "name": "Grand Nagus Zek",
+      "aliases": [
+        "Grand Nagus Zek"
+      ],
+      "eligibleNames": [
+        "Grand Nagus Zek"
+      ],
+      "typeLine": "Legendary Creature — Ferengi Noble",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Treasure"
+      ],
+      "printings": [
+        {
+          "id": "47488f1e-512d-4dc6-a82d-1ead24d3276a",
+          "set": "trk",
+          "collectorNumber": "112"
+        },
+        {
+          "id": "2d1651f5-7bc9-4d65-9387-f4646a04e816",
+          "set": "trk",
+          "collectorNumber": "458"
+        }
+      ]
+    },
+    {
+      "oracleId": "34a39862-c18b-4c1b-8920-207627c40934",
+      "name": "Gray and Adira, Forever Joined",
+      "aliases": [
+        "Gray and Adira, Forever Joined"
+      ],
+      "eligibleNames": [
+        "Gray and Adira, Forever Joined"
+      ],
+      "typeLine": "Legendary Creature — Trill Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "eede6822-c8bc-4344-81a9-bc608245d5b6",
+          "set": "trk",
+          "collectorNumber": "238"
+        }
+      ]
+    },
+    {
+      "oracleId": "d8366080-dd0c-40cf-84e9-f628dfe8f45c",
+      "name": "Grilka, Widowed Warrior",
+      "aliases": [
+        "Grilka, Widowed Warrior"
+      ],
+      "eligibleNames": [
+        "Grilka, Widowed Warrior"
+      ],
+      "typeLine": "Legendary Creature — Klingon Warrior",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Treasure"
+      ],
+      "printings": [
+        {
+          "id": "63d3add3-be3f-4ced-85c5-a7d4891b11f5",
+          "set": "trc",
+          "collectorNumber": "70"
+        },
+        {
+          "id": "e307a7c9-335a-4b9c-9662-41c5e9ec536f",
+          "set": "trc",
+          "collectorNumber": "204"
+        }
+      ]
+    },
+    {
+      "oracleId": "b93915ac-744b-4b59-8f16-ae68d6d898c6",
+      "name": "Guinan, Ancient Advisor",
+      "aliases": [
+        "Guinan, Ancient Advisor"
+      ],
+      "eligibleNames": [
+        "Guinan, Ancient Advisor"
+      ],
+      "typeLine": "Legendary Creature — El-Aurian Advisor",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "06fa6050-0f9d-46a2-9635-8d05899dbc49",
+          "set": "trc",
+          "collectorNumber": "17"
+        },
+        {
+          "id": "daf1d562-a1e4-47b5-9b63-896e7c1e7856",
+          "set": "trc",
+          "collectorNumber": "223"
+        }
+      ]
+    },
+    {
+      "oracleId": "f41f0290-0f9d-4c51-935e-f69d2120e4a7",
+      "name": "Gul Dukat, Colonial Prefect",
+      "aliases": [
+        "Gul Dukat, Colonial Prefect"
+      ],
+      "eligibleNames": [
+        "Gul Dukat, Colonial Prefect"
+      ],
+      "typeLine": "Legendary Creature — Cardassian Rogue",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Menace"
+      ],
+      "printings": [
+        {
+          "id": "7adc6373-1196-448f-8aee-cee7a890c724",
+          "set": "trk",
+          "collectorNumber": "113"
+        },
+        {
+          "id": "bf9d476e-0a53-49ec-abfe-c8fa1557e8db",
+          "set": "trk",
+          "collectorNumber": "459"
+        }
+      ]
+    },
+    {
+      "oracleId": "852c38fe-8bfa-420b-b961-7b91af9b38d1",
+      "name": "Gwyndala, the Progeny",
+      "aliases": [
+        "Gwyndala, the Progeny"
+      ],
+      "eligibleNames": [
+        "Gwyndala, the Progeny"
+      ],
+      "typeLine": "Legendary Creature — Vau-N'Akat Advisor",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "a82f5db5-787e-4e4a-ab3c-4a488c6f4990",
+          "set": "trk",
+          "collectorNumber": "61"
+        },
+        {
+          "id": "2f1e927f-dd27-4af3-8941-64ce80e16e36",
+          "set": "trk",
+          "collectorNumber": "450"
+        }
+      ]
+    },
+    {
+      "oracleId": "eaa47a9b-79ad-4f42-a98b-dcf76138207c",
+      "name": "H.M.S. Bounty, Unlikely Timeship",
+      "aliases": [
+        "H.M.S. Bounty, Unlikely Timeship"
+      ],
+      "eligibleNames": [
+        "H.M.S. Bounty, Unlikely Timeship"
+      ],
+      "typeLine": "Legendary Artifact — Spacecraft",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Station"
+      ],
+      "printings": [
+        {
+          "id": "d75f0991-39a3-474e-8c01-9b3363c41a9f",
+          "set": "trk",
+          "collectorNumber": "63"
+        },
+        {
+          "id": "15403912-07e8-4f52-9861-c0fc1d2b5a92",
+          "set": "trk",
+          "collectorNumber": "451"
+        },
+        {
+          "id": "a58dde3d-74a2-4b31-bbf8-e3bd038b943f",
+          "set": "trk",
+          "collectorNumber": "551"
+        }
+      ]
+    },
+    {
+      "oracleId": "83d8e98d-ab97-40b1-820a-2d193a5ed261",
+      "name": "Hemmer, Fixing What Is Broken",
+      "aliases": [
+        "Hemmer, Fixing What Is Broken"
+      ],
+      "eligibleNames": [
+        "Hemmer, Fixing What Is Broken"
+      ],
+      "typeLine": "Legendary Creature — Aenar Artificer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "f3e730d7-3fd1-4bd2-a35b-6fb85bfd3c65",
+          "set": "trk",
+          "collectorNumber": "239"
+        }
+      ]
+    },
+    {
+      "oracleId": "b572be16-ad13-4f9f-bcf6-085f81e5292c",
+      "name": "Hologram Janeway",
+      "aliases": [
+        "Hologram Janeway"
+      ],
+      "eligibleNames": [
+        "Hologram Janeway"
+      ],
+      "typeLine": "Legendary Artifact Creature — Illusion Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "02d29047-a7b8-43fb-8b90-b35ba34da5f9",
+          "set": "trk",
+          "collectorNumber": "21"
+        }
+      ]
+    },
+    {
+      "oracleId": "39426cd1-8c0d-4ec6-8747-f0693080f8f2",
+      "name": "Hoshi Sato, Exolinguist",
+      "aliases": [
+        "Hoshi Sato, Exolinguist"
+      ],
+      "eligibleNames": [
+        "Hoshi Sato, Exolinguist"
+      ],
+      "typeLine": "Legendary Creature — Human Scientist",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Federation"
+      ],
+      "printings": [
+        {
+          "id": "24589f4d-c530-4f6a-b2d0-450ef70fca71",
+          "set": "trk",
+          "collectorNumber": "64"
+        }
+      ]
+    },
+    {
+      "oracleId": "9964f2fe-b7f4-40f5-8e71-948756d27f0a",
+      "name": "Hugh, First of Many",
+      "aliases": [
+        "Hugh, First of Many"
+      ],
+      "eligibleNames": [
+        "Hugh, First of Many"
+      ],
+      "typeLine": "Legendary Artifact Creature — Borg",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "7430065e-eebe-42fa-a2c9-639e4bc1b48d",
+          "set": "trc",
+          "collectorNumber": "94"
+        },
+        {
+          "id": "4c4fd011-47a0-4f8e-a1c1-5e9a1568b0bc",
+          "set": "trc",
+          "collectorNumber": "321"
+        }
+      ]
+    },
+    {
+      "oracleId": "373e2b58-ccf0-444b-aeb2-0b6e8d4e80e7",
+      "name": "I.K.S. Negh'Var, Imperial Flagship",
+      "aliases": [
+        "I.K.S. Negh'Var, Imperial Flagship"
+      ],
+      "eligibleNames": [
+        "I.K.S. Negh'Var, Imperial Flagship"
+      ],
+      "typeLine": "Legendary Artifact — Spacecraft",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Station"
+      ],
+      "printings": [
+        {
+          "id": "1a9b48d4-3954-4073-a629-a4e31b9bc962",
+          "set": "trc",
+          "collectorNumber": "113"
+        },
+        {
+          "id": "f5100a9f-31a9-4076-b3f4-b3a480c03a1c",
+          "set": "trc",
+          "collectorNumber": "346"
+        }
+      ]
+    },
+    {
+      "oracleId": "176f5ba8-6e7b-4234-a298-b6164f51656f",
+      "name": "Inti, Seneschal of the Sun",
+      "aliases": [
+        "Inti, Seneschal of the Sun",
+        "Mariner, Breaching Protocol"
+      ],
+      "eligibleNames": [
+        "Mariner, Breaching Protocol"
+      ],
+      "typeLine": "Legendary Creature — Human Knight",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "50391035-6e10-4669-bb6c-b5c87da86e58",
+          "set": "sld",
+          "collectorNumber": "2739",
+          "trekName": "Mariner, Breaching Protocol"
+        }
+      ]
+    },
+    {
+      "oracleId": "65114758-9a75-43a7-96e8-0aa68faa6b24",
+      "name": "Isshin, Two Heavens as One",
+      "aliases": [
+        "Isshin, Two Heavens as One",
+        "Janeway, Cracked Mirror"
+      ],
+      "eligibleNames": [
+        "Janeway, Cracked Mirror"
+      ],
+      "typeLine": "Legendary Creature — Human Samurai",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "8a4eed16-2ac2-4d99-b2bf-7182e184c3cb",
+          "set": "sds",
+          "collectorNumber": "19",
+          "trekName": "Janeway, Cracked Mirror"
+        }
+      ]
+    },
+    {
+      "oracleId": "67601646-f906-4824-9269-3cf89766d25f",
+      "name": "Jadzia Dax, Living Legacy",
+      "aliases": [
+        "Jadzia Dax, Living Legacy"
+      ],
+      "eligibleNames": [
+        "Jadzia Dax, Living Legacy"
+      ],
+      "typeLine": "Legendary Creature — Trill Scientist",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Transfer Symbiont"
+      ],
+      "printings": [
+        {
+          "id": "bd342f8b-9072-487d-8a33-b1bb149f1502",
+          "set": "trk",
+          "collectorNumber": "204"
+        },
+        {
+          "id": "6eff742c-9b8a-4458-976e-577d34e9c1d8",
+          "set": "trk",
+          "collectorNumber": "352"
+        }
+      ]
+    },
+    {
+      "oracleId": "f0c1c97f-b8e1-49ec-b369-3d2694c33f29",
+      "name": "Jake Sisko, War Correspondent",
+      "aliases": [
+        "Jake Sisko, War Correspondent"
+      ],
+      "eligibleNames": [
+        "Jake Sisko, War Correspondent"
+      ],
+      "typeLine": "Legendary Creature — Human Citizen",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Investigate",
+        "Landfall"
+      ],
+      "printings": [
+        {
+          "id": "9e47c6b6-f99b-46be-98a1-92c98416aefe",
+          "set": "trk",
+          "collectorNumber": "205"
+        }
+      ]
+    },
+    {
+      "oracleId": "2130193c-3518-4a7d-9cb3-ea65aec845b4",
+      "name": "Janice Rand, Essential Aide",
+      "aliases": [
+        "Janice Rand, Essential Aide"
+      ],
+      "eligibleNames": [
+        "Janice Rand, Essential Aide"
+      ],
+      "typeLine": "Legendary Creature — Human Advisor",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "92925156-ffd3-4f8a-8592-ccbd935ab894",
+          "set": "trc",
+          "collectorNumber": "79"
+        },
+        {
+          "id": "973f7092-4231-4009-b8ee-3ed4e4056b65",
+          "set": "trc",
+          "collectorNumber": "304"
+        }
+      ]
+    },
+    {
+      "oracleId": "b95a6001-2773-43c1-a5ad-a37ef7c9f054",
+      "name": "Jean-Luc Picard, Luminary",
+      "aliases": [
+        "Jean-Luc Picard, Luminary"
+      ],
+      "eligibleNames": [
+        "Jean-Luc Picard, Luminary"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Seek",
+        "Seek out"
+      ],
+      "printings": [
+        {
+          "id": "901eaed9-dbea-4a31-87b0-e17e9bcabfed",
+          "set": "trc",
+          "collectorNumber": "3"
+        },
+        {
+          "id": "3221fc7e-2eed-4517-a785-3e3a1748450f",
+          "set": "trc",
+          "collectorNumber": "7"
+        }
+      ]
+    },
+    {
+      "oracleId": "3855cb66-2e29-4d4b-a752-214843b647ff",
+      "name": "Jean-Luc, Mon Capitaine",
+      "aliases": [
+        "Jean-Luc, Mon Capitaine"
+      ],
+      "eligibleNames": [
+        "Jean-Luc, Mon Capitaine"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Flying",
+        "Federation"
+      ],
+      "printings": [
+        {
+          "id": "f8ce0f9a-a6d9-497d-bdca-2cf57f08a84c",
+          "set": "trc",
+          "collectorNumber": "190"
+        }
+      ]
+    },
+    {
+      "oracleId": "492ba01e-c0fa-414c-95fd-df5b59212d2a",
+      "name": "Jett Reno, Problem Solver",
+      "aliases": [
+        "Jett Reno, Problem Solver"
+      ],
+      "eligibleNames": [
+        "Jett Reno, Problem Solver"
+      ],
+      "typeLine": "Legendary Creature — Human Artificer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Surveil",
+        "Face a dilemma"
+      ],
+      "printings": [
+        {
+          "id": "6dc34d44-397a-4dda-a8e3-0c2ff7da110f",
+          "set": "trk",
+          "collectorNumber": "67"
+        }
+      ]
+    },
+    {
+      "oracleId": "c803b788-4213-4fab-b841-7e5bbf66088e",
+      "name": "Jhoira, Weatherlight Captain",
+      "aliases": [
+        "Jhoira, Weatherlight Captain",
+        "Nyota Uhura, Endless Insight"
+      ],
+      "eligibleNames": [
+        "Nyota Uhura, Endless Insight"
+      ],
+      "typeLine": "Legendary Creature — Human Artificer",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "c452702c-4780-4f1f-aa96-38342943043c",
+          "set": "sds",
+          "collectorNumber": "21",
+          "trekName": "Nyota Uhura, Endless Insight"
+        }
+      ]
+    },
+    {
+      "oracleId": "bbc8c2b4-9949-416f-a722-b1645eff64d7",
+      "name": "Julian Bashir, Frontier Doctor",
+      "aliases": [
+        "Julian Bashir, Frontier Doctor"
+      ],
+      "eligibleNames": [
+        "Julian Bashir, Frontier Doctor"
+      ],
+      "typeLine": "Legendary Creature — Human Doctor",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Seek",
+        "Seek out"
+      ],
+      "printings": [
+        {
+          "id": "0301c7fe-2acf-4f7b-9941-fd7e44a81e15",
+          "set": "trc",
+          "collectorNumber": "21"
+        },
+        {
+          "id": "3d5ee6ef-3022-4a0b-8308-69000c050add",
+          "set": "trc",
+          "collectorNumber": "227"
+        }
+      ]
+    },
+    {
+      "oracleId": "4dc4c8a3-17d6-4c2d-bcbf-9cebf261eda6",
+      "name": "Jurati, Cordial Queen",
+      "aliases": [
+        "Jurati, Cordial Queen"
+      ],
+      "eligibleNames": [
+        "Jurati, Cordial Queen"
+      ],
+      "typeLine": "Legendary Artifact Creature — Borg Scientist",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "8983cc30-d377-4c02-bc53-74e84b41513c",
+          "set": "trc",
+          "collectorNumber": "95"
+        },
+        {
+          "id": "f95aaeb7-ac1d-4e78-902b-3aa14a772ee0",
+          "set": "trc",
+          "collectorNumber": "322"
+        }
+      ]
+    },
+    {
+      "oracleId": "cbe3a4e7-5dbe-4f58-8ee6-a1762b65acfd",
+      "name": "K'rrik, Son of Yawgmoth",
+      "aliases": [
+        "K'rrik, Son of Yawgmoth",
+        "Number One of One"
+      ],
+      "eligibleNames": [
+        "Number One of One"
+      ],
+      "typeLine": "Legendary Creature — Phyrexian Horror Minion",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [
+        "Lifelink"
+      ],
+      "printings": [
+        {
+          "id": "2d2426be-f50f-4ebc-b341-10397a173e10",
+          "set": "sld",
+          "collectorNumber": "2732",
+          "trekName": "Number One of One"
+        }
+      ]
+    },
+    {
+      "oracleId": "16a5ed42-ee86-4dcb-b8ea-239ac2b13d67",
+      "name": "Kai Winn, Faithless Leader",
+      "aliases": [
+        "Kai Winn, Faithless Leader"
+      ],
+      "eligibleNames": [
+        "Kai Winn, Faithless Leader"
+      ],
+      "typeLine": "Legendary Creature — Bajoran Cleric",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "973ab6cd-fc23-4816-aa08-f77c93e1b1d6",
+          "set": "trk",
+          "collectorNumber": "118"
+        },
+        {
+          "id": "76e49c4e-ebb8-4821-9709-ec6ec1745aa3",
+          "set": "trk",
+          "collectorNumber": "460"
+        }
+      ]
+    },
+    {
+      "oracleId": "619e0686-e88c-4238-8364-75395e733533",
+      "name": "Kambal, Profiteering Mayor",
+      "aliases": [
+        "Kambal, Profiteering Mayor",
+        "Boimler, Citing Protocol"
+      ],
+      "eligibleNames": [
+        "Boimler, Citing Protocol"
+      ],
+      "typeLine": "Legendary Creature — Human Advisor",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "477793c6-8c2e-45d7-aa7c-de4c160a2094",
+          "set": "sld",
+          "collectorNumber": "2740",
+          "trekName": "Boimler, Citing Protocol"
+        }
+      ]
+    },
+    {
+      "oracleId": "1ce8bc83-3cda-4ac5-ad9a-2a2a327c5193",
+      "name": "Kang, Suspicious Captain",
+      "aliases": [
+        "Kang, Suspicious Captain"
+      ],
+      "eligibleNames": [
+        "Kang, Suspicious Captain"
+      ],
+      "typeLine": "Legendary Creature — Klingon Warrior Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Goad"
+      ],
+      "printings": [
+        {
+          "id": "b1a411f8-f6c2-4a46-861b-a616a9edfb92",
+          "set": "trc",
+          "collectorNumber": "71"
+        },
+        {
+          "id": "3dccf6b9-2971-41e0-9ff8-4eff09480eae",
+          "set": "trc",
+          "collectorNumber": "288"
+        }
+      ]
+    },
+    {
+      "oracleId": "d209b948-9afb-4fd1-a961-72c87282878c",
+      "name": "Kenrith, the Returned King",
+      "aliases": [
+        "Kenrith, the Returned King",
+        "General Picard, Earth Warlord"
+      ],
+      "eligibleNames": [
+        "General Picard, Earth Warlord"
+      ],
+      "typeLine": "Legendary Creature — Human Noble",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "cac2da3a-b0a3-49c6-a988-4cd964e49bb5",
+          "set": "sds",
+          "collectorNumber": "3",
+          "trekName": "General Picard, Earth Warlord"
+        }
+      ]
+    },
+    {
+      "oracleId": "714dcaf0-442b-4849-917a-7e6af2ea0210",
+      "name": "Kes, Evolving Telepath",
+      "aliases": [
+        "Kes, Evolving Telepath"
+      ],
+      "eligibleNames": [
+        "Kes, Evolving Telepath"
+      ],
+      "typeLine": "Legendary Creature — Ocampa Advisor",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "282b02ed-9bfb-4490-947f-f0cc10d50b7f",
+          "set": "trc",
+          "collectorNumber": "45"
+        },
+        {
+          "id": "aaee3d44-6fc8-42bf-9b25-2102d0a25763",
+          "set": "trc",
+          "collectorNumber": "259"
+        }
+      ]
+    },
+    {
+      "oracleId": "b7ea2089-abcd-4e60-8201-93801eae5084",
+      "name": "Khan, Despot by Design",
+      "aliases": [
+        "Khan, Despot by Design"
+      ],
+      "eligibleNames": [
+        "Khan, Despot by Design"
+      ],
+      "typeLine": "Legendary Creature — Human Rogue",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Trample"
+      ],
+      "printings": [
+        {
+          "id": "fd283ef1-fd8c-4288-8efa-6e81c92b3415",
+          "set": "trk",
+          "collectorNumber": "155"
+        },
+        {
+          "id": "0c7fed60-4bec-47a4-81e3-4654e74386d2",
+          "set": "trk",
+          "collectorNumber": "419"
+        },
+        {
+          "id": "e6507344-3e4a-44e8-ae02-5dcfbfc6fb55",
+          "set": "trk",
+          "collectorNumber": "543"
+        }
+      ]
+    },
+    {
+      "oracleId": "d2a86d0c-a4fe-434c-a45c-812cdec9169f",
+      "name": "Khan, Vengeful Heart",
+      "aliases": [
+        "Khan, Vengeful Heart"
+      ],
+      "eligibleNames": [
+        "Khan, Vengeful Heart"
+      ],
+      "typeLine": "Legendary Creature — Human Warrior",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "a6f47b34-02fb-41d2-978a-a6d0a47ee8ba",
+          "set": "trk",
+          "collectorNumber": "119"
+        },
+        {
+          "id": "80dcc7dd-203f-4a3b-afe7-52987bbd006b",
+          "set": "trk",
+          "collectorNumber": "416"
+        },
+        {
+          "id": "9d0dce51-002b-43b6-ac0e-d78c062b99b7",
+          "set": "trk",
+          "collectorNumber": "540"
+        }
+      ]
+    },
+    {
+      "oracleId": "ff9f5bbb-43c4-481e-9bd7-db9f246355ae",
+      "name": "Kira Nerys, Firebrand",
+      "aliases": [
+        "Kira Nerys, Firebrand"
+      ],
+      "eligibleNames": [
+        "Kira Nerys, Firebrand"
+      ],
+      "typeLine": "Legendary Creature — Bajoran Soldier",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Trample"
+      ],
+      "printings": [
+        {
+          "id": "81ad6427-e730-47c9-8310-6d3ca4b10c82",
+          "set": "trk",
+          "collectorNumber": "242"
+        },
+        {
+          "id": "f40be112-e41d-456b-919f-14b2dee7e6ee",
+          "set": "trk",
+          "collectorNumber": "477"
+        }
+      ]
+    },
+    {
+      "oracleId": "e85ad29a-ebd6-4f81-af99-556deaedbfe0",
+      "name": "Kirk, Commanding Officer",
+      "aliases": [
+        "Kirk, Commanding Officer"
+      ],
+      "eligibleNames": [
+        "Kirk, Commanding Officer"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "245d0430-0967-44f1-8c59-985104a8db30",
+          "set": "trk",
+          "collectorNumber": "243"
+        },
+        {
+          "id": "fdb533f7-a411-4505-978f-0f2e0838b96e",
+          "set": "trk",
+          "collectorNumber": "330"
+        },
+        {
+          "id": "84f6d529-33f7-4bdf-8ee0-43f5c4e8de6a",
+          "set": "trk",
+          "collectorNumber": "355"
+        }
+      ]
+    },
+    {
+      "oracleId": "6a70e571-6932-45d8-9f14-ede4a561cc49",
+      "name": "Kirk, Enterprising Captain",
+      "aliases": [
+        "Kirk, Enterprising Captain"
+      ],
+      "eligibleNames": [
+        "Kirk, Enterprising Captain"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Menace"
+      ],
+      "printings": [
+        {
+          "id": "e1d339e1-3433-4630-965e-1841e46b40a4",
+          "set": "trc",
+          "collectorNumber": "198"
+        }
+      ]
+    },
+    {
+      "oracleId": "254177f2-5a03-4a29-8b98-248f6a41a351",
+      "name": "Kirk, Man of Action",
+      "aliases": [
+        "Kirk, Man of Action"
+      ],
+      "eligibleNames": [
+        "Kirk, Man of Action"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "f0944425-2caa-4fde-82be-2f1f5c7d8e13",
+          "set": "trc",
+          "collectorNumber": "180"
+        }
+      ]
+    },
+    {
+      "oracleId": "01b7ced9-5dcb-45ce-bcda-ffdc1afefb2a",
+      "name": "Koloth, Tribble Hunter",
+      "aliases": [
+        "Koloth, Tribble Hunter"
+      ],
+      "eligibleNames": [
+        "Koloth, Tribble Hunter"
+      ],
+      "typeLine": "Legendary Creature — Klingon Warrior Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Goad"
+      ],
+      "printings": [
+        {
+          "id": "33bfbd68-fc0f-41ce-b033-975fe9ba960a",
+          "set": "trc",
+          "collectorNumber": "72"
+        },
+        {
+          "id": "55a3692b-da3e-4e03-8bb3-06013232438d",
+          "set": "trc",
+          "collectorNumber": "289"
+        }
+      ]
+    },
+    {
+      "oracleId": "fc8d8c51-428c-4b2f-965d-c43ec94997c3",
+      "name": "Kor, Cause of Vengeance",
+      "aliases": [
+        "Kor, Cause of Vengeance"
+      ],
+      "eligibleNames": [
+        "Kor, Cause of Vengeance"
+      ],
+      "typeLine": "Legendary Creature — Klingon Warrior Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "9e4364a4-6dac-4eea-be75-9f8ce1b3e334",
+          "set": "trc",
+          "collectorNumber": "96"
+        },
+        {
+          "id": "d5b7ada8-7895-4ed3-b425-e50d3d37e6a0",
+          "set": "trc",
+          "collectorNumber": "208"
+        }
+      ]
+    },
+    {
+      "oracleId": "2f0bad22-a3f5-4b2b-96bf-ff1473e2262d",
+      "name": "Korok, Liberated Rage",
+      "aliases": [
+        "Korok, Liberated Rage"
+      ],
+      "eligibleNames": [
+        "Korok, Liberated Rage"
+      ],
+      "typeLine": "Legendary Artifact Creature — Klingon Borg",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Battlefront"
+      ],
+      "printings": [
+        {
+          "id": "eb2c613d-2159-4c41-b6f7-0e102fc1a5c5",
+          "set": "trc",
+          "collectorNumber": "22"
+        },
+        {
+          "id": "4a861490-8541-40fe-af7b-f7e242372b69",
+          "set": "trc",
+          "collectorNumber": "228"
+        }
+      ]
+    },
+    {
+      "oracleId": "61cef71a-d38b-4b6f-8401-aa4fc861bf52",
+      "name": "Kruge, Genesis Seeker",
+      "aliases": [
+        "Kruge, Genesis Seeker"
+      ],
+      "eligibleNames": [
+        "Kruge, Genesis Seeker"
+      ],
+      "typeLine": "Legendary Creature — Klingon Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "9158819b-3961-49b6-a167-fff1a5504b8a",
+          "set": "trc",
+          "collectorNumber": "165"
+        }
+      ]
+    },
+    {
+      "oracleId": "2a078705-4afe-4887-94cc-f12f4690fb01",
+      "name": "Kurn, Son of Mogh",
+      "aliases": [
+        "Kurn, Son of Mogh"
+      ],
+      "eligibleNames": [
+        "Kurn, Son of Mogh"
+      ],
+      "typeLine": "Legendary Creature — Klingon Warrior Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Battlefront",
+        "Deathtouch"
+      ],
+      "printings": [
+        {
+          "id": "03fcc84d-45cc-4894-ab35-6d5a799b21ef",
+          "set": "trc",
+          "collectorNumber": "60"
+        },
+        {
+          "id": "78144bfd-21ed-40cf-bad0-1f7619773f51",
+          "set": "trc",
+          "collectorNumber": "273"
+        }
+      ]
+    },
+    {
+      "oracleId": "ea684e78-483c-4b89-b184-b2aeede83cc7",
+      "name": "L'Rell, Fierce Visionary",
+      "aliases": [
+        "L'Rell, Fierce Visionary"
+      ],
+      "eligibleNames": [
+        "L'Rell, Fierce Visionary"
+      ],
+      "typeLine": "Legendary Creature — Klingon Warrior",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Surveil"
+      ],
+      "printings": [
+        {
+          "id": "7b06bbb9-7c6d-4889-b55a-1de77c27fd18",
+          "set": "trk",
+          "collectorNumber": "247"
+        },
+        {
+          "id": "51161805-0955-49b7-97f3-20b002c9b86e",
+          "set": "trk",
+          "collectorNumber": "434"
+        },
+        {
+          "id": "4b59e50c-21e2-480d-b5b5-cc6c1eeed57a",
+          "set": "trk",
+          "collectorNumber": "444"
+        }
+      ]
+    },
+    {
+      "oracleId": "338619f2-bb33-4988-bafe-7460f86acef8",
+      "name": "La Forge, Perceptive Engineer",
+      "aliases": [
+        "La Forge, Perceptive Engineer"
+      ],
+      "eligibleNames": [
+        "La Forge, Perceptive Engineer"
+      ],
+      "typeLine": "Legendary Creature — Human Artificer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Vigilance"
+      ],
+      "printings": [
+        {
+          "id": "c2412446-ddff-40fa-b180-9385c691a9fd",
+          "set": "trc",
+          "collectorNumber": "147"
+        }
+      ]
+    },
+    {
+      "oracleId": "d5e2ca35-053e-4155-97e7-73f75ae87d52",
+      "name": "La Forge, Thoughtful as Ever",
+      "aliases": [
+        "La Forge, Thoughtful as Ever"
+      ],
+      "eligibleNames": [
+        "La Forge, Thoughtful as Ever"
+      ],
+      "typeLine": "Legendary Creature — Human Artificer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "09ee57fa-c301-4278-9db6-8d6ebab7ce38",
+          "set": "trc",
+          "collectorNumber": "188"
+        }
+      ]
+    },
+    {
+      "oracleId": "ed3b80eb-8915-4428-89b8-90f4278f2733",
+      "name": "La'An Noonien-Singh, Security",
+      "aliases": [
+        "La'An Noonien-Singh, Security"
+      ],
+      "eligibleNames": [
+        "La'An Noonien-Singh, Security"
+      ],
+      "typeLine": "Legendary Creature — Human Soldier",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "afe08bef-b184-4b91-8d69-0101e183c3ff",
+          "set": "trk",
+          "collectorNumber": "156"
+        }
+      ]
+    },
+    {
+      "oracleId": "ebe988c1-96e0-4a99-86b5-d948837545de",
+      "name": "Lieutenant Commander Data",
+      "aliases": [
+        "Lieutenant Commander Data"
+      ],
+      "eligibleNames": [
+        "Lieutenant Commander Data"
+      ],
+      "typeLine": "Legendary Artifact Creature — Android Scientist",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "c6d5da51-6c74-4dd5-a532-cf4c2a7b601c",
+          "set": "trk",
+          "collectorNumber": "69"
+        },
+        {
+          "id": "f10ee26b-7ea8-4cd0-83f6-b9a8ac94cb0b",
+          "set": "trk",
+          "collectorNumber": "359"
+        },
+        {
+          "id": "4753a94e-5a5c-4246-bcf4-907eb892507b",
+          "set": "trk",
+          "collectorNumber": "371"
+        },
+        {
+          "id": "191809e6-87f5-414e-a45e-62988f092832",
+          "set": "trk",
+          "collectorNumber": "505"
+        },
+        {
+          "id": "e5484552-37a3-41ef-b618-ee92fb418c85",
+          "set": "trk",
+          "collectorNumber": "1703"
+        }
+      ]
+    },
+    {
+      "oracleId": "565cfa73-8c6b-4296-bcb8-388de8c960ff",
+      "name": "Lieutenant Hikaru Sulu",
+      "aliases": [
+        "Lieutenant Hikaru Sulu"
+      ],
+      "eligibleNames": [
+        "Lieutenant Hikaru Sulu"
+      ],
+      "typeLine": "Legendary Creature — Human Pilot",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Explore"
+      ],
+      "printings": [
+        {
+          "id": "5c404561-b2e4-4f27-b1a9-486c05ed5870",
+          "set": "trc",
+          "collectorNumber": "80"
+        },
+        {
+          "id": "57c92aae-f0c1-46f9-a99e-66a6419c8b38",
+          "set": "trc",
+          "collectorNumber": "305"
+        }
+      ]
+    },
+    {
+      "oracleId": "d55f0074-2772-48b1-8d60-ca2da52d4c9d",
+      "name": "Lieutenant Nyota Uhura",
+      "aliases": [
+        "Lieutenant Nyota Uhura"
+      ],
+      "eligibleNames": [
+        "Lieutenant Nyota Uhura"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Strange new worlds"
+      ],
+      "printings": [
+        {
+          "id": "4f932b20-3f3e-4f59-ab82-46733e3f54b9",
+          "set": "trc",
+          "collectorNumber": "46"
+        },
+        {
+          "id": "cf526654-b670-4c75-94b9-8204b9e3d11a",
+          "set": "trc",
+          "collectorNumber": "260"
+        }
+      ]
+    },
+    {
+      "oracleId": "d0cff43a-2a22-4e05-9f71-983cb297989f",
+      "name": "Locutus of Borg",
+      "aliases": [
+        "Locutus of Borg"
+      ],
+      "eligibleNames": [
+        "Locutus of Borg"
+      ],
+      "typeLine": "Legendary Artifact Creature — Borg",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Lifelink"
+      ],
+      "printings": [
+        {
+          "id": "1b2e5971-d31c-4f6d-9bee-4b13a402e798",
+          "set": "trc",
+          "collectorNumber": "97"
+        },
+        {
+          "id": "a0527596-5f1b-45f3-9f8f-dd9ab7c4bb40",
+          "set": "trc",
+          "collectorNumber": "209"
+        }
+      ]
+    },
+    {
+      "oracleId": "46ba09a7-42e4-42cd-911c-71d0ade01180",
+      "name": "Locutus, the One Who Speaks",
+      "aliases": [
+        "Locutus, the One Who Speaks"
+      ],
+      "eligibleNames": [
+        "Locutus, the One Who Speaks"
+      ],
+      "typeLine": "Legendary Artifact Creature — Borg",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "296f1127-14a0-42c4-9e4a-c0d929720748",
+          "set": "trk",
+          "collectorNumber": "245"
+        },
+        {
+          "id": "22af225f-8b59-4e6b-b469-a2272c7d487f",
+          "set": "trk",
+          "collectorNumber": "576"
+        },
+        {
+          "id": "ee059c0f-eba9-4504-a92e-af762a510ee4",
+          "set": "trk",
+          "collectorNumber": "360"
+        },
+        {
+          "id": "15387ef2-c761-4906-8909-4cf7dddefd9b",
+          "set": "trk",
+          "collectorNumber": "389"
+        },
+        {
+          "id": "d9d45bf1-9007-4d5d-bc32-fb11a353edc5",
+          "set": "trk",
+          "collectorNumber": "523"
+        }
+      ]
+    },
+    {
+      "oracleId": "f6476884-f73f-465f-8e7f-ea312a5b306d",
+      "name": "Loot, Exuberant Explorer",
+      "aliases": [
+        "Loot, Exuberant Explorer",
+        "Hikaru Sulu, Peerless Pilot"
+      ],
+      "eligibleNames": [
+        "Hikaru Sulu, Peerless Pilot"
+      ],
+      "typeLine": "Legendary Creature — Beast Noble",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "2c0b7e4c-5895-4fcf-809d-9be5fb69ecff",
+          "set": "sds",
+          "collectorNumber": "13",
+          "trekName": "Hikaru Sulu, Peerless Pilot"
+        }
+      ]
+    },
+    {
+      "oracleId": "ee712451-01de-4486-9048-fafb5aa5a584",
+      "name": "Lore, Positronic Provocateur",
+      "aliases": [
+        "Lore, Positronic Provocateur"
+      ],
+      "eligibleNames": [
+        "Lore, Positronic Provocateur"
+      ],
+      "typeLine": "Legendary Artifact Creature — Android Rogue",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Surveil"
+      ],
+      "printings": [
+        {
+          "id": "62afa55d-d4ba-48d5-9991-0f8408f9c92c",
+          "set": "trk",
+          "collectorNumber": "246"
+        }
+      ]
+    },
+    {
+      "oracleId": "51a2671b-677e-434c-9f1a-d768fe1190c9",
+      "name": "Lt. Arex, Ever-Adapting",
+      "aliases": [
+        "Lt. Arex, Ever-Adapting"
+      ],
+      "eligibleNames": [
+        "Lt. Arex, Ever-Adapting"
+      ],
+      "typeLine": "Legendary Creature — Edosian Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Trample",
+        "Strange new worlds"
+      ],
+      "printings": [
+        {
+          "id": "16787d1c-3a1c-4c72-a986-9cea0371fd75",
+          "set": "trc",
+          "collectorNumber": "98"
+        },
+        {
+          "id": "51d3970f-73c9-469d-bedd-e456b023834b",
+          "set": "trc",
+          "collectorNumber": "323"
+        }
+      ]
+    },
+    {
+      "oracleId": "cb3b4cfe-fd8d-4a26-905e-8ccd30f033a3",
+      "name": "Lt. Cmdr. Geordi La Forge",
+      "aliases": [
+        "Lt. Cmdr. Geordi La Forge"
+      ],
+      "eligibleNames": [
+        "Lt. Cmdr. Geordi La Forge"
+      ],
+      "typeLine": "Legendary Creature — Human Artificer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "3a558d82-7efd-49b3-9f7b-ace639b44a35",
+          "set": "trk",
+          "collectorNumber": "70"
+        },
+        {
+          "id": "df9efa59-ef01-473d-b32a-8328dcf01130",
+          "set": "trk",
+          "collectorNumber": "372"
+        },
+        {
+          "id": "3c627570-844f-49d6-a788-dda7ef4f399c",
+          "set": "trk",
+          "collectorNumber": "506"
+        },
+        {
+          "id": "f0028b63-3e33-47ab-88ed-bdbe5705ecf7",
+          "set": "trk",
+          "collectorNumber": "1706"
+        }
+      ]
+    },
+    {
+      "oracleId": "e56472ec-6ae8-48b2-a4ce-0ed154161c06",
+      "name": "Lwaxana Troi, Charming Guest",
+      "aliases": [
+        "Lwaxana Troi, Charming Guest"
+      ],
+      "eligibleNames": [
+        "Lwaxana Troi, Charming Guest"
+      ],
+      "typeLine": "Legendary Creature — Betazoid Advisor",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "19bf2f2f-4be2-4958-bfab-eb46c9ca1995",
+          "set": "trk",
+          "collectorNumber": "157"
+        },
+        {
+          "id": "eb65e3e3-eca9-4856-8502-7a47b7dd7216",
+          "set": "trk",
+          "collectorNumber": "464"
+        }
+      ]
+    },
+    {
+      "oracleId": "a33f6ec8-5992-43a1-a16c-d8e83c4017fa",
+      "name": "M'Ress, Crew Coordinator",
+      "aliases": [
+        "M'Ress, Crew Coordinator"
+      ],
+      "eligibleNames": [
+        "M'Ress, Crew Coordinator"
+      ],
+      "typeLine": "Legendary Creature — Caitian Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Landfall"
+      ],
+      "printings": [
+        {
+          "id": "870e5f5c-502e-42d8-92cb-827ea09a83f4",
+          "set": "trc",
+          "collectorNumber": "26"
+        },
+        {
+          "id": "aa409ce3-1392-4079-aab7-9ef324382ef3",
+          "set": "trc",
+          "collectorNumber": "233"
+        }
+      ]
+    },
+    {
+      "oracleId": "d17c3079-372d-4e4f-8214-12a9893088ff",
+      "name": "Martok, Hero of the Empire",
+      "aliases": [
+        "Martok, Hero of the Empire"
+      ],
+      "eligibleNames": [
+        "Martok, Hero of the Empire"
+      ],
+      "typeLine": "Legendary Creature — Klingon Warrior",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Battlefront"
+      ],
+      "printings": [
+        {
+          "id": "a82df31f-aa4a-4356-ad20-d9642a76e7c0",
+          "set": "trc",
+          "collectorNumber": "23"
+        },
+        {
+          "id": "0a046a34-0149-41d6-ae6b-e59eb4232643",
+          "set": "trc",
+          "collectorNumber": "230"
+        }
+      ]
+    },
+    {
+      "oracleId": "c71c7e0c-64d8-486a-9e66-1b343868eb0a",
+      "name": "McCoy, Not a Bricklayer",
+      "aliases": [
+        "McCoy, Not a Bricklayer"
+      ],
+      "eligibleNames": [
+        "McCoy, Not a Bricklayer"
+      ],
+      "typeLine": "Legendary Creature — Human Doctor",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "b19d93bc-dfa9-466c-9ebb-44e28ac3d8ff",
+          "set": "trc",
+          "collectorNumber": "99"
+        },
+        {
+          "id": "23417c1d-5878-4cf1-bb50-888694876183",
+          "set": "trc",
+          "collectorNumber": "210"
+        }
+      ]
+    },
+    {
+      "oracleId": "82f3faa8-39fa-450b-843f-d60a4c36d8f7",
+      "name": "Mikaeus, the Lunarch",
+      "aliases": [
+        "Mikaeus, the Lunarch",
+        "Benny Russell, Dreamer"
+      ],
+      "eligibleNames": [
+        "Benny Russell, Dreamer"
+      ],
+      "typeLine": "Legendary Creature — Human Cleric",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "f57d8134-4ec9-40f2-8d7b-560f246215a5",
+          "set": "sds",
+          "collectorNumber": "1",
+          "trekName": "Benny Russell, Dreamer"
+        }
+      ]
+    },
+    {
+      "oracleId": "31e3f39f-8b18-4316-984f-4d57d2d480ca",
+      "name": "Miles O'Brien, Transporter Ops",
+      "aliases": [
+        "Miles O'Brien, Transporter Ops"
+      ],
+      "eligibleNames": [
+        "Miles O'Brien, Transporter Ops"
+      ],
+      "typeLine": "Legendary Creature — Human Artificer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "e4f041b3-e785-45ba-9a7e-33878614d3b0",
+          "set": "trk",
+          "collectorNumber": "24"
+        },
+        {
+          "id": "8adfd9c9-0cbd-479d-bcce-6f115b8a1c38",
+          "set": "trk",
+          "collectorNumber": "447"
+        }
+      ]
+    },
+    {
+      "oracleId": "e5912d21-e188-4b9e-8e92-a6e8196353c6",
+      "name": "Mogis, God of Slaughter",
+      "aliases": [
+        "Mogis, God of Slaughter",
+        "Worf, Regent of Terok Nor"
+      ],
+      "eligibleNames": [
+        "Worf, Regent of Terok Nor"
+      ],
+      "typeLine": "Legendary Enchantment Creature — God",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [
+        "Indestructible"
+      ],
+      "printings": [
+        {
+          "id": "642ac210-8933-40bc-b8e0-c7461fdbe05b",
+          "set": "sds",
+          "collectorNumber": "26",
+          "trekName": "Worf, Regent of Terok Nor"
+        }
+      ]
+    },
+    {
+      "oracleId": "869bde03-8813-43a9-9df5-a21c62511b4b",
+      "name": "Mr. Spock, Science Officer",
+      "aliases": [
+        "Mr. Spock, Science Officer"
+      ],
+      "eligibleNames": [
+        "Mr. Spock, Science Officer"
+      ],
+      "typeLine": "Legendary Creature — Vulcan Human Scientist",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "d19fc127-669e-4264-935a-e5991e6c0964",
+          "set": "trk",
+          "collectorNumber": "74"
+        },
+        {
+          "id": "7dd9dec1-5793-4514-8a15-c3bce21a5115",
+          "set": "trk",
+          "collectorNumber": "353"
+        },
+        {
+          "id": "e3e54e58-327c-4071-b99a-b78c7cc3fe6f",
+          "set": "trk",
+          "collectorNumber": "411"
+        },
+        {
+          "id": "e855f782-9221-4b6f-a182-b738da4b7d48",
+          "set": "trk",
+          "collectorNumber": "535"
+        },
+        {
+          "id": "bd0c3372-4cc5-489c-b8fb-ea11e700fa16",
+          "set": "trk",
+          "collectorNumber": "1702"
+        }
+      ]
+    },
+    {
+      "oracleId": "7fba522b-a292-4d1f-9999-f787ba2d5fd1",
+      "name": "Neelix, Moral Support",
+      "aliases": [
+        "Neelix, Moral Support"
+      ],
+      "eligibleNames": [
+        "Neelix, Moral Support"
+      ],
+      "typeLine": "Legendary Creature — Talaxian Advisor",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Food"
+      ],
+      "printings": [
+        {
+          "id": "09c0daa9-9eca-4817-a427-868d1efcfa20",
+          "set": "trk",
+          "collectorNumber": "209"
+        }
+      ]
+    },
+    {
+      "oracleId": "5a8ae1c0-1935-4d03-aa94-9e9088650821",
+      "name": "Nog, Ambitious Cadet",
+      "aliases": [
+        "Nog, Ambitious Cadet"
+      ],
+      "eligibleNames": [
+        "Nog, Ambitious Cadet"
+      ],
+      "typeLine": "Legendary Creature — Ferengi Rogue",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Surveil",
+        "Menace"
+      ],
+      "printings": [
+        {
+          "id": "b513dd60-8573-467b-9c6a-855a0ba86fca",
+          "set": "trk",
+          "collectorNumber": "249"
+        },
+        {
+          "id": "6cda814c-bdbe-486c-b956-ff2c7872124f",
+          "set": "trk",
+          "collectorNumber": "351"
+        }
+      ]
+    },
+    {
+      "oracleId": "d89f34e4-8628-4faf-89e6-c9c16023ae8b",
+      "name": "Nyota Uhura, Communications",
+      "aliases": [
+        "Nyota Uhura, Communications"
+      ],
+      "eligibleNames": [
+        "Nyota Uhura, Communications"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Open a Channel",
+        "Hailing Frequencies"
+      ],
+      "printings": [
+        {
+          "id": "b04066ef-ad43-4b40-b4ae-5d94f154261f",
+          "set": "trk",
+          "collectorNumber": "75"
+        },
+        {
+          "id": "cc8937ac-15fe-4d7a-90c8-853eb492151a",
+          "set": "trk",
+          "collectorNumber": "327"
+        },
+        {
+          "id": "fa9755ba-831d-47a2-a172-d2bfb13edefe",
+          "set": "trk",
+          "collectorNumber": "358"
+        },
+        {
+          "id": "2b71b656-a316-4f29-b2bd-44165ad8cebe",
+          "set": "trk",
+          "collectorNumber": "412"
+        },
+        {
+          "id": "971cbb33-7374-4b08-8765-8ccb6f5858d1",
+          "set": "trk",
+          "collectorNumber": "536"
+        }
+      ]
+    },
+    {
+      "oracleId": "eecdf18b-7a85-4b29-9a8a-26ee40da9e7a",
+      "name": "One, Borg Evolved",
+      "aliases": [
+        "One, Borg Evolved"
+      ],
+      "eligibleNames": [
+        "One, Borg Evolved"
+      ],
+      "typeLine": "Legendary Artifact Creature — Borg Artificer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "85b7aef6-33fd-45ff-bbe7-1e943e43bb19",
+          "set": "trc",
+          "collectorNumber": "100"
+        },
+        {
+          "id": "16bde88c-6e7a-4149-9893-c767a763af9c",
+          "set": "trc",
+          "collectorNumber": "324"
+        }
+      ]
+    },
+    {
+      "oracleId": "473aba5a-5c87-4294-a556-f8aca0e5fe39",
+      "name": "Pavel Chekov, First Posting",
+      "aliases": [
+        "Pavel Chekov, First Posting"
+      ],
+      "eligibleNames": [
+        "Pavel Chekov, First Posting"
+      ],
+      "typeLine": "Legendary Creature — Human Pilot",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "4015cb79-b698-4f3b-85b7-083cc4ab1e3c",
+          "set": "trc",
+          "collectorNumber": "101"
+        },
+        {
+          "id": "c8717e61-498f-4f0b-822c-7fcf86a11255",
+          "set": "trc",
+          "collectorNumber": "325"
+        }
+      ]
+    },
+    {
+      "oracleId": "4c0be0d0-766b-4c50-b1ca-cce527196666",
+      "name": "Pelia, Immortal Innovator",
+      "aliases": [
+        "Pelia, Immortal Innovator"
+      ],
+      "eligibleNames": [
+        "Pelia, Immortal Innovator"
+      ],
+      "typeLine": "Legendary Creature — Lanthanite Artificer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "4f7ef05c-e9a9-4431-8cd5-4cd41c64de67",
+          "set": "trc",
+          "collectorNumber": "148"
+        }
+      ]
+    },
+    {
+      "oracleId": "b04cb333-ca7a-464f-a084-03cf8f468baf",
+      "name": "Phlox, Unorthodox Doctor",
+      "aliases": [
+        "Phlox, Unorthodox Doctor"
+      ],
+      "eligibleNames": [
+        "Phlox, Unorthodox Doctor"
+      ],
+      "typeLine": "Legendary Creature — Denobulan Doctor",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Trample"
+      ],
+      "printings": [
+        {
+          "id": "2695e76e-c27d-49fc-9ef2-d9eaff449f3d",
+          "set": "trk",
+          "collectorNumber": "250"
+        }
+      ]
+    },
+    {
+      "oracleId": "4b36f8e2-ba7d-4bc7-890f-dd6ab73eef17",
+      "name": "Picard, Leading by Example",
+      "aliases": [
+        "Picard, Leading by Example"
+      ],
+      "eligibleNames": [
+        "Picard, Leading by Example"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "f9fa20c5-f241-4da2-9c99-c9b650095d74",
+          "set": "trk",
+          "collectorNumber": "29"
+        }
+      ]
+    },
+    {
+      "oracleId": "cda786aa-1259-45e8-a834-21c7ad0259a6",
+      "name": "Picard, Steadfast Captain",
+      "aliases": [
+        "Picard, Steadfast Captain"
+      ],
+      "eligibleNames": [
+        "Picard, Steadfast Captain"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "ddfbfc4f-eeea-4b49-92c2-3060e2cef830",
+          "set": "trc",
+          "collectorNumber": "193"
+        }
+      ]
+    },
+    {
+      "oracleId": "1e9b0fd6-5aae-401a-8df5-d94ce6442696",
+      "name": "Prosper, Tome-Bound",
+      "aliases": [
+        "Prosper, Tome-Bound",
+        "Spock, Mirror Malefactor"
+      ],
+      "eligibleNames": [
+        "Spock, Mirror Malefactor"
+      ],
+      "typeLine": "Legendary Creature — Tiefling Warlock",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [
+        "Treasure",
+        "Deathtouch"
+      ],
+      "printings": [
+        {
+          "id": "e5fb20b1-2270-463a-b307-e337ceb1fd47",
+          "set": "sds",
+          "collectorNumber": "24",
+          "trekName": "Spock, Mirror Malefactor"
+        }
+      ]
+    },
+    {
+      "oracleId": "6866f0a4-5fe6-40d9-bbfc-6f116f4e415d",
+      "name": "Q, Stacking the Deck",
+      "aliases": [
+        "Q, Stacking the Deck"
+      ],
+      "eligibleNames": [
+        "Q, Stacking the Deck"
+      ],
+      "typeLine": "Legendary Creature — Q",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "dcbe34db-0065-4960-92b8-3ea1d336e803",
+          "set": "trk",
+          "collectorNumber": "165"
+        },
+        {
+          "id": "881693cb-1492-4347-88a5-e96dc907744b",
+          "set": "trk",
+          "collectorNumber": "383"
+        },
+        {
+          "id": "b1126734-d3df-42f0-ba4e-39cbf8f3c4d5",
+          "set": "trk",
+          "collectorNumber": "517"
+        }
+      ]
+    },
+    {
+      "oracleId": "e4e96682-1130-49cc-b1e5-04a774024f7a",
+      "name": "Q, Your Illustrious Host",
+      "aliases": [
+        "Q, Your Illustrious Host"
+      ],
+      "eligibleNames": [
+        "Q, Your Illustrious Host"
+      ],
+      "typeLine": "Legendary Creature — Q",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "4c879981-f3a9-4da4-bf49-fb6ccea739b8",
+          "set": "trc",
+          "collectorNumber": "187"
+        }
+      ]
+    },
+    {
+      "oracleId": "61703e94-cb57-44d8-b37b-7b14b3cfd86d",
+      "name": "Quark, Humble Proprietor",
+      "aliases": [
+        "Quark, Humble Proprietor"
+      ],
+      "eligibleNames": [
+        "Quark, Humble Proprietor"
+      ],
+      "typeLine": "Legendary Creature — Ferengi Rogue",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Treasure"
+      ],
+      "printings": [
+        {
+          "id": "96104754-57e2-46e9-948d-628aab2aa0ad",
+          "set": "trk",
+          "collectorNumber": "166"
+        },
+        {
+          "id": "c06bc240-4dd2-4b77-be94-aecb882ea734",
+          "set": "trk",
+          "collectorNumber": "347"
+        }
+      ]
+    },
+    {
+      "oracleId": "44837c9b-971a-44b6-8e55-301cebc3a361",
+      "name": "Queen's Diamond",
+      "aliases": [
+        "Queen's Diamond"
+      ],
+      "eligibleNames": [
+        "Queen's Diamond"
+      ],
+      "typeLine": "Legendary Artifact — Spacecraft",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Station"
+      ],
+      "printings": [
+        {
+          "id": "5f936935-4f47-4d33-871b-0159cb6fb4da",
+          "set": "trc",
+          "collectorNumber": "118"
+        },
+        {
+          "id": "18367692-469a-496a-9dbc-bf4adfcdb85c",
+          "set": "trc",
+          "collectorNumber": "352"
+        }
+      ]
+    },
+    {
+      "oracleId": "adcf571f-c465-44c6-8941-48313810e732",
+      "name": "Reg Barclay, Fidgety Fantasist",
+      "aliases": [
+        "Reg Barclay, Fidgety Fantasist"
+      ],
+      "eligibleNames": [
+        "Reg Barclay, Fidgety Fantasist"
+      ],
+      "typeLine": "Legendary Creature — Human Artificer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Seek",
+        "Seek out"
+      ],
+      "printings": [
+        {
+          "id": "663a6877-6963-4fa0-9d28-da6ecb4fd550",
+          "set": "trc",
+          "collectorNumber": "102"
+        },
+        {
+          "id": "4eb7acc5-ec39-445e-a56f-5b203d7e7a2f",
+          "set": "trc",
+          "collectorNumber": "327"
+        }
+      ]
+    },
+    {
+      "oracleId": "1cfe6e3a-f8c9-4105-ad03-0faf1fcc4626",
+      "name": "Riku of Many Paths",
+      "aliases": [
+        "Riku of Many Paths",
+        "Spock, Cross-Time Captain"
+      ],
+      "eligibleNames": [
+        "Spock, Cross-Time Captain"
+      ],
+      "typeLine": "Legendary Creature — Human Wizard",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "8ffdcede-29bf-45c2-9f5a-dee72748c424",
+          "set": "sds",
+          "collectorNumber": "23",
+          "trekName": "Spock, Cross-Time Captain"
+        }
+      ]
+    },
+    {
+      "oracleId": "761021ce-4559-464e-aa03-85c2fe78e267",
+      "name": "Rishkar, Peema Renegade",
+      "aliases": [
+        "Rishkar, Peema Renegade",
+        "Keenser, Scotty's Spotter"
+      ],
+      "eligibleNames": [
+        "Keenser, Scotty's Spotter"
+      ],
+      "typeLine": "Legendary Creature — Elf Druid",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "1a4903bb-3df8-4852-a655-62d0757421c7",
+          "set": "sds",
+          "collectorNumber": "14",
+          "trekName": "Keenser, Scotty's Spotter"
+        }
+      ]
+    },
+    {
+      "oracleId": "6f10f6bf-f889-4c3d-a6cf-04cf74f1b4bd",
+      "name": "Ro Laren, Double Agent",
+      "aliases": [
+        "Ro Laren, Double Agent"
+      ],
+      "eligibleNames": [
+        "Ro Laren, Double Agent"
+      ],
+      "typeLine": "Legendary Creature — Bajoran Rogue Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Seek",
+        "Seek out"
+      ],
+      "printings": [
+        {
+          "id": "e3f8d2fa-397f-4a3f-b273-dcc322015743",
+          "set": "trc",
+          "collectorNumber": "75"
+        },
+        {
+          "id": "54e9ffed-d541-4760-b9ae-8e62a4364da3",
+          "set": "trc",
+          "collectorNumber": "293"
+        }
+      ]
+    },
+    {
+      "oracleId": "ef919269-043f-45ab-a5da-403cdaa4da23",
+      "name": "Rok-Tahk, Budding Scientist",
+      "aliases": [
+        "Rok-Tahk, Budding Scientist"
+      ],
+      "eligibleNames": [
+        "Rok-Tahk, Budding Scientist"
+      ],
+      "typeLine": "Legendary Creature — Brikar Scientist",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "787bd19b-586e-4451-850b-60e0857bada0",
+          "set": "trk",
+          "collectorNumber": "211"
+        },
+        {
+          "id": "5354636f-a324-401b-bece-85b1c4760c07",
+          "set": "trk",
+          "collectorNumber": "472"
+        }
+      ]
+    },
+    {
+      "oracleId": "b98ab107-3908-4425-89d3-634043bb4d4b",
+      "name": "Rom and Leeta, Unlikely Pair",
+      "aliases": [
+        "Rom and Leeta, Unlikely Pair"
+      ],
+      "eligibleNames": [
+        "Rom and Leeta, Unlikely Pair"
+      ],
+      "typeLine": "Legendary Creature — Ferengi Bajoran",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Seek",
+        "Seek out",
+        "Treasure"
+      ],
+      "printings": [
+        {
+          "id": "2bba1d93-0904-464b-9797-a0f0f4b05df8",
+          "set": "trc",
+          "collectorNumber": "76"
+        },
+        {
+          "id": "8be10bf5-b9ff-4b91-8937-9b6dc5b0e8e7",
+          "set": "trc",
+          "collectorNumber": "294"
+        }
+      ]
+    },
+    {
+      "oracleId": "42258216-fe2b-42d0-a6ce-76ecf8104c10",
+      "name": "Rutherford, Upgraded Ensign",
+      "aliases": [
+        "Rutherford, Upgraded Ensign"
+      ],
+      "eligibleNames": [
+        "Rutherford, Upgraded Ensign"
+      ],
+      "typeLine": "Legendary Creature — Human Artificer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "16a4d8ed-a918-4dfe-9976-0b68adb26afa",
+          "set": "trk",
+          "collectorNumber": "32"
+        }
+      ]
+    },
+    {
+      "oracleId": "8284c6ae-d86e-4f72-81da-7d3f9861fd12",
+      "name": "S.S. Botany Bay",
+      "aliases": [
+        "S.S. Botany Bay"
+      ],
+      "eligibleNames": [
+        "S.S. Botany Bay"
+      ],
+      "typeLine": "Legendary Artifact — Spacecraft",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Station"
+      ],
+      "printings": [
+        {
+          "id": "67ab2c2a-0bc7-4672-bf50-53c96e126859",
+          "set": "trc",
+          "collectorNumber": "120"
+        },
+        {
+          "id": "e71a669b-2618-415c-b848-cc098e50a1a6",
+          "set": "trc",
+          "collectorNumber": "355"
+        }
+      ]
+    },
+    {
+      "oracleId": "53aaa919-d08f-4b76-8583-bc2d4635f991",
+      "name": "Saavik, Stoic Student",
+      "aliases": [
+        "Saavik, Stoic Student"
+      ],
+      "eligibleNames": [
+        "Saavik, Stoic Student"
+      ],
+      "typeLine": "Legendary Creature — Vulcan Advisor",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Federation",
+        "Flash"
+      ],
+      "printings": [
+        {
+          "id": "3783c530-a2da-4dc1-811a-0a9a412c8e78",
+          "set": "trk",
+          "collectorNumber": "33"
+        },
+        {
+          "id": "af3c4a7f-c7cb-422f-8eab-730de8f5c599",
+          "set": "trk",
+          "collectorNumber": "406"
+        },
+        {
+          "id": "766eead5-0f5d-4bd5-a3ad-8795b0960bc6",
+          "set": "trk",
+          "collectorNumber": "530"
+        }
+      ]
+    },
+    {
+      "oracleId": "eec55307-8525-4dae-a030-d210f3895138",
+      "name": "Sam Kirk, Xenoanthropologist",
+      "aliases": [
+        "Sam Kirk, Xenoanthropologist"
+      ],
+      "eligibleNames": [
+        "Sam Kirk, Xenoanthropologist"
+      ],
+      "typeLine": "Legendary Creature — Human Scientist",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Investigate"
+      ],
+      "printings": [
+        {
+          "id": "b2ffe160-1860-41ba-86a5-487211889804",
+          "set": "trc",
+          "collectorNumber": "49"
+        },
+        {
+          "id": "d6cd4b1c-929f-4653-a2e0-d976d99deb16",
+          "set": "trc",
+          "collectorNumber": "263"
+        }
+      ]
+    },
+    {
+      "oracleId": "22b86863-c992-405b-949a-bdf8859884ef",
+      "name": "Sarcophagus, Ship of the Dead",
+      "aliases": [
+        "Sarcophagus, Ship of the Dead"
+      ],
+      "eligibleNames": [
+        "Sarcophagus, Ship of the Dead"
+      ],
+      "typeLine": "Legendary Artifact — Spacecraft",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Station"
+      ],
+      "printings": [
+        {
+          "id": "b5ea32b5-aa58-4f87-ac2e-4e3b8dd4a752",
+          "set": "trk",
+          "collectorNumber": "170"
+        }
+      ]
+    },
+    {
+      "oracleId": "72c51539-5f15-4636-8cb8-b688cf53f431",
+      "name": "Sarek, Federation Ambassador",
+      "aliases": [
+        "Sarek, Federation Ambassador"
+      ],
+      "eligibleNames": [
+        "Sarek, Federation Ambassador"
+      ],
+      "typeLine": "Legendary Creature — Vulcan Advisor",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Federation"
+      ],
+      "printings": [
+        {
+          "id": "94ad9063-9663-49d8-b7ba-05be865bd20a",
+          "set": "trk",
+          "collectorNumber": "251"
+        },
+        {
+          "id": "25e552e6-43e0-4a1f-b17f-a41569182e11",
+          "set": "trk",
+          "collectorNumber": "425"
+        },
+        {
+          "id": "b46fdc18-d488-4c8a-af6b-0f28d4db14c2",
+          "set": "trk",
+          "collectorNumber": "549"
+        }
+      ]
+    },
+    {
+      "oracleId": "b6a21e53-6f62-4874-b9cc-84ae177a0da6",
+      "name": "Saru, Unthreatened",
+      "aliases": [
+        "Saru, Unthreatened"
+      ],
+      "eligibleNames": [
+        "Saru, Unthreatened"
+      ],
+      "typeLine": "Legendary Creature — Kelpien Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Flash"
+      ],
+      "printings": [
+        {
+          "id": "445de44d-8af9-4ea3-b165-9e8eb8939820",
+          "set": "trk",
+          "collectorNumber": "212"
+        }
+      ]
+    },
+    {
+      "oracleId": "3bd553db-2c7d-42cd-8ded-ab2c955b8f4e",
+      "name": "Scotty, Chief Engineer",
+      "aliases": [
+        "Scotty, Chief Engineer"
+      ],
+      "eligibleNames": [
+        "Scotty, Chief Engineer"
+      ],
+      "typeLine": "Legendary Creature — Human Artificer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "a09834eb-948d-41cf-b79d-f857df6fb853",
+          "set": "trc",
+          "collectorNumber": "184"
+        }
+      ]
+    },
+    {
+      "oracleId": "8e5057ae-165c-4fe4-b712-a638b7eea038",
+      "name": "Scotty, Miracle Worker",
+      "aliases": [
+        "Scotty, Miracle Worker"
+      ],
+      "eligibleNames": [
+        "Scotty, Miracle Worker"
+      ],
+      "typeLine": "Legendary Creature — Human Artificer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "42f77f9e-5e56-45ac-aa93-36353c92bca9",
+          "set": "trk",
+          "collectorNumber": "79"
+        },
+        {
+          "id": "db7418be-4881-4781-9b41-ea90f59aee8a",
+          "set": "trk",
+          "collectorNumber": "328"
+        },
+        {
+          "id": "d97123d6-8420-4400-8d6c-a3ed5c84ad5d",
+          "set": "trk",
+          "collectorNumber": "413"
+        },
+        {
+          "id": "008db37b-1b2e-4554-b927-8a75ce4ff668",
+          "set": "trk",
+          "collectorNumber": "537"
+        }
+      ]
+    },
+    {
+      "oracleId": "0cbf0f7a-7f5e-4819-9a9f-f655f92fd5f1",
+      "name": "Sela, Tal Shiar Paradox",
+      "aliases": [
+        "Sela, Tal Shiar Paradox"
+      ],
+      "eligibleNames": [
+        "Sela, Tal Shiar Paradox"
+      ],
+      "typeLine": "Legendary Creature — Romulan Human Rogue",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "cb680a44-3395-4c96-a73d-af1e0b7b8a9f",
+          "set": "trk",
+          "collectorNumber": "128"
+        },
+        {
+          "id": "71a9b698-e085-4141-80f7-6c57c2ea087f",
+          "set": "trk",
+          "collectorNumber": "379"
+        },
+        {
+          "id": "e9c190eb-aff0-42b8-b935-1fabbc9c3425",
+          "set": "trk",
+          "collectorNumber": "513"
+        }
+      ]
+    },
+    {
+      "oracleId": "f0c5864f-83c3-4d99-8f97-0ab92608fff3",
+      "name": "Sen Triplets",
+      "aliases": [
+        "Sen Triplets",
+        "Borg Queen, Hateful Legacy"
+      ],
+      "eligibleNames": [
+        "Borg Queen, Hateful Legacy"
+      ],
+      "typeLine": "Legendary Artifact Creature — Human Wizard",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "d25109e0-f9dd-4cc4-b58f-9e05fb979052",
+          "set": "sds",
+          "collectorNumber": "16",
+          "trekName": "Borg Queen, Hateful Legacy"
+        }
+      ]
+    },
+    {
+      "oracleId": "3c037865-d38c-48da-aee9-308975e12638",
+      "name": "Seven of Nine",
+      "aliases": [
+        "Seven of Nine"
+      ],
+      "eligibleNames": [
+        "Seven of Nine"
+      ],
+      "typeLine": "Legendary Artifact Creature — Human Scientist",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Face a dilemma"
+      ],
+      "printings": [
+        {
+          "id": "6204cfdb-6fb4-4030-96b6-9306c8266bcf",
+          "set": "trk",
+          "collectorNumber": "252"
+        },
+        {
+          "id": "8cbe8fea-9c49-4d11-be37-4bc9eb03a406",
+          "set": "trk",
+          "collectorNumber": "343"
+        }
+      ]
+    },
+    {
+      "oracleId": "22c3b484-0f96-4051-807c-fc0fcb7cd1a8",
+      "name": "Seven of Nine, Tertiary Adjunct",
+      "aliases": [
+        "Seven of Nine, Tertiary Adjunct"
+      ],
+      "eligibleNames": [
+        "Seven of Nine, Tertiary Adjunct"
+      ],
+      "typeLine": "Legendary Artifact Creature — Borg",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "That Is Irrelevant"
+      ],
+      "printings": [
+        {
+          "id": "aa3e71b7-c8f1-4fc2-ab75-36f120763f4a",
+          "set": "trc",
+          "collectorNumber": "50"
+        },
+        {
+          "id": "a5566e13-727d-4f51-a7af-9724df2d56e5",
+          "set": "trc",
+          "collectorNumber": "264"
+        }
+      ]
+    },
+    {
+      "oracleId": "af9c9b8a-0713-4904-8e86-2b3331ec5495",
+      "name": "Seven of Nine, Unassimilated",
+      "aliases": [
+        "Seven of Nine, Unassimilated"
+      ],
+      "eligibleNames": [
+        "Seven of Nine, Unassimilated"
+      ],
+      "typeLine": "Legendary Artifact Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "ddc517bd-27e1-4688-8941-a41c312bd782",
+          "set": "trk",
+          "collectorNumber": "80"
+        },
+        {
+          "id": "ea6e116e-4086-42be-baf3-48255002d5d1",
+          "set": "trk",
+          "collectorNumber": "373"
+        },
+        {
+          "id": "fbe692d2-e8ae-464b-84a9-fe7063e806c0",
+          "set": "trk",
+          "collectorNumber": "507"
+        },
+        {
+          "id": "4016a92a-b662-4d22-8072-6c1ccb77c2c3",
+          "set": "trk",
+          "collectorNumber": "1705"
+        }
+      ]
+    },
+    {
+      "oracleId": "34f34409-326d-4994-a0ea-1a69aa278f03",
+      "name": "Sheoldred, the Apocalypse",
+      "aliases": [
+        "Sheoldred, the Apocalypse",
+        "Khan, Engineered Evil"
+      ],
+      "eligibleNames": [
+        "Khan, Engineered Evil"
+      ],
+      "typeLine": "Legendary Creature — Phyrexian Praetor",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [
+        "Deathtouch"
+      ],
+      "printings": [
+        {
+          "id": "c68629ff-72b3-40a2-b578-cddb6ddb4ccf",
+          "set": "sds",
+          "collectorNumber": "11",
+          "trekName": "Khan, Engineered Evil"
+        }
+      ]
+    },
+    {
+      "oracleId": "12e4e6b6-e684-49df-9373-d1e057664272",
+      "name": "Shuttlecraft Galileo",
+      "aliases": [
+        "Shuttlecraft Galileo"
+      ],
+      "eligibleNames": [
+        "Shuttlecraft Galileo"
+      ],
+      "typeLine": "Legendary Artifact — Spacecraft",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Station",
+        "Landfall"
+      ],
+      "printings": [
+        {
+          "id": "a4242f45-75c1-4b23-9174-bd0fe70fa039",
+          "set": "trc",
+          "collectorNumber": "28"
+        },
+        {
+          "id": "1c0e8838-1293-41bd-bdeb-df06b3e4bc6b",
+          "set": "trc",
+          "collectorNumber": "236"
+        }
+      ]
+    },
+    {
+      "oracleId": "0dc78b1e-581e-4f28-bf35-e2082553d6a9",
+      "name": "Silas Renn, Seeker Adept",
+      "aliases": [
+        "Silas Renn, Seeker Adept",
+        "Rutherford, Rebuilding the Past"
+      ],
+      "eligibleNames": [
+        "Rutherford, Rebuilding the Past"
+      ],
+      "typeLine": "Legendary Artifact Creature — Human",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [
+        "Partner",
+        "Deathtouch"
+      ],
+      "printings": [
+        {
+          "id": "a1a4a5a3-e739-44ba-a933-c03105abf31e",
+          "set": "sld",
+          "collectorNumber": "2741",
+          "trekName": "Rutherford, Rebuilding the Past"
+        }
+      ]
+    },
+    {
+      "oracleId": "fb777610-7562-4d9d-8497-62c562e6d7cb",
+      "name": "Sisay, Weatherlight Captain",
+      "aliases": [
+        "Sisay, Weatherlight Captain",
+        "Kirk, Alluring Upstart"
+      ],
+      "eligibleNames": [
+        "Kirk, Alluring Upstart"
+      ],
+      "typeLine": "Legendary Creature — Human Soldier",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "7002530b-41cf-4b2e-9ccd-4fd305364c6b",
+          "set": "sds",
+          "collectorNumber": "4",
+          "trekName": "Kirk, Alluring Upstart"
+        }
+      ]
+    },
+    {
+      "oracleId": "bdfe5809-17d4-4239-a9ee-6accdef99035",
+      "name": "Spock, Always Your Friend",
+      "aliases": [
+        "Spock, Always Your Friend"
+      ],
+      "eligibleNames": [
+        "Spock, Always Your Friend"
+      ],
+      "typeLine": "Legendary Creature — Vulcan Human Scientist",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "1be731d5-8b21-4883-91c0-dd9070b1eadd",
+          "set": "trk",
+          "collectorNumber": "253"
+        },
+        {
+          "id": "018d3844-0fa3-4b3a-805c-e9aeb9fc4185",
+          "set": "trk",
+          "collectorNumber": "331"
+        }
+      ]
+    },
+    {
+      "oracleId": "a877820f-8999-4dfe-a50d-09f63c885ce3",
+      "name": "Spock, Logical Choice",
+      "aliases": [
+        "Spock, Logical Choice"
+      ],
+      "eligibleNames": [
+        "Spock, Logical Choice"
+      ],
+      "typeLine": "Legendary Creature — Vulcan Human Scientist",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Vigilance"
+      ],
+      "printings": [
+        {
+          "id": "5a741052-e92d-4e9c-8cfa-3b5ed1f432f5",
+          "set": "trc",
+          "collectorNumber": "194"
+        }
+      ]
+    },
+    {
+      "oracleId": "4d338db9-e968-49ec-8959-141480b17b8f",
+      "name": "Spock, Voice of Reason",
+      "aliases": [
+        "Spock, Voice of Reason"
+      ],
+      "eligibleNames": [
+        "Spock, Voice of Reason"
+      ],
+      "typeLine": "Legendary Creature — Vulcan Human Scientist",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "9e4610a4-42ea-4de8-b46a-555d28ee519d",
+          "set": "trc",
+          "collectorNumber": "181"
+        }
+      ]
+    },
+    {
+      "oracleId": "25fe4df1-abf7-4f17-9e0d-57e414697400",
+      "name": "Spot, Felis catus",
+      "aliases": [
+        "Spot, Felis catus"
+      ],
+      "eligibleNames": [
+        "Spot, Felis catus"
+      ],
+      "typeLine": "Legendary Creature — Cat",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Food"
+      ],
+      "printings": [
+        {
+          "id": "ccdc8c1a-68ba-4498-a336-13676d8de107",
+          "set": "trc",
+          "collectorNumber": "29"
+        },
+        {
+          "id": "fe5f0fe9-f063-4fb7-81c9-13f4e14d6ed1",
+          "set": "trc",
+          "collectorNumber": "237"
+        }
+      ]
+    },
+    {
+      "oracleId": "9b627fa4-af4c-482b-b1cf-2ad15938602c",
+      "name": "Starship Enterprise",
+      "aliases": [
+        "Starship Enterprise"
+      ],
+      "eligibleNames": [
+        "Starship Enterprise"
+      ],
+      "typeLine": "Legendary Artifact — Spacecraft",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Station",
+        "Landfall"
+      ],
+      "printings": [
+        {
+          "id": "66fa6995-4857-466d-8068-508f2904805b",
+          "set": "trc",
+          "collectorNumber": "122"
+        },
+        {
+          "id": "f7fad2b9-0a2f-4921-85e2-54da59b4e686",
+          "set": "trc",
+          "collectorNumber": "211"
+        }
+      ]
+    },
+    {
+      "oracleId": "8d0da2f9-0e05-4a94-8d42-fd57d06b09ba",
+      "name": "Stella Lee, Wild Card",
+      "aliases": [
+        "Stella Lee, Wild Card",
+        "Spock, Strangely Human"
+      ],
+      "eligibleNames": [
+        "Spock, Strangely Human"
+      ],
+      "typeLine": "Legendary Creature — Human Rogue",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "54820d80-f32e-4e2f-a0e2-4db781444217",
+          "set": "sds",
+          "collectorNumber": "25",
+          "trekName": "Spock, Strangely Human"
+        }
+      ]
+    },
+    {
+      "oracleId": "e6973668-4ea7-4920-82a5-73abfc1c9fd5",
+      "name": "Subcommander T'Pol",
+      "aliases": [
+        "Subcommander T'Pol"
+      ],
+      "eligibleNames": [
+        "Subcommander T'Pol"
+      ],
+      "typeLine": "Legendary Creature — Vulcan Scientist",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Flash"
+      ],
+      "printings": [
+        {
+          "id": "7d90016d-c2cb-457b-9d97-c3b9411c46e3",
+          "set": "trk",
+          "collectorNumber": "82"
+        },
+        {
+          "id": "142b8804-3bfd-4735-998f-3592b10deb80",
+          "set": "trk",
+          "collectorNumber": "453"
+        }
+      ]
+    },
+    {
+      "oracleId": "9565feaf-252d-43c2-a28e-4291c9ff5872",
+      "name": "Sulu, Heroic Helmsman",
+      "aliases": [
+        "Sulu, Heroic Helmsman"
+      ],
+      "eligibleNames": [
+        "Sulu, Heroic Helmsman"
+      ],
+      "typeLine": "Legendary Creature — Human Pilot",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Triple"
+      ],
+      "printings": [
+        {
+          "id": "250f9c29-560a-448f-92c9-4f2b6f1b2b50",
+          "set": "trc",
+          "collectorNumber": "185"
+        }
+      ]
+    },
+    {
+      "oracleId": "d090131d-428c-4a98-afc5-595b9bc7adce",
+      "name": "Sulu, Space Swashbuckler",
+      "aliases": [
+        "Sulu, Space Swashbuckler"
+      ],
+      "eligibleNames": [
+        "Sulu, Space Swashbuckler"
+      ],
+      "typeLine": "Legendary Creature — Human Pilot",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "First strike"
+      ],
+      "printings": [
+        {
+          "id": "9b16f967-4bc5-4508-8433-b46323ce2e71",
+          "set": "trk",
+          "collectorNumber": "37"
+        },
+        {
+          "id": "e62f74b8-b862-448c-bc6e-06af40252212",
+          "set": "trk",
+          "collectorNumber": "356"
+        },
+        {
+          "id": "01a51ffb-6d51-4e73-8cac-49fb32f14c02",
+          "set": "trk",
+          "collectorNumber": "407"
+        },
+        {
+          "id": "90965755-2b70-46fa-aecd-8f9cb28767d3",
+          "set": "trk",
+          "collectorNumber": "531"
+        }
+      ]
+    },
+    {
+      "oracleId": "d4c1dbc8-23d8-49e0-bc2d-d005e9215172",
+      "name": "Sylvia Tilly, Joy of Discovery",
+      "aliases": [
+        "Sylvia Tilly, Joy of Discovery"
+      ],
+      "eligibleNames": [
+        "Sylvia Tilly, Joy of Discovery"
+      ],
+      "typeLine": "Legendary Creature — Human Scientist Artificer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Surveil"
+      ],
+      "printings": [
+        {
+          "id": "fe6e03b5-cd96-430b-9c74-96eca0212a81",
+          "set": "trk",
+          "collectorNumber": "217"
+        }
+      ]
+    },
+    {
+      "oracleId": "e8a548e8-057e-4023-ac20-bac973dbce09",
+      "name": "T'Pol, Vulcan Representative",
+      "aliases": [
+        "T'Pol, Vulcan Representative"
+      ],
+      "eligibleNames": [
+        "T'Pol, Vulcan Representative"
+      ],
+      "typeLine": "Legendary Creature — Vulcan Scientist",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "686a0be0-9374-4454-8bc6-a1bcec95df40",
+          "set": "trc",
+          "collectorNumber": "151"
+        }
+      ]
+    },
+    {
+      "oracleId": "29775eb6-f658-4839-a434-2fa063069f1c",
+      "name": "T'Pring, Never Parted",
+      "aliases": [
+        "T'Pring, Never Parted"
+      ],
+      "eligibleNames": [
+        "T'Pring, Never Parted"
+      ],
+      "typeLine": "Legendary Creature — Vulcan Citizen",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Fight",
+        "Kal-if-fee"
+      ],
+      "printings": [
+        {
+          "id": "c80275f8-eac0-4541-a62c-1bd77f3591dd",
+          "set": "trc",
+          "collectorNumber": "106"
+        },
+        {
+          "id": "3179b18f-fe7a-4c9e-beae-8191b61f04b3",
+          "set": "trc",
+          "collectorNumber": "332"
+        }
+      ]
+    },
+    {
+      "oracleId": "1a9607a2-58cb-4bb8-b454-4813528221f8",
+      "name": "Tasha Yar, Out of Time",
+      "aliases": [
+        "Tasha Yar, Out of Time"
+      ],
+      "eligibleNames": [
+        "Tasha Yar, Out of Time"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Haste"
+      ],
+      "printings": [
+        {
+          "id": "5f6cbe6c-5cd8-4eec-82b7-25d5bf5641c0",
+          "set": "trk",
+          "collectorNumber": "176"
+        },
+        {
+          "id": "e4575a63-090f-4013-a507-72dc7ea8146d",
+          "set": "trk",
+          "collectorNumber": "384"
+        },
+        {
+          "id": "701dfdf6-c8ea-4476-bf02-6b91ed3b4c57",
+          "set": "trk",
+          "collectorNumber": "518"
+        }
+      ]
+    },
+    {
+      "oracleId": "0715e860-3b3b-4331-9718-207973e94fee",
+      "name": "Tatyova, Benthic Druid",
+      "aliases": [
+        "Tatyova, Benthic Druid",
+        "Chekov, Young Wayfinder"
+      ],
+      "eligibleNames": [
+        "Chekov, Young Wayfinder"
+      ],
+      "typeLine": "Legendary Creature — Merfolk Druid",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [
+        "Landfall"
+      ],
+      "printings": [
+        {
+          "id": "70a62c18-ccce-4c6a-8a72-9300c03b2c83",
+          "set": "sds",
+          "collectorNumber": "17",
+          "trekName": "Chekov, Young Wayfinder"
+        }
+      ]
+    },
+    {
+      "oracleId": "a9a84fbb-0972-4a3d-bdae-a3b01219b35d",
+      "name": "Thada Adel, Acquisitor",
+      "aliases": [
+        "Thada Adel, Acquisitor",
+        "Carol Marcus, Scientist Sleuth"
+      ],
+      "eligibleNames": [
+        "Carol Marcus, Scientist Sleuth"
+      ],
+      "typeLine": "Legendary Creature — Merfolk Rogue",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [
+        "Landwalk",
+        "Islandwalk"
+      ],
+      "printings": [
+        {
+          "id": "1ddcb7a0-d5ab-44e3-8579-657c2b6c0222",
+          "set": "sds",
+          "collectorNumber": "5",
+          "trekName": "Carol Marcus, Scientist Sleuth"
+        }
+      ]
+    },
+    {
+      "oracleId": "b03d6bc2-d9f1-4d03-b1b3-77993bec6547",
+      "name": "The Borg Queen",
+      "aliases": [
+        "The Borg Queen"
+      ],
+      "eligibleNames": [
+        "The Borg Queen"
+      ],
+      "typeLine": "Legendary Artifact Creature — Borg Noble",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Assimilate"
+      ],
+      "printings": [
+        {
+          "id": "8ed939ba-bf8d-4a68-ae9f-f8ca4eb301ab",
+          "set": "trc",
+          "collectorNumber": "1"
+        },
+        {
+          "id": "e5142756-4148-4205-9122-87cffb0d3341",
+          "set": "trc",
+          "collectorNumber": "5"
+        }
+      ]
+    },
+    {
+      "oracleId": "f77ea393-4142-4c06-8bb3-589ca74a7338",
+      "name": "The Caretaker",
+      "aliases": [
+        "The Caretaker"
+      ],
+      "eligibleNames": [
+        "The Caretaker"
+      ],
+      "typeLine": "Legendary Creature — Elemental",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Vigilance",
+        "Face a dilemma",
+        "Ward"
+      ],
+      "printings": [
+        {
+          "id": "ec6a1967-78fc-4ef4-9816-6d9a9dde61fb",
+          "set": "trk",
+          "collectorNumber": "47"
+        },
+        {
+          "id": "492df5d5-04a2-49d2-a639-61b19f4419df",
+          "set": "trk",
+          "collectorNumber": "449"
+        }
+      ]
+    },
+    {
+      "oracleId": "3b04f5b9-40d9-49aa-a38d-0f946401263c",
+      "name": "The Doctor, EMH",
+      "aliases": [
+        "The Doctor, EMH"
+      ],
+      "eligibleNames": [
+        "The Doctor, EMH"
+      ],
+      "typeLine": "Legendary Artifact Creature — Illusion Doctor",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "8fbad0dd-5f74-40c0-9e3e-c06be8eabb14",
+          "set": "trk",
+          "collectorNumber": "234"
+        }
+      ]
+    },
+    {
+      "oracleId": "03973bad-1b3c-4488-a23e-232b192c95cc",
+      "name": "The Duras Sisters",
+      "aliases": [
+        "The Duras Sisters"
+      ],
+      "eligibleNames": [
+        "The Duras Sisters"
+      ],
+      "typeLine": "Legendary Creature — Klingon Warrior",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "7eb112eb-2abf-4ba3-b9bd-b45ffa80f7eb",
+          "set": "trk",
+          "collectorNumber": "235"
+        },
+        {
+          "id": "fc44d954-dc08-4071-8e2b-e65090de65dc",
+          "set": "trk",
+          "collectorNumber": "432"
+        },
+        {
+          "id": "56c8d25b-9114-4412-af57-db7f8c2e20c4",
+          "set": "trk",
+          "collectorNumber": "442"
+        }
+      ]
+    },
+    {
+      "oracleId": "5144361a-0308-49b8-96e6-c948d4beae09",
+      "name": "The Guardian of Forever",
+      "aliases": [
+        "The Guardian of Forever"
+      ],
+      "eligibleNames": [
+        "The Guardian of Forever"
+      ],
+      "typeLine": "Legendary Artifact Creature — Construct",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Defender"
+      ],
+      "printings": [
+        {
+          "id": "b682a918-4f3a-41ce-90d9-f7acca9acfde",
+          "set": "trc",
+          "collectorNumber": "112"
+        },
+        {
+          "id": "bb9b366d-2022-4033-8eff-043976ce07c7",
+          "set": "trc",
+          "collectorNumber": "344"
+        }
+      ]
+    },
+    {
+      "oracleId": "b61718eb-dc6a-4199-b7c7-42eccf4158e8",
+      "name": "The Traveler",
+      "aliases": [
+        "The Traveler"
+      ],
+      "eligibleNames": [
+        "The Traveler"
+      ],
+      "typeLine": "Legendary Creature — Scout",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Reach",
+        "Vigilance",
+        "Strange new worlds"
+      ],
+      "printings": [
+        {
+          "id": "171932ba-26da-48e9-b8a2-c71aafe5c6a6",
+          "set": "trk",
+          "collectorNumber": "254"
+        }
+      ]
+    },
+    {
+      "oracleId": "3d867016-2601-4a37-a73d-308898d3bd37",
+      "name": "Thrasios, Triton Hero",
+      "aliases": [
+        "Thrasios, Triton Hero",
+        "Tendi, Exploring the Future"
+      ],
+      "eligibleNames": [
+        "Tendi, Exploring the Future"
+      ],
+      "typeLine": "Legendary Creature — Merfolk Wizard",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [
+        "Partner",
+        "Scry"
+      ],
+      "printings": [
+        {
+          "id": "820e5ad6-a8f7-4f01-bfd0-ff0461b74255",
+          "set": "sld",
+          "collectorNumber": "2742",
+          "trekName": "Tendi, Exploring the Future"
+        }
+      ]
+    },
+    {
+      "oracleId": "327458f1-d3c4-4e66-8abd-a6533bef63f7",
+      "name": "Tom Paris, Risk-Taker",
+      "aliases": [
+        "Tom Paris, Risk-Taker"
+      ],
+      "eligibleNames": [
+        "Tom Paris, Risk-Taker"
+      ],
+      "typeLine": "Legendary Creature — Human Pilot",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Seek",
+        "Seek out"
+      ],
+      "printings": [
+        {
+          "id": "04ea9781-885c-479b-9b96-c08ba56a6438",
+          "set": "trc",
+          "collectorNumber": "105"
+        },
+        {
+          "id": "ed606b49-3808-41ef-91b8-7922c421f424",
+          "set": "trc",
+          "collectorNumber": "331"
+        }
+      ]
+    },
+    {
+      "oracleId": "8c3495bf-02e7-4ad9-949d-92eb3d2b662a",
+      "name": "Torbran, Thane of Red Fell",
+      "aliases": [
+        "Torbran, Thane of Red Fell",
+        "Michael Burnham, Enforcer"
+      ],
+      "eligibleNames": [
+        "Michael Burnham, Enforcer"
+      ],
+      "typeLine": "Legendary Creature — Dwarf Noble",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "cb853023-8e88-4af6-9257-ef465c7844c6",
+          "set": "sds",
+          "collectorNumber": "12",
+          "trekName": "Michael Burnham, Enforcer"
+        }
+      ]
+    },
+    {
+      "oracleId": "3c516327-00a3-4d03-87a3-73b4a90719d3",
+      "name": "Trelane, Squire of Gothos",
+      "aliases": [
+        "Trelane, Squire of Gothos"
+      ],
+      "eligibleNames": [
+        "Trelane, Squire of Gothos"
+      ],
+      "typeLine": "Legendary Creature — Q",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Vigilance",
+        "Ward"
+      ],
+      "printings": [
+        {
+          "id": "3ff8a24f-2771-454b-abb3-619b1c56f7e9",
+          "set": "trc",
+          "collectorNumber": "195"
+        }
+      ]
+    },
+    {
+      "oracleId": "38561191-ecd1-4028-a0fd-4bca6a7eab58",
+      "name": "Troi, Winging It",
+      "aliases": [
+        "Troi, Winging It"
+      ],
+      "eligibleNames": [
+        "Troi, Winging It"
+      ],
+      "typeLine": "Legendary Creature — Betazoid Human Advisor",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "bc44fff5-a58d-4da9-88cf-d23414885791",
+          "set": "trc",
+          "collectorNumber": "191"
+        }
+      ]
+    },
+    {
+      "oracleId": "05c5f17e-40f9-4259-9b03-03683e1c5ba6",
+      "name": "Tuvok, Chief Tactical Officer",
+      "aliases": [
+        "Tuvok, Chief Tactical Officer"
+      ],
+      "eligibleNames": [
+        "Tuvok, Chief Tactical Officer"
+      ],
+      "typeLine": "Legendary Creature — Vulcan Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Flash"
+      ],
+      "printings": [
+        {
+          "id": "9af25808-e7a9-42d6-be70-f985dfadc3c3",
+          "set": "trc",
+          "collectorNumber": "53"
+        },
+        {
+          "id": "40f61357-37b2-45b1-8163-69f016f794ec",
+          "set": "trc",
+          "collectorNumber": "267"
+        }
+      ]
+    },
+    {
+      "oracleId": "472eac8f-2b82-4fa9-a40c-af11ec40f19e",
+      "name": "U.S.S. Cerritos, Following Up",
+      "aliases": [
+        "U.S.S. Cerritos, Following Up"
+      ],
+      "eligibleNames": [
+        "U.S.S. Cerritos, Following Up"
+      ],
+      "typeLine": "Legendary Artifact — Spacecraft",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Station"
+      ],
+      "printings": [
+        {
+          "id": "76bf7521-5024-4fdc-9ea1-5e10f2647efb",
+          "set": "trk",
+          "collectorNumber": "272"
+        }
+      ]
+    },
+    {
+      "oracleId": "c7c529c4-08eb-480b-a699-0d783215419b",
+      "name": "U.S.S. Defiant, Mirror Migrant",
+      "aliases": [
+        "U.S.S. Defiant, Mirror Migrant"
+      ],
+      "eligibleNames": [
+        "U.S.S. Defiant, Mirror Migrant"
+      ],
+      "typeLine": "Legendary Artifact — Spacecraft",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Station",
+        "Flash"
+      ],
+      "printings": [
+        {
+          "id": "6c347d57-4a92-42eb-b703-d4bec298e94b",
+          "set": "trc",
+          "collectorNumber": "124"
+        },
+        {
+          "id": "1ceaa12d-b249-42e8-ada1-ccadf3a36b61",
+          "set": "trc",
+          "collectorNumber": "360"
+        }
+      ]
+    },
+    {
+      "oracleId": "87b8fef3-f40e-44a9-afd5-31d3917b1d59",
+      "name": "U.S.S. Defiant, Tough Little Ship",
+      "aliases": [
+        "U.S.S. Defiant, Tough Little Ship"
+      ],
+      "eligibleNames": [
+        "U.S.S. Defiant, Tough Little Ship"
+      ],
+      "typeLine": "Legendary Artifact — Spacecraft",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Station"
+      ],
+      "printings": [
+        {
+          "id": "e92acccf-d5a6-4559-8acd-d24492b0649e",
+          "set": "trc",
+          "collectorNumber": "125"
+        },
+        {
+          "id": "6062ec17-98bb-4cf7-853e-0b43c2ce4b26",
+          "set": "trc",
+          "collectorNumber": "361"
+        }
+      ]
+    },
+    {
+      "oracleId": "13dbfe3f-1e04-4c4f-953c-7c949dba9d33",
+      "name": "U.S.S. Discovery, at Black Alert",
+      "aliases": [
+        "U.S.S. Discovery, at Black Alert"
+      ],
+      "eligibleNames": [
+        "U.S.S. Discovery, at Black Alert"
+      ],
+      "typeLine": "Legendary Artifact — Spacecraft",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Station",
+        "Discover"
+      ],
+      "printings": [
+        {
+          "id": "69b1f87f-ff02-4945-9f07-18dab5035e2d",
+          "set": "trk",
+          "collectorNumber": "221"
+        },
+        {
+          "id": "f0a16d25-ab32-4744-8b61-3774dd28a2c1",
+          "set": "trk",
+          "collectorNumber": "474"
+        },
+        {
+          "id": "7351dc6f-d162-4854-930d-bdeaf87c684b",
+          "set": "trk",
+          "collectorNumber": "554"
+        }
+      ]
+    },
+    {
+      "oracleId": "5e2958fd-ede6-4563-babc-4924d3e95754",
+      "name": "U.S.S. Enterprise-A, Free Spirit",
+      "aliases": [
+        "U.S.S. Enterprise-A, Free Spirit"
+      ],
+      "eligibleNames": [
+        "U.S.S. Enterprise-A, Free Spirit"
+      ],
+      "typeLine": "Legendary Artifact — Spacecraft",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Station",
+        "Ward"
+      ],
+      "printings": [
+        {
+          "id": "99429015-6e5d-4ecf-aaf7-eba181bcffc7",
+          "set": "trk",
+          "collectorNumber": "43"
+        },
+        {
+          "id": "53941fd6-1913-4848-8fa1-7fff7ea3062b",
+          "set": "trk",
+          "collectorNumber": "448"
+        },
+        {
+          "id": "b162c8cd-865d-40a8-9bc1-e11702ac27d2",
+          "set": "trk",
+          "collectorNumber": "550"
+        }
+      ]
+    },
+    {
+      "oracleId": "f2768bab-a6a4-490a-a676-fbfbfefdd8b8",
+      "name": "U.S.S. Enterprise-C, Time-Tossed",
+      "aliases": [
+        "U.S.S. Enterprise-C, Time-Tossed"
+      ],
+      "eligibleNames": [
+        "U.S.S. Enterprise-C, Time-Tossed"
+      ],
+      "typeLine": "Legendary Artifact — Spacecraft",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Station"
+      ],
+      "printings": [
+        {
+          "id": "20a62007-baf3-4e1b-80e1-71b7a7efd13f",
+          "set": "trc",
+          "collectorNumber": "126"
+        },
+        {
+          "id": "ccee966a-347a-4d6a-8117-deb18b6719c5",
+          "set": "trc",
+          "collectorNumber": "362"
+        }
+      ]
+    },
+    {
+      "oracleId": "d95af032-3efd-40c7-8229-ade9d974934f",
+      "name": "U.S.S. Enterprise-D, Galaxy-Class",
+      "aliases": [
+        "U.S.S. Enterprise-D, Galaxy-Class"
+      ],
+      "eligibleNames": [
+        "U.S.S. Enterprise-D, Galaxy-Class"
+      ],
+      "typeLine": "Legendary Artifact — Spacecraft",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Station"
+      ],
+      "printings": [
+        {
+          "id": "057a4413-6a17-491e-bfd7-6cd427b1a442",
+          "set": "trk",
+          "collectorNumber": "273"
+        },
+        {
+          "id": "12a2e90a-6776-4213-b696-fd48a4bcf0a2",
+          "set": "trk",
+          "collectorNumber": "481"
+        },
+        {
+          "id": "cb823267-b230-40f3-a1eb-140657df2b1e",
+          "set": "trk",
+          "collectorNumber": "557"
+        }
+      ]
+    },
+    {
+      "oracleId": "fa667031-25cf-45c4-97ff-19a73cb30018",
+      "name": "U.S.S. Enterprise-E, Sovereign",
+      "aliases": [
+        "U.S.S. Enterprise-E, Sovereign"
+      ],
+      "eligibleNames": [
+        "U.S.S. Enterprise-E, Sovereign"
+      ],
+      "typeLine": "Legendary Artifact — Spacecraft",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Station"
+      ],
+      "printings": [
+        {
+          "id": "15e74da6-477c-4ab3-8b91-40f4b2d22f94",
+          "set": "trc",
+          "collectorNumber": "34"
+        },
+        {
+          "id": "55a72b9d-a37f-4909-9366-0d070d7780d6",
+          "set": "trc",
+          "collectorNumber": "244"
+        }
+      ]
+    },
+    {
+      "oracleId": "9f4ae54b-f77d-43df-87d5-792ac0905058",
+      "name": "U.S.S. Excelsior, Cutting Edge",
+      "aliases": [
+        "U.S.S. Excelsior, Cutting Edge"
+      ],
+      "eligibleNames": [
+        "U.S.S. Excelsior, Cutting Edge"
+      ],
+      "typeLine": "Legendary Artifact — Spacecraft",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Station"
+      ],
+      "printings": [
+        {
+          "id": "de62b452-3780-4eeb-8163-f44176495615",
+          "set": "trk",
+          "collectorNumber": "44"
+        }
+      ]
+    },
+    {
+      "oracleId": "3b2e3deb-1f21-4311-b8a9-4153089ac5ff",
+      "name": "U.S.S. Farragut, Bold Explorer",
+      "aliases": [
+        "U.S.S. Farragut, Bold Explorer"
+      ],
+      "eligibleNames": [
+        "U.S.S. Farragut, Bold Explorer"
+      ],
+      "typeLine": "Legendary Artifact — Spacecraft",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Station",
+        "Landfall"
+      ],
+      "printings": [
+        {
+          "id": "bfbef056-cf8b-46f8-892e-30742fd78707",
+          "set": "trc",
+          "collectorNumber": "127"
+        },
+        {
+          "id": "312f5ad3-6184-4213-ac6c-4a74c7e4e9d2",
+          "set": "trc",
+          "collectorNumber": "363"
+        }
+      ]
+    },
+    {
+      "oracleId": "d19ebe9f-c24d-405c-b8e8-a602274076c3",
+      "name": "U.S.S. Prometheus, Prototype",
+      "aliases": [
+        "U.S.S. Prometheus, Prototype"
+      ],
+      "eligibleNames": [
+        "U.S.S. Prometheus, Prototype"
+      ],
+      "typeLine": "Legendary Artifact — Spacecraft",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Station"
+      ],
+      "printings": [
+        {
+          "id": "69ed6b4e-f4de-4c68-9db9-9692dc247897",
+          "set": "trc",
+          "collectorNumber": "128"
+        },
+        {
+          "id": "24981fe7-d9cd-4273-9f42-a265d7de3087",
+          "set": "trc",
+          "collectorNumber": "364"
+        }
+      ]
+    },
+    {
+      "oracleId": "edaa05ba-8b15-4156-b725-1e0c418a9ae5",
+      "name": "U.S.S. Reliant, From Hell's Heart",
+      "aliases": [
+        "U.S.S. Reliant, From Hell's Heart"
+      ],
+      "eligibleNames": [
+        "U.S.S. Reliant, From Hell's Heart"
+      ],
+      "typeLine": "Legendary Artifact — Spacecraft",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Station"
+      ],
+      "printings": [
+        {
+          "id": "a4c6fc55-f585-4529-b549-31d4d838c9af",
+          "set": "trk",
+          "collectorNumber": "135"
+        },
+        {
+          "id": "2aad44f7-e3f4-46e9-b633-eb939dfd8e51",
+          "set": "trk",
+          "collectorNumber": "461"
+        },
+        {
+          "id": "dc9fa6b6-6cb9-4fc9-bda0-2bb9a1fe8313",
+          "set": "trk",
+          "collectorNumber": "552"
+        }
+      ]
+    },
+    {
+      "oracleId": "a5b72c5d-4c73-49cd-9fc5-855856807ff2",
+      "name": "U.S.S. Stargazer, Here and There",
+      "aliases": [
+        "U.S.S. Stargazer, Here and There"
+      ],
+      "eligibleNames": [
+        "U.S.S. Stargazer, Here and There"
+      ],
+      "typeLine": "Legendary Artifact — Spacecraft",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Station",
+        "Picard Maneuver"
+      ],
+      "printings": [
+        {
+          "id": "b63286ae-127b-4eb0-870f-f105decf575a",
+          "set": "trc",
+          "collectorNumber": "129"
+        },
+        {
+          "id": "ff71d378-a420-4956-93f3-988666a9aafe",
+          "set": "trc",
+          "collectorNumber": "365"
+        }
+      ]
+    },
+    {
+      "oracleId": "33e8904a-9285-4031-900c-0a5c8f0bf6c0",
+      "name": "U.S.S. Voyager, Lone Wanderer",
+      "aliases": [
+        "U.S.S. Voyager, Lone Wanderer"
+      ],
+      "eligibleNames": [
+        "U.S.S. Voyager, Lone Wanderer"
+      ],
+      "typeLine": "Legendary Artifact — Spacecraft",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Station"
+      ],
+      "printings": [
+        {
+          "id": "aaf8a0b2-c6cb-41cb-913d-7ae1d75e555d",
+          "set": "trk",
+          "collectorNumber": "222"
+        }
+      ]
+    },
+    {
+      "oracleId": "5d5c4a17-fa04-4889-819e-408fc2ff112e",
+      "name": "Uhura, Xenolinguist",
+      "aliases": [
+        "Uhura, Xenolinguist"
+      ],
+      "eligibleNames": [
+        "Uhura, Xenolinguist"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "5e89c267-84af-415c-b255-7ef16102ea35",
+          "set": "trc",
+          "collectorNumber": "182"
+        }
+      ]
+    },
+    {
+      "oracleId": "0529c6fa-a35f-4d33-b274-93446ce68419",
+      "name": "Una Chin-Riley, Number One",
+      "aliases": [
+        "Una Chin-Riley, Number One"
+      ],
+      "eligibleNames": [
+        "Una Chin-Riley, Number One"
+      ],
+      "typeLine": "Legendary Creature — Illyrian Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "5585c90d-3fe7-41f4-9728-36b9410ecc53",
+          "set": "trk",
+          "collectorNumber": "42"
+        }
+      ]
+    },
+    {
+      "oracleId": "f50ec16b-13f5-4e20-ae09-9c7dee9d223b",
+      "name": "V'Ger, the Intruder",
+      "aliases": [
+        "V'Ger, the Intruder"
+      ],
+      "eligibleNames": [
+        "V'Ger, the Intruder"
+      ],
+      "typeLine": "Legendary Artifact Creature — Construct",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Flying"
+      ],
+      "printings": [
+        {
+          "id": "b082d454-d331-4960-8120-754f107ffa42",
+          "set": "trk",
+          "collectorNumber": "87"
+        }
+      ]
+    },
+    {
+      "oracleId": "ec5a9dde-b89d-4c54-8563-4a7170f5cefd",
+      "name": "Vash, Freelance Archaeologist",
+      "aliases": [
+        "Vash, Freelance Archaeologist"
+      ],
+      "eligibleNames": [
+        "Vash, Freelance Archaeologist"
+      ],
+      "typeLine": "Legendary Creature — Human Rogue Scientist",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Surveil"
+      ],
+      "printings": [
+        {
+          "id": "d1f51765-f336-4ca2-a0f5-e42dc352c0fa",
+          "set": "trk",
+          "collectorNumber": "255"
+        }
+      ]
+    },
+    {
+      "oracleId": "1d6f4573-d2f6-4771-a748-291846ef14b9",
+      "name": "Vic Fontaine, One Night Only",
+      "aliases": [
+        "Vic Fontaine, One Night Only"
+      ],
+      "eligibleNames": [
+        "Vic Fontaine, One Night Only"
+      ],
+      "typeLine": "Legendary Artifact Creature — Illusion Performer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Seek",
+        "Seek out"
+      ],
+      "printings": [
+        {
+          "id": "41887da1-5ff0-4785-a3ab-95fff12ca79e",
+          "set": "trc",
+          "collectorNumber": "108"
+        },
+        {
+          "id": "9f29a4f1-0e3a-4b99-beaa-84e5c8666e73",
+          "set": "trc",
+          "collectorNumber": "333"
+        }
+      ]
+    },
+    {
+      "oracleId": "1b8be000-e2fd-4157-ace2-7b8603c03fba",
+      "name": "Voq, Torchbearer",
+      "aliases": [
+        "Voq, Torchbearer"
+      ],
+      "eligibleNames": [
+        "Voq, Torchbearer"
+      ],
+      "typeLine": "Legendary Creature — Klingon Spy",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Menace"
+      ],
+      "printings": [
+        {
+          "id": "0b4d2344-d615-4982-b656-44419565121a",
+          "set": "trc",
+          "collectorNumber": "63"
+        },
+        {
+          "id": "c9544b28-ef22-44ad-9364-7726cf402acb",
+          "set": "trc",
+          "collectorNumber": "278"
+        }
+      ]
+    },
+    {
+      "oracleId": "7e58ea13-4041-4ef4-bc09-1e4bf79a842a",
+      "name": "Võx, Child of the Collective",
+      "aliases": [
+        "Võx, Child of the Collective",
+        "Vox, Child of the Collective"
+      ],
+      "eligibleNames": [
+        "Võx, Child of the Collective",
+        "Vox, Child of the Collective"
+      ],
+      "typeLine": "Legendary Artifact Creature — Borg",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "46f7a693-8b99-49e9-866e-01ddb5b54f3e",
+          "set": "trc",
+          "collectorNumber": "54"
+        },
+        {
+          "id": "57f2a5df-22ce-4464-bb33-62c86121d4cf",
+          "set": "trc",
+          "collectorNumber": "268"
+        }
+      ]
+    },
+    {
+      "oracleId": "73b3682f-396a-4ebe-aaac-6ce3ee36283a",
+      "name": "Weatherlight",
+      "aliases": [
+        "Weatherlight",
+        "U.S.S. Cerritos, California-Class"
+      ],
+      "eligibleNames": [
+        "U.S.S. Cerritos, California-Class"
+      ],
+      "typeLine": "Legendary Artifact — Vehicle",
+      "commanderLegal": true,
+      "scope": "explicit-trek-reskin",
+      "keywords": [
+        "Flying",
+        "Crew"
+      ],
+      "printings": [
+        {
+          "id": "2b445fb5-9680-4d39-87d6-284b08a7e145",
+          "set": "sld",
+          "collectorNumber": "2743",
+          "trekName": "U.S.S. Cerritos, California-Class"
+        }
+      ]
+    },
+    {
+      "oracleId": "5c3cbb08-cbe1-42f5-9ac7-e558b85648bb",
+      "name": "Wesley Crusher, Starfleet Cadet",
+      "aliases": [
+        "Wesley Crusher, Starfleet Cadet"
+      ],
+      "eligibleNames": [
+        "Wesley Crusher, Starfleet Cadet"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Flash"
+      ],
+      "printings": [
+        {
+          "id": "956eeb71-fd5f-4a26-aff6-77127c0ad4e7",
+          "set": "trk",
+          "collectorNumber": "89"
+        },
+        {
+          "id": "647f66af-2445-48ce-997a-3c5e94dcb77c",
+          "set": "trk",
+          "collectorNumber": "374"
+        },
+        {
+          "id": "976fcdd6-c300-453e-a424-e0ac6136041d",
+          "set": "trk",
+          "collectorNumber": "508"
+        }
+      ]
+    },
+    {
+      "oracleId": "a479b8b6-79de-4810-9165-992a6a10dc1d",
+      "name": "Will Riker, Assuming Command",
+      "aliases": [
+        "Will Riker, Assuming Command"
+      ],
+      "eligibleNames": [
+        "Will Riker, Assuming Command"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "6b1c20ba-df95-4a22-9646-df907c5700f8",
+          "set": "trc",
+          "collectorNumber": "140"
+        }
+      ]
+    },
+    {
+      "oracleId": "7c1fd7c6-2f3d-496f-9f09-660a13ef923f",
+      "name": "Will Riker, First in the Field",
+      "aliases": [
+        "Will Riker, First in the Field"
+      ],
+      "eligibleNames": [
+        "Will Riker, First in the Field"
+      ],
+      "typeLine": "Legendary Creature — Human Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "9422d025-9460-44b6-8071-d896f20b87ea",
+          "set": "trk",
+          "collectorNumber": "179"
+        },
+        {
+          "id": "5d6efbad-ea81-42e8-82f1-85ca5e849e69",
+          "set": "trk",
+          "collectorNumber": "385"
+        },
+        {
+          "id": "e81e7191-a039-4b37-9dea-6b3b4ad3e572",
+          "set": "trk",
+          "collectorNumber": "519"
+        }
+      ]
+    },
+    {
+      "oracleId": "26e86be4-52e1-47cb-b548-c434482bd3ad",
+      "name": "Worf, Chief Tactical Officer",
+      "aliases": [
+        "Worf, Chief Tactical Officer"
+      ],
+      "eligibleNames": [
+        "Worf, Chief Tactical Officer"
+      ],
+      "typeLine": "Legendary Creature — Klingon Warrior Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Vigilance"
+      ],
+      "printings": [
+        {
+          "id": "ced54aa6-c8ee-451f-91cd-967fe766ec13",
+          "set": "trc",
+          "collectorNumber": "141"
+        }
+      ]
+    },
+    {
+      "oracleId": "a7fcdbab-491f-40d9-be40-409af0d6c3f5",
+      "name": "Worf, Defiant Commander",
+      "aliases": [
+        "Worf, Defiant Commander"
+      ],
+      "eligibleNames": [
+        "Worf, Defiant Commander"
+      ],
+      "typeLine": "Legendary Creature — Klingon Warrior Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Battlefront"
+      ],
+      "printings": [
+        {
+          "id": "da030114-a4ee-46d7-a6fd-6c0d8e779bcf",
+          "set": "trc",
+          "collectorNumber": "4"
+        },
+        {
+          "id": "63020954-9d2b-4521-8292-bd1a71dad006",
+          "set": "trc",
+          "collectorNumber": "8"
+        }
+      ]
+    },
+    {
+      "oracleId": "2ecda53d-ac24-4b28-aed8-2a5fb1449f85",
+      "name": "Worf, Honor-Bound Warrior",
+      "aliases": [
+        "Worf, Honor-Bound Warrior"
+      ],
+      "eligibleNames": [
+        "Worf, Honor-Bound Warrior"
+      ],
+      "typeLine": "Legendary Creature — Klingon Warrior Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Double"
+      ],
+      "printings": [
+        {
+          "id": "b2d1955f-e834-4157-a139-9b6ec94bcd2a",
+          "set": "trk",
+          "collectorNumber": "256"
+        },
+        {
+          "id": "f237dcef-f193-4484-a616-66cb9423c409",
+          "set": "trk",
+          "collectorNumber": "390"
+        },
+        {
+          "id": "f2abd2b6-c60f-4667-925b-423c0a135ebc",
+          "set": "trk",
+          "collectorNumber": "435"
+        },
+        {
+          "id": "7739283d-25e9-4779-9f95-504a03c502d7",
+          "set": "trk",
+          "collectorNumber": "445"
+        },
+        {
+          "id": "969a7271-30d5-4e6c-aa6b-1c56dfd69e09",
+          "set": "trk",
+          "collectorNumber": "524"
+        }
+      ]
+    },
+    {
+      "oracleId": "dfff6f8f-b038-4619-8190-7a6918afab1e",
+      "name": "Worf, Intelligence Contractor",
+      "aliases": [
+        "Worf, Intelligence Contractor"
+      ],
+      "eligibleNames": [
+        "Worf, Intelligence Contractor"
+      ],
+      "typeLine": "Legendary Creature — Klingon Warrior Spy",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "7df6c8c1-1f85-4c5d-a4f6-9ffcdad1b12e",
+          "set": "trk",
+          "collectorNumber": "180"
+        },
+        {
+          "id": "f177de31-b7f0-46d3-a3a9-a708f8d4a95f",
+          "set": "trk",
+          "collectorNumber": "431"
+        },
+        {
+          "id": "9af008b2-d11f-4413-85aa-a45c0f6efa8f",
+          "set": "trk",
+          "collectorNumber": "441"
+        }
+      ]
+    },
+    {
+      "oracleId": "a2249af3-2e3e-484b-a31a-26432edd13ae",
+      "name": "Worf, Son of Mogh",
+      "aliases": [
+        "Worf, Son of Mogh"
+      ],
+      "eligibleNames": [
+        "Worf, Son of Mogh"
+      ],
+      "typeLine": "Legendary Creature — Klingon Warrior Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Seek",
+        "Seek out",
+        "Menace"
+      ],
+      "printings": [
+        {
+          "id": "d74900c9-aedc-4fcd-a074-43ff0ff61805",
+          "set": "trc",
+          "collectorNumber": "109"
+        },
+        {
+          "id": "c15be084-e71b-4525-8e63-67d991c25b15",
+          "set": "trc",
+          "collectorNumber": "336"
+        }
+      ]
+    },
+    {
+      "oracleId": "8153cd58-cb8b-461c-a2c9-aaa9e2ea1b31",
+      "name": "Worf, Still Not Merry",
+      "aliases": [
+        "Worf, Still Not Merry"
+      ],
+      "eligibleNames": [
+        "Worf, Still Not Merry"
+      ],
+      "typeLine": "Legendary Creature — Klingon Warrior Officer",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "b4902c9d-0608-4a77-bfee-48703bc25c70",
+          "set": "trc",
+          "collectorNumber": "186"
+        }
+      ]
+    },
+    {
+      "oracleId": "fea67446-f413-4a8c-b79a-49172e798fff",
+      "name": "Zefram Cochrane, Warp Pioneer",
+      "aliases": [
+        "Zefram Cochrane, Warp Pioneer"
+      ],
+      "eligibleNames": [
+        "Zefram Cochrane, Warp Pioneer"
+      ],
+      "typeLine": "Legendary Creature — Human Pilot",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [],
+      "printings": [
+        {
+          "id": "43ce2e91-9dce-4e86-a4b8-8d21e4e368ea",
+          "set": "trk",
+          "collectorNumber": "90"
+        }
+      ]
+    },
+    {
+      "oracleId": "746e494e-fdc4-415e-8a82-d35e11ebeccb",
+      "name": "Zero, Incorporeal Sensate",
+      "aliases": [
+        "Zero, Incorporeal Sensate"
+      ],
+      "eligibleNames": [
+        "Zero, Incorporeal Sensate"
+      ],
+      "typeLine": "Legendary Artifact Creature — Medusan Scientist",
+      "commanderLegal": true,
+      "scope": "trek-native",
+      "keywords": [
+        "Lifelink"
+      ],
+      "printings": [
+        {
+          "id": "93f616fe-6906-4e5d-b9fe-b432cccdb0ec",
+          "set": "trk",
+          "collectorNumber": "258"
+        }
+      ]
+    }
+  ]
+}
