@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { createContext, runInContext, Script } from 'node:vm';
+import { mountExplorationCommission } from './exploration-commission.js';
 
 const app = (await readFile(new URL('./app.js', import.meta.url), 'utf8')).replace(/\r\n/g, '\n');
 function sourceFunction(name) {
@@ -53,6 +54,7 @@ function fixture({ holdTokens = false } = {}) {
   function element(text = '') {
     const listeners = new Map(), attributes = new Map();
     return { hidden: false, disabled: false, textContent: text, value: '', checked: false, dataset: {},
+      children: [], append(...children) { this.children.push(...children); }, querySelector() { return null; },
       classList: { replace() {} },
       addEventListener(type, callback) { if (!listeners.has(type)) listeners.set(type, []); listeners.get(type).push(callback); },
       dispatch(type) { for (const callback of listeners.get(type) || []) callback({ currentTarget: this }); },
@@ -119,9 +121,10 @@ function fixture({ holdTokens = false } = {}) {
     applyAccountPreferences(value, skins = []) { context.accountPreferences = value; context.accountSkinChoices = skins; fields.accountPreferredName.value = value.preferredName || ''; },
     homeRenders: [], renderHomeAccount(value) { context.homeRenders.push(value); },
     loadSetupDecks: async () => {}, appearanceCatchUp: { check() {} },
+    mountExplorationCommission,
     dom: { createName: element(), joinName: element(), roundLimitMinutes: element() },
     $: () => element(), $$: () => [], escapeHtml: value => String(value),
-    document: { activeElement: null }, window: { scrollTo() {} },
+    document: { activeElement: null, createElement: () => element() }, window: { scrollTo() {} },
   });
   runInContext(source, context);
   const actualShow = context.showMyGames;
@@ -168,6 +171,15 @@ test('loaded profile opens Overview and keeps Settings hidden until its tab is c
   for (const name of settingsNames) assert.equal(f.fields[name].hidden, true);
   for (const tab of f.content.tabs) assert.equal(tab.getAttribute('aria-current'), tab.textContent === 'Games' ? 'page' : null,
     'Selecting Games must move the active-state value and clear every previous tab.');
+});
+
+test('the mission mounts inside Achievements without adding or replacing a profile section', async () => {
+  const f = fixture(), loading = f.open(); await f.historyReady(); await f.complete(); await loading;
+  assert.deepEqual(f.content.sections.map(section => section.querySelector('h3').textContent),
+    ['This month', 'Achievements', 'Deck statistics', 'Game history']);
+  assert.equal(f.content.sections[1].children.length, 1);
+  assert.match(f.content.sections[1].children[0].innerHTML, /Exploration Commission/);
+  assert.match(f.content.sections[1].children[0].innerHTML, /Begin mission/);
 });
 test('closing Settings and reopening never shows the prior controls in the loading frame', async () => {
   const f = fixture(), first = f.open(); await f.historyReady(); await f.complete(); await first;
